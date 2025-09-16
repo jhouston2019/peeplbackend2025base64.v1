@@ -1,0 +1,45 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Users can read/write their own data
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Venues are publicly readable, only authenticated users can create
+    match /venues/{venueId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && 
+        (resource.data.createdBy == request.auth.uid || 
+         request.auth.token.admin == true);
+    }
+    
+    // Peeps are publicly readable, only authenticated users can create
+    match /peeps/{peepId} {
+      allow read: if true;
+      allow create: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+      allow update: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // User locations are private
+    match /user_locations/{userId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == userId;
+    }
+    
+    // Geofence events are private
+    match /geofence_events/{eventId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+    
+    // Device tokens are private
+    match /device_tokens/{tokenId} {
+      allow read, write: if request.auth != null && 
+        request.auth.uid == resource.data.userId;
+    }
+  }
+}
