@@ -99,7 +99,7 @@ const upload = multer({
   }
 });
 
-// JWT middleware
+// Firebase Auth middleware
 const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers["authorization"];
   const token = authHeader && authHeader.split(" ")[1];
@@ -109,11 +109,11 @@ const authenticateToken = async (req, res, next) => {
   }
 
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded;
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken;
     next();
   } catch (error) {
-    logger.error("JWT verification failed:", error);
+    logger.error("Firebase Auth verification failed:", error);
     return res.status(403).json({ error: "Invalid or expired token" });
   }
 };
@@ -154,40 +154,29 @@ app.get("/health", (req, res) => {
 });
 
 // User Authentication Routes
-app.post("/auth/register", [
+app.post("/auth/register", authenticateToken, [
   body("email").isEmail().normalizeEmail(),
-  body("password").isLength({ min: 6 }),
   body("username").isLength({ min: 3, max: 30 }),
   body("firstName").isLength({ min: 1, max: 50 }),
   body("lastName").isLength({ min: 1, max: 50 })
 ], validateRequest, async (req, res) => {
   try {
-    const { email, password, username, firstName, lastName } = req.body;
+    const { email, username, firstName, lastName } = req.body;
+    const uid = req.user.uid;
 
-    // Check if user already exists
-    const existingUser = await db.collection("users").where("email", "==", email).get();
-    if (!existingUser.empty) {
+    // Check if user already exists in Firestore
+    const existingUser = await db.collection("users").doc(uid).get();
+    if (existingUser.exists) {
       return res.status(400).json({ error: "User already exists" });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 12);
-
-    // Create user in Firebase Auth
-    const userRecord = await auth.createUser({
-      email,
-      password,
-      displayName: `${firstName} ${lastName}`
-    });
-
     // Store user data in Firestore
     const userData = {
-      uid: userRecord.uid,
+      uid,
       email,
       username,
       firstName,
       lastName,
-      password: hashedPassword,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       isActive: true,
@@ -201,21 +190,13 @@ app.post("/auth/register", [
       }
     };
 
-    await db.collection("users").doc(userRecord.uid).set(userData);
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { uid: userRecord.uid, email },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-    );
+    await db.collection("users").doc(uid).set(userData);
 
     logger.info(`New user registered: ${email}`);
     res.status(201).json({
       message: "User created successfully",
-      token,
       user: {
-        uid: userRecord.uid,
+        uid,
         email,
         username,
         firstName,
@@ -228,58 +209,6 @@ app.post("/auth/register", [
   }
 });
 
-app.post("/auth/login", [
-  body("email").isEmail().normalizeEmail(),
-  body("password").isLength({ min: 1 })
-], validateRequest, async (req, res) => {
-  try {
-    const { email, password } = req.body;
-
-    // Get user from Firestore
-    const userQuery = await db.collection("users").where("email", "==", email).get();
-    if (userQuery.empty) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    const userDoc = userQuery.docs[0];
-    const userData = userDoc.data();
-
-    // Verify password
-    const isValidPassword = await bcrypt.compare(password, userData.password);
-    if (!isValidPassword) {
-      return res.status(401).json({ error: "Invalid credentials" });
-    }
-
-    // Generate JWT token
-    const token = jwt.sign(
-      { uid: userData.uid, email },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN || "7d" }
-    );
-
-    // Update last login
-    await db.collection("users").doc(userData.uid).update({
-      lastLoginAt: admin.firestore.FieldValue.serverTimestamp()
-    });
-
-    logger.info(`User logged in: ${email}`);
-    res.json({
-      message: "Login successful",
-      token,
-      user: {
-        uid: userData.uid,
-        email: userData.email,
-        username: userData.username,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl
-      }
-    });
-  } catch (error) {
-    logger.error("Login error:", error);
-    res.status(500).json({ error: "Login failed" });
-  }
-});
 
 // User Profile Routes
 app.get("/users/profile", authenticateToken, async (req, res) => {
@@ -290,7 +219,6 @@ app.get("/users/profile", authenticateToken, async (req, res) => {
     }
 
     const userData = userDoc.data();
-    delete userData.password; // Remove password from response
 
     res.json(userData);
   } catch (error) {
@@ -306,10 +234,18 @@ app.put("/users/profile", authenticateToken, [
   body("bio").optional().isLength({ max: 500 })
 ], validateRequest, async (req, res) => {
   try {
-    const updateData = {
-      ...req.body,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp()
-    };
+    const allowedFields = ['username', 'firstName', 'lastName', 'bio', 'profileImageUrl', 'preferences'];
+    const updateData = {};
+    allowedFields.forEach(field => {
+      if (req.body[field] !== undefined) {
+        updateData[field] = req.body[field];
+      }
+    });
+    updateData.updatedAt = admin.firestore.FieldValue.serverTimestamp();
+
+    if (Object.keys(updateData).length === 1) {
+      return res.status(400).json({ error: 'No valid fields provided' });
+    }
 
     await db.collection("users").doc(req.user.uid).update(updateData);
 

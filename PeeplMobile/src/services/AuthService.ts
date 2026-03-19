@@ -1,12 +1,13 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import auth from '@react-native-firebase/auth';
 import { User, AuthResponse, LoginCredentials, RegisterData } from '../types/User';
 
 const API_BASE_URL = __DEV__ 
   ? 'http://localhost:3000' 
   : 'https://your-production-api.com';
 
-class AuthService {
+export class AuthService {
   private static instance: AuthService;
   private token: string | null = null;
 
@@ -17,8 +18,21 @@ class AuthService {
     return AuthService.instance;
   }
 
+  async getIdToken(): Promise<string | null> {
+    try {
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        return await currentUser.getIdToken();
+      }
+      return null;
+    } catch (error) {
+      console.error('Get ID token error:', error);
+      return null;
+    }
+  }
+
   private async getAuthHeaders() {
-    const token = await AsyncStorage.getItem('authToken');
+    const token = await this.getIdToken();
     return {
       'Authorization': `Bearer ${token}`,
       'Content-Type': 'application/json',
@@ -27,44 +41,65 @@ class AuthService {
 
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/login`, credentials);
+      const { email, password } = credentials;
+      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      const idToken = await userCredential.user.getIdToken();
       
-      if (response.data.token) {
-        await AsyncStorage.setItem('authToken', response.data.token);
-        this.token = response.data.token;
-      }
+      await AsyncStorage.setItem('authToken', idToken);
+      this.token = idToken;
 
       return {
         success: true,
-        token: response.data.token,
-        user: response.data.user,
+        token: idToken,
+        user: {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email || email,
+          username: '',
+          firstName: '',
+          lastName: '',
+        },
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Login failed',
+        error: error.message || 'Login failed',
       };
     }
   }
 
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
-      const response = await axios.post(`${API_BASE_URL}/auth/register`, userData);
+      const { email, password, username, firstName, lastName } = userData;
       
-      if (response.data.token) {
-        await AsyncStorage.setItem('authToken', response.data.token);
-        this.token = response.data.token;
-      }
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const idToken = await userCredential.user.getIdToken();
+      
+      await AsyncStorage.setItem('authToken', idToken);
+      this.token = idToken;
+
+      const headers = await this.getAuthHeaders();
+      await axios.post(`${API_BASE_URL}/auth/register`, {
+        email,
+        username,
+        firstName,
+        lastName
+      }, { headers });
 
       return {
         success: true,
-        token: response.data.token,
-        user: response.data.user,
+        token: idToken,
+        user: {
+          uid: userCredential.user.uid,
+          email: userCredential.user.email || email,
+          username,
+          firstName,
+          lastName,
+        },
       };
     } catch (error: any) {
       return {
         success: false,
-        error: error.response?.data?.error || 'Registration failed',
+        error: error.message || 'Registration failed',
       };
     }
   }
@@ -92,13 +127,14 @@ class AuthService {
   }
 
   async logout(): Promise<void> {
+    await auth().signOut();
     await AsyncStorage.removeItem('authToken');
     this.token = null;
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const token = await AsyncStorage.getItem('authToken');
-    return !!token;
+    const currentUser = auth().currentUser;
+    return !!currentUser;
   }
 }
 

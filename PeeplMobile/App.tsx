@@ -26,7 +26,7 @@ import CreatePeepScreen from './src/screens/CreatePeepScreen';
 import VenueListScreen from './src/screens/VenueListScreen';
 
 // Import services
-import { AuthService } from './src/services/AuthService';
+import { authService } from './src/services/AuthService';
 import { LocationService } from './src/services/LocationService';
 import { SocketService } from './src/services/SocketService';
 import { pushNotificationService } from './src/services/PushNotificationService';
@@ -91,7 +91,7 @@ export default function App(): JSX.Element {
       // Check authentication
       const token = await AsyncStorage.getItem('authToken');
       if (token) {
-        const userData = await AuthService.getCurrentUser();
+        const userData = await authService.getCurrentUser();
         if (userData) {
           setUser(userData);
           setIsAuthenticated(true);
@@ -135,7 +135,7 @@ export default function App(): JSX.Element {
   const handleLogin = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const response = await AuthService.login(email, password);
+      const response = await authService.login({ email, password });
       
       if (response.success) {
         setUser(response.user);
@@ -169,7 +169,7 @@ export default function App(): JSX.Element {
   const handleRegister = async (userData: any) => {
     try {
       setIsLoading(true);
-      const response = await AuthService.register(userData);
+      const response = await authService.register(userData);
       
       if (response.success) {
         setUser(response.user);
