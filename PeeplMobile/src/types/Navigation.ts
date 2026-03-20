@@ -13,6 +13,7 @@ export type RootStackParamList = {
     };
     venues?: Venue[];
   };
+  PioneerCongrats: undefined;
   Map: undefined;
   Venues: undefined;
   Profile: undefined;

@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import Slider from '@react-native-community/slider';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -25,11 +26,20 @@ interface CreatePeepScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'CreatePeep'>;
 }
 
+const AGE_RANGE_OPTIONS = ['0-10', '10-14', '14-18', '19-24', '25-30', '31-40', '41-50', '51-60', '61-70', '71-80', '80+'];
+const VIBE_OPTIONS = ['Chill', 'Laid Back', 'Casual', 'Rowdy', 'Dancing', 'Groovy', 'Formal', 'Sexy', 'Sports Fans', 'Families', 'Grungy', 'Business'];
+const CROWD_SIZE_LABELS = ['Empty', 'Light', 'Moderate', 'Busy', 'Packed'];
+
 export default function CreatePeepScreen({ route, navigation }: CreatePeepScreenProps) {
   const { venue, location, venues = [] } = route.params;
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(venue || null);
   const [description, setDescription] = useState('');
-  const [rating, setRating] = useState(0);
+  const [crowdSize, setCrowdSize] = useState<1 | 2 | 3 | 4 | 5>(3);
+  const [mfRatio, setMfRatio] = useState(50);
+  const [akRatio, setAkRatio] = useState(100);
+  const [selectedAgeRanges, setSelectedAgeRanges] = useState<string[]>([]);
+  const [selectedVibes, setSelectedVibes] = useState<string[]>([]);
+  const [crowdTrend, setCrowdTrend] = useState<'getting_busier' | 'steady' | 'clearing_out'>('steady');
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -56,8 +66,16 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
     setSelectedImage(null);
   };
 
-  const handleRatingPress = (selectedRating: number) => {
-    setRating(selectedRating);
+  const toggleAgeRange = (range: string) => {
+    setSelectedAgeRanges(prev =>
+      prev.includes(range) ? prev.filter(r => r !== range) : [...prev, range]
+    );
+  };
+
+  const toggleVibe = (vibe: string) => {
+    setSelectedVibes(prev =>
+      prev.includes(vibe) ? prev.filter(v => v !== vibe) : [...prev, vibe]
+    );
   };
 
   const handleSubmit = async () => {
@@ -76,7 +94,12 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
       const peepData: CreatePeepData = {
         venueId: selectedVenue.id,
         description: description.trim(),
-        rating: rating > 0 ? rating : undefined,
+        crowdSize,
+        mfRatio,
+        akRatio,
+        ageRanges: selectedAgeRanges,
+        vibe: selectedVibes,
+        crowdTrend,
         latitude: location?.latitude,
         longitude: location?.longitude,
         image: selectedImage ? {
@@ -86,44 +109,28 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
         } : undefined,
       };
 
-      await ApiService.createPeep(peepData);
+      const response = await ApiService.createPeep(peepData);
       
-      Alert.alert(
-        'Success',
-        'Your peep has been created!',
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
+      if (response.isPioneer) {
+        navigation.navigate('PioneerCongrats');
+      } else {
+        Alert.alert(
+          'Success',
+          'Your peep has been created!',
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (error) {
       console.error('Error creating peep:', error);
       Alert.alert('Error', 'Failed to create peep. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const renderStars = () => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <TouchableOpacity
-          key={i}
-          onPress={() => handleRatingPress(i)}
-          style={styles.starButton}
-        >
-          <Icon
-            name={i <= rating ? 'star' : 'star-border'}
-            size={32}
-            color={i <= rating ? '#FFD700' : '#CCCCCC'}
-          />
-        </TouchableOpacity>
-      );
-    }
-    return stars;
   };
 
   return (
@@ -134,19 +141,18 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Venue Selection */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Venue</Text>
+          <Text style={styles.sectionTitle}>Venue</Text>
           {selectedVenue ? (
             <View style={styles.selectedVenue}>
               <View style={styles.venueInfo}>
                 <Text style={styles.venueName}>{selectedVenue.name}</Text>
                 <Text style={styles.venueAddress}>{selectedVenue.address}</Text>
-                <Text style={styles.venueCategory}>{selectedVenue.category}</Text>
               </View>
               <TouchableOpacity
-                style={styles.changeVenueButton}
+                style={styles.overrideButton}
                 onPress={() => setSelectedVenue(null)}
               >
-                <Text style={styles.changeVenueButtonText}>Change</Text>
+                <Text style={styles.overrideButtonText}>Override</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -160,7 +166,6 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
                   <View style={styles.venueOptionInfo}>
                     <Text style={styles.venueOptionName}>{v.name}</Text>
                     <Text style={styles.venueOptionAddress}>{v.address}</Text>
-                    <Text style={styles.venueOptionCategory}>{v.category}</Text>
                   </View>
                   <Icon name="chevron-right" size={24} color="#CCCCCC" />
                 </TouchableOpacity>
@@ -169,17 +174,167 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
           )}
         </View>
 
-        {/* Rating */}
+        {/* Crowd Size */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Rating (Optional)</Text>
-          <View style={styles.ratingContainer}>
-            {renderStars()}
+          <Text style={styles.sectionTitle}>Crowd Size</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={1}
+            maximumValue={5}
+            step={1}
+            value={crowdSize}
+            onValueChange={(value) => setCrowdSize(value as 1 | 2 | 3 | 4 | 5)}
+            minimumTrackTintColor="#1565C0"
+            maximumTrackTintColor="#E0E0E0"
+            thumbTintColor="#1565C0"
+          />
+          <Text style={styles.sliderLabel}>{CROWD_SIZE_LABELS[crowdSize - 1]}</Text>
+        </View>
+
+        {/* M/F Ratio */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>M/F Ratio</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={100}
+            step={5}
+            value={mfRatio}
+            onValueChange={setMfRatio}
+            minimumTrackTintColor="#1565C0"
+            maximumTrackTintColor="#E0E0E0"
+            thumbTintColor="#1565C0"
+          />
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabelLeft}>All Female</Text>
+            <Text style={styles.sliderLabelCenter}>{mfRatio}% Male</Text>
+            <Text style={styles.sliderLabelRight}>All Male</Text>
           </View>
         </View>
 
-        {/* Description */}
+        {/* Adult/Kid Ratio */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Description</Text>
+          <Text style={styles.sectionTitle}>Adult/Kid Ratio</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={100}
+            step={5}
+            value={akRatio}
+            onValueChange={setAkRatio}
+            minimumTrackTintColor="#1565C0"
+            maximumTrackTintColor="#E0E0E0"
+            thumbTintColor="#1565C0"
+          />
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderLabelLeft}>All Kids</Text>
+            <Text style={styles.sliderLabelCenter}>{akRatio}% Adults</Text>
+            <Text style={styles.sliderLabelRight}>All Adults</Text>
+          </View>
+        </View>
+
+        {/* Age Ranges */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Age Ranges</Text>
+          <View style={styles.chipGrid}>
+            {AGE_RANGE_OPTIONS.map((range) => (
+              <TouchableOpacity
+                key={range}
+                style={[
+                  styles.chip,
+                  selectedAgeRanges.includes(range) && styles.chipSelected
+                ]}
+                onPress={() => toggleAgeRange(range)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  selectedAgeRanges.includes(range) && styles.chipTextSelected
+                ]}>
+                  {range}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Vibe */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Vibe</Text>
+          <View style={styles.chipGrid}>
+            {VIBE_OPTIONS.map((vibe) => (
+              <TouchableOpacity
+                key={vibe}
+                style={[
+                  styles.chip,
+                  selectedVibes.includes(vibe) && styles.chipSelected
+                ]}
+                onPress={() => toggleVibe(vibe)}
+              >
+                <Text style={[
+                  styles.chipText,
+                  selectedVibes.includes(vibe) && styles.chipTextSelected
+                ]}>
+                  {vibe}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* Crowd Trend */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Crowd Trend</Text>
+          <View style={styles.segmentedControl}>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                styles.segmentButtonLeft,
+                crowdTrend === 'getting_busier' && styles.segmentButtonActive
+              ]}
+              onPress={() => setCrowdTrend('getting_busier')}
+            >
+              <Text style={[
+                styles.segmentButtonText,
+                crowdTrend === 'getting_busier' && styles.segmentButtonTextActive
+              ]}>
+                Getting Busier
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                crowdTrend === 'steady' && styles.segmentButtonActive
+              ]}
+              onPress={() => setCrowdTrend('steady')}
+            >
+              <Text style={[
+                styles.segmentButtonText,
+                crowdTrend === 'steady' && styles.segmentButtonTextActive
+              ]}>
+                Steady
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.segmentButton,
+                styles.segmentButtonRight,
+                crowdTrend === 'clearing_out' && styles.segmentButtonActive
+              ]}
+              onPress={() => setCrowdTrend('clearing_out')}
+            >
+              <Text style={[
+                styles.segmentButtonText,
+                crowdTrend === 'clearing_out' && styles.segmentButtonTextActive
+              ]}>
+                Clearing Out
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Notes */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Notes (Optional)</Text>
           <TextInput
             style={styles.descriptionInput}
             placeholder="Share your experience..."
@@ -188,14 +343,14 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
             onChangeText={setDescription}
             multiline
             numberOfLines={4}
-            maxLength={500}
+            maxLength={280}
           />
-          <Text style={styles.characterCount}>{description.length}/500</Text>
+          <Text style={styles.characterCount}>{description.length}/280</Text>
         </View>
 
-        {/* Image */}
+        {/* Photo */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Photo (Optional)</Text>
+          <Text style={styles.sectionTitle}>Photo/Video (Optional)</Text>
           {selectedImage ? (
             <View style={styles.imageContainer}>
               <Image source={{ uri: selectedImage }} style={styles.selectedImage} />
@@ -205,24 +360,11 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
             </View>
           ) : (
             <TouchableOpacity style={styles.addImageButton} onPress={handleSelectImage}>
-              <Icon name="camera-alt" size={32} color="#007AFF" />
+              <Icon name="camera-alt" size={32} color="#1565C0" />
               <Text style={styles.addImageButtonText}>Add Photo</Text>
             </TouchableOpacity>
           )}
         </View>
-
-        {/* Location Info */}
-        {location && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Location</Text>
-            <View style={styles.locationInfo}>
-              <Icon name="location-on" size={20} color="#007AFF" />
-              <Text style={styles.locationText}>
-                {location.latitude.toFixed(6)}, {location.longitude.toFixed(6)}
-              </Text>
-            </View>
-          </View>
-        )}
       </ScrollView>
 
       {/* Submit Button */}
@@ -280,20 +422,15 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  venueCategory: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 2,
-  },
-  changeVenueButton: {
+  overrideButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderWidth: 1,
-    borderColor: '#007AFF',
+    borderColor: '#1565C0',
     borderRadius: 6,
   },
-  changeVenueButtonText: {
-    color: '#007AFF',
+  overrideButtonText: {
+    color: '#1565C0',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -323,17 +460,94 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
-  venueOptionCategory: {
-    fontSize: 12,
-    color: '#007AFF',
-    marginTop: 2,
+  slider: {
+    width: '100%',
+    height: 40,
   },
-  ratingContainer: {
+  sliderLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1565C0',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  sliderLabels: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  starButton: {
-    padding: 4,
+  sliderLabelLeft: {
+    fontSize: 12,
+    color: '#666',
+  },
+  sliderLabelCenter: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1565C0',
+  },
+  sliderLabelRight: {
+    fontSize: 12,
+    color: '#666',
+  },
+  chipGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    backgroundColor: '#ffffff',
+  },
+  chipSelected: {
+    backgroundColor: '#1565C0',
+    borderColor: '#1565C0',
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  chipTextSelected: {
+    color: '#ffffff',
+    fontWeight: '600',
+  },
+  segmentedControl: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    borderColor: '#1565C0',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  segmentButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRightWidth: 1,
+    borderRightColor: '#1565C0',
+  },
+  segmentButtonLeft: {
+    borderTopLeftRadius: 8,
+    borderBottomLeftRadius: 8,
+  },
+  segmentButtonRight: {
+    borderTopRightRadius: 8,
+    borderBottomRightRadius: 8,
+    borderRightWidth: 0,
+  },
+  segmentButtonActive: {
+    backgroundColor: '#1565C0',
+  },
+  segmentButtonText: {
+    fontSize: 14,
+    color: '#1565C0',
+  },
+  segmentButtonTextActive: {
+    color: '#ffffff',
+    fontWeight: '600',
   },
   descriptionInput: {
     borderWidth: 1,
@@ -372,7 +586,7 @@ const styles = StyleSheet.create({
   },
   addImageButton: {
     borderWidth: 2,
-    borderColor: '#007AFF',
+    borderColor: '#1565C0',
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 40,
@@ -380,30 +594,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   addImageButtonText: {
-    color: '#007AFF',
+    color: '#1565C0',
     fontSize: 16,
     fontWeight: '600',
     marginTop: 8,
-  },
-  locationInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F8F9FA',
-    padding: 12,
-    borderRadius: 8,
-  },
-  locationText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 8,
   },
   submitContainer: {
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
+    backgroundColor: '#ffffff',
   },
   submitButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFC107',
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

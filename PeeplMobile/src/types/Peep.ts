@@ -3,7 +3,12 @@ export interface Peep {
   venueId: string;
   userId: string;
   description: string;
-  rating?: number;
+  crowdSize: 1 | 2 | 3 | 4 | 5;
+  mfRatio: number;
+  akRatio: number;
+  ageRanges: string[];
+  vibe: string[];
+  crowdTrend: 'getting_busier' | 'steady' | 'clearing_out';
   latitude?: number;
   longitude?: number;
   imageUrl?: string;
@@ -12,6 +17,7 @@ export interface Peep {
   isActive: boolean;
   likeCount: number;
   commentCount: number;
+  isPioneer?: boolean;
   user?: {
     username: string;
     firstName: string;
@@ -27,7 +33,12 @@ export interface Peep {
 export interface CreatePeepData {
   venueId: string;
   description: string;
-  rating?: number;
+  crowdSize: 1 | 2 | 3 | 4 | 5;
+  mfRatio: number;
+  akRatio: number;
+  ageRanges: string[];
+  vibe: string[];
+  crowdTrend: 'getting_busier' | 'steady' | 'clearing_out';
   latitude?: number;
   longitude?: number;
   image?: {

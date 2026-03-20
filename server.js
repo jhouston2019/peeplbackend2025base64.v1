@@ -20,6 +20,7 @@ require("dotenv").config();
 const notificationService = require("./src/services/NotificationService");
 const geofencingService = require("./src/services/GeofencingService");
 const { calculateDistance } = require("./src/utils/geo");
+const { awardPoints, POINTS_RULES } = require("./src/services/PointsService");
 
 // Initialize Express app
 const app = express();
@@ -344,12 +345,17 @@ app.post("/venues", authenticateToken, [
 app.post("/peeps", authenticateToken, upload.single("photo"), [
   body("venueId").isLength({ min: 1 }),
   body("description").isLength({ min: 1, max: 500 }),
-  body("rating").optional().isInt({ min: 1, max: 5 }),
+  body("crowdSize").isInt({ min: 1, max: 5 }),
+  body("mfRatio").isFloat({ min: 0, max: 100 }),
+  body("akRatio").isFloat({ min: 0, max: 100 }),
+  body("ageRanges").isArray(),
+  body("vibe").isArray(),
+  body("crowdTrend").isIn(['getting_busier', 'steady', 'clearing_out']),
   body("latitude").optional().isFloat({ min: -90, max: 90 }),
   body("longitude").optional().isFloat({ min: -180, max: 180 })
 ], validateRequest, async (req, res) => {
   try {
-    const { venueId, description, rating, latitude, longitude } = req.body;
+    const { venueId, description, crowdSize, mfRatio, akRatio, ageRanges, vibe, crowdTrend, latitude, longitude } = req.body;
     const userId = req.user.uid;
 
     // Verify venue exists
@@ -362,7 +368,12 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
       venueId,
       userId,
       description,
-      rating: rating ? parseInt(rating) : null,
+      crowdSize: parseInt(crowdSize),
+      mfRatio: parseFloat(mfRatio),
+      akRatio: parseFloat(akRatio),
+      ageRanges,
+      vibe,
+      crowdTrend,
       latitude: latitude ? parseFloat(latitude) : null,
       longitude: longitude ? parseFloat(longitude) : null,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -394,21 +405,45 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
     // Create peep
     const peepRef = await db.collection("peeps").add(peepData);
 
+    // Pioneer detection
+    const existingPeeps = await admin.firestore()
+      .collection('peeps')
+      .where('venueId', '==', venueId)
+      .limit(2)
+      .get();
+    
+    const isPioneer = existingPeeps.docs.length === 1;
+    
+    if (isPioneer) {
+      await peepRef.update({ isPioneer: true });
+      
+      await admin.firestore().collection('venues').doc(venueId).update({
+        pioneeredBy: req.user.uid,
+        pioneeredAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      
+      await awardPoints(req.user.uid, 'PIONEER_DISCOVERY', POINTS_RULES.PIONEER_DISCOVERY);
+    }
+
+    // Award points for peep creation
+    await awardPoints(req.user.uid, 'PEEP_CREATED', POINTS_RULES.PEEP_CREATED);
+    
+    const hasPhoto = !!peepData.imageUrl;
+    if (hasPhoto) {
+      await awardPoints(req.user.uid, 'PEEP_WITH_PHOTO', POINTS_RULES.PEEP_WITH_PHOTO);
+    }
+    
+    const isFullyComplete = ageRanges.length > 0 && vibe.length > 0 && crowdTrend && description && hasPhoto;
+    if (isFullyComplete) {
+      await awardPoints(req.user.uid, 'PEEP_FULLY_COMPLETE', POINTS_RULES.PEEP_FULLY_COMPLETE);
+    }
+
     // Update venue statistics
     const venueData = venueDoc.data();
     const newPeepCount = (venueData.peepCount || 0) + 1;
-    let newAverageRating = venueData.averageRating || 0;
-    let newTotalRatings = venueData.totalRatings || 0;
-
-    if (rating) {
-      newTotalRatings += 1;
-      newAverageRating = ((venueData.averageRating || 0) * (newTotalRatings - 1) + parseInt(rating)) / newTotalRatings;
-    }
 
     await db.collection("venues").doc(venueId).update({
       peepCount: newPeepCount,
-      averageRating: newAverageRating,
-      totalRatings: newTotalRatings,
       updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
 
@@ -421,7 +456,8 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
     logger.info(`New peep created: ${peepRef.id} by ${userId}`);
     res.status(201).json({
       message: "Peep created successfully",
-      peepId: peepRef.id
+      peepId: peepRef.id,
+      isPioneer
     });
   } catch (error) {
     logger.error("Peep creation error:", error);
@@ -532,6 +568,93 @@ app.get("/geofencing/status", authenticateToken, async (req, res) => {
 });
 
 // Error handling middleware
+// Points routes
+app.get('/users/points', authenticateToken, async (req, res) => {
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(req.user.uid).get();
+    const points = userDoc.data()?.points || 0;
+    const history = await admin.firestore()
+      .collection('points')
+      .where('userId', '==', req.user.uid)
+      .orderBy('timestamp', 'desc')
+      .limit(20)
+      .get();
+    const log = history.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json({ points, log });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Leaderboard routes
+app.get('/leaderboard/everyone', authenticateToken, async (req, res) => {
+  try {
+    const snapshot = await admin.firestore()
+      .collection('users')
+      .orderBy('points', 'desc')
+      .limit(50)
+      .get();
+    const users = snapshot.docs.map((d, i) => ({
+      rank: i + 1,
+      userId: d.id,
+      username: d.data().username,
+      points: d.data().points || 0,
+      pioneerCount: d.data().pioneerCount || 0,
+      profileImageUrl: d.data().profileImageUrl || null,
+    }));
+    res.json({ leaderboard: users });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/leaderboard/friends', authenticateToken, async (req, res) => {
+  try {
+    const followingSnap = await admin.firestore()
+      .collection('follows')
+      .where('followerId', '==', req.user.uid)
+      .get();
+    const followingIds = [req.user.uid, ...followingSnap.docs.map(d => d.data().followingId)];
+    const chunks = [];
+    for (let i = 0; i < followingIds.length; i += 10) {
+      chunks.push(followingIds.slice(i, i + 10));
+    }
+    const userDocs = (await Promise.all(
+      chunks.map(chunk =>
+        admin.firestore().collection('users').where(admin.firestore.FieldPath.documentId(), 'in', chunk).get()
+      )
+    )).flatMap(s => s.docs);
+    const users = userDocs
+      .sort((a, b) => (b.data().points || 0) - (a.data().points || 0))
+      .map((d, i) => ({
+        rank: i + 1,
+        userId: d.id,
+        username: d.data().username,
+        points: d.data().points || 0,
+        pioneerCount: d.data().pioneerCount || 0,
+        profileImageUrl: d.data().profileImageUrl || null,
+      }));
+    res.json({ leaderboard: users });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/leaderboard/rank', authenticateToken, async (req, res) => {
+  try {
+    const userDoc = await admin.firestore().collection('users').doc(req.user.uid).get();
+    const myPoints = userDoc.data()?.points || 0;
+    const rankSnap = await admin.firestore()
+      .collection('users')
+      .where('points', '>', myPoints)
+      .get();
+    const rank = rankSnap.size + 1;
+    res.json({ rank, points: myPoints });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.use((error, req, res, next) => {
   logger.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });

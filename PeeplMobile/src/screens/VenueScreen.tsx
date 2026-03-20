@@ -6,6 +6,8 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ImageBackground,
+  FlatList,
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
@@ -21,10 +23,14 @@ interface VenueScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Venue'>;
 }
 
+const CROWD_SIZE_COLORS = ['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'];
+const CROWD_SIZE_LABELS = ['Empty', 'Light', 'Moderate', 'Busy', 'Packed'];
+
 export default function VenueScreen({ route, navigation }: VenueScreenProps) {
   const { venue } = route.params;
   const [peeps, setPeeps] = useState<Peep[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentCrowd, setCurrentCrowd] = useState<Peep | null>(null);
 
   useEffect(() => {
     loadVenuePeeps();
@@ -33,7 +39,11 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
   const loadVenuePeeps = async () => {
     try {
       const response: any = await ApiService.getVenuePeeps(venue.id);
-      setPeeps(response || []);
+      const peepsList = response || [];
+      setPeeps(peepsList);
+      if (peepsList.length > 0) {
+        setCurrentCrowd(peepsList[0]);
+      }
     } catch (error) {
       console.error('Error loading venue peeps:', error);
       Alert.alert('Error', 'Failed to load peeps. Please try again.');
@@ -46,63 +56,124 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
     navigation.navigate('CreatePeep', { venue });
   };
 
-  const renderStars = (rating: number) => {
-    const stars = [];
-    for (let i = 1; i <= 5; i++) {
-      stars.push(
-        <Icon
-          key={i}
-          name={i <= rating ? 'star' : 'star-border'}
-          size={16}
-          color={i <= rating ? '#FFD700' : '#CCCCCC'}
-        />
-      );
-    }
-    return stars;
-  };
-
-  const formatDate = (dateString: string) => {
+  const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString();
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `${diffDays}d ago`;
   };
 
-  return (
-    <ScrollView style={styles.container}>
-      {/* Venue Header */}
-      <View style={styles.header}>
-        {venue.imageUrl && (
-          <Image source={{ uri: venue.imageUrl }} style={styles.venueImage} />
-        )}
-        <View style={styles.venueInfo}>
-          <Text style={styles.venueName}>{venue.name}</Text>
-          <Text style={styles.venueAddress}>{venue.address}</Text>
-          <Text style={styles.venueCategory}>{venue.category}</Text>
-          
-          {venue.description && (
-            <Text style={styles.venueDescription}>{venue.description}</Text>
+  const getCrowdColor = (size: number) => {
+    return CROWD_SIZE_COLORS[size - 1] || '#999';
+  };
+
+  const getCrowdLabel = (size: number) => {
+    return CROWD_SIZE_LABELS[size - 1] || 'Unknown';
+  };
+
+  const getTrendIcon = (trend: string) => {
+    if (trend === 'getting_busier') return 'trending-up';
+    if (trend === 'clearing_out') return 'trending-down';
+    return 'trending-flat';
+  };
+
+  const renderPeepItem = ({ item: peep, index }: { item: Peep; index: number }) => (
+    <View style={styles.peepCard}>
+      <View style={styles.peepHeader}>
+        <View style={styles.userInfo}>
+          {peep.user?.profileImageUrl && (
+            <Image source={{ uri: peep.user.profileImageUrl }} style={styles.avatar} />
           )}
-
-          {/* Rating */}
-          <View style={styles.ratingContainer}>
-            <View style={styles.stars}>
-              {renderStars(Math.round(venue.averageRating))}
-            </View>
-            <Text style={styles.ratingText}>
-              {venue.averageRating.toFixed(1)} ({venue.totalRatings} reviews)
+          <View>
+            <Text style={styles.userName}>
+              {peep.user?.firstName} {peep.user?.lastName}
             </Text>
-          </View>
-
-          {/* Stats */}
-          <View style={styles.statsContainer}>
-            <View style={styles.stat}>
-              <Icon name="chat-bubble-outline" size={20} color="#007AFF" />
-              <Text style={styles.statText}>{venue.peepCount} peeps</Text>
-            </View>
+            <Text style={styles.userHandle}>@{peep.user?.username}</Text>
           </View>
         </View>
+        <Text style={styles.peepDate}>{formatTimeAgo(peep.createdAt)}</Text>
       </View>
 
-      {/* Action Buttons */}
+      <View style={styles.crowdPill} style={{ backgroundColor: getCrowdColor(peep.crowdSize) }}>
+        <Text style={styles.crowdPillText}>{getCrowdLabel(peep.crowdSize)}</Text>
+      </View>
+
+      {peep.vibe.length > 0 && (
+        <View style={styles.vibeContainer}>
+          {peep.vibe.map((v, i) => (
+            <View key={i} style={styles.vibeTag}>
+              <Text style={styles.vibeTagText}>{v}</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <Text style={styles.peepDescription}>{peep.description}</Text>
+
+      {peep.imageUrl && (
+        <Image source={{ uri: peep.imageUrl }} style={styles.peepImage} />
+      )}
+
+      <View style={styles.peepActions}>
+        <TouchableOpacity style={styles.peepAction}>
+          <Icon name="favorite-border" size={20} color="#666" />
+          <Text style={styles.peepActionText}>{peep.likeCount}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.peepAction}>
+          <Icon name="chat-bubble-outline" size={20} color="#666" />
+          <Text style={styles.peepActionText}>{peep.commentCount}</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  return (
+    <View style={styles.container}>
+      {/* Hero Image */}
+      {venue.imageUrl ? (
+        <ImageBackground source={{ uri: venue.imageUrl }} style={styles.heroImage}>
+          <View style={styles.heroOverlay}>
+            <Text style={styles.heroVenueName}>{venue.name}</Text>
+          </View>
+        </ImageBackground>
+      ) : (
+        <View style={styles.heroPlaceholder}>
+          <Text style={styles.heroVenueName}>{venue.name}</Text>
+        </View>
+      )}
+
+      {/* Current Crowd Card */}
+      {currentCrowd && (
+        <View style={styles.currentCrowdCard}>
+          <View style={styles.currentCrowdHeader}>
+            <Text style={styles.currentCrowdTitle}>Current Crowd</Text>
+            <Text style={styles.currentCrowdTime}>{formatTimeAgo(currentCrowd.createdAt)}</Text>
+          </View>
+          <View style={styles.currentCrowdContent}>
+            <View style={[styles.crowdSizeBadge, { backgroundColor: getCrowdColor(currentCrowd.crowdSize) }]}>
+              <Text style={styles.crowdSizeBadgeText}>{getCrowdLabel(currentCrowd.crowdSize)}</Text>
+            </View>
+            <Icon name={getTrendIcon(currentCrowd.crowdTrend)} size={24} color="#1565C0" />
+          </View>
+          {currentCrowd.vibe.length > 0 && (
+            <View style={styles.currentVibeContainer}>
+              {currentCrowd.vibe.slice(0, 3).map((v, i) => (
+                <View key={i} style={styles.currentVibeTag}>
+                  <Text style={styles.currentVibeText}>{v}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Create Peep Button */}
       <View style={styles.actionButtons}>
         <TouchableOpacity style={styles.createPeepButton} onPress={handleCreatePeep}>
           <Icon name="add" size={20} color="#ffffff" />
@@ -110,7 +181,7 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
         </TouchableOpacity>
       </View>
 
-      {/* Peeps Section */}
+      {/* Peeps Feed */}
       <View style={styles.peepsSection}>
         <Text style={styles.sectionTitle}>Recent Peeps</Text>
         
@@ -123,45 +194,15 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
             <Text style={styles.emptyStateSubtext}>Be the first to share your experience!</Text>
           </View>
         ) : (
-          peeps.map((peep) => (
-            <View key={peep.id} style={styles.peepCard}>
-              <View style={styles.peepHeader}>
-                <View style={styles.userInfo}>
-                  <Text style={styles.userName}>
-                    {peep.user?.firstName} {peep.user?.lastName}
-                  </Text>
-                  <Text style={styles.userHandle}>@{peep.user?.username}</Text>
-                </View>
-                <Text style={styles.peepDate}>{formatDate(peep.createdAt)}</Text>
-              </View>
-
-              <Text style={styles.peepDescription}>{peep.description}</Text>
-
-              {peep.rating && (
-                <View style={styles.peepRating}>
-                  {renderStars(peep.rating)}
-                </View>
-              )}
-
-              {peep.imageUrl && (
-                <Image source={{ uri: peep.imageUrl }} style={styles.peepImage} />
-              )}
-
-              <View style={styles.peepActions}>
-                <TouchableOpacity style={styles.peepAction}>
-                  <Icon name="favorite-border" size={20} color="#666" />
-                  <Text style={styles.peepActionText}>{peep.likeCount}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.peepAction}>
-                  <Icon name="chat-bubble-outline" size={20} color="#666" />
-                  <Text style={styles.peepActionText}>{peep.commentCount}</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))
+          <FlatList
+            data={peeps}
+            renderItem={renderPeepItem}
+            keyExtractor={(item) => item.id}
+            scrollEnabled={false}
+          />
         )}
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -170,79 +211,94 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#ffffff',
   },
-  header: {
-    backgroundColor: '#f8f9fa',
+  heroImage: {
+    width: '100%',
+    height: 250,
+  },
+  heroOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'flex-end',
     padding: 20,
   },
-  venueImage: {
+  heroPlaceholder: {
     width: '100%',
-    height: 200,
-    borderRadius: 12,
-    marginBottom: 16,
+    height: 250,
+    backgroundColor: '#1565C0',
+    justifyContent: 'flex-end',
+    padding: 20,
   },
-  venueInfo: {
-    flex: 1,
-  },
-  venueName: {
-    fontSize: 24,
+  heroVenueName: {
+    fontSize: 28,
     fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    color: '#ffffff',
   },
-  venueAddress: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
+  currentCrowdCard: {
+    margin: 20,
+    padding: 16,
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
-  venueCategory: {
-    fontSize: 14,
-    color: '#007AFF',
+  currentCrowdHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  currentCrowdTitle: {
+    fontSize: 18,
     fontWeight: '600',
-    marginBottom: 8,
+    color: '#333',
   },
-  venueDescription: {
-    fontSize: 14,
-    color: '#666',
-    lineHeight: 20,
-    marginBottom: 12,
+  currentCrowdTime: {
+    fontSize: 12,
+    color: '#999',
   },
-  ratingContainer: {
+  currentCrowdContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 12,
   },
-  stars: {
+  crowdSizeBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  crowdSizeBadgeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  currentVibeContainer: {
     flexDirection: 'row',
-    marginRight: 8,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
   },
-  ratingText: {
-    fontSize: 14,
-    color: '#666',
+  currentVibeTag: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#1565C0',
+    borderRadius: 16,
   },
-  statsContainer: {
-    flexDirection: 'row',
-  },
-  stat: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 20,
-  },
-  statText: {
-    fontSize: 14,
-    color: '#666',
-    marginLeft: 4,
+  currentVibeText: {
+    fontSize: 12,
+    color: '#ffffff',
+    fontWeight: '600',
   },
   actionButtons: {
-    padding: 20,
+    paddingHorizontal: 20,
+    marginBottom: 20,
   },
   createPeepButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFC107',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 25,
+    paddingVertical: 14,
+    borderRadius: 12,
   },
   createPeepButtonText: {
     color: '#ffffff',
@@ -251,7 +307,8 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   peepsSection: {
-    padding: 20,
+    flex: 1,
+    paddingHorizontal: 20,
   },
   sectionTitle: {
     fontSize: 20,
@@ -291,10 +348,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   userInfo: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
   },
   userName: {
     fontSize: 16,
@@ -309,15 +374,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#999',
   },
+  crowdPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    marginBottom: 8,
+  },
+  crowdPillText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  vibeContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 12,
+  },
+  vibeTag: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    backgroundColor: '#E3F2FD',
+    borderRadius: 12,
+  },
+  vibeTagText: {
+    fontSize: 12,
+    color: '#1565C0',
+    fontWeight: '500',
+  },
   peepDescription: {
     fontSize: 14,
     color: '#333',
     lineHeight: 20,
-    marginBottom: 8,
-  },
-  peepRating: {
-    flexDirection: 'row',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   peepImage: {
     width: '100%',
