@@ -493,6 +493,116 @@ app.get("/peeps/venue/:venueId", async (req, res) => {
   }
 });
 
+app.post("/peeps/:peepId/like", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const userId = req.user.uid;
+    const peepRef = db.collection("peeps").doc(peepId);
+    const likeRef = peepRef.collection("likes").doc(userId);
+    let likedNew = false;
+    await db.runTransaction(async (t) => {
+      const likeDoc = await t.get(likeRef);
+      if (!likeDoc.exists) {
+        t.set(likeRef, { likedAt: admin.firestore.FieldValue.serverTimestamp() });
+        t.update(peepRef, { likeCount: admin.firestore.FieldValue.increment(1) });
+        likedNew = true;
+      }
+    });
+    if (likedNew) {
+      const peepDoc = await peepRef.get();
+      if (peepDoc.exists && peepDoc.data().userId) {
+        await awardPoints(peepDoc.data().userId, 'LIKE_RECEIVED', POINTS_RULES.LIKE_RECEIVED);
+      }
+    }
+    res.json({ liked: true });
+  } catch (error) {
+    logger.error("Peep like error:", error);
+    res.status(500).json({ error: "Failed to like peep" });
+  }
+});
+
+app.delete("/peeps/:peepId/like", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const userId = req.user.uid;
+    const peepRef = db.collection("peeps").doc(peepId);
+    const likeRef = peepRef.collection("likes").doc(userId);
+    await db.runTransaction(async (t) => {
+      const likeDoc = await t.get(likeRef);
+      if (likeDoc.exists) {
+        t.delete(likeRef);
+        t.update(peepRef, { likeCount: admin.firestore.FieldValue.increment(-1) });
+      }
+    });
+    res.json({ liked: false });
+  } catch (error) {
+    logger.error("Peep unlike error:", error);
+    res.status(500).json({ error: "Failed to unlike peep" });
+  }
+});
+
+app.post("/peeps/:peepId/comments", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const { text } = req.body;
+    if (!text || text.trim().length === 0) {
+      return res.status(400).json({ error: "Comment text required" });
+    }
+    const peepRef = db.collection("peeps").doc(peepId);
+    const commentRef = await peepRef.collection("comments").add({
+      userId: req.user.uid,
+      text: text.trim(),
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await peepRef.update({ commentCount: admin.firestore.FieldValue.increment(1) });
+    res.json({ commentId: commentRef.id });
+  } catch (error) {
+    logger.error("Peep comment create error:", error);
+    res.status(500).json({ error: "Failed to post comment" });
+  }
+});
+
+app.get("/peeps/:peepId/comments", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const snap = await admin
+      .firestore()
+      .collection("peeps")
+      .doc(peepId)
+      .collection("comments")
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+    const comments = await Promise.all(
+      snap.docs.map(async (d) => {
+        const data = d.data();
+        const userDoc = await admin.firestore().collection("users").doc(data.userId).get();
+        return { id: d.id, ...data, username: userDoc.data()?.username || "Unknown" };
+      })
+    );
+    res.json({ comments });
+  } catch (error) {
+    logger.error("Peep comments fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
+});
+
+app.get("/peeps/:peepId/likes", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const snap = await admin
+      .firestore()
+      .collection("peeps")
+      .doc(peepId)
+      .collection("likes")
+      .limit(50)
+      .get();
+    res.json({ likers: snap.docs.map((d) => d.id) });
+  } catch (error) {
+    logger.error("Peep likers fetch error:", error);
+    res.status(500).json({ error: "Failed to fetch likers" });
+  }
+});
 
 // Push Notification Routes
 app.post("/notifications/register-token", authenticateToken, [
