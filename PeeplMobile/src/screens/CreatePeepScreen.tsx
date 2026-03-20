@@ -18,6 +18,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { CreatePeepData } from '../types/Peep';
+import { ApiService } from '../services/ApiService';
 
 interface CreatePeepScreenProps {
   route: RouteProp<RootStackParamList, 'CreatePeep'>;
@@ -85,8 +86,7 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
         } : undefined,
       };
 
-      // This would call your backend API
-      // await peepService.createPeep(peepData);
+      await ApiService.createPeep(peepData);
       
       Alert.alert(
         'Success',

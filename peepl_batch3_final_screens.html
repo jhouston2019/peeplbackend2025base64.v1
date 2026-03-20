@@ -1,0 +1,732 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--blue:#0A52D4;--gold:#F5C842;--gold-dark:#c9a020;--green:#2E9D5A;--amber:#D4890A;--red:#C93232;--bg:#f5f4f0;--white:#fff;--border:#e8e5de;--border2:#f0ede8;--text:#1a1a1a;--text2:#555;--text3:#999;}
+
+.shell{background:#ccc;padding:20px;min-height:100vh;}
+.row-label{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;margin-top:4px;}
+.row{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;margin-bottom:24px;}
+.col{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;}
+.screen-label{font-family:'DM Sans',sans-serif;font-size:10px;color:#777;text-align:center;font-weight:500;max-width:100px;}
+.phone{width:195px;background:var(--bg);border-radius:26px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 0 0 1px rgba(0,0,0,0.1);display:flex;flex-direction:column;height:390px;}
+
+/* COMMON */
+.sb{padding:8px 14px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.sb.blue{background:var(--blue);}
+.sbt{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#fff;}
+.sbi{display:flex;gap:3px;}
+.hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
+.tagline{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.05em;}
+.hdr-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.back-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.7);margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:3px;}
+.sec-title{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:#bbb;margin-bottom:7px;}
+.scroll{flex:1;overflow-y:auto;scrollbar-width:none;}
+.tabs{flex-shrink:0;background:var(--white);border-top:1px solid var(--border);display:flex;padding:5px 0 10px;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.tab svg{width:13px;height:13px;}
+.tab-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#ccc;}
+.tab.on .tab-lbl{color:var(--blue);}
+.primary-btn{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;}
+
+/* PHOTO BGs */
+.p1{background:linear-gradient(130deg,#2d6e24,#5aaa48);}
+.p2{background:linear-gradient(170deg,#e8903a,#3a6090);}
+.p3{background:linear-gradient(150deg,#0e0e1e,#b89030);}
+.p4{background:linear-gradient(140deg,#1a3050,#4a8ad0);}
+.p5{background:linear-gradient(140deg,#6a2050,#d888b8);}
+.p6{background:linear-gradient(140deg,#1a0a00,#c06020);}
+.p7{background:linear-gradient(140deg,#0a2a1a,#3aaa6a);}
+.p8{background:linear-gradient(140deg,#2a0050,#aa50e0);}
+
+/* PC CARD */
+.pc{position:relative;height:50px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.06);overflow:hidden;}
+.pc-bg{position:absolute;inset:0;}
+.pc-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.4) 60%,rgba(0,0,0,0.15) 100%);}
+.pc-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.pc-text{flex:1;min-width:0;}
+.pc-venue{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-meta{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.55);margin-top:1px;}
+.cpill{flex-shrink:0;padding:3px 6px;border-radius:5px;text-align:center;}
+.cpill-lbl{font-family:'DM Sans',sans-serif;font-size:7px;display:block;color:rgba(255,255,255,0.8);text-transform:uppercase;}
+.cpill-val{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;display:block;color:#fff;}
+.bg-g{background:var(--green);}.bg-a{background:var(--amber);}.bg-r{background:var(--red);}
+
+/* USER PROFILE */
+.uprofile-hero{position:relative;height:100px;flex-shrink:0;overflow:hidden;}
+.uprofile-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.75));}
+.uprofile-info{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;display:flex;align-items:flex-end;gap:8px;}
+.uprofile-av{width:42px;height:42px;border-radius:50%;border:2px solid #fff;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;flex-shrink:0;}
+.uprofile-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;}
+.uprofile-badge{display:inline-flex;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;padding:2px 6px;border-radius:8px;margin-top:2px;}
+.uprofile-follow-btn{margin-left:auto;background:var(--white);color:var(--blue);font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;padding:5px 12px;border-radius:12px;border:none;flex-shrink:0;}
+.uprofile-stats{display:flex;background:var(--white);border-bottom:1px solid var(--border);}
+.upstat{flex:1;padding:8px 4px;text-align:center;border-right:1px solid var(--border);}
+.upstat:last-child{border-right:none;}
+.upstat-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--blue);}
+.upstat-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;margin-top:1px;}
+.uprofile-peep{position:relative;height:54px;border-bottom:1px solid var(--border2);overflow:hidden;}
+.uprofile-peep-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.7),rgba(0,0,0,0.3),transparent);}
+.uprofile-peep-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+
+/* USER LISTS */
+.user-list-row{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.ul-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.ul-info{flex:1;}
+.ul-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.ul-sub{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;margin-top:1px;}
+.ul-badge{display:inline-block;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;padding:1px 5px;border-radius:6px;margin-left:4px;}
+.ul-action{font-family:'DM Sans',sans-serif;font-size:9px;font-weight:500;padding:4px 10px;border-radius:8px;border:1.5px solid var(--blue);color:var(--blue);background:#fff;flex-shrink:0;}
+.ul-action.following{border-color:var(--border);color:#bbb;}
+
+/* MY PEEPS HISTORY */
+.peep-history-item{padding:9px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.phi-top{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+.phi-venue-thumb{width:32px;height:32px;border-radius:8px;flex-shrink:0;overflow:hidden;position:relative;}
+.phi-venue-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);flex:1;}
+.phi-time{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.phi-pills{display:flex;gap:4px;flex-wrap:wrap;}
+.phi-pill{padding:2px 7px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;color:#fff;}
+.phi-vibe{background:#eef3ff;color:var(--blue);font-family:'DM Sans',sans-serif;font-size:8px;padding:2px 7px;border-radius:5px;}
+.phi-actions{display:flex;gap:10px;margin-top:5px;}
+.phi-action{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+
+/* FAVORITES */
+.fav-item{position:relative;height:64px;border-bottom:1px solid var(--border2);overflow:hidden;cursor:pointer;}
+.fav-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.72),rgba(0,0,0,0.4),rgba(0,0,0,0.1));}
+.fav-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 10px;gap:8px;}
+.fav-text{flex:1;min-width:0;}
+.fav-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.fav-meta{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-top:2px;}
+.fav-crowd{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.5);margin-top:1px;}
+.fav-heart{font-size:14px;flex-shrink:0;}
+.fav-pill{flex-shrink:0;padding:3px 7px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;color:#fff;}
+
+/* SEARCH RESULTS */
+.search-active{background:var(--white);border:1.5px solid var(--blue);border-radius:7px;padding:6px 9px;display:flex;align-items:center;gap:6px;margin-bottom:0;}
+.search-active span{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text);}
+.search-result{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.sr-ico{width:30px;height:30px;border-radius:8px;flex-shrink:0;overflow:hidden;position:relative;}
+.sr-info{flex:1;min-width:0;}
+.sr-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sr-meta{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;margin-top:1px;}
+.sr-pill{flex-shrink:0;padding:3px 7px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;color:#fff;}
+
+/* MENU */
+.menu-container{flex:1;overflow-y:auto;scrollbar-width:none;}
+.menu-user-card{background:linear-gradient(135deg,var(--blue),#083da0);padding:12px 12px;display:flex;align-items:center;gap:10px;}
+.menu-av{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,rgba(255,255,255,0.2),rgba(255,255,255,0.1));border:2px solid rgba(255,255,255,0.3);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;}
+.menu-user-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;}
+.menu-user-sub{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.menu-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--border2);background:var(--white);cursor:pointer;}
+.menu-item-ico{width:28px;height:28px;border-radius:8px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.menu-item-ico svg{width:14px;height:14px;fill:var(--blue);}
+.menu-item-label{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text);flex:1;}
+.menu-item-badge{background:var(--red);color:#fff;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;padding:2px 6px;border-radius:8px;}
+.menu-item-chev{font-family:'DM Sans',sans-serif;font-size:11px;color:#ccc;}
+.menu-section-hdr{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.07em;padding:8px 12px 4px;background:var(--bg);}
+
+/* PEEP WITH PHOTO */
+.peep-photo-preview{width:100%;height:80px;border-radius:10px;overflow:hidden;position:relative;margin-bottom:8px;}
+.peep-photo-remove{position:absolute;top:5px;right:5px;width:18px;height:18px;border-radius:50%;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;}
+.peep-photo-caption{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-align:center;margin-top:3px;}
+
+/* AGE RANGE */
+.age-grid{display:flex;flex-wrap:wrap;gap:5px;}
+.age-tag{padding:5px 9px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:9px;font-weight:500;border:1px solid var(--border);background:var(--white);color:#666;}
+.age-tag.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+/* CONFIRMATION / SUCCESS */
+.success-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;}
+.success-icon{font-size:44px;margin-bottom:8px;}
+.success-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.success-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:#bbb;line-height:1.55;margin-bottom:18px;}
+.success-btn{background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:10px 24px;border-radius:10px;border:none;margin-bottom:8px;}
+.success-sec{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-decoration:underline;cursor:pointer;}
+
+/* DEAL CLAIMED */
+.deal-claimed-screen{flex:1;display:flex;flex-direction:column;background:var(--bg);}
+.dc-hero{position:relative;height:120px;flex-shrink:0;overflow:hidden;}
+.dc-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2),rgba(0,0,0,0.8));}
+.dc-content{position:absolute;bottom:0;left:0;right:0;padding:10px 12px;}
+.dc-merchant{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;}
+.dc-offer-txt{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.85);margin-top:2px;}
+.dc-body{flex:1;padding:14px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+.dc-stamp{width:80px;height:80px;border-radius:50%;background:linear-gradient(135deg,var(--gold-dark),var(--gold));display:flex;align-items:center;justify-content:center;margin:0 auto 12px;box-shadow:0 4px 16px rgba(245,200,66,0.4);}
+.dc-stamp-txt{font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:#1a1000;text-align:center;line-height:1.2;}
+.dc-claimed-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--text);margin-bottom:4px;}
+.dc-claimed-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:#bbb;line-height:1.55;margin-bottom:14px;}
+.dc-show-staff{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:11px;border-radius:10px;border:none;margin-bottom:8px;}
+.dc-expires{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;}
+.dc-countdown{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--red);}
+
+/* MERCHANT SETUP */
+.setup-progress{background:var(--blue);height:3px;flex-shrink:0;}
+.setup-progress-fill{height:100%;background:var(--gold);border-radius:0 2px 2px 0;}
+.setup-body{flex:1;overflow-y:auto;scrollbar-width:none;padding:12px;}
+.setup-step-label{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.07em;margin-bottom:12px;}
+.setup-field{margin-bottom:10px;}
+.setup-field-label{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.setup-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text);outline:none;}
+.setup-input.focus{border-color:var(--blue);background:#fff;}
+.setup-cat-grid{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:10px;}
+.setup-cat{padding:5px 10px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:9px;font-weight:500;border:1.5px solid var(--border);background:var(--white);color:#666;}
+.setup-cat.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
+.setup-next{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;margin-top:8px;}
+
+/* MERCHANT ACCT NUMBER */
+.acct-num-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;background:linear-gradient(160deg,#0A52D4,#05286e);}
+.an-icon{font-size:36px;margin-bottom:10px;}
+.an-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;margin-bottom:6px;}
+.an-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.65);line-height:1.55;margin-bottom:16px;}
+.an-number-box{background:rgba(255,255,255,0.12);border:2px solid rgba(255,255,255,0.25);border-radius:12px;padding:14px 20px;margin-bottom:16px;width:100%;}
+.an-number-label{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.55);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;}
+.an-number{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--gold);letter-spacing:2px;}
+.an-btn{width:100%;background:#fff;color:var(--blue);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;margin-bottom:8px;}
+.an-save{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.5);text-decoration:underline;}
+
+/* VIPEEPS ACTIVE */
+.vip-active-hero{background:linear-gradient(160deg,#0A52D4,#05286e);padding:14px 12px;flex-shrink:0;text-align:center;}
+.vip-active-badge{background:var(--gold);color:#1a1000;font-family:'Syne',sans-serif;font-size:10px;font-weight:800;padding:4px 14px;border-radius:12px;display:inline-block;margin-bottom:6px;}
+.vip-active-name{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;margin-bottom:2px;}
+.vip-active-since{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.55);}
+.vip-active-stats{display:flex;gap:8px;margin-top:10px;}
+.vip-stat{flex:1;background:rgba(255,255,255,0.1);border-radius:8px;padding:7px 4px;text-align:center;}
+.vip-stat-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--gold);}
+.vip-stat-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.55);text-transform:uppercase;margin-top:1px;}
+.vip-active-row{display:flex;align-items:center;justify-content:space-between;padding:10px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.vip-active-lbl{font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text);}
+.vip-active-val{font-family:'DM Sans',sans-serif;font-size:10px;color:#bbb;}
+.vip-active-val.blue{color:var(--blue);font-weight:500;}
+.vip-active-val.green{color:var(--green);font-weight:500;}
+
+/* NOTIFICATIONS INBOX */
+.notif-item{display:flex;align-items:flex-start;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.notif-item.unread{background:#f0f4ff;}
+.notif-dot{width:6px;height:6px;border-radius:50%;background:var(--blue);flex-shrink:0;margin-top:4px;}
+.notif-dot.empty{background:transparent;}
+.notif-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:14px;}
+.notif-text{flex:1;}
+.notif-title-txt{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--text);}
+.notif-body-txt{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;margin-top:1px;line-height:1.4;}
+.notif-time-txt{font-family:'DM Sans',sans-serif;font-size:8px;color:#ccc;margin-top:2px;}
+
+/* PEEP SUBMITTED */
+.submitted-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;background:var(--bg);}
+.sub-checkmark{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--green),#44cc88);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.sub-checkmark svg{width:26px;height:26px;fill:white;}
+.sub-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.sub-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:#bbb;line-height:1.55;margin-bottom:16px;}
+.sub-checking{background:rgba(10,82,212,0.08);border:1px solid rgba(10,82,212,0.15);border-radius:10px;padding:10px;margin-bottom:14px;width:100%;}
+.sub-checking-txt{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--blue);display:flex;align-items:center;gap:6px;}
+.sub-spinner{width:12px;height:12px;border-radius:50%;border:2px solid rgba(10,82,212,0.2);border-top-color:var(--blue);animation:spin .8s linear infinite;flex-shrink:0;}
+.sub-btn{background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:10px 24px;border-radius:10px;border:none;}
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>
+
+<div class="shell">
+
+<!-- ROW 1: User/Social flows -->
+<div class="row-label">User & Social flows</div>
+<div class="row">
+
+  <!-- Other User's Profile -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="uprofile-hero">
+        <div class="p5" style="position:absolute;inset:0;"></div>
+        <div class="uprofile-scrim"></div>
+        <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+        <div class="uprofile-info">
+          <div class="uprofile-av" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold));">RF</div>
+          <div style="flex:1;">
+            <div class="uprofile-name">Rick Flair</div>
+            <div class="uprofile-badge">⭐ Pioneer · 13 venues</div>
+          </div>
+          <button class="uprofile-follow-btn">+ Follow</button>
+        </div>
+      </div>
+      <div class="uprofile-stats">
+        <div class="upstat"><div class="upstat-val">78</div><div class="upstat-lbl">Peeps</div></div>
+        <div class="upstat"><div class="upstat-val">12,384</div><div class="upstat-lbl">Points</div></div>
+        <div class="upstat"><div class="upstat-val">342</div><div class="upstat-lbl">Followers</div></div>
+        <div class="upstat"><div class="upstat-val">28</div><div class="upstat-lbl">Following</div></div>
+      </div>
+      <div class="scroll">
+        <div style="padding:6px 8px 2px;font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;">Recent peeps</div>
+        <div class="uprofile-peep"><div class="p1" style="position:absolute;inset:0;"></div><div class="uprofile-peep-scrim"></div><div class="uprofile-peep-body"><div class="pc-text"><div class="pc-venue">Establishment Bar</div><div class="pc-meta">Busy · Laid Back · 3 hrs ago</div></div><div class="cpill bg-a"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Busy</span></div></div></div>
+        <div class="uprofile-peep"><div class="p3" style="position:absolute;inset:0;"></div><div class="uprofile-peep-scrim"></div><div class="uprofile-peep-body"><div class="pc-text"><div class="pc-venue">Fox Theater</div><div class="pc-meta">Very busy · Groovy · Yesterday</div></div><div class="cpill bg-r"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Very busy</span></div></div></div>
+        <div class="uprofile-peep"><div class="p7" style="position:absolute;inset:0;"></div><div class="uprofile-peep-scrim"></div><div class="uprofile-peep-body"><div class="pc-text"><div class="pc-venue">Piedmont Park</div><div class="pc-meta">Moderate · Chill · 2 days ago</div></div><div class="cpill bg-g"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Moderate</span></div></div></div>
+      </div>
+    </div>
+    <div class="screen-label">Other User's Profile</div>
+  </div>
+
+  <!-- Followers List -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Profile</div>
+        <div class="logo">Followers</div>
+        <div class="tagline">73 people follow you</div>
+      </div>
+      <div style="padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:5px 9px;display:flex;align-items:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg>
+          <span style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;">Search followers...</span>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold));">RF</div><div class="ul-info"><div class="ul-name">Rick Flair <span class="ul-badge">Pioneer ⭐</span></div><div class="ul-sub">12,384 pts · 13 venues</div></div><div class="ul-action following">Following</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#888,#aaa);">50</div><div class="ul-info"><div class="ul-name">50 Cent</div><div class="ul-sub">11,456 pts · Pioneer ⭐</div></div><div class="ul-action">Follow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#9a4488,#cc66bb);">M</div><div class="ul-info"><div class="ul-name">Madonna</div><div class="ul-sub">11,396 pts</div></div><div class="ul-action following">Following</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#2244aa,#4488dd);">LL</div><div class="ul-info"><div class="ul-name">Lucy Lui</div><div class="ul-sub">11,378 pts · Pioneer ⭐</div></div><div class="ul-action">Follow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#224422,#448844);">H</div><div class="ul-info"><div class="ul-name">Hulk</div><div class="ul-sub">11,325 pts</div></div><div class="ul-action">Follow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#884422,#cc6644);">MM</div><div class="ul-info"><div class="ul-name">Marky Mark</div><div class="ul-sub">11,312 pts · Pioneer ⭐</div></div><div class="ul-action following">Following</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,var(--red),#ff6644);">OP</div><div class="ul-info"><div class="ul-name">Oprah</div><div class="ul-sub">10,980 pts</div></div><div class="ul-action">Follow</div></div>
+      </div>
+    </div>
+    <div class="screen-label">Followers List</div>
+  </div>
+
+  <!-- Following List -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Profile</div>
+        <div class="logo">Following</div>
+        <div class="tagline">34 people you follow</div>
+      </div>
+      <div style="padding:6px 10px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;">
+        <div style="background:var(--white);border:1.5px solid var(--border);border-radius:8px;padding:5px 9px;display:flex;align-items:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg>
+          <span style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;">Search following...</span>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold));">RF</div><div class="ul-info"><div class="ul-name">Rick Flair <span class="ul-badge">Pioneer ⭐</span></div><div class="ul-sub">13 venues pioneered</div></div><div class="ul-action following">Unfollow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#9a4488,#cc66bb);">M</div><div class="ul-info"><div class="ul-name">Madonna</div><div class="ul-sub">11,396 pts</div></div><div class="ul-action following">Unfollow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#884422,#cc6644);">MM</div><div class="ul-info"><div class="ul-name">Marky Mark</div><div class="ul-sub">Pioneer ⭐ · 11,312 pts</div></div><div class="ul-action following">Unfollow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#2a8855,#44cc88);">PP</div><div class="ul-info"><div class="ul-name">Parker Posey</div><div class="ul-sub">9,820 pts</div></div><div class="ul-action following">Unfollow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,var(--blue),#5a9aff);">RJ</div><div class="ul-info"><div class="ul-name">Rick James</div><div class="ul-sub">8,440 pts</div></div><div class="ul-action following">Unfollow</div></div>
+        <div class="user-list-row"><div class="ul-av" style="background:linear-gradient(135deg,#c93232,#ff6644);">OP</div><div class="ul-info"><div class="ul-name">Oprah</div><div class="ul-sub">10,980 pts</div></div><div class="ul-action following">Unfollow</div></div>
+      </div>
+    </div>
+    <div class="screen-label">Following List</div>
+  </div>
+
+  <!-- My Peeps History -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Profile</div>
+        <div class="logo">My Peeps</div>
+        <div class="tagline">78 peeps posted</div>
+      </div>
+      <div class="scroll">
+        <div class="peep-history-item">
+          <div class="phi-top">
+            <div class="phi-venue-thumb"><div class="p6" style="position:absolute;inset:0;"></div></div>
+            <div class="phi-venue-name">Establishment Bar</div>
+            <div class="phi-time">Today, 6:42pm</div>
+          </div>
+          <div class="phi-pills"><div class="phi-pill bg-a">Busy</div><div class="phi-pill" style="background:#555;">Size 4</div><div class="phi-vibe">Rowdy</div></div>
+          <div class="phi-actions"><div class="phi-action">❤️ 12 likes</div><div class="phi-action">💬 3 comments</div><div class="phi-action">↗ Share</div></div>
+        </div>
+        <div class="peep-history-item">
+          <div class="phi-top">
+            <div class="phi-venue-thumb"><div class="p3" style="position:absolute;inset:0;"></div></div>
+            <div class="phi-venue-name">Fox Theater</div>
+            <div class="phi-time">Yesterday, 8:15pm</div>
+          </div>
+          <div class="phi-pills"><div class="phi-pill bg-r">Very busy</div><div class="phi-pill" style="background:#555;">Size 5</div><div class="phi-vibe">Groovy</div></div>
+          <div class="phi-actions"><div class="phi-action">❤️ 37 likes</div><div class="phi-action">💬 8 comments</div><div class="phi-action">↗ Share</div></div>
+        </div>
+        <div class="peep-history-item">
+          <div class="phi-top">
+            <div class="phi-venue-thumb"><div class="p1" style="position:absolute;inset:0;"></div></div>
+            <div class="phi-venue-name">Piedmont Park</div>
+            <div class="phi-time">Nov 9, 2:35pm</div>
+          </div>
+          <div class="phi-pills"><div class="phi-pill bg-g">Moderate</div><div class="phi-pill" style="background:#555;">Size 3</div><div class="phi-vibe">Laid Back</div></div>
+          <div class="phi-actions"><div class="phi-action">❤️ 21 likes</div><div class="phi-action">💬 4 comments</div><div class="phi-action">↗ Share</div></div>
+        </div>
+        <div class="peep-history-item">
+          <div class="phi-top">
+            <div class="phi-venue-thumb"><div class="p8" style="position:absolute;inset:0;"></div></div>
+            <div class="phi-venue-name">Waffle House</div>
+            <div class="phi-time">Nov 8, 12:23pm</div>
+          </div>
+          <div class="phi-pills"><div class="phi-pill bg-g">Moderate</div><div class="phi-pill" style="background:var(--blue);">Pioneer ⭐</div></div>
+          <div class="phi-actions"><div class="phi-action">❤️ 44 likes</div><div class="phi-action">💬 11 comments</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">My Peeps History</div>
+  </div>
+
+  <!-- Favorites List -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Profile</div>
+        <div class="logo">Favorites</div>
+        <div class="tagline">34 saved venues</div>
+      </div>
+      <div class="scroll">
+        <div style="padding:5px 8px 3px;font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;">Tap to get alerts when crowd spikes</div>
+        <div class="fav-item"><div class="p1" style="position:absolute;inset:0;"></div><div class="fav-scrim"></div><div class="fav-body"><div class="fav-text"><div class="fav-name">Piedmont Park</div><div class="fav-meta">Park · Atlanta</div><div class="fav-crowd">Last peep: Busy · 2 hrs ago</div></div><div class="fav-pill bg-a">Busy</div><div class="fav-heart">❤️</div></div></div>
+        <div class="fav-item"><div class="p6" style="position:absolute;inset:0;"></div><div class="fav-scrim"></div><div class="fav-body"><div class="fav-text"><div class="fav-name">Establishment Bar</div><div class="fav-meta">Bar · Atlanta</div><div class="fav-crowd">Last peep: Rowdy · 1 hr ago</div></div><div class="fav-pill bg-r">V. Busy</div><div class="fav-heart">❤️</div></div></div>
+        <div class="fav-item"><div class="p3" style="position:absolute;inset:0;"></div><div class="fav-scrim"></div><div class="fav-body"><div class="fav-text"><div class="fav-name">Fox Theater</div><div class="fav-meta">Entertainment · Atlanta</div><div class="fav-crowd">Last peep: Yesterday</div></div><div class="fav-pill" style="background:#555;">No data</div><div class="fav-heart">❤️</div></div></div>
+        <div class="fav-item"><div class="p7" style="position:absolute;inset:0;"></div><div class="fav-scrim"></div><div class="fav-body"><div class="fav-text"><div class="fav-name">Fado Irish Pub</div><div class="fav-meta">Bar · Atlanta</div><div class="fav-crowd">Last peep: Moderate · 3 hrs ago</div></div><div class="fav-pill bg-g">Moderate</div><div class="fav-heart">❤️</div></div></div>
+        <div class="fav-item"><div class="p8" style="position:absolute;inset:0;"></div><div class="fav-scrim"></div><div class="fav-body"><div class="fav-text"><div class="fav-name">Smoke Belly BBQ</div><div class="fav-meta">Restaurant · Atlanta</div><div class="fav-crowd">Last peep: Busy · 5 hrs ago</div></div><div class="fav-pill bg-a">Busy</div><div class="fav-heart">❤️</div></div></div>
+      </div>
+    </div>
+    <div class="screen-label">Favorites List</div>
+  </div>
+
+</div>
+
+<!-- ROW 2: Navigation & Search -->
+<div class="row-label">Navigation & Search</div>
+<div class="row">
+
+  <!-- Menu Screen -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="menu-container">
+        <div class="menu-user-card">
+          <div class="menu-av">HB</div>
+          <div>
+            <div class="menu-user-name">Huggy Bear</div>
+            <div class="menu-user-sub">Pioneer ⭐ · 675 pts · #8 on leaderboard</div>
+          </div>
+        </div>
+        <div class="menu-section-hdr">Discover</div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div><div class="menu-item-label">Main Peep Feed</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35" stroke="#0A52D4" stroke-width="2" fill="none"/></svg></div><div class="menu-item-label">Get Peeps</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div class="menu-item-label">Map</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg></div><div class="menu-item-label">Deals</div><div class="menu-item-badge">6 active</div></div>
+        <div class="menu-section-hdr">Social</div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg></div><div class="menu-item-label">Share</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><div class="menu-item-label">Invite Friends</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M12 20V10M18 20V4M6 20v-4"/></svg></div><div class="menu-item-label">Leaderboard</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div><div class="menu-item-label">Peepl Pioneers</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></div><div class="menu-item-label">Groups</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-section-hdr">Account</div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><div class="menu-item-label">Profile</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div><div class="menu-item-label">VIPeeps</div><div class="menu-item-chev">›</div></div>
+        <div class="menu-item"><div class="menu-item-ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M4.93 4.93l1.41 1.41M12 2v2M12 20v2M20 12h2M2 12h2"/></svg></div><div class="menu-item-label">Settings</div><div class="menu-item-chev">›</div></div>
+      </div>
+    </div>
+    <div class="screen-label">Menu / Nav</div>
+  </div>
+
+  <!-- Search Results -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 10px;">
+        <div class="hdr-row" style="margin-bottom:7px;"><div><div class="logo">Peepl</div></div><div style="font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.7);cursor:pointer;">Cancel</div></div>
+        <div class="search-active"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#0A52D4" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span>piedmont</span></div>
+      </div>
+      <div style="padding:5px 8px 3px;background:var(--bg);border-bottom:1px solid var(--border);font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;flex-shrink:0;">Venues</div>
+      <div class="scroll">
+        <div class="search-result"><div class="sr-ico"><div class="p1" style="position:absolute;inset:0;"></div></div><div class="sr-info"><div class="sr-name">Piedmont Park</div><div class="sr-meta">Park · Atlanta, GA · 0.4mi</div></div><div class="sr-pill bg-a">Busy</div></div>
+        <div class="search-result"><div class="sr-ico"><div class="p5" style="position:absolute;inset:0;"></div></div><div class="sr-info"><div class="sr-name">Piedmont Driving Club</div><div class="sr-meta">Private · Atlanta, GA · 0.9mi</div></div><div class="sr-pill" style="background:#888;">No data</div></div>
+        <div style="padding:5px 8px 3px;background:var(--bg);border-bottom:1px solid var(--border);font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;">Users</div>
+        <div class="search-result"><div class="sr-ico" style="border-radius:50%;"><div style="width:100%;height:100%;background:linear-gradient(135deg,#9a4488,#cc66bb);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;">PP</div></div><div class="sr-info"><div class="sr-name">Parker Posey</div><div class="sr-meta">Pioneer ⭐ · 9,820 pts</div></div><div style="font-family:'DM Sans',sans-serif;font-size:9px;color:var(--blue);">Follow</div></div>
+        <div style="padding:5px 8px 3px;background:var(--bg);border-bottom:1px solid var(--border);font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;">Recent searches</div>
+        <div class="search-result"><div class="sr-ico"><div class="p3" style="position:absolute;inset:0;"></div></div><div class="sr-info"><div class="sr-name">Fox Theater</div><div class="sr-meta">Entertainment · Atlanta, GA</div></div><div class="sr-pill bg-r">V. Busy</div></div>
+        <div class="search-result"><div class="sr-ico"><div class="p6" style="position:absolute;inset:0;"></div></div><div class="sr-info"><div class="sr-name">Establishment Bar</div><div class="sr-meta">Bar · Atlanta, GA</div></div><div class="sr-pill bg-a">Busy</div></div>
+      </div>
+    </div>
+    <div class="screen-label">Search Results</div>
+  </div>
+
+  <!-- Notifications Inbox -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Back</div>
+        <div class="logo">Notifications</div>
+        <div class="tagline">3 new</div>
+      </div>
+      <div class="scroll">
+        <div class="notif-item unread"><div class="notif-dot"></div><div class="notif-ico">⭐</div><div class="notif-text"><div class="notif-title-txt">Your Pioneer venue is buzzing</div><div class="notif-body-txt">3 people have peeped Waffle House since you pioneered it. It's Busy right now.</div><div class="notif-time-txt">Just now</div></div></div>
+        <div class="notif-item unread"><div class="notif-dot"></div><div class="notif-ico">🔥</div><div class="notif-text"><div class="notif-title-txt">Piedmont Park is getting crowded</div><div class="notif-body-txt">3 people just reported crowd level 4+ at your favorited venue. Busy right now.</div><div class="notif-time-txt">5 min ago</div></div></div>
+        <div class="notif-item unread"><div class="notif-dot"></div><div class="notif-ico">👤</div><div class="notif-text"><div class="notif-title-txt">Rick Flair just peeped</div><div class="notif-body-txt">Rick Flair reported a Very Busy crowd at Fox Theater. Check it out.</div><div class="notif-time-txt">18 min ago</div></div></div>
+        <div class="notif-item"><div class="notif-dot empty"></div><div class="notif-ico">❤️</div><div class="notif-text"><div class="notif-title-txt">Madonna liked your peep</div><div class="notif-body-txt">Piedmont Park · Moderate · Laid Back</div><div class="notif-time-txt">2 hrs ago</div></div></div>
+        <div class="notif-item"><div class="notif-dot empty"></div><div class="notif-ico">👤</div><div class="notif-text"><div class="notif-title-txt">Hulk started following you</div><div class="notif-body-txt">Hulk is now following your peeps.</div><div class="notif-time-txt">3 hrs ago</div></div></div>
+        <div class="notif-item"><div class="notif-dot empty"></div><div class="notif-ico">💰</div><div class="notif-text"><div class="notif-title-txt">New deal near you</div><div class="notif-body-txt">Moe's n Joe's: ½ price pitchers til 8pm. 0.3mi away.</div><div class="notif-time-txt">4 hrs ago</div></div></div>
+        <div class="notif-item"><div class="notif-dot empty"></div><div class="notif-ico">💬</div><div class="notif-text"><div class="notif-title-txt">Oprah commented on your peep</div><div class="notif-body-txt">"I'll show you how to blow." on Fox Theater peep.</div><div class="notif-time-txt">Yesterday</div></div></div>
+      </div>
+    </div>
+    <div class="screen-label">Notifications Inbox</div>
+  </div>
+
+</div>
+
+<!-- ROW 3: Peep creation variants -->
+<div class="row-label">Peep creation variants</div>
+<div class="row">
+
+  <!-- Peep with Photo Selected -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 10px;">
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-bottom:3px;">← Cancel</div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;">Establishment Bar</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.55);text-decoration:underline;">+ Change if location incorrect</div>
+      </div>
+      <div class="scroll" style="padding:10px;">
+        <div style="margin-bottom:10px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Crowd size</div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blue);width:24px;">4</div>
+            <div style="flex:1;height:3px;background:linear-gradient(to right,var(--blue) 80%,#e0ddd7 80%);border-radius:2px;position:relative;"><div style="position:absolute;top:50%;left:80%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:var(--blue);box-shadow:0 1px 4px rgba(10,82,212,0.4);"></div></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;margin-top:3px;"><span style="font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;">Empty</span><span style="font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;">100%</span></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Photo</div>
+          <div class="peep-photo-preview">
+            <div class="p6" style="position:absolute;inset:0;filter:brightness(1.2);"></div>
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center;"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.6)" stroke-width="1.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></div>
+            <div class="peep-photo-remove">✕</div>
+          </div>
+          <div class="peep-photo-caption">Tap × to remove · Tap photo to preview</div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Vibe (optional)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;"><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--blue);background:var(--blue);color:#fff;">Rowdy</div><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--border);background:#fff;color:#666;">Laid Back</div><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--border);background:#fff;color:#666;">Dancing</div><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--border);background:#fff;color:#666;">Casual</div></div>
+        </div>
+        <div style="margin-bottom:10px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;">Notes (optional)</div>
+          <textarea style="width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:10px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text);resize:none;height:52px;outline:none;" placeholder="Share what you see...">Packed wall to wall. DJ is 🔥</textarea>
+        </div>
+        <button style="width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;">Send Peep!</button>
+      </div>
+    </div>
+    <div class="screen-label">Peep — With Photo</div>
+  </div>
+
+  <!-- Age Range Selector -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 10px;">
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-bottom:3px;">← Cancel</div>
+        <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;">Establishment Bar</div>
+      </div>
+      <div class="scroll" style="padding:10px;">
+        <div style="margin-bottom:12px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Crowd size</div>
+          <div style="display:flex;align-items:center;gap:8px;"><div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blue);width:24px;">4</div><div style="flex:1;height:3px;background:linear-gradient(to right,var(--blue) 75%,#e0ddd7 75%);border-radius:2px;"></div></div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Age range (optional)</div>
+          <div class="age-grid">
+            <div class="age-tag">0–10</div>
+            <div class="age-tag">10–14</div>
+            <div class="age-tag">14–18</div>
+            <div class="age-tag sel">19–24</div>
+            <div class="age-tag sel">25–30</div>
+            <div class="age-tag sel">31–40</div>
+            <div class="age-tag">41–50</div>
+            <div class="age-tag">51–60</div>
+            <div class="age-tag">61–70</div>
+            <div class="age-tag">71–80</div>
+            <div class="age-tag">80+</div>
+          </div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;margin-top:4px;">Select all that apply</div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Vibe (optional)</div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;"><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--blue);background:var(--blue);color:#fff;">Rowdy</div><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--border);background:#fff;color:#666;">Dancing</div><div style="padding:4px 8px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid var(--border);background:#fff;color:#666;">Casual</div></div>
+        </div>
+        <button style="width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;">Send Peep!</button>
+      </div>
+    </div>
+    <div class="screen-label">Peep — Age Range</div>
+  </div>
+
+  <!-- Peep Submitted -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 8px;"><div class="logo">Peepl</div></div>
+      <div class="submitted-screen">
+        <div class="sub-checkmark"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></div>
+        <div class="sub-title">Peep sent!</div>
+        <div class="sub-sub">Your crowd report for Establishment Bar is live. Checking if you're the Pioneer...</div>
+        <div class="sub-checking">
+          <div class="sub-checking-txt">
+            <div class="sub-spinner"></div>
+            Checking Pioneer status for this venue...
+          </div>
+        </div>
+        <button class="sub-btn">Back to Feed</button>
+      </div>
+    </div>
+    <div class="screen-label">Peep Submitted</div>
+  </div>
+
+  <!-- Deal Claimed -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="deal-claimed-screen">
+        <div class="dc-hero">
+          <div class="p6" style="position:absolute;inset:0;"></div>
+          <div class="dc-scrim"></div>
+          <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+          <div class="dc-content">
+            <div class="dc-merchant">Moe's n Joe's</div>
+            <div class="dc-offer-txt">½ price pitchers til 8pm tonight</div>
+          </div>
+        </div>
+        <div class="dc-body">
+          <div class="dc-stamp">
+            <div class="dc-stamp-txt">DEAL<br>CLAIMED<br>✓</div>
+          </div>
+          <div class="dc-claimed-title">Deal claimed!</div>
+          <div class="dc-claimed-sub">Show this screen to your server or bartender to redeem your deal.</div>
+          <button class="dc-show-staff">Show staff this screen</button>
+          <div class="dc-expires">Deal expires at <span class="dc-countdown">7:47 PM</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Deal Claimed</div>
+  </div>
+
+</div>
+
+<!-- ROW 4: Merchant Setup & VIPeeps Active -->
+<div class="row-label">Merchant Setup & VIPeeps Active</div>
+<div class="row">
+
+  <!-- Merchant Account Setup Step 1 -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 10px;">
+        <div class="back-sm">← Sign In</div>
+        <div class="logo">Merchant Setup</div>
+        <div class="tagline">Step 1 of 3 — Business info</div>
+      </div>
+      <div style="flex-shrink:0;"><div class="setup-progress"><div class="setup-progress-fill" style="width:33%;"></div></div></div>
+      <div class="setup-body">
+        <div class="setup-step-label">Tell us about your business</div>
+        <div class="setup-field"><div class="setup-field-label">Business name</div><input class="setup-input focus" placeholder="Moe's n Joe's" value="Moe's n Joe's"/></div>
+        <div class="setup-field"><div class="setup-field-label">Business address</div><input class="setup-input" placeholder="1033 N Highland Ave NE"/></div>
+        <div class="setup-field"><div class="setup-field-label">City</div><input class="setup-input" placeholder="Atlanta"/></div>
+        <div class="setup-field"><div class="setup-field-label">Category</div>
+          <div class="setup-cat-grid">
+            <div class="setup-cat sel">Bar / Pub</div>
+            <div class="setup-cat">Restaurant</div>
+            <div class="setup-cat">Coffee</div>
+            <div class="setup-cat">Retail</div>
+            <div class="setup-cat">Services</div>
+            <div class="setup-cat">Entertainment</div>
+            <div class="setup-cat">Other</div>
+          </div>
+        </div>
+        <button class="setup-next">Next →</button>
+      </div>
+    </div>
+    <div class="screen-label">Merchant Setup Step 1</div>
+  </div>
+
+  <!-- Merchant Account Setup Step 2 -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 10px;">
+        <div class="back-sm">← Back</div>
+        <div class="logo">Merchant Setup</div>
+        <div class="tagline">Step 2 of 3 — Contact & billing</div>
+      </div>
+      <div style="flex-shrink:0;"><div class="setup-progress"><div class="setup-progress-fill" style="width:66%;"></div></div></div>
+      <div class="setup-body">
+        <div class="setup-step-label">Contact and billing info</div>
+        <div class="setup-field"><div class="setup-field-label">Contact name</div><input class="setup-input" placeholder="Joe Smith"/></div>
+        <div class="setup-field"><div class="setup-field-label">Email</div><input class="setup-input focus" placeholder="joe@moesjoes.com"/></div>
+        <div class="setup-field"><div class="setup-field-label">Phone</div><input class="setup-input" placeholder="(404) 555-0100"/></div>
+        <div class="setup-field"><div class="setup-field-label">Payment method</div>
+          <div style="background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:10px;display:flex;align-items:center;gap:8px;">
+            <svg width="20" height="14" viewBox="0 0 32 22" fill="none"><rect width="32" height="22" rx="3" fill="#1A1F71"/><rect y="7" width="32" height="7" fill="#F7B600"/></svg>
+            <span style="font-family:'DM Sans',sans-serif;font-size:10px;color:#bbb;">Add credit or debit card</span>
+          </div>
+        </div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;line-height:1.4;margin-top:4px;">You're only charged for active ad time. No minimums or commitments.</div>
+        <button class="setup-next">Next →</button>
+      </div>
+    </div>
+    <div class="screen-label">Merchant Setup Step 2</div>
+  </div>
+
+  <!-- Merchant Account Number Issued -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="acct-num-screen">
+        <div class="an-icon">🎉</div>
+        <div class="an-title">You're live on Peepl!</div>
+        <div class="an-sub">Your merchant account is active. Save your merchant number — you'll need it to sign in to the portal.</div>
+        <div class="an-number-box">
+          <div class="an-number-label">Your merchant number</div>
+          <div class="an-number">#7547698</div>
+        </div>
+        <button class="an-btn">Go to Merchant Portal →</button>
+        <div class="an-save">Save to notes app</div>
+      </div>
+    </div>
+    <div class="screen-label">Merchant Acct # Issued</div>
+  </div>
+
+  <!-- VIPeeps Active / Subscribed State -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="vip-active-hero">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+          <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);cursor:pointer;">← Settings</div>
+        </div>
+        <div class="vip-active-badge">👑 VIPeeps Active</div>
+        <div class="vip-active-name">Huggy Bear</div>
+        <div class="vip-active-since">Member since March 2025</div>
+        <div class="vip-active-stats">
+          <div class="vip-stat"><div class="vip-stat-val">0</div><div class="vip-stat-lbl">Ads seen</div></div>
+          <div class="vip-stat"><div class="vip-stat-val">48</div><div class="vip-stat-lbl">Deal alerts</div></div>
+          <div class="vip-stat"><div class="vip-stat-val">12</div><div class="vip-stat-lbl">Crowd graphs</div></div>
+        </div>
+      </div>
+      <div class="scroll">
+        <div class="vip-active-row"><div class="vip-active-lbl">Plan</div><div class="vip-active-val blue">VIPeeps · $4.99/mo</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Next billing</div><div class="vip-active-val">April 19, 2025</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Payment</div><div class="vip-active-val">Visa ····4521</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Ads</div><div class="vip-active-val green">Hidden ✓</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Crowd history</div><div class="vip-active-val green">Enabled ✓</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Advanced filters</div><div class="vip-active-val green">Enabled ✓</div></div>
+        <div class="vip-active-row"><div class="vip-active-lbl">Deal alerts</div><div class="vip-active-val green">Enabled ✓</div></div>
+        <div style="padding:12px 10px;background:var(--white);border-bottom:1px solid var(--border2);">
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:#C93232;text-decoration:underline;cursor:pointer;">Cancel subscription</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">VIPeeps Active State</div>
+  </div>
+
+</div>
+
+</div>

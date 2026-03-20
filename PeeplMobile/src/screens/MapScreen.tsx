@@ -14,6 +14,7 @@ import { RootStackParamList } from '../types/Navigation';
 import { locationService } from '../services/LocationService';
 import { Venue } from '../types/Venue';
 import { User } from '../types/User';
+import { ApiService } from '../services/ApiService';
 
 interface MapScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Map'>;
@@ -65,46 +66,11 @@ export default function MapScreen({ navigation, user }: MapScreenProps) {
 
   const loadNearbyVenues = async (latitude: number, longitude: number) => {
     try {
-      // This would call your backend API
-      // const response = await venueService.getNearbyVenues(latitude, longitude);
-      // setVenues(response.data);
-      
-      // Mock data for now
-      const mockVenues: Venue[] = [
-        {
-          id: '1',
-          name: 'Coffee Corner',
-          address: '123 Main St',
-          latitude: latitude + 0.001,
-          longitude: longitude + 0.001,
-          category: 'Coffee',
-          peepCount: 15,
-          averageRating: 4.5,
-          totalRatings: 20,
-          createdBy: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-        {
-          id: '2',
-          name: 'Pizza Palace',
-          address: '456 Oak Ave',
-          latitude: latitude - 0.002,
-          longitude: longitude + 0.003,
-          category: 'Restaurant',
-          peepCount: 8,
-          averageRating: 4.2,
-          totalRatings: 12,
-          createdBy: 'user2',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-      ];
-      setVenues(mockVenues);
+      const response: any = await ApiService.getNearbyVenues(latitude, longitude, 5);
+      setVenues(response.venues || []);
     } catch (error) {
       console.error('Error loading venues:', error);
+      Alert.alert('Error', 'Failed to load nearby venues.');
     }
   };
 

@@ -14,6 +14,7 @@ import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { Peep } from '../types/Peep';
+import { ApiService } from '../services/ApiService';
 
 interface VenueScreenProps {
   route: RouteProp<RootStackParamList, 'Venue'>;
@@ -31,66 +32,11 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
 
   const loadVenuePeeps = async () => {
     try {
-      // This would call your backend API
-      // const response = await peepService.getVenuePeeps(venue.id);
-      // setPeeps(response.data);
-      
-      // Mock data for now
-      const mockPeeps: Peep[] = [
-        {
-          id: '1',
-          venueId: venue.id,
-          userId: 'user1',
-          description: 'Great coffee and friendly staff!',
-          rating: 5,
-          latitude: venue.latitude,
-          longitude: venue.longitude,
-          imageUrl: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-          likeCount: 8,
-          commentCount: 2,
-          user: {
-            username: 'coffeelover',
-            firstName: 'John',
-            lastName: 'Doe',
-            profileImageUrl: null,
-          },
-          venue: {
-            name: venue.name,
-            address: venue.address,
-          },
-        },
-        {
-          id: '2',
-          venueId: venue.id,
-          userId: 'user2',
-          description: 'Perfect atmosphere for working remotely',
-          rating: 4,
-          latitude: venue.latitude,
-          longitude: venue.longitude,
-          imageUrl: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-          likeCount: 5,
-          commentCount: 1,
-          user: {
-            username: 'remoteworker',
-            firstName: 'Jane',
-            lastName: 'Smith',
-            profileImageUrl: null,
-          },
-          venue: {
-            name: venue.name,
-            address: venue.address,
-          },
-        },
-      ];
-      setPeeps(mockPeeps);
+      const response: any = await ApiService.getVenuePeeps(venue.id);
+      setPeeps(response || []);
     } catch (error) {
       console.error('Error loading venue peeps:', error);
+      Alert.alert('Error', 'Failed to load peeps. Please try again.');
     } finally {
       setIsLoading(false);
     }

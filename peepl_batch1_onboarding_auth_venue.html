@@ -1,0 +1,724 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,400&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--blue:#0A52D4;--gold:#F5C842;--gold-dark:#c9a020;--green:#2E9D5A;--amber:#D4890A;--red:#C93232;--bg:#f5f4f0;--white:#fff;--border:#e8e5de;--border2:#f0ede8;--text:#1a1a1a;--text2:#555;--text3:#999;}
+
+.shell{background:#ccc;padding:20px;min-height:100vh;}
+.row-label{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:#888;letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px;margin-top:4px;}
+.row{display:flex;gap:14px;overflow-x:auto;padding-bottom:12px;margin-bottom:24px;}
+.col{display:flex;flex-direction:column;align-items:center;gap:6px;flex-shrink:0;}
+.screen-label{font-family:'DM Sans',sans-serif;font-size:10px;color:#777;text-align:center;font-weight:500;letter-spacing:.03em;}
+
+.phone{width:195px;background:var(--bg);border-radius:26px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 0 0 1px rgba(0,0,0,0.1);display:flex;flex-direction:column;height:390px;}
+
+/* STATUS */
+.sb{padding:8px 14px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.sb.blue{background:var(--blue);}
+.sb.dark{background:transparent;position:absolute;top:0;left:0;right:0;z-index:10;}
+.sbt{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#fff;}
+.sbi{display:flex;gap:3px;align-items:center;}
+.sig{width:13px;height:9px;viewBox:0 0 16 11;}
+
+/* COMMON HEADER */
+.hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
+.tagline{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.05em;}
+.hdr-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.post-btn-sm{background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.28);color:#fff;font-family:'DM Sans',sans-serif;font-size:9px;padding:4px 9px;border-radius:12px;}
+.search-sm{background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.18);border-radius:7px;padding:5px 8px;display:flex;align-items:center;gap:5px;}
+.search-sm span{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.45);}
+.back-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.7);margin-bottom:4px;cursor:pointer;display:flex;align-items:center;gap:3px;}
+
+/* PHOTO BGs */
+.p1{background:linear-gradient(130deg,#2d6e24,#5aaa48,#8ecf7a);}
+.p2{background:linear-gradient(170deg,#e8903a,#d4682a,#3a6090);}
+.p3{background:linear-gradient(150deg,#0e0e1e,#1a1a3a,#b89030,#e8c048);}
+.p4{background:linear-gradient(140deg,#1a3050,#2460a0,#4a8ad0);}
+.p5{background:linear-gradient(140deg,#6a2050,#b04888,#d888b8);}
+.p6{background:linear-gradient(140deg,#1a0a00,#5a2800,#c06020);}
+.p7{background:linear-gradient(140deg,#0a2a1a,#1a6a3a,#3aaa6a);}
+.p8{background:linear-gradient(140deg,#2a0050,#6a10a0,#aa50e0);}
+.p9{background:linear-gradient(160deg,#0A52D4,#05286e);}
+.p10{background:linear-gradient(140deg,#1a1a1a,#3a3a3a,#5a5a5a);}
+
+/* CARDS / FEED */
+.pc{position:relative;height:50px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.06);overflow:hidden;}
+.pc-bg{position:absolute;inset:0;}
+.pc-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.4) 60%,rgba(0,0,0,0.15) 100%);}
+.pc-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.pc-text{flex:1;min-width:0;}
+.pc-venue{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-meta{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.55);margin-top:1px;}
+.pc-rep{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.55);margin-top:1px;}
+.cpill{flex-shrink:0;padding:3px 6px;border-radius:5px;text-align:center;}
+.cpill-lbl{font-family:'DM Sans',sans-serif;font-size:7px;display:block;color:rgba(255,255,255,0.8);text-transform:uppercase;}
+.cpill-val{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;display:block;color:#fff;}
+.bg-g{background:var(--green);}.bg-a{background:var(--amber);}.bg-r{background:var(--red);}
+
+/* TABS */
+.tabs{flex-shrink:0;background:var(--white);border-top:1px solid var(--border);display:flex;padding:5px 0 10px;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.tab svg{width:13px;height:13px;}
+.tab-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#ccc;}
+.tab.on .tab-lbl{color:var(--blue);}
+
+/* SPLASH */
+.splash{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+.splash-crowd{position:absolute;inset:0;background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><circle cx="30" cy="120" r="12" fill="%23ffffff10"/><circle cx="60" cy="110" r="10" fill="%23ffffff08"/><circle cx="90" cy="125" r="14" fill="%23ffffff0a"/><circle cx="120" cy="115" r="11" fill="%23ffffff09"/><circle cx="150" cy="120" r="13" fill="%23ffffff08"/><circle cx="170" cy="112" r="10" fill="%23ffffff0a"/><circle cx="40" cy="140" r="15" fill="%23ffffff06"/><circle cx="80" cy="145" r="13" fill="%23ffffff07"/><circle cx="130" cy="138" r="16" fill="%23ffffff05"/><circle cx="160" cy="143" r="12" fill="%23ffffff08"/></svg>') center/cover;}
+.splash-overlay{position:absolute;inset:0;background:linear-gradient(160deg,rgba(10,82,212,0.92),rgba(5,40,110,0.97));}
+.splash-content{position:relative;z-index:2;display:flex;flex-direction:column;align-items:center;padding:20px;}
+.splash-logo{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;color:#fff;letter-spacing:-2px;margin-bottom:4px;}
+.splash-tag{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.65);font-style:italic;margin-bottom:28px;}
+.splash-dots{display:flex;gap:6px;margin-bottom:20px;}
+.dot-active{width:20px;height:5px;border-radius:3px;background:#fff;}
+.dot-inactive{width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,0.35);}
+.splash-desc{font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.75);text-align:center;line-height:1.55;margin-bottom:20px;}
+.splash-cta{width:100%;background:#fff;color:var(--blue);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;margin-bottom:8px;}
+.splash-skip{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.5);text-align:center;}
+
+/* SIGN UP */
+.form-section{flex:1;overflow-y:auto;scrollbar-width:none;padding:10px 12px;}
+.form-group{margin-bottom:10px;}
+.form-label{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px;}
+.form-input{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px 10px;font-family:'DM Sans',sans-serif;font-size:11px;color:var(--text);outline:none;}
+.form-input.focus{border-color:var(--blue);background:#fff;}
+.form-divider{text-align:center;font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;margin:10px 0;}
+.social-btn{width:100%;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:8px;font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text);display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px;}
+.primary-btn{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;margin-top:4px;}
+.terms-txt{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-align:center;margin-top:8px;line-height:1.4;}
+.terms-txt span{color:var(--blue);}
+
+/* SIGN UP CONFIRMED */
+.confirmed-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;background:linear-gradient(160deg,#0A52D4,#05286e);text-align:center;}
+.conf-icon{font-size:40px;margin-bottom:8px;}
+.conf-title{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;margin-bottom:4px;}
+.conf-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--gold);margin-bottom:10px;}
+.conf-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.65);line-height:1.55;margin-bottom:18px;}
+.conf-steps{width:100%;background:rgba(255,255,255,0.1);border-radius:10px;padding:10px;margin-bottom:16px;}
+.conf-step{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.08);}
+.conf-step:last-child{border-bottom:none;}
+.conf-step-ico{width:20px;height:20px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center;font-size:10px;flex-shrink:0;}
+.conf-step-txt{font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.8);}
+.conf-btn{width:100%;background:#fff;color:var(--blue);font-family:'Syne',sans-serif;font-size:12px;font-weight:800;padding:10px;border-radius:10px;border:none;}
+
+/* PERMISSION SCREENS */
+.perm-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;text-align:center;}
+.perm-icon{width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,var(--blue),#5a9aff);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;}
+.perm-icon svg{width:28px;height:28px;fill:white;}
+.perm-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--text);margin-bottom:6px;}
+.perm-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text2);line-height:1.55;margin-bottom:20px;}
+.perm-allow{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;padding:10px;border-radius:10px;border:none;margin-bottom:8px;}
+.perm-skip{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;text-decoration:underline;}
+.perm-preview{background:var(--bg);border-radius:10px;padding:10px;margin-bottom:16px;width:100%;text-align:left;}
+.perm-preview-item{display:flex;align-items:center;gap:7px;margin-bottom:6px;}
+.perm-preview-item:last-child{margin-bottom:0;}
+.perm-preview-dot{width:6px;height:6px;border-radius:50%;background:var(--green);flex-shrink:0;}
+.perm-preview-txt{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--text2);}
+
+/* VENUE PAGE */
+.venue-hero{position:relative;height:100px;flex-shrink:0;overflow:hidden;}
+.venue-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0) 40%,rgba(0,0,0,0.85) 100%);}
+.venue-content{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;}
+.venue-name{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#fff;margin-bottom:3px;}
+.venue-addr{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.65);}
+.venue-stats-row{display:flex;gap:8px;margin-top:4px;}
+.venue-stat{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.75);}
+.venue-stat span{color:var(--gold);font-weight:600;}
+
+.venue-crowd-bar{background:var(--white);border-bottom:1px solid var(--border);padding:8px 10px;flex-shrink:0;}
+.vcb-title{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.vcb-row{display:flex;gap:6px;}
+.vcb-box{flex:1;background:var(--bg);border-radius:7px;padding:5px 4px;text-align:center;}
+.vcb-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--text);}
+.vcb-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;margin-top:1px;}
+.vcb-vibe{flex:1.5;background:var(--bg);border-radius:7px;padding:5px 6px;display:flex;flex-direction:column;justify-content:center;}
+.vcb-vibe-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;}
+.vcb-vibe-val{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--blue);}
+
+/* Sparkline */
+.sparkline{background:var(--white);border-bottom:1px solid var(--border);padding:7px 10px;flex-shrink:0;}
+.spark-title{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;}
+.spark-bars{display:flex;align-items:flex-end;gap:2px;height:24px;}
+.sbar{flex:1;border-radius:2px 2px 0 0;}
+
+.venue-feed{flex:1;overflow-y:auto;scrollbar-width:none;}
+.venue-peep{border-bottom:1px solid var(--border2);padding:8px 10px;}
+.vp-top{display:flex;align-items:center;gap:6px;margin-bottom:5px;}
+.vp-av{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#5a9aff);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.vp-av svg{width:10px;height:10px;fill:white;}
+.vp-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--text);flex:1;}
+.vp-time{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.vp-crowd-row{display:flex;align-items:center;gap:5px;margin-bottom:4px;}
+.vp-pill{padding:2px 7px;border-radius:4px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;color:#fff;}
+.vp-size{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.vp-vibe-tag{background:#eef3ff;color:var(--blue);font-family:'DM Sans',sans-serif;font-size:8px;padding:1px 6px;border-radius:8px;}
+.vp-note{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text2);line-height:1.4;margin-bottom:5px;}
+.vp-actions{display:flex;gap:10px;}
+.vp-action{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;display:flex;align-items:center;gap:3px;}
+.vp-action svg{width:10px;height:10px;fill:#bbb;}
+
+/* Native deal in venue feed */
+.venue-deal{position:relative;height:54px;border-bottom:1px solid rgba(0,0,0,0.06);overflow:hidden;flex-shrink:0;}
+.vd-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.85),rgba(0,0,0,0.5),rgba(0,0,0,0.2));}
+.vd-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.vd-text{flex:1;min-width:0;}
+.vd-badge{display:inline-block;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-bottom:2px;}
+.vd-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.vd-offer{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.88);}
+.vd-cta{flex-shrink:0;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:700;padding:5px 8px;border-radius:5px;border:none;}
+
+/* NO PEEPS YET */
+.no-peeps{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;}
+.np-icon{font-size:36px;margin-bottom:10px;opacity:0.4;}
+.np-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:#bbb;margin-bottom:6px;}
+.np-sub{font-family:'DM Sans',sans-serif;font-size:10px;color:#ccc;line-height:1.55;margin-bottom:16px;}
+.np-btn{background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:9px 20px;border-radius:10px;border:none;}
+
+/* INDIVIDUAL PEEP PAGE */
+.peep-page-hero{position:relative;height:120px;flex-shrink:0;overflow:hidden;}
+.pph-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.2),rgba(0,0,0,0.7));}
+.pph-content{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;}
+.pph-venue{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;margin-bottom:3px;}
+.pph-crowd{display:flex;align-items:center;gap:6px;}
+.pph-pill{padding:3px 8px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;color:#fff;}
+.pph-time{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);}
+
+.peep-page-body{flex:1;overflow-y:auto;scrollbar-width:none;padding:10px;}
+.pp-reporter{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border2);}
+.pp-av{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#5a9aff);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.pp-av svg{width:13px;height:13px;fill:white;}
+.pp-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);}
+.pp-when{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.pp-pioneer{display:inline-block;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;padding:1px 5px;border-radius:6px;margin-left:5px;}
+
+.pp-crowd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px;}
+.pp-cbox{background:var(--bg);border-radius:7px;padding:7px 4px;text-align:center;}
+.pp-cbox-val{font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--text);}
+.pp-cbox-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;margin-top:1px;}
+.pp-vibe{background:var(--bg);border-radius:7px;padding:7px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.pp-vibe-lbl{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;}
+.pp-vibe-val{font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--blue);}
+.pp-note{font-family:'DM Sans',sans-serif;font-size:10px;color:var(--text2);line-height:1.5;background:var(--bg);border-radius:8px;padding:9px;margin-bottom:10px;}
+.pp-actions-row{display:flex;gap:6px;margin-bottom:10px;}
+.pp-action-btn{flex:1;padding:8px;border-radius:9px;font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;border:none;display:flex;align-items:center;justify-content:center;gap:4px;}
+.pp-action-btn.like{background:#fff0f0;color:#C93232;}
+.pp-action-btn.comment{background:var(--bg);color:#555;}
+.pp-action-btn.share{background:#eef3ff;color:var(--blue);}
+.pp-likes-row{display:flex;align-items:center;gap:5px;margin-bottom:8px;}
+.pp-like-av{width:18px;height:18px;border-radius:50%;border:1.5px solid #fff;margin-left:-5px;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:7px;font-weight:700;color:#fff;}
+.pp-likes-txt{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;margin-left:4px;}
+.pp-comment{display:flex;align-items:flex-start;gap:6px;margin-bottom:6px;}
+.pp-com-av{width:20px;height:20px;border-radius:50%;background:linear-gradient(135deg,#888,#aaa);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;}
+.pp-com-bubble{background:var(--bg);border-radius:8px;padding:6px 8px;flex:1;}
+.pp-com-name{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:var(--text);}
+.pp-com-txt{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--text2);margin-top:1px;}
+
+/* LIKERS PAGE */
+.likers-hdr{flex-shrink:0;background:var(--blue);padding:5px 10px 10px;}
+.likers-title{font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:#fff;}
+.likers-venue{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.liker-row{display:flex;align-items:center;gap:8px;padding:9px 10px;border-bottom:1px solid var(--border2);background:var(--white);}
+.liker-av{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.liker-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--text);flex:1;}
+.liker-badge{font-family:'DM Sans',sans-serif;font-size:8px;color:var(--gold-dark);background:#fff9e6;border:1px solid var(--gold);padding:2px 6px;border-radius:8px;}
+.liker-follow{font-family:'DM Sans',sans-serif;font-size:9px;color:var(--blue);font-weight:500;}
+
+/* MAP */
+.map-container{flex:1;position:relative;overflow:hidden;background:linear-gradient(135deg,#e8e4d8,#ddd9cc);}
+.map-grid{position:absolute;inset:0;opacity:0.4;}
+.map-road-h{position:absolute;background:#fff;height:1px;left:0;right:0;}
+.map-road-v{position:absolute;background:#fff;width:1px;top:0;bottom:0;}
+.map-road-hw{position:absolute;background:rgba(255,200,100,0.5);height:3px;left:0;right:0;}
+.heat-zone{position:absolute;border-radius:50%;opacity:0.35;}
+.map-pin{position:absolute;transform:translate(-50%,-100%);display:flex;flex-direction:column;align-items:center;}
+.map-pin-bubble{padding:3px 7px;border-radius:10px;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:#fff;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);}
+.map-pin-tail{width:0;height:0;border-left:4px solid transparent;border-right:4px solid transparent;}
+.map-pin-tail.g{border-top:5px solid var(--green);}
+.map-pin-tail.a{border-top:5px solid var(--amber);}
+.map-pin-tail.r{border-top:5px solid var(--red);}
+.map-user-dot{position:absolute;width:12px;height:12px;border-radius:50%;background:var(--blue);border:2px solid #fff;box-shadow:0 0 0 4px rgba(10,82,212,0.2);}
+.map-toolbar{position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,0.95);border-top:1px solid var(--border);padding:8px 10px;backdrop-filter:blur(8px);}
+.map-filter-row{display:flex;gap:5px;margin-bottom:6px;}
+.map-chip{padding:4px 9px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;border:1px solid var(--border);background:#fff;color:#666;}
+.map-chip.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+.map-legend{display:flex;gap:10px;}
+.map-leg-item{display:flex;align-items:center;gap:3px;font-family:'DM Sans',sans-serif;font-size:8px;color:#888;}
+.map-leg-dot{width:8px;height:8px;border-radius:50%;}
+</style>
+
+<div class="shell">
+
+<!-- ROW 1: Onboarding -->
+<div class="row-label">Onboarding</div>
+<div class="row">
+
+  <!-- Splash / Loading -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div style="flex:1;position:relative;overflow:hidden;">
+        <div class="splash-overlay"></div>
+        <div class="splash-content">
+          <div style="font-family:'Syne',sans-serif;font-size:44px;font-weight:800;color:#fff;letter-spacing:-2px;margin-bottom:5px;">peepl</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:11px;color:rgba(255,255,255,0.65);font-style:italic;margin-bottom:32px;">know before you go.</div>
+          <div style="width:32px;height:32px;border-radius:50%;border:3px solid rgba(255,255,255,0.2);border-top-color:#fff;animation:spin 0.8s linear infinite;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Splash / Loading</div>
+  </div>
+
+  <!-- Onboarding 1 -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="splash-overlay"></div>
+        <div style="position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;">
+          <div style="font-size:40px;margin-bottom:10px;">👀</div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;line-height:1.2;">Know before<br>you go.</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.7);text-align:center;line-height:1.6;margin-bottom:20px;">Real people reporting crowd levels, vibes, and deals — right now, near you.</div>
+          <div class="splash-dots"><div class="dot-active"></div><div class="dot-inactive"></div><div class="dot-inactive"></div></div>
+          <button class="splash-cta">Next</button>
+          <div class="splash-skip">Skip intro</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Onboarding 1</div>
+  </div>
+
+  <!-- Onboarding 2 -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="splash-overlay"></div>
+        <div style="position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;">
+          <div style="font-size:40px;margin-bottom:10px;">📍</div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;line-height:1.2;">Peep anywhere.<br>Anytime.</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.7);text-align:center;line-height:1.6;margin-bottom:20px;">Walk into a venue and share what you see — crowd size, vibe, M/F ratio. It takes 10 seconds.</div>
+          <div class="splash-dots"><div class="dot-inactive"></div><div class="dot-active"></div><div class="dot-inactive"></div></div>
+          <button class="splash-cta">Next</button>
+          <div class="splash-skip">Skip intro</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Onboarding 2</div>
+  </div>
+
+  <!-- Onboarding 3 -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div style="flex:1;position:relative;overflow:hidden;display:flex;flex-direction:column;">
+        <div class="splash-overlay"></div>
+        <div style="position:relative;z-index:2;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;">
+          <div style="font-size:40px;margin-bottom:10px;">⭐</div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#fff;text-align:center;margin-bottom:8px;line-height:1.2;">Earn Pioneer<br>status.</div>
+          <div style="font-family:'DM Sans',sans-serif;font-size:10px;color:rgba(255,255,255,0.7);text-align:center;line-height:1.6;margin-bottom:20px;">Be the first to Peep a venue and earn Pioneer status. Climb the leaderboard. Score exclusive deals.</div>
+          <div class="splash-dots"><div class="dot-inactive"></div><div class="dot-inactive"></div><div class="dot-active"></div></div>
+          <button class="splash-cta" style="background:var(--gold);color:#1a1000;">Join Peepl — It's Free</button>
+          <div class="splash-skip" style="margin-top:8px;">Sign in instead</div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Onboarding 3</div>
+  </div>
+
+</div>
+
+<!-- ROW 2: Auth -->
+<div class="row-label">Authentication</div>
+<div class="row">
+
+  <!-- Sign In -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div style="flex:1;background:linear-gradient(160deg,#0A52D4,#05286e);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;">
+        <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:4px;">peepl</div>
+        <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.6);font-style:italic;margin-bottom:20px;">know before you go.</div>
+        <div class="form-group" style="width:100%;"><div class="form-label" style="color:rgba(255,255,255,0.5);">Email or username</div><input class="form-input" style="background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.22);color:#fff;" placeholder="you@example.com"/></div>
+        <div class="form-group" style="width:100%;"><div class="form-label" style="color:rgba(255,255,255,0.5);">Password</div><input class="form-input" type="password" style="background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.22);color:#fff;" placeholder="••••••••"/></div>
+        <button class="primary-btn">Sign In</button>
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.45);text-align:center;margin:10px 0;">— or —</div>
+        <button class="social-btn" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;font-size:9px;margin-bottom:5px;width:100%;"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg> Facebook</button>
+        <button class="social-btn" style="background:rgba(255,255,255,0.1);border-color:rgba(255,255,255,0.2);color:#fff;font-size:9px;width:100%;"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="10"/><path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32" stroke="#0A52D4" stroke-width="1.5" fill="none"/></svg> Google</button>
+        <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.5);text-align:center;margin-top:14px;">New to Peepl? <span style="color:#fff;text-decoration:underline;">Join now →</span></div>
+      </div>
+    </div>
+    <div class="screen-label">Sign In</div>
+  </div>
+
+  <!-- Sign Up -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr">
+        <div class="back-sm">← Sign In</div>
+        <div class="logo">Join Peepl</div>
+        <div class="tagline">Free forever · No credit card</div>
+      </div>
+      <div class="form-section">
+        <div class="social-btn"><svg width="12" height="12" viewBox="0 0 24 24" fill="#1877f2"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg> Continue with Facebook</div>
+        <div class="social-btn"><svg width="12" height="12" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg> Continue with Google</div>
+        <div class="form-divider">— or sign up with email —</div>
+        <div class="form-group"><div class="form-label">Full name</div><input class="form-input" placeholder="First Last"/></div>
+        <div class="form-group"><div class="form-label">Username</div><input class="form-input focus" placeholder="@coolhandle"/></div>
+        <div class="form-group"><div class="form-label">Email</div><input class="form-input" placeholder="you@example.com"/></div>
+        <div class="form-group"><div class="form-label">Password</div><input class="form-input" type="password" placeholder="6+ characters"/></div>
+        <button class="primary-btn">Create Account</button>
+        <div class="terms-txt">By joining you agree to our <span>Terms of Service</span> and <span>Privacy Policy</span></div>
+      </div>
+    </div>
+    <div class="screen-label">Sign Up</div>
+  </div>
+
+  <!-- Sign Up Confirmed -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="confirmed-screen">
+        <div class="conf-icon">🎉</div>
+        <div class="conf-title">Welcome to Peepl!</div>
+        <div class="conf-name">Hey Huggy Bear 👋</div>
+        <div class="conf-sub">You're now part of a community helping people know before they go. Here's how to get started:</div>
+        <div class="conf-steps">
+          <div class="conf-step"><div class="conf-step-ico">👀</div><div class="conf-step-txt">Check the feed to see what's happening near you</div></div>
+          <div class="conf-step"><div class="conf-step-ico">📍</div><div class="conf-step-txt">Walk somewhere and post your first Peep</div></div>
+          <div class="conf-step"><div class="conf-step-ico">⭐</div><div class="conf-step-txt">Be the first to Peep a venue and earn Pioneer status</div></div>
+        </div>
+        <button class="conf-btn">Take me to the feed →</button>
+      </div>
+    </div>
+    <div class="screen-label">Sign Up Confirmed</div>
+  </div>
+
+  <!-- Location Permission -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 8px;"><div class="logo">Peepl</div></div>
+      <div class="perm-screen">
+        <div class="perm-icon"><svg viewBox="0 0 24 24"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+        <div class="perm-title">Allow location access</div>
+        <div class="perm-sub">Peepl uses your location to show crowd info near you and notify you when you enter a venue.</div>
+        <div class="perm-preview">
+          <div class="perm-preview-item"><div class="perm-preview-dot"></div><div class="perm-preview-txt">See crowd reports near your current location</div></div>
+          <div class="perm-preview-item"><div class="perm-preview-dot"></div><div class="perm-preview-txt">Get notified when you walk into a venue</div></div>
+          <div class="perm-preview-item"><div class="perm-preview-dot"></div><div class="perm-preview-txt">Your exact location is never shared publicly</div></div>
+        </div>
+        <button class="perm-allow">Allow Location Access</button>
+        <div class="perm-skip">Not now</div>
+      </div>
+    </div>
+    <div class="screen-label">Location Permission</div>
+  </div>
+
+  <!-- Push Notification Permission -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 8px;"><div class="logo">Peepl</div></div>
+      <div class="perm-screen">
+        <div class="perm-icon" style="background:linear-gradient(135deg,var(--gold-dark),var(--gold));"><svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 0 1-3.46 0"/></svg></div>
+        <div class="perm-title">Turn on notifications</div>
+        <div class="perm-sub">We'll tap you when you walk into a venue so you can post in 10 seconds flat.</div>
+        <div class="perm-preview">
+          <div class="perm-preview-item"><div class="perm-preview-dot" style="background:var(--amber);"></div><div class="perm-preview-txt">"You're at Establishment — want to Peep it?"</div></div>
+          <div class="perm-preview-item"><div class="perm-preview-dot" style="background:var(--amber);"></div><div class="perm-preview-txt">Alerts when favorited venues get crowded</div></div>
+          <div class="perm-preview-item"><div class="perm-preview-dot" style="background:var(--amber);"></div><div class="perm-preview-txt">Deal alerts from merchants near you</div></div>
+        </div>
+        <button class="perm-allow">Allow Notifications</button>
+        <div class="perm-skip">Maybe later</div>
+      </div>
+    </div>
+    <div class="screen-label">Push Notification Permission</div>
+  </div>
+
+</div>
+
+<!-- ROW 3: Venue Screens -->
+<div class="row-label">Venue screens</div>
+<div class="row">
+
+  <!-- Venue Page — with peeps -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="venue-hero">
+        <div class="pc-bg p1" style="position:absolute;inset:0;"></div>
+        <div class="venue-scrim"></div>
+        <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+        <div class="venue-content">
+          <div class="venue-name">Piedmont Park</div>
+          <div class="venue-addr">400 Park Dr NE, Atlanta, GA 30306</div>
+          <div class="venue-stats-row">
+            <div class="venue-stat">Avg crowd: <span>3.5</span></div>
+            <div class="venue-stat">Today: <span>12 peeps</span></div>
+            <div class="venue-stat">Pioneer: <span>Rick Flair</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="venue-crowd-bar">
+        <div class="vcb-title">Current crowd</div>
+        <div class="vcb-row">
+          <div class="vcb-box"><div class="vcb-val">4</div><div class="vcb-lbl">Size</div></div>
+          <div class="vcb-box"><div class="vcb-val">50/50</div><div class="vcb-lbl">M/F</div></div>
+          <div class="vcb-box"><div class="vcb-val">70/30</div><div class="vcb-lbl">A/K</div></div>
+          <div class="vcb-vibe"><div class="vcb-vibe-lbl">Vibe</div><div class="vcb-vibe-val">Laid Back</div></div>
+        </div>
+      </div>
+      <div class="sparkline">
+        <div class="spark-title">Crowd over last 12 hrs</div>
+        <div class="spark-bars">
+          <div class="sbar" style="height:20%;background:#e0ddd7;"></div>
+          <div class="sbar" style="height:25%;background:#e0ddd7;"></div>
+          <div class="sbar" style="height:30%;background:#e0ddd7;"></div>
+          <div class="sbar" style="height:20%;background:#e0ddd7;"></div>
+          <div class="sbar" style="height:35%;background:var(--green);"></div>
+          <div class="sbar" style="height:50%;background:var(--green);"></div>
+          <div class="sbar" style="height:65%;background:var(--amber);"></div>
+          <div class="sbar" style="height:80%;background:var(--amber);"></div>
+          <div class="sbar" style="height:90%;background:var(--red);"></div>
+          <div class="sbar" style="height:85%;background:var(--red);"></div>
+          <div class="sbar" style="height:75%;background:var(--amber);"></div>
+          <div class="sbar" style="height:60%;background:var(--amber);"></div>
+        </div>
+      </div>
+      <div class="venue-feed">
+        <div class="venue-peep">
+          <div class="vp-top"><div class="vp-av"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><div class="vp-name">Messi<span style="font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;font-weight:400;margin-left:4px;">Pioneer ⭐</span></div><div class="vp-time">2:35pm</div></div>
+          <div class="vp-crowd-row"><div class="vp-pill" style="background:var(--amber);">Busy</div><div class="vp-size">Size: 4</div><div class="vp-vibe-tag">Laid Back</div></div>
+          <div class="vp-note">Nice easy going crowd near the fountain</div>
+          <div class="vp-actions"><div class="vp-action"><svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg>Like</div><div class="vp-action"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Comment</div><div class="vp-action"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Venue Page</div>
+  </div>
+
+  <!-- Venue Page with Deal -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="venue-hero">
+        <div class="pc-bg p6" style="position:absolute;inset:0;"></div>
+        <div class="venue-scrim"></div>
+        <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+        <div class="venue-content">
+          <div class="venue-name">Moe's n Joe's</div>
+          <div class="venue-addr">1033 N Highland Ave NE, Atlanta</div>
+          <div class="venue-stats-row">
+            <div class="venue-stat">Avg crowd: <span>3.8</span></div>
+            <div class="venue-stat">Today: <span>8 peeps</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="venue-crowd-bar">
+        <div class="vcb-title">Current crowd</div>
+        <div class="vcb-row">
+          <div class="vcb-box"><div class="vcb-val">4</div><div class="vcb-lbl">Size</div></div>
+          <div class="vcb-box"><div class="vcb-val">65/35</div><div class="vcb-lbl">M/F</div></div>
+          <div class="vcb-box"><div class="vcb-val">95/5</div><div class="vcb-lbl">A/K</div></div>
+          <div class="vcb-vibe"><div class="vcb-vibe-lbl">Vibe</div><div class="vcb-vibe-val">Rowdy</div></div>
+        </div>
+      </div>
+      <div class="venue-feed">
+        <!-- Native deal injected -->
+        <div class="venue-deal">
+          <div class="pc-bg p6" style="position:absolute;inset:0;filter:brightness(1.3);"></div>
+          <div class="vd-scrim"></div>
+          <div class="vd-body">
+            <div class="vd-text"><span class="vd-badge">Active Deal</span><div class="vd-name">Moe's n Joe's</div><div class="vd-offer">½ price pitchers til 8pm tonight</div></div>
+            <button class="vd-cta">Claim</button>
+          </div>
+        </div>
+        <div class="venue-peep">
+          <div class="vp-top"><div class="vp-av"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><div class="vp-name">Toucan Sam</div><div class="vp-time">1:23pm</div></div>
+          <div class="vp-crowd-row"><div class="vp-pill" style="background:var(--amber);">Busy</div><div class="vp-size">Size: 4</div><div class="vp-vibe-tag">Rowdy</div></div>
+          <div class="vp-note">A lot of fruit loops here 🦜</div>
+          <div class="vp-actions"><div class="vp-action"><svg viewBox="0 0 24 24"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/></svg>Like</div><div class="vp-action"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Comment</div><div class="vp-action"><svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Share</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="screen-label">Venue + Deal Injected</div>
+  </div>
+
+  <!-- No Peeps Yet -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="venue-hero">
+        <div class="pc-bg p10" style="position:absolute;inset:0;"></div>
+        <div class="venue-scrim"></div>
+        <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+        <div class="venue-content">
+          <div class="venue-name">The Spotted Cat</div>
+          <div class="venue-addr">New Orleans, LA</div>
+          <div class="venue-stats-row"><div class="venue-stat">No peeps yet</div></div>
+        </div>
+      </div>
+      <div class="no-peeps">
+        <div class="np-icon">👀</div>
+        <div class="np-title">No peeps yet.</div>
+        <div class="np-sub">Be the first to report the crowd at The Spotted Cat — earn Pioneer status and your name on this page forever.</div>
+        <button class="np-btn">⭐ Be the Pioneer</button>
+      </div>
+    </div>
+    <div class="screen-label">No Peeps Yet</div>
+  </div>
+
+  <!-- Individual Peep Page -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="peep-page-hero">
+        <div class="pc-bg p1" style="position:absolute;inset:0;"></div>
+        <div class="pph-scrim"></div>
+        <div style="position:absolute;top:8px;left:8px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:10px;padding:3px 8px 3px 5px;display:flex;align-items:center;gap:3px;"><svg width="10" height="10" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:#fff;">Back</span></div></div>
+        <div class="pph-content">
+          <div class="pph-venue">Piedmont Park</div>
+          <div class="pph-crowd"><div class="pph-pill" style="background:var(--amber);">Busy</div><span class="pph-time">Reported 2:35 PM · 11/8/15</span></div>
+        </div>
+      </div>
+      <div class="peep-page-body">
+        <div class="pp-reporter">
+          <div class="pp-av"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div>
+          <div><div class="pp-name">Messi <span class="pp-pioneer">⭐ Pioneer</span></div><div class="pp-when">Posted 2:35 PM</div></div>
+        </div>
+        <div class="pp-crowd-grid">
+          <div class="pp-cbox"><div class="pp-cbox-val">4</div><div class="pp-cbox-lbl">Size</div></div>
+          <div class="pp-cbox"><div class="pp-cbox-val">50/50</div><div class="pp-cbox-lbl">M/F</div></div>
+          <div class="pp-cbox"><div class="pp-cbox-val">80/20</div><div class="pp-cbox-lbl">A/K</div></div>
+        </div>
+        <div class="pp-vibe"><span class="vibe-lbl" style="font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;">Vibe</span><span style="font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--blue);">Laid Back</span></div>
+        <div class="pp-note">Nice easy going crowd near the fountain. Sax Man playing near the main field! 🎷</div>
+        <div class="pp-actions-row">
+          <div class="pp-action-btn like">❤️ Like (37)</div>
+          <div class="pp-action-btn comment">💬 Comment</div>
+          <div class="pp-action-btn share">↗ Share</div>
+        </div>
+        <div class="pp-likes-row">
+          <div class="pp-like-av" style="background:linear-gradient(135deg,#9a4488,#cc66bb);margin-left:0;">M</div>
+          <div class="pp-like-av" style="background:linear-gradient(135deg,#2244aa,#4488dd);">LL</div>
+          <div class="pp-like-av" style="background:linear-gradient(135deg,#224422,#448844);">H</div>
+          <div class="pp-like-av" style="background:linear-gradient(135deg,var(--blue),#5a9aff);">RF</div>
+          <div class="pp-likes-txt">Madonna, Lucy Lui, and 33 others liked this</div>
+        </div>
+        <div class="pp-comment"><div class="pp-com-av" style="background:linear-gradient(135deg,#9a4488,#cc66bb);">M</div><div class="pp-com-bubble"><div class="pp-com-name">Madonna</div><div class="pp-com-txt">Enjoy yourself! 🎶</div></div></div>
+        <div class="pp-comment"><div class="pp-com-av" style="background:linear-gradient(135deg,#224422,#448844);">H</div><div class="pp-com-bubble"><div class="pp-com-name">Hulk</div><div class="pp-com-txt">I love grass.</div></div></div>
+      </div>
+    </div>
+    <div class="screen-label">Individual Peep Page</div>
+  </div>
+
+  <!-- Likers Page -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="likers-hdr">
+        <div class="back-sm">← Back to Peep</div>
+        <div class="likers-title">37 Likes</div>
+        <div class="likers-venue">Piedmont Park · Messi's peep</div>
+      </div>
+      <div style="flex:1;overflow-y:auto;scrollbar-width:none;">
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#c9a020,var(--gold));">RF</div><div class="liker-name">Rick Flair<span class="liker-badge" style="margin-left:6px;">Pioneer ⭐</span></div><div class="liker-follow">Following</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#9a4488,#cc66bb);">M</div><div class="liker-name">Madonna</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#2244aa,#4488dd);">LL</div><div class="liker-name">Lucy Lui</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#224422,#448844);">H</div><div class="liker-name">Hulk</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#884422,#cc6644);">MM</div><div class="liker-name">Marky Mark</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#c93232,#ff6644);">OP</div><div class="liker-name">Oprah</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,#2a8855,#44cc88);">PP</div><div class="liker-name">Parker Posey</div><div class="liker-follow">Follow</div></div>
+        <div class="liker-row"><div class="liker-av" style="background:linear-gradient(135deg,var(--blue),#5a9aff);">RJ</div><div class="liker-name">Rick James</div><div class="liker-follow">Following</div></div>
+        <div class="liker-row"><div class="liker-av">50</div><div class="liker-name">50 Cent<span class="liker-badge" style="margin-left:6px;">Pioneer ⭐</span></div><div class="liker-follow">Follow</div></div>
+      </div>
+    </div>
+    <div class="screen-label">Likers Page</div>
+  </div>
+
+</div>
+
+<!-- ROW 4: Map -->
+<div class="row-label">Map</div>
+<div class="row">
+
+  <!-- Map Screen -->
+  <div class="col">
+    <div class="phone">
+      <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+      <div class="hdr" style="padding:5px 10px 8px;">
+        <div class="hdr-row" style="margin-bottom:0;"><div><div class="logo">Map</div><div class="tagline">Live crowd heat map</div></div><div class="post-btn-sm">+ Peep!</div></div>
+      </div>
+      <div class="map-container">
+        <!-- Road grid -->
+        <div class="map-road-h" style="top:30%;"></div>
+        <div class="map-road-h" style="top:55%;"></div>
+        <div class="map-road-h" style="top:75%;"></div>
+        <div class="map-road-v" style="left:25%;"></div>
+        <div class="map-road-v" style="left:55%;"></div>
+        <div class="map-road-v" style="left:80%;"></div>
+        <div class="map-road-hw" style="top:45%;"></div>
+        <!-- Heat zones -->
+        <div class="heat-zone" style="width:60px;height:60px;background:var(--red);top:18%;left:38%;"></div>
+        <div class="heat-zone" style="width:40px;height:40px;background:var(--amber);top:48%;left:12%;"></div>
+        <div class="heat-zone" style="width:35px;height:35px;background:var(--green);top:60%;left:60%;"></div>
+        <div class="heat-zone" style="width:28px;height:28px;background:var(--amber);top:22%;left:65%;"></div>
+        <!-- Pins -->
+        <div class="map-pin" style="top:30%;left:52%;">
+          <div class="map-pin-bubble" style="background:var(--red);">Very busy</div>
+          <div class="map-pin-tail r"></div>
+        </div>
+        <div class="map-pin" style="top:55%;left:20%;">
+          <div class="map-pin-bubble" style="background:var(--amber);">Busy</div>
+          <div class="map-pin-tail a"></div>
+        </div>
+        <div class="map-pin" style="top:68%;left:65%;">
+          <div class="map-pin-bubble" style="background:var(--green);">Moderate</div>
+          <div class="map-pin-tail g"></div>
+        </div>
+        <div class="map-pin" style="top:30%;left:72%;">
+          <div class="map-pin-bubble" style="background:var(--amber);">Busy</div>
+          <div class="map-pin-tail a"></div>
+        </div>
+        <!-- Deal pin -->
+        <div class="map-pin" style="top:50%;left:45%;">
+          <div class="map-pin-bubble" style="background:var(--gold);color:#1a1000;">💰 Deal</div>
+          <div class="map-pin-tail" style="border-top-color:var(--gold);"></div>
+        </div>
+        <!-- User dot -->
+        <div class="map-user-dot" style="top:48%;left:50%;"></div>
+        <!-- Toolbar -->
+        <div class="map-toolbar">
+          <div class="map-filter-row">
+            <div class="map-chip on">All</div>
+            <div class="map-chip">Deals</div>
+            <div class="map-chip">Near me</div>
+          </div>
+          <div class="map-legend">
+            <div class="map-leg-item"><div class="map-leg-dot" style="background:var(--red);"></div>Very busy</div>
+            <div class="map-leg-item"><div class="map-leg-dot" style="background:var(--amber);"></div>Busy</div>
+            <div class="map-leg-item"><div class="map-leg-dot" style="background:var(--green);"></div>Moderate</div>
+            <div class="map-leg-item"><div class="map-leg-dot" style="background:var(--gold);"></div>Deal</div>
+          </div>
+        </div>
+      </div>
+      <div class="tabs">
+        <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl">Feed</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl">Deals</span></div>
+        <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3" fill="var(--bg)"/></svg><span class="tab-lbl" style="color:var(--blue)">Map</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl">Leaders</span></div>
+        <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl">Profile</span></div>
+      </div>
+    </div>
+    <div class="screen-label">Map — Live Heat Map</div>
+  </div>
+
+</div>
+
+</div>
+
+<style>
+@keyframes spin{to{transform:rotate(360deg);}}
+</style>

@@ -1,0 +1,593 @@
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--blue:#0A52D4;--gold:#F5C842;--green:#2E9D5A;--amber:#D4890A;--red:#C93232;--bg:#f5f4f0;--border:#e8e5de;}
+
+body{background:#ccc;}
+.wrap{display:flex;flex-direction:column;gap:32px;padding:20px;background:#ccc;}
+.row{display:flex;gap:16px;overflow-x:auto;padding-bottom:8px;}
+.row-label{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:#888;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;padding-left:2px;}
+
+.phone{width:200px;flex-shrink:0;background:var(--bg);border-radius:28px;overflow:hidden;box-shadow:0 12px 40px rgba(0,0,0,0.22),0 0 0 1px rgba(0,0,0,0.1);display:flex;flex-direction:column;}
+.screen-label{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#888;text-align:center;margin-top:6px;letter-spacing:.04em;}
+
+/* STATUS */
+.sb{padding:8px 14px 0;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.sb.blue{background:var(--blue);}
+.sbt{font-family:'DM Sans',sans-serif;font-size:10px;font-weight:500;color:#fff;}
+.sbi{display:flex;gap:3px;align-items:center;}
+
+/* HEADER */
+.hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.logo{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;letter-spacing:-0.5px;}
+.tagline{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.6);text-transform:uppercase;letter-spacing:.05em;}
+.hdr-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;}
+.post-btn-sm{background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.28);color:#fff;font-family:'DM Sans',sans-serif;font-size:9px;padding:4px 9px;border-radius:12px;}
+.search-sm{background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.18);border-radius:7px;padding:5px 8px;display:flex;align-items:center;gap:5px;}
+.search-sm span{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.45);}
+
+/* FILTERS */
+.filters{padding:5px 8px;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;}
+.chip{flex-shrink:0;padding:3px 7px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;border:1px solid var(--border);background:#fff;color:#666;}
+.chip.on{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+/* FEED */
+.feed{flex:1;display:flex;flex-direction:column;overflow:hidden;}
+
+/* POST CARD */
+.pc{position:relative;height:52px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.06);overflow:hidden;}
+.pc-bg{position:absolute;inset:0;}
+.pc-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.75) 0%,rgba(0,0,0,0.4) 60%,rgba(0,0,0,0.15) 100%);}
+.pc-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.pc-text{flex:1;min-width:0;}
+.pc-venue{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pc-meta{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.55);margin-top:1px;}
+.pc-rep{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.55);margin-top:2px;}
+.cpill{flex-shrink:0;padding:3px 6px;border-radius:5px;text-align:center;}
+.cpill-lbl{font-family:'DM Sans',sans-serif;font-size:7px;display:block;color:rgba(255,255,255,0.8);text-transform:uppercase;}
+.cpill-val{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:600;display:block;color:#fff;}
+.bg-g{background:var(--green);}.bg-a{background:var(--amber);}.bg-r{background:var(--red);}
+
+/* NATIVE AD */
+.na{position:relative;height:52px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.06);overflow:hidden;}
+.na-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.82) 0%,rgba(0,0,0,0.5) 60%,rgba(0,0,0,0.2) 100%);}
+.na-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.na-text{flex:1;min-width:0;}
+.na-badge{display:inline-block;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-bottom:2px;}
+.na-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.na-offer{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.85);}
+.na-time{flex-shrink:0;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:700;padding:4px 6px;border-radius:5px;text-align:center;line-height:1.3;}
+
+/* DEAL CARD */
+.dc{position:relative;height:58px;flex-shrink:0;border-bottom:1px solid rgba(0,0,0,0.07);overflow:hidden;}
+.dc-scrim{position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,0.85) 0%,rgba(0,0,0,0.55) 55%,rgba(0,0,0,0.18) 100%);}
+.dc-body{position:absolute;inset:0;display:flex;align-items:center;padding:0 8px;gap:6px;}
+.dc-text{flex:1;min-width:0;}
+.dc-sp{display:inline-block;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;text-transform:uppercase;padding:1px 5px;border-radius:3px;margin-bottom:3px;}
+.dc-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:800;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dc-offer{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.9);}
+.dc-dist{font-family:'DM Sans',sans-serif;font-size:7px;color:rgba(255,255,255,0.5);margin-top:2px;}
+.dc-cta{flex-shrink:0;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:700;padding:5px 8px;border-radius:5px;border:none;}
+
+/* TABS */
+.tabs{flex-shrink:0;background:#fff;border-top:1px solid var(--border);display:flex;padding:5px 0 10px;}
+.tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;}
+.tab svg{width:13px;height:13px;}
+.tab-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#ccc;}
+.tab.on .tab-lbl{color:var(--blue);}
+
+/* PHOTO BGs */
+.p1{background:linear-gradient(130deg,#2d6e24,#5aaa48,#8ecf7a);}
+.p2{background:linear-gradient(170deg,#e8903a,#d4682a,#3a6090,#243a5e);}
+.p3{background:linear-gradient(150deg,#0e0e1e,#1a1a3a,#b89030,#e8c048);}
+.p4{background:linear-gradient(140deg,#1a3050,#2460a0,#4a8ad0);}
+.p5{background:linear-gradient(140deg,#6a2050,#b04888,#d888b8);}
+.p6{background:linear-gradient(140deg,#1a0a00,#5a2800,#c06020);}
+.p7{background:linear-gradient(140deg,#0a2a1a,#1a6a3a,#3aaa6a);}
+.p8{background:linear-gradient(140deg,#2a0050,#6a10a0,#aa50e0);}
+.p9{background:linear-gradient(140deg,#0A52D4,#083da0,#05286e);}
+
+/* SIGNIN */
+.signin{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;background:linear-gradient(160deg,#0A52D4,#05286e);}
+.signin-logo{font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#fff;letter-spacing:-1px;margin-bottom:4px;}
+.signin-tag{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.65);font-style:italic;margin-bottom:16px;}
+.signin-input{width:100%;background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:7px 10px;font-family:'DM Sans',sans-serif;font-size:9px;color:#fff;margin-bottom:6px;}
+.signin-input::placeholder{color:rgba(255,255,255,0.4);}
+.signin-btn{width:100%;background:#fff;color:var(--blue);font-family:'Syne',sans-serif;font-size:11px;font-weight:800;padding:9px;border-radius:8px;border:none;margin-top:4px;}
+.signin-or{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.4);text-align:center;margin:10px 0;}
+.signin-social{width:100%;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);color:#fff;font-family:'DM Sans',sans-serif;font-size:9px;padding:7px;border-radius:8px;margin-bottom:5px;display:flex;align-items:center;justify-content:center;gap:5px;}
+.signin-join{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.5);text-align:center;margin-top:12px;}
+.signin-join span{color:#fff;}
+
+/* DETAIL */
+.det-hero{position:relative;height:110px;flex-shrink:0;overflow:hidden;}
+.det-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0) 35%,rgba(0,0,0,0.88) 100%);}
+.det-content{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;}
+.det-venue{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;margin-bottom:4px;}
+.det-pill{padding:3px 8px;border-radius:5px;font-family:'DM Sans',sans-serif;font-size:9px;font-weight:600;color:#fff;display:inline-block;}
+.det-body{flex:1;background:#fff;overflow:hidden;padding:10px;}
+.sec-title{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;text-transform:uppercase;letter-spacing:.07em;color:#bbb;margin-bottom:7px;}
+.crowd-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:5px;}
+.cbox{background:var(--bg);border-radius:7px;padding:6px 4px;text-align:center;}
+.cbox-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#1a1a1a;}
+.cbox-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;margin-top:1px;}
+.vibe-row{background:var(--bg);border-radius:7px;padding:6px 10px;display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.vibe-lbl{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;}
+.vibe-val{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:var(--blue);}
+.rep-row{display:flex;align-items:center;gap:7px;margin-bottom:8px;}
+.rep-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#5a9aff);display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.rep-av svg{width:12px;height:12px;fill:white;}
+.rep-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#1a1a1a;}
+.rep-when{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.act-row{display:flex;gap:5px;}
+.act{flex:1;padding:7px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:9px;font-weight:500;border:none;text-align:center;}
+.act.primary{background:var(--blue);color:#fff;}
+.act.secondary{background:var(--bg);color:#444;}
+
+/* PEEP CREATION */
+.peep-hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.peep-venue{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;margin-top:3px;}
+.peep-change{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.55);text-decoration:underline;}
+.peep-body{flex:1;overflow:hidden;padding:10px;display:flex;flex-direction:column;gap:10px;}
+.p-label{font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;text-transform:uppercase;letter-spacing:.06em;color:#bbb;margin-bottom:5px;}
+.crowd-slider-row{display:flex;align-items:center;gap:7px;}
+.crowd-num{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--blue);width:24px;}
+.slider-sm{flex:1;height:3px;background:linear-gradient(to right,var(--blue) 60%,#e0ddd7 60%);border-radius:2px;position:relative;}
+.slider-thumb{position:absolute;top:50%;left:60%;transform:translate(-50%,-50%);width:13px;height:13px;border-radius:50%;background:var(--blue);box-shadow:0 1px 4px rgba(10,82,212,0.4);}
+.crowd-labels-sm{display:flex;justify-content:space-between;margin-top:3px;}
+.crowd-label-sm{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;}
+.ratio-bar-sm{height:4px;border-radius:2px;background:linear-gradient(to right,var(--blue) 50%,#f5a0c0 50%);position:relative;flex:1;}
+.ratio-thumb-sm{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:10px;height:10px;border-radius:50%;background:#fff;border:1.5px solid var(--blue);}
+.vibe-tags-sm{display:flex;flex-wrap:wrap;gap:4px;}
+.vtag{padding:3px 7px;border-radius:12px;font-family:'DM Sans',sans-serif;font-size:8px;font-weight:500;border:1px solid var(--border);background:#fff;color:#666;}
+.vtag.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
+.send-btn-sm{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:11px;font-weight:700;padding:9px;border-radius:9px;border:none;margin-top:auto;}
+
+/* CONGRATS */
+.congrats{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;background:linear-gradient(160deg,#0A52D4,#05286e);text-align:center;}
+.c-star{font-size:36px;margin-bottom:6px;}
+.c-badge{background:var(--gold);color:#1a1000;font-family:'Syne',sans-serif;font-size:9px;font-weight:800;padding:3px 12px;border-radius:12px;text-transform:uppercase;margin-bottom:10px;}
+.c-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;line-height:1.2;margin-bottom:4px;}
+.c-venue{font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--gold);margin-bottom:8px;}
+.c-sub{font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.65);line-height:1.5;margin-bottom:14px;}
+.c-stats{display:flex;gap:14px;margin-bottom:14px;}
+.cstat-val{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--gold);}
+.cstat-lbl{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.55);text-transform:uppercase;}
+.c-btn{width:100%;background:#fff;color:var(--blue);font-family:'Syne',sans-serif;font-size:11px;font-weight:800;padding:9px;border-radius:8px;border:none;}
+
+/* LEADERBOARD */
+.lb-hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.lb-title{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;}
+.lb-you{background:rgba(255,255,255,0.12);border-radius:8px;padding:7px 10px;display:flex;align-items:center;gap:8px;margin-top:7px;}
+.lb-you-pts{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:var(--gold);}
+.lb-you-info{flex:1;}
+.lb-you-name{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#fff;}
+.lb-rank-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);}
+.lb-tog{display:flex;background:rgba(255,255,255,0.12);border-radius:6px;padding:2px;margin-top:7px;}
+.lb-tog-opt{flex:1;padding:4px;text-align:center;font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.6);border-radius:4px;}
+.lb-tog-opt.on{background:#fff;color:var(--blue);}
+.podium-sm{display:flex;align-items:flex-end;justify-content:center;gap:5px;padding:10px 10px 0;background:var(--bg);border-bottom:1px solid var(--border);}
+.pod-item{display:flex;flex-direction:column;align-items:center;gap:2px;}
+.pod-av{border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-weight:800;color:#fff;}
+.pod-av.s1{width:34px;height:34px;font-size:12px;background:linear-gradient(135deg,#c9a020,#f5c842);}
+.pod-av.s2{width:28px;height:28px;font-size:10px;background:linear-gradient(135deg,#888,#aaa);}
+.pod-av.s3{width:26px;height:26px;font-size:9px;background:linear-gradient(135deg,#a05020,#c87040);}
+.pod-name-sm{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:#1a1a1a;max-width:50px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.pod-pts-sm{font-family:'DM Sans',sans-serif;font-size:7px;color:var(--blue);}
+.pod-bar-sm{width:100%;border-radius:3px 3px 0 0;}
+.pod-bar-sm.h1{height:22px;background:var(--gold);}
+.pod-bar-sm.h2{height:16px;background:#C0C0C0;}
+.pod-bar-sm.h3{height:12px;background:#CD7F32;}
+.lb-row-sm{display:flex;align-items:center;gap:7px;padding:7px 10px;border-bottom:1px solid #f0ede8;background:#fff;}
+.lb-pos-sm{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#bbb;width:14px;}
+.lb-av-sm{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#ccc,#aaa);display:flex;align-items:center;justify-content:center;font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:#fff;flex-shrink:0;}
+.lb-uname-sm{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:#1a1a1a;flex:1;}
+.lb-upts-sm{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--blue);}
+
+/* PROFILE */
+.prof-hero{position:relative;height:88px;flex-shrink:0;overflow:hidden;}
+.prof-scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.7));}
+.prof-info{position:absolute;bottom:0;left:0;right:0;padding:8px 10px;display:flex;align-items:flex-end;gap:8px;}
+.prof-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--blue),#5a9aff);border:2px solid #fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.prof-av svg{width:16px;height:16px;fill:white;}
+.prof-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;}
+.prof-badge{display:inline-flex;background:var(--gold);color:#1a1000;font-family:'DM Sans',sans-serif;font-size:7px;font-weight:600;padding:2px 6px;border-radius:8px;margin-top:2px;}
+.prof-stats{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+.pstat{flex:1;padding:7px 4px;text-align:center;border-right:1px solid var(--border);}
+.pstat:last-child{border-right:none;}
+.pstat-val{font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:var(--blue);}
+.pstat-lbl{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;margin-top:1px;}
+.prof-row-sm{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-bottom:1px solid #f0ede8;background:#fff;}
+.prl-label{font-family:'DM Sans',sans-serif;font-size:10px;color:#1a1a1a;}
+.prl-val{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--blue);}
+
+/* MERCHANT */
+.merch-hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.merch-title-sm{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;}
+.merch-sub-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.merch-acct-sm{background:rgba(255,255,255,0.14);border-radius:7px;padding:6px 9px;margin-top:7px;display:flex;align-items:center;justify-content:space-between;}
+.man-name{font-family:'Syne',sans-serif;font-size:11px;font-weight:700;color:#fff;}
+.man-num{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);}
+.man-status{font-family:'DM Sans',sans-serif;font-size:8px;color:var(--gold);background:rgba(245,200,66,0.15);padding:2px 6px;border-radius:7px;}
+.merch-body{flex:1;overflow:hidden;padding:8px;display:flex;flex-direction:column;gap:7px;}
+.mcard{background:#fff;border-radius:10px;border:1px solid var(--border);overflow:hidden;}
+.mcard-hdr{background:var(--blue);padding:6px 9px;display:flex;justify-content:space-between;align-items:center;}
+.mcard-title-sm{font-family:'Syne',sans-serif;font-size:9px;font-weight:700;color:#fff;}
+.mcard-step-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.65);background:rgba(255,255,255,0.15);padding:1px 6px;border-radius:7px;}
+.mcard-body{padding:8px;}
+.m-lbl-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
+.m-input-sm{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:6px 8px;font-family:'DM Sans',sans-serif;font-size:9px;color:#1a1a1a;margin-bottom:5px;}
+.time-slots-sm{display:flex;gap:5px;align-items:center;}
+.tslot-sm{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:5px;text-align:center;}
+.tslot-lbl-sm{font-family:'DM Sans',sans-serif;font-size:7px;color:#bbb;text-transform:uppercase;}
+.tslot-val-sm{font-family:'Syne',sans-serif;font-size:10px;font-weight:700;color:var(--blue);}
+.tsep-sm{font-family:'DM Sans',sans-serif;font-size:9px;color:#ccc;}
+.rate-opts-sm{display:flex;gap:4px;margin-top:5px;}
+.rate-opt-sm{flex:1;padding:5px 4px;border-radius:7px;border:1px solid var(--border);text-align:center;}
+.rate-opt-sm.sel{border-color:var(--blue);background:#eef3ff;}
+.rate-name-sm{font-family:'Syne',sans-serif;font-size:8px;font-weight:700;color:var(--blue);}
+.rate-price-sm{font-family:'DM Sans',sans-serif;font-size:7px;color:#888;}
+.rrow{display:flex;justify-content:space-between;padding:4px 0;border-bottom:1px solid #f0ede8;}
+.rrow:last-child{border-bottom:none;}
+.rk{font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;}
+.rv{font-family:'DM Sans',sans-serif;font-size:8px;color:#1a1a1a;font-weight:500;}
+.rv.hi{color:var(--blue);font-weight:600;}
+.submit-sm{width:100%;background:var(--blue);color:#fff;font-family:'Syne',sans-serif;font-size:10px;font-weight:700;padding:8px;border-radius:8px;border:none;margin-top:6px;}
+
+/* GET PEEPS */
+.gp-hdr{background:var(--blue);padding:5px 10px 10px;flex-shrink:0;}
+.gp-title-sm{font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;}
+.gp-sub-sm{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-top:1px;}
+.gp-modes{display:flex;gap:5px;margin-top:8px;}
+.gp-mode{flex:1;background:rgba(255,255,255,0.14);border:1px solid rgba(255,255,255,0.22);border-radius:8px;padding:6px 4px;text-align:center;}
+.gp-mode.on{background:rgba(255,255,255,0.95);border-color:#fff;}
+.gp-mode-ico{font-size:14px;margin-bottom:2px;}
+.gp-mode-lbl{font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.75);}
+.gp-mode.on .gp-mode-lbl{color:var(--blue);}
+.gp-search{background:var(--bg);border:1.5px solid var(--border);border-radius:8px;padding:7px 9px;display:flex;align-items:center;gap:5px;margin:8px 8px 0;}
+.gp-search span{font-family:'DM Sans',sans-serif;font-size:9px;color:#bbb;}
+</style>
+
+<div class="wrap">
+
+  <div class="row-label">Consumer screens</div>
+  <div class="row">
+
+    <!-- 1. SIGN IN -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="signin">
+          <div class="signin-logo">peepl</div>
+          <div class="signin-tag">know before you go.</div>
+          <input class="signin-input" placeholder="Email or username"/>
+          <input class="signin-input" placeholder="Password" type="password"/>
+          <button class="signin-btn">Sign In</button>
+          <div class="signin-or">— or sign in with —</div>
+          <button class="signin-social">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="white"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+            Continue with Facebook
+          </button>
+          <button class="signin-social">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="white"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="white"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="white"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="white"/></svg>
+            Continue with Google
+          </button>
+          <div class="signin-join">New to Peepl? <span>Join now →</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Sign In</div>
+    </div>
+
+    <!-- 2. MAIN FEED -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="hdr">
+          <div class="hdr-row"><div><div class="logo">Peepl</div><div class="tagline">Know before you go</div></div><div class="post-btn-sm">+ Peep!</div></div>
+          <div class="search-sm"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.55)" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span>Search venues...</span></div>
+        </div>
+        <div class="filters">
+          <div class="chip on">All</div><div class="chip">Near me</div><div class="chip" style="border-color:var(--green);color:var(--green);">Moderate</div><div class="chip" style="border-color:var(--amber);color:var(--amber);">Busy</div>
+        </div>
+        <div class="feed">
+          <div class="pc"><div class="pc-bg p1"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Central Park</div><div class="pc-meta">Park · 8 min ago</div><div class="pc-rep">John Doe</div></div><div class="cpill bg-g"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Moderate</span></div></div></div>
+          <div class="pc"><div class="pc-bg p2"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Riverside Park</div><div class="pc-meta">Park · 23 min ago</div><div class="pc-rep">Alice Smith</div></div><div class="cpill bg-a"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Busy</span></div></div></div>
+          <div class="na"><div class="pc-bg p6"></div><div class="na-scrim"></div><div class="na-body"><div class="na-text"><span class="na-badge">Deal · Sponsored</span><div class="na-name">Moe's n Joe's</div><div class="na-offer">½ price pitchers til 8</div></div><div class="na-time">Til<br>8pm</div></div></div>
+          <div class="pc"><div class="pc-bg p3"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Broadway Theater</div><div class="pc-meta">Entertainment · 1 hr ago</div><div class="pc-rep">Bob Jones</div></div><div class="cpill bg-r"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Very busy</span></div></div></div>
+          <div class="pc"><div class="pc-bg p4"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Times Square</div><div class="pc-meta">Landmark · 2 hrs ago</div><div class="pc-rep">Maria Lopez</div></div><div class="cpill bg-r"><span class="cpill-lbl">Crowd</span><span class="cpill-val">Very busy</span></div></div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl" style="color:var(--blue)">Feed</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl">Deals</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span class="tab-lbl">Get Peeps</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl">Leaders</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl">Profile</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Main Feed</div>
+    </div>
+
+    <!-- 3. POST DETAIL -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div style="position:relative;flex:1;display:flex;flex-direction:column;height:420px;overflow:hidden;">
+          <div class="det-hero" style="height:130px;">
+            <div class="pc-bg p1" style="position:absolute;inset:0;"></div>
+            <div class="det-scrim"></div>
+            <div style="position:absolute;top:8px;left:10px;z-index:10;"><div style="background:rgba(0,0,0,0.35);border-radius:12px;padding:4px 10px 4px 7px;display:flex;align-items:center;gap:4px;"><svg width="11" height="11" viewBox="0 0 24 24" fill="white"><path d="M19 12H5M12 5l-7 7 7 7"/></svg><span style="font-family:'DM Sans',sans-serif;font-size:9px;color:#fff;font-weight:500;">Back</span></div></div>
+            <div class="det-content">
+              <div class="det-venue">Central Park</div>
+              <div style="display:flex;align-items:center;gap:6px;"><div class="det-pill bg-g">Moderate</div><span style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);">8 min ago</span></div>
+            </div>
+          </div>
+          <div class="det-body" style="border-radius:14px 14px 0 0;margin-top:-14px;position:relative;z-index:5;flex:1;overflow:hidden;">
+            <div style="margin-bottom:10px;"><div class="sec-title">Crowd data</div>
+              <div class="crowd-grid"><div class="cbox"><div class="cbox-val">3</div><div class="cbox-lbl">Size</div></div><div class="cbox"><div class="cbox-val">60/40</div><div class="cbox-lbl">M/F</div></div><div class="cbox"><div class="cbox-val">85/15</div><div class="cbox-lbl">A/K</div></div></div>
+              <div class="vibe-row"><span class="vibe-lbl">Vibe</span><span class="vibe-val">Laid Back</span></div>
+            </div>
+            <div style="margin-bottom:10px;"><div class="sec-title">Reported by</div>
+              <div class="rep-row"><div class="rep-av"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div><div><div class="rep-name">John Doe</div><div class="rep-when">Posted 8 minutes ago</div></div></div>
+            </div>
+            <div class="act-row"><div class="act primary">+ Peep here</div><div class="act secondary">Directions</div></div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-label">Post Detail</div>
+    </div>
+
+    <!-- 4. PEEP CREATION -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="peep-hdr">
+          <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);cursor:pointer;">← Cancel</div>
+          <div class="peep-venue">Establishment Bar</div>
+          <div class="peep-change">+ Change if location incorrect</div>
+        </div>
+        <div class="peep-body">
+          <div><div class="p-label">Crowd size</div>
+            <div class="crowd-slider-row"><div class="crowd-num">3</div><div style="flex:1;"><div class="slider-sm"><div class="slider-thumb"></div></div><div class="crowd-labels-sm"><span class="crowd-label-sm">Empty</span><span class="crowd-label-sm">100%</span></div></div></div>
+          </div>
+          <div><div class="p-label">M / F ratio (optional)</div>
+            <div style="display:flex;align-items:center;gap:5px;"><span style="font-family:'DM Sans',sans-serif;font-size:9px;color:var(--blue);font-weight:600;">M</span><div class="ratio-bar-sm"><div class="ratio-thumb-sm"></div></div><span style="font-family:'DM Sans',sans-serif;font-size:9px;color:#f5a0c0;font-weight:600;">F</span></div>
+          </div>
+          <div><div class="p-label">Adults / Kids (optional)</div>
+            <div style="display:flex;align-items:center;gap:5px;"><span style="font-family:'DM Sans',sans-serif;font-size:9px;color:var(--blue);font-weight:600;">A</span><div class="ratio-bar-sm" style="background:linear-gradient(to right,var(--blue) 80%,#aaddaa 80%);"><div class="ratio-thumb-sm" style="left:80%;"></div></div><span style="font-family:'DM Sans',sans-serif;font-size:9px;color:#4a9a4a;font-weight:600;">K</span></div>
+          </div>
+          <div><div class="p-label">Vibe (optional)</div>
+            <div class="vibe-tags-sm"><div class="vtag">Chill</div><div class="vtag sel">Laid Back</div><div class="vtag">Casual</div><div class="vtag">Rowdy</div><div class="vtag">Dancing</div><div class="vtag">Formal</div><div class="vtag">Sexy</div><div class="vtag">Groovy</div></div>
+          </div>
+          <button class="send-btn-sm">Send Peep!</button>
+        </div>
+      </div>
+      <div class="screen-label">Peep Creation</div>
+    </div>
+
+    <!-- 5. PIONEER CONGRATS -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="congrats">
+          <div class="c-star">⭐</div>
+          <div class="c-badge">Pioneer</div>
+          <div class="c-title">You're a Peepl Pioneer!</div>
+          <div class="c-venue">Establishment Bar</div>
+          <div class="c-sub">You're the first person to Peep this venue. Your report is live for everyone near you.</div>
+          <div class="c-stats">
+            <div class="cstat"><div class="cstat-val">1st</div><div class="cstat-lbl">Pioneer</div></div>
+            <div class="cstat"><div class="cstat-val">13</div><div class="cstat-lbl">Pioneered</div></div>
+            <div class="cstat"><div class="cstat-val">675</div><div class="cstat-lbl">Points</div></div>
+          </div>
+          <button class="c-btn">Back to Feed</button>
+          <div style="font-family:'DM Sans',sans-serif;font-size:9px;color:rgba(255,255,255,0.55);margin-top:10px;text-decoration:underline;">Share your Pioneer status →</div>
+        </div>
+      </div>
+      <div class="screen-label">Pioneer Congrats</div>
+    </div>
+
+  </div>
+
+  <div class="row-label">Deals, discovery & social</div>
+  <div class="row">
+
+    <!-- 6. DEALS -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="deals-hdr" style="background:var(--blue);padding:5px 10px 10px;flex-shrink:0;">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+            <div><div style="font-family:'Syne',sans-serif;font-size:16px;font-weight:800;color:#fff;">Deals</div><div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);">Active right now near you</div></div>
+            <div style="background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.28);color:#fff;font-family:'DM Sans',sans-serif;font-size:8px;padding:4px 8px;border-radius:10px;">Advertise</div>
+          </div>
+          <div style="display:flex;gap:4px;margin-top:7px;">
+            <div style="padding:3px 7px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.25);color:#fff;">All</div>
+            <div style="padding:3px 7px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.65);">Food</div>
+            <div style="padding:3px 7px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.65);">Drinks</div>
+            <div style="padding:3px 7px;border-radius:10px;font-family:'DM Sans',sans-serif;font-size:8px;border:1px solid rgba(255,255,255,0.18);color:rgba(255,255,255,0.65);">Events</div>
+          </div>
+        </div>
+        <div class="feed">
+          <div class="dc"><div class="pc-bg p6"></div><div class="dc-scrim"></div><div class="dc-body"><div class="dc-text"><span class="dc-sp">Ends in 47 min</span><div class="dc-name">Moe's n Joe's</div><div class="dc-offer">½ price pitchers til 8pm</div><div class="dc-dist">0.3mi away</div></div><button class="dc-cta">Claim</button></div></div>
+          <div class="dc"><div class="pc-bg p7"></div><div class="dc-scrim"></div><div class="dc-body"><div class="dc-text"><span class="dc-sp">Active now</span><div class="dc-name">Fado Irish Pub</div><div class="dc-offer">50¢ wings after 2pm</div><div class="dc-dist">0.8mi away</div></div><button class="dc-cta">Claim</button></div></div>
+          <div class="dc"><div class="pc-bg p4"></div><div class="dc-scrim"></div><div class="dc-body"><div class="dc-text"><span class="dc-sp">Ends in 2 hrs</span><div class="dc-name">Hand-n-Hand</div><div class="dc-offer">$2 pitchers til 9pm</div><div class="dc-dist">1.1mi away</div></div><button class="dc-cta">Claim</button></div></div>
+          <div class="dc"><div class="pc-bg p3"></div><div class="dc-scrim"></div><div class="dc-body"><div class="dc-text"><span class="dc-sp">Active now</span><div class="dc-name">Establishment</div><div class="dc-offer">Moscow Mule Night</div><div class="dc-dist">1.4mi away</div></div><button class="dc-cta">Claim</button></div></div>
+          <div class="dc"><div class="pc-bg p8"></div><div class="dc-scrim"></div><div class="dc-body"><div class="dc-text"><span class="dc-sp">Ends in 3 hrs</span><div class="dc-name">Rolling Bones BBQ</div><div class="dc-offer">½ off brisket til 7pm</div><div class="dc-dist">1.9mi away</div></div><button class="dc-cta">Claim</button></div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl">Feed</span></div>
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl" style="color:var(--blue)">Deals</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span class="tab-lbl">Get Peeps</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl">Leaders</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl">Profile</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Deals Page</div>
+    </div>
+
+    <!-- 7. GET PEEPS -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="gp-hdr">
+          <div class="gp-title-sm">Get Peeps</div>
+          <div class="gp-sub-sm">Find crowd info anywhere</div>
+          <div class="gp-modes">
+            <div class="gp-mode on"><div class="gp-mode-ico">📍</div><div class="gp-mode-lbl" style="color:var(--blue)">Near me</div></div>
+            <div class="gp-mode"><div class="gp-mode-ico">🌆</div><div class="gp-mode-lbl">New city</div></div>
+            <div class="gp-mode"><div class="gp-mode-ico">🔍</div><div class="gp-mode-lbl">Specific venue</div></div>
+          </div>
+        </div>
+        <div class="gp-search"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#bbb" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span>Search any venue or location...</span></div>
+        <div class="feed" style="margin-top:6px;">
+          <div style="padding:4px 8px 4px;font-family:'DM Sans',sans-serif;font-size:8px;color:#bbb;text-transform:uppercase;letter-spacing:.06em;">Trending venues</div>
+          <div class="pc"><div class="pc-bg p5"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Piedmont Park</div><div class="pc-meta">Park · Atlanta · 12 peeps today</div></div><div class="cpill bg-a"><span class="cpill-lbl">Now</span><span class="cpill-val">Busy</span></div></div></div>
+          <div class="pc"><div class="pc-bg p8"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Wrigley Field</div><div class="pc-meta">Stadium · Chicago · 31 peeps</div></div><div class="cpill bg-r"><span class="cpill-lbl">Now</span><span class="cpill-val">Very busy</span></div></div></div>
+          <div class="pc"><div class="pc-bg p1"></div><div class="pc-scrim"></div><div class="pc-body"><div class="pc-text"><div class="pc-venue">Central Park</div><div class="pc-meta">Park · New York · 4 peeps</div></div><div class="cpill bg-g"><span class="cpill-lbl">Now</span><span class="cpill-val">Moderate</span></div></div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl">Feed</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl">Deals</span></div>
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><circle cx="11" cy="11" r="6"/></svg><span class="tab-lbl" style="color:var(--blue)">Get Peeps</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl">Leaders</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl">Profile</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Get Peeps</div>
+    </div>
+
+    <!-- 8. LEADERBOARD -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="lb-hdr">
+          <div class="lb-title">Leaderboard</div>
+          <div class="lb-you"><div><div class="lb-you-pts">6,453</div><div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);">Your points</div></div><div class="lb-you-info"><div class="lb-you-name">Huggy Bear (You)</div><div class="lb-rank-sm">#8 overall · Pioneer</div></div></div>
+          <div class="lb-tog"><div class="lb-tog-opt">Friends</div><div class="lb-tog-opt on">Everyone</div></div>
+        </div>
+        <div class="podium-sm">
+          <div class="pod-item"><div class="pod-av s2">50</div><div class="pod-name-sm">50 Cent</div><div class="pod-pts-sm">11,456</div><div class="pod-bar-sm h2" style="width:46px;margin-top:4px;"></div></div>
+          <div class="pod-item"><div style="font-size:12px;">👑</div><div class="pod-av s1">RF</div><div class="pod-name-sm">Rick Flair</div><div class="pod-pts-sm">12,384</div><div class="pod-bar-sm h1" style="width:52px;margin-top:4px;"></div></div>
+          <div class="pod-item"><div class="pod-av s3">LL</div><div class="pod-name-sm">LoisLane</div><div class="pod-pts-sm">11,432</div><div class="pod-bar-sm h3" style="width:42px;margin-top:4px;"></div></div>
+        </div>
+        <div style="flex:1;overflow:hidden;">
+          <div class="lb-row-sm"><div class="lb-pos-sm">4</div><div class="lb-av-sm" style="background:linear-gradient(135deg,#9a4488,#cc66bb);">M</div><div class="lb-uname-sm">Madonna</div><div class="lb-upts-sm">11,396</div></div>
+          <div class="lb-row-sm"><div class="lb-pos-sm">5</div><div class="lb-av-sm" style="background:linear-gradient(135deg,#2244aa,#4488dd);">LL</div><div class="lb-uname-sm">Lucy Lui</div><div class="lb-upts-sm">11,378</div></div>
+          <div class="lb-row-sm" style="background:#fafaf7;border-left:2px solid var(--blue);"><div class="lb-pos-sm" style="color:var(--blue);">8</div><div class="lb-av-sm" style="background:linear-gradient(135deg,var(--blue),#5a9aff);">HB</div><div class="lb-uname-sm" style="color:var(--blue);">Huggy Bear (You)</div><div class="lb-upts-sm">6,453</div></div>
+          <div class="lb-row-sm"><div class="lb-pos-sm">9</div><div class="lb-av-sm">SQ</div><div class="lb-uname-sm">SuzeQ</div><div class="lb-upts-sm">11,269</div></div>
+          <div class="lb-row-sm"><div class="lb-pos-sm">10</div><div class="lb-av-sm">TS</div><div class="lb-uname-sm">TrixxxieSpanks</div><div class="lb-upts-sm">11,254</div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl">Feed</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl">Deals</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span class="tab-lbl">Get Peeps</span></div>
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl" style="color:var(--blue)">Leaders</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl">Profile</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Leaderboard</div>
+    </div>
+
+    <!-- 9. PROFILE -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="prof-hero" style="height:96px;">
+          <div class="pc-bg p1" style="position:absolute;inset:0;"></div>
+          <div class="prof-scrim"></div>
+          <div style="position:absolute;top:8px;left:10px;z-index:10;"><span class="sbt">9:41</span></div>
+          <div class="prof-info">
+            <div class="prof-av"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg></div>
+            <div><div class="prof-name">Huggy Bear</div><div class="prof-badge">⭐ Pioneer · 13 venues</div></div>
+          </div>
+        </div>
+        <div class="prof-stats">
+          <div class="pstat"><div class="pstat-val">78</div><div class="pstat-lbl">Peeps</div></div>
+          <div class="pstat"><div class="pstat-val">675</div><div class="pstat-lbl">Points</div></div>
+          <div class="pstat"><div class="pstat-val">73</div><div class="pstat-lbl">Followers</div></div>
+          <div class="pstat"><div class="pstat-val">34</div><div class="pstat-lbl">Following</div></div>
+        </div>
+        <div style="flex:1;overflow:hidden;">
+          <div class="prof-row-sm"><div class="prl-label">My Peeps</div><div class="prl-val">78</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Favorites</div><div class="prl-val">34</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Points / Leaderboard</div><div class="prl-val">675</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Places Pioneered</div><div class="prl-val">13</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Groups</div><div class="prl-val">6</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Followers</div><div class="prl-val">73</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Following</div><div class="prl-val">34</div></div>
+          <div class="prof-row-sm"><div class="prl-label">Merchant / Advertise</div><div class="prl-val">→</div></div>
+          <div class="prof-row-sm"><div class="prl-label" style="color:#C93232;">Log Out</div><div class="prl-val"></div></div>
+        </div>
+        <div class="tabs">
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="tab-lbl">Feed</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/></svg><span class="tab-lbl">Deals</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="none" stroke="#ccc" stroke-width="2"><circle cx="11" cy="11" r="6"/><path d="M21 21l-4.35-4.35"/></svg><span class="tab-lbl">Get Peeps</span></div>
+          <div class="tab"><svg viewBox="0 0 24 24" fill="#ccc"><path d="M12 20V10M18 20V4M6 20v-4"/></svg><span class="tab-lbl">Leaders</span></div>
+          <div class="tab on"><svg viewBox="0 0 24 24" fill="#0A52D4"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z"/></svg><span class="tab-lbl" style="color:var(--blue)">Profile</span></div>
+        </div>
+      </div>
+      <div class="screen-label">Profile</div>
+    </div>
+
+  </div>
+
+  <div class="row-label">Merchant portal</div>
+  <div class="row">
+
+    <!-- 10. MERCHANT PORTAL -->
+    <div>
+      <div class="phone" style="height:420px;">
+        <div class="sb blue"><span class="sbt">9:41</span><div class="sbi"></div></div>
+        <div class="merch-hdr">
+          <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:rgba(255,255,255,0.6);margin-bottom:3px;cursor:pointer;">← Back</div>
+          <div class="merch-title-sm">Advertise</div>
+          <div class="merch-sub-sm">Place a deal or ad on Peepl</div>
+          <div class="merch-acct-sm"><div><div class="man-name">Moe's n Joe's</div><div class="man-num">Merchant #7547698</div></div><div class="man-status">Active</div></div>
+        </div>
+        <div class="merch-body">
+          <div class="mcard">
+            <div class="mcard-hdr"><div class="mcard-title-sm">Step 1 — Write your offer</div><div class="mcard-step-sm">1 of 3</div></div>
+            <div class="mcard-body">
+              <div class="m-lbl-sm">Your offer</div>
+              <input class="m-input-sm" value="½ price pitchers til 8pm tonight"/>
+              <div style="font-family:'DM Sans',sans-serif;font-size:8px;color:#ccc;">Appears in feed and deals page</div>
+            </div>
+          </div>
+          <div class="mcard">
+            <div class="mcard-hdr"><div class="mcard-title-sm">Step 2 — Time slots & rate</div><div class="mcard-step-sm">2 of 3</div></div>
+            <div class="mcard-body">
+              <div class="m-lbl-sm">Active window</div>
+              <div class="time-slots-sm"><div class="tslot-sm"><div class="tslot-lbl-sm">Start</div><div class="tslot-val-sm">4:30 PM</div></div><div class="tsep-sm">→</div><div class="tslot-sm"><div class="tslot-lbl-sm">End</div><div class="tslot-val-sm">8:00 PM</div></div></div>
+              <div class="rate-opts-sm" style="margin-top:7px;">
+                <div class="rate-opt-sm"><div class="rate-name-sm">Basic</div><div class="rate-price-sm">$10/hr</div></div>
+                <div class="rate-opt-sm sel"><div class="rate-name-sm">Standard</div><div class="rate-price-sm">$25/hr</div></div>
+                <div class="rate-opt-sm"><div class="rate-name-sm">Premium</div><div class="rate-price-sm">$50/hr</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="mcard">
+            <div class="mcard-hdr"><div class="mcard-title-sm">Step 3 — Review & submit</div><div class="mcard-step-sm">3 of 3</div></div>
+            <div class="mcard-body">
+              <div class="rrow"><div class="rk">Time slot</div><div class="rv">4:30 PM – 8:00 PM</div></div>
+              <div class="rrow"><div class="rk">Duration</div><div class="rv">3.5 hours</div></div>
+              <div class="rrow"><div class="rk">Total</div><div class="rv hi">$87.50</div></div>
+              <button class="submit-sm">Submit Ad</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="screen-label">Merchant Portal</div>
+    </div>
+
+    <!-- placeholder info card -->
+    <div style="display:flex;flex-direction:column;justify-content:center;padding:20px;max-width:280px;">
+      <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:#555;margin-bottom:12px;">10 screens.<br>One product.</div>
+      <div style="font-family:'DM Sans',sans-serif;font-size:13px;color:#888;line-height:1.7;">
+        Sign In → Feed → Post Detail → Peep Creation → Pioneer Congrats → Deals → Get Peeps → Leaderboard → Profile → Merchant Portal
+        <br><br>
+        Every screen in the 2025 visual language. Scroll left to see all of them.
+      </div>
+    </div>
+
+  </div>
+
+</div>
