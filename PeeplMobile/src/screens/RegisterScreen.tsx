@@ -12,11 +12,13 @@ import {
   ScrollView,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/Navigation';
 import { RegisterData } from '../types/User';
 
 interface RegisterScreenProps {
   onRegister: (userData: RegisterData) => void;
-  navigation: any;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
 }
 
 export default function RegisterScreen({ onRegister, navigation }: RegisterScreenProps) {

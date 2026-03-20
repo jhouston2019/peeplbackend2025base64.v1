@@ -11,11 +11,13 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/Navigation';
 import { LoginCredentials } from '../types/User';
 
 interface LoginScreenProps {
   onLogin: (credentials: LoginCredentials) => void;
-  navigation: any;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 }
 
 export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {

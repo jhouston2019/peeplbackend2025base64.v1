@@ -9,12 +9,14 @@ import {
 } from 'react-native';
 import MapView, { Marker, Region, PROVIDER_GOOGLE } from 'react-native-maps';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/Navigation';
 import { locationService } from '../services/LocationService';
 import { Venue } from '../types/Venue';
 import { User } from '../types/User';
 
 interface MapScreenProps {
-  navigation: any;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Map'>;
   user: User;
 }
 

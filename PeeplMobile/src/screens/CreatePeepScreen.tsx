@@ -13,21 +13,15 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { CreatePeepData } from '../types/Peep';
 
 interface CreatePeepScreenProps {
-  route: {
-    params: {
-      venue?: Venue;
-      location?: {
-        latitude: number;
-        longitude: number;
-      };
-      venues?: Venue[];
-    };
-  };
-  navigation: any;
+  route: RouteProp<RootStackParamList, 'CreatePeep'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'CreatePeep'>;
 }
 
 export default function CreatePeepScreen({ route, navigation }: CreatePeepScreenProps) {

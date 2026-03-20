@@ -10,11 +10,13 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/Navigation';
 import { User } from '../types/User';
 import { authService } from '../services/AuthService';
 
 interface ProfileScreenProps {
-  navigation: any;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 }
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {

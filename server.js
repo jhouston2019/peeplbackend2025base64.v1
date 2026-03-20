@@ -13,11 +13,13 @@ const { Server } = require("socket.io");
 const cron = require("node-cron");
 const axios = require("axios");
 const winston = require("winston");
+const geofire = require("geofire-common");
 require("dotenv").config();
 
 // Import services
 const notificationService = require("./src/services/NotificationService");
 const geofencingService = require("./src/services/GeofencingService");
+const { calculateDistance } = require("./src/utils/geo");
 
 // Initialize Express app
 const app = express();
@@ -55,6 +57,14 @@ const limiter = rateLimit({
   message: "Too many requests from this IP, please try again later."
 });
 app.use(limiter);
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { error: 'Too many authentication attempts. Please try again in 15 minutes.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 
 // CORS configuration
 app.use(cors({
@@ -154,7 +164,7 @@ app.get("/health", (req, res) => {
 });
 
 // User Authentication Routes
-app.post("/auth/register", authenticateToken, [
+app.post("/auth/register", authLimiter, authenticateToken, [
   body("email").isEmail().normalizeEmail(),
   body("username").isLength({ min: 3, max: 30 }),
   body("firstName").isLength({ min: 1, max: 50 }),
@@ -258,38 +268,40 @@ app.put("/users/profile", authenticateToken, [
 });
 
 // Venue Routes
-app.get("/venues/nearby", [
-  body("latitude").isFloat({ min: -90, max: 90 }),
-  body("longitude").isFloat({ min: -180, max: 180 }),
-  body("radius").optional().isInt({ min: 100, max: 50000 })
+app.post("/venues/nearby", [
+  body("lat").isFloat({ min: -90, max: 90 }),
+  body("lng").isFloat({ min: -180, max: 180 }),
+  body("radius").optional().isFloat({ min: 0.1, max: 50 })
 ], validateRequest, async (req, res) => {
   try {
-    const { latitude, longitude, radius = 5000 } = req.body;
-
-    // Query venues within radius (simplified - in production, use GeoHash or similar)
-    const venuesSnapshot = await db.collection("venues")
-      .where("isActive", "==", true)
-      .limit(50)
-      .get();
-
+    const { lat, lng, radius = 5 } = req.body;
+    const center = [parseFloat(lat), parseFloat(lng)];
+    const radiusInM = parseFloat(radius) * 1000;
+    const bounds = geofire.geohashQueryBounds(center, radiusInM);
+    
+    const promises = bounds.map(b =>
+      db.collection('venues')
+        .orderBy('geohash')
+        .startAt(b[0])
+        .endAt(b[1])
+        .get()
+    );
+    
+    const snapshots = await Promise.all(promises);
     const venues = [];
-    venuesSnapshot.forEach(doc => {
-      const venue = doc.data();
-      const distance = calculateDistance(latitude, longitude, venue.latitude, venue.longitude);
-      
-      if (distance <= radius) {
-        venues.push({
-          id: doc.id,
-          ...venue,
-          distance
-        });
-      }
+    
+    snapshots.forEach(snap => {
+      snap.docs.forEach(doc => {
+        const data = doc.data();
+        const distanceInKm = geofire.distanceBetween([data.lat, data.lng], center);
+        if (distanceInKm <= parseFloat(radius)) {
+          venues.push({ id: doc.id, ...data, distance: distanceInKm });
+        }
+      });
     });
-
-    // Sort by distance
+    
     venues.sort((a, b) => a.distance - b.distance);
-
-    res.json(venues);
+    res.json({ venues });
   } catch (error) {
     logger.error("Nearby venues error:", error);
     res.status(500).json({ error: "Failed to fetch nearby venues" });
@@ -371,8 +383,12 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
         metadata: { contentType: req.file.mimetype },
       });
 
-      await file.makePublic();
-      peepData.imageUrl = file.publicUrl();
+      // TODO: Replace long-lived signed URL with short-lived URL rotation before production launch
+      const [signedUrl] = await file.getSignedUrl({
+        action: 'read',
+        expires: '03-01-2500',
+      });
+      peepData.imageUrl = signedUrl;
     }
 
     // Create peep
@@ -441,39 +457,6 @@ app.get("/peeps/venue/:venueId", async (req, res) => {
   }
 });
 
-// Utility function to calculate distance between two coordinates
-function calculateDistance(lat1, lon1, lat2, lon2) {
-  const R = 6371e3; // Earth's radius in meters
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δφ = (lat2 - lat1) * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
-    Math.cos(φ1) * Math.cos(φ2) *
-    Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c; // Distance in meters
-}
-
-// Error handling middleware
-app.use((error, req, res, next) => {
-  logger.error("Unhandled error:", error);
-  res.status(500).json({ error: "Internal server error" });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({ error: "Route not found" });
-});
-
-// Start server
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  logger.info(`Peepl 2025 Backend Server running on port ${PORT}`);
-  logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
-});
 
 // Push Notification Routes
 app.post("/notifications/register-token", authenticateToken, [
@@ -546,6 +529,24 @@ app.get("/geofencing/status", authenticateToken, async (req, res) => {
     logger.error("Geofencing status error:", error);
     res.status(500).json({ error: "Failed to get geofencing status" });
   }
+});
+
+// Error handling middleware
+app.use((error, req, res, next) => {
+  logger.error("Unhandled error:", error);
+  res.status(500).json({ error: "Internal server error" });
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: "Route not found" });
+});
+
+// Start server
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  logger.info(`Peepl 2025 Backend Server running on port ${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || "development"}`);
 });
 
 // Start geofencing service

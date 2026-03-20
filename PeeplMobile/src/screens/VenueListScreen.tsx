@@ -9,11 +9,14 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { locationService } from '../services/LocationService';
+import { ApiService } from '../services/ApiService';
 
 interface VenueListScreenProps {
-  navigation: any;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Venues'>;
 }
 
 export default function VenueListScreen({ navigation }: VenueListScreenProps) {
@@ -37,93 +40,20 @@ export default function VenueListScreen({ navigation }: VenueListScreenProps) {
 
   const loadVenues = async () => {
     try {
-      // This would call your backend API
-      // const response = await venueService.getAllVenues();
-      // setVenues(response.data);
-      
-      // Mock data for now
-      const mockVenues: Venue[] = [
-        {
-          id: '1',
-          name: 'Coffee Corner',
-          address: '123 Main St, San Francisco, CA',
-          latitude: 37.7749,
-          longitude: -122.4194,
-          category: 'Coffee Shop',
-          description: 'Cozy coffee shop with great atmosphere',
-          peepCount: 15,
-          averageRating: 4.5,
-          totalRatings: 20,
-          createdBy: 'user1',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-        {
-          id: '2',
-          name: 'Pizza Palace',
-          address: '456 Oak Ave, San Francisco, CA',
-          latitude: 37.7849,
-          longitude: -122.4094,
-          category: 'Restaurant',
-          description: 'Best pizza in town with authentic Italian recipes',
-          peepCount: 8,
-          averageRating: 4.2,
-          totalRatings: 12,
-          createdBy: 'user2',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-        {
-          id: '3',
-          name: 'Green Park',
-          address: '789 Pine St, San Francisco, CA',
-          latitude: 37.7649,
-          longitude: -122.4294,
-          category: 'Park',
-          description: 'Beautiful park perfect for outdoor activities',
-          peepCount: 23,
-          averageRating: 4.8,
-          totalRatings: 15,
-          createdBy: 'user3',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-        {
-          id: '4',
-          name: 'Tech Hub',
-          address: '321 Innovation Dr, San Francisco, CA',
-          latitude: 37.7549,
-          longitude: -122.4394,
-          category: 'Coworking',
-          description: 'Modern coworking space for tech professionals',
-          peepCount: 12,
-          averageRating: 4.3,
-          totalRatings: 8,
-          createdBy: 'user4',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          isActive: true,
-        },
-      ];
 
-      // Calculate distances if user location is available
       if (userLocation) {
-        mockVenues.forEach(venue => {
-          venue.distance = locationService.calculateDistance(
-            userLocation.latitude,
-            userLocation.longitude,
-            venue.latitude,
-            venue.longitude
-          );
-        });
+        const response: any = await ApiService.getNearbyVenues(
+          userLocation.latitude,
+          userLocation.longitude,
+          5
+        );
+        setVenues(response.venues || []);
+      } else {
+        setVenues([]);
       }
-
-      setVenues(mockVenues);
     } catch (error) {
       console.error('Error loading venues:', error);
+      Alert.alert('Error', 'Failed to load venues. Please try again.');
     } finally {
       setIsLoading(false);
     }

@@ -34,9 +34,10 @@ import { pushNotificationService } from './src/services/PushNotificationService'
 // Import types
 import { User } from './src/types/User';
 import { Venue } from './src/types/Venue';
+import { RootStackParamList } from './src/types/Navigation';
 
 const Tab = createBottomTabNavigator();
-const Stack = createStackNavigator();
+const Stack = createStackNavigator<RootStackParamList>();
 
 // Main Tab Navigator
 function MainTabs() {
@@ -108,13 +109,31 @@ export default function App(): JSX.Element {
   const requestPermissions = async () => {
     if (Platform.OS === 'android') {
       try {
-        const granted = await PermissionsAndroid.requestMultiple([
+        const basePermissions = [
           PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
           PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
           PermissionsAndroid.PERMISSIONS.CAMERA,
-          PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
-          PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-        ]);
+        ];
+
+        let granted;
+        if (Platform.Version >= 33) {
+          const mediaResult = await PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.READ_MEDIA_IMAGES,
+            {
+              title: 'Photo Access',
+              message: 'Peepl needs access to your photos to post peeps.',
+              buttonPositive: 'Allow',
+            }
+          );
+          const baseResults = await PermissionsAndroid.requestMultiple(basePermissions);
+          granted = { ...baseResults, READ_MEDIA_IMAGES: mediaResult };
+        } else {
+          granted = await PermissionsAndroid.requestMultiple([
+            ...basePermissions,
+            PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+            PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+          ]);
+        }
 
         const allGranted = Object.values(granted).every(
           permission => permission === PermissionsAndroid.RESULTS.GRANTED
@@ -258,7 +277,7 @@ export default function App(): JSX.Element {
           name="Venue" 
           component={VenueScreen}
           options={({ route }) => ({
-            title: (route.params as any)?.venue?.name || 'Venue',
+            title: route.params.venue.name || 'Venue',
             headerBackTitle: 'Back',
           })}
         />

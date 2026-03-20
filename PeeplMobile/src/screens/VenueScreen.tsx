@@ -9,16 +9,15 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp } from '@react-navigation/native';
+import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { Peep } from '../types/Peep';
 
 interface VenueScreenProps {
-  route: {
-    params: {
-      venue: Venue;
-    };
-  };
-  navigation: any;
+  route: RouteProp<RootStackParamList, 'Venue'>;
+  navigation: NativeStackNavigationProp<RootStackParamList, 'Venue'>;
 }
 
 export default function VenueScreen({ route, navigation }: VenueScreenProps) {
