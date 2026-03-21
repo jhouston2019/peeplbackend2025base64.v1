@@ -9,45 +9,47 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
-import { LoginCredentials } from '../types/User';
+import { authService } from '../services/AuthService';
 
 interface LoginScreenProps {
-  onLogin: (credentials: LoginCredentials) => void;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
+  onLogin?: (email: string, password: string) => void | Promise<void>;
+  navigation: StackNavigationProp<RootStackParamList, 'Login'>;
 }
 
 export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
+    setError(null);
     if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (!isValidEmail(email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      setError('Please fill in all fields');
       return;
     }
 
     setIsLoading(true);
     try {
-      await onLogin({ email: email.trim(), password });
+      const response = await authService.login({
+        email: email.trim(),
+        password,
+      });
+
+      if (response.success) {
+        await onLogin?.(email.trim(), password);
+      } else {
+        setError(response.error || 'Login failed');
+      }
+    } catch {
+      setError('Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
   };
 
   return (
@@ -57,76 +59,72 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
         style={styles.keyboardView}
       >
         <View style={styles.content}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Icon name="location-on" size={80} color="#007AFF" />
-            <Text style={styles.title}>Peepl</Text>
-            <Text style={styles.subtitle}>Discover and share local experiences</Text>
+          <Text style={styles.logo}>peepl</Text>
+          <Text style={styles.tagline}>Know before you go.</Text>
+
+          <TextInput
+            style={styles.input}
+            placeholder="Email address"
+            placeholderTextColor="#757575"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#757575"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          <TouchableOpacity
+            style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
+            onPress={handleLogin}
+            disabled={isLoading}
+            activeOpacity={0.85}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#1565C0" />
+            ) : (
+              <Text style={styles.signInButtonText}>Sign In</Text>
+            )}
+          </TouchableOpacity>
+
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
           </View>
 
-          {/* Login Form */}
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Icon name="email" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Email"
-                placeholderTextColor="#999"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-            </View>
+          <TouchableOpacity
+            style={styles.facebookButton}
+            onPress={() => Alert.alert('Facebook login coming soon')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.facebookButtonText}>Continue with Facebook</Text>
+          </TouchableOpacity>
 
-            <View style={styles.inputContainer}>
-              <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
-              <TextInput
-                style={styles.input}
-                placeholder="Password"
-                placeholderTextColor="#999"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-              >
-                <Icon
-                  name={showPassword ? 'visibility' : 'visibility-off'}
-                  size={20}
-                  color="#666"
-                />
-              </TouchableOpacity>
-            </View>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={() => Alert.alert('Google login coming soon')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.googleButtonText}>Continue with Google</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[styles.loginButton, isLoading && styles.loginButtonDisabled]}
-              onPress={handleLogin}
-              disabled={isLoading}
-            >
-              <Text style={styles.loginButtonText}>
-                {isLoading ? 'Signing In...' : 'Sign In'}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.forgotPassword}
-              onPress={() => Alert.alert('Forgot Password', 'Password reset feature coming soon!')}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Footer */}
           <View style={styles.footer}>
-            <Text style={styles.footerText}>Don't have an account?</Text>
+            <Text style={styles.footerPlain}>New to Peepl? </Text>
             <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-              <Text style={styles.signUpText}>Sign Up</Text>
+              <Text style={styles.footerLink}>Join now</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -138,94 +136,113 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1565C0',
   },
   keyboardView: {
     flex: 1,
   },
   content: {
     flex: 1,
-    paddingHorizontal: 30,
+    paddingHorizontal: 24,
     justifyContent: 'center',
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 50,
-  },
-  title: {
-    fontSize: 36,
+  logo: {
+    color: '#FFFFFF',
+    fontSize: 52,
     fontWeight: 'bold',
-    color: '#007AFF',
-    marginTop: 20,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#666666',
     textAlign: 'center',
-    marginTop: 10,
+    letterSpacing: -1,
+    marginBottom: 8,
   },
-  form: {
-    marginBottom: 30,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8F8F8',
-  },
-  inputIcon: {
-    marginRight: 12,
+  tagline: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontStyle: 'italic',
+    textAlign: 'center',
+    marginBottom: 32,
   },
   input: {
-    flex: 1,
-    height: 50,
-    fontSize: 16,
-    color: '#333',
-  },
-  eyeIcon: {
-    padding: 5,
-  },
-  loginButton: {
-    backgroundColor: '#007AFF',
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    height: 50,
-    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#212121',
+    marginBottom: 14,
+  },
+  signInButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
+    marginTop: 4,
+  },
+  signInButtonDisabled: {
+    opacity: 0.7,
+  },
+  signInButtonText: {
+    color: '#1565C0',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  errorText: {
+    color: '#FF5252',
+    fontSize: 14,
     marginTop: 10,
+    textAlign: 'center',
   },
-  loginButtonDisabled: {
-    backgroundColor: '#B0B0B0',
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 22,
   },
-  loginButtonText: {
-    color: '#ffffff',
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+  },
+  dividerText: {
+    color: '#FFFFFF',
+    paddingHorizontal: 12,
+    fontSize: 14,
+  },
+  facebookButton: {
+    backgroundColor: '#1877F2',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  facebookButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
-  forgotPassword: {
+  googleButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 20,
+    marginBottom: 28,
   },
-  forgotPasswordText: {
-    color: '#007AFF',
-    fontSize: 14,
+  googleButtonText: {
+    color: '#212121',
+    fontSize: 16,
+    fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    flexWrap: 'wrap',
   },
-  footerText: {
-    color: '#666666',
-    fontSize: 14,
+  footerPlain: {
+    color: '#FFFFFF',
+    fontSize: 15,
   },
-  signUpText: {
-    color: '#007AFF',
-    fontSize: 14,
+  footerLink: {
+    color: '#FFC107',
+    fontSize: 15,
     fontWeight: '600',
-    marginLeft: 5,
   },
 });
