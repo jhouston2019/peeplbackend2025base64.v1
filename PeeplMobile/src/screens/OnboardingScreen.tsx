@@ -100,6 +100,10 @@ export default function OnboardingScreen({ navigation }: OnboardingScreenProps) 
         pagingEnabled
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={onScrollEnd}
+        onScrollToIndexFailed={info => {
+          const offset = info.index * SCREEN_WIDTH;
+          listRef.current?.scrollToOffset({ offset, animated: true });
+        }}
         getItemLayout={(_, index) => ({
           length: SCREEN_WIDTH,
           offset: SCREEN_WIDTH * index,
