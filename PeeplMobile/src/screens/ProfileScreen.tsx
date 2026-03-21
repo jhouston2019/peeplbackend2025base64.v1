@@ -7,10 +7,7 @@ import {
   TouchableOpacity,
   Image,
   Alert,
-  Modal,
-  FlatList,
   ActivityIndicator,
-  RefreshControl,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import axios from 'axios';
@@ -28,6 +25,14 @@ const API_BASE_URL = __DEV__
 const PRIMARY = '#1565C0';
 const ACCENT = '#FFC107';
 
+interface FavoriteVenueRow {
+  venueId: string;
+  name?: string;
+  currentCrowdSize: number | null;
+  lastPeepAt?: unknown;
+  [key: string]: unknown;
+}
+
 interface ProfileScreenProps {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
 }
@@ -35,10 +40,8 @@ interface ProfileScreenProps {
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [favoritesModalVisible, setFavoritesModalVisible] = useState(false);
-  const [favorites, setFavorites] = useState<Venue[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteVenueRow[]>([]);
   const [favoritesLoading, setFavoritesLoading] = useState(false);
-  const [favoritesRefreshing, setFavoritesRefreshing] = useState(false);
 
   useEffect(() => {
     loadUserProfile();
@@ -54,6 +57,37 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
       setIsLoading(false);
     }
   };
+
+  const getAuthHeaders = async () => {
+    const token = await auth().currentUser?.getIdToken();
+    return {
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+  };
+
+  const loadFavorites = useCallback(async () => {
+    setFavoritesLoading(true);
+    try {
+      const headers = await getAuthHeaders();
+      const res = await axios.get<{ favorites: FavoriteVenueRow[] }>(
+        `${API_BASE_URL}/users/favorites`,
+        { headers }
+      );
+      setFavorites(res.data.favorites || []);
+    } catch (error) {
+      console.error('Error loading favorites:', error);
+      Alert.alert('Error', 'Could not load favorite venues.');
+    } finally {
+      setFavoritesLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      loadFavorites();
+    }
+  }, [user, loadFavorites]);
 
   const handleLogout = async () => {
     Alert.alert(
@@ -88,48 +122,48 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
     Alert.alert('My Peeps', 'My peeps feature coming soon!');
   };
 
-  const getAuthHeaders = async () => {
-    const token = await auth().currentUser?.getIdToken();
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
-  const loadFavorites = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setFavoritesRefreshing(true);
-    else setFavoritesLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await axios.get<{ favorites: Venue[] }>(`${API_BASE_URL}/users/favorites`, { headers });
-      setFavorites(res.data.favorites || []);
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-      Alert.alert('Error', 'Could not load favorite venues.');
-    } finally {
-      setFavoritesLoading(false);
-      setFavoritesRefreshing(false);
-    }
-  }, []);
-
   const handleRemoveFavorite = async (venueId: string) => {
     try {
       const headers = await getAuthHeaders();
       await axios.delete(`${API_BASE_URL}/users/favorites/${venueId}`, { headers });
-      setFavorites((prev) => prev.filter((v) => v.id !== venueId));
+      setFavorites((prev) => prev.filter((v) => v.venueId !== venueId));
     } catch (error) {
       console.error('Error removing favorite:', error);
       Alert.alert('Error', 'Could not remove this favorite.');
     }
   };
 
-  const handleFavorites = () => {
-    setFavoritesModalVisible(true);
-    loadFavorites();
-  };
-
-  const onFavoritesRefresh = () => {
-    loadFavorites(true);
+  const openVenue = (item: FavoriteVenueRow) => {
+    const lat =
+      typeof item.latitude === 'number'
+        ? item.latitude
+        : typeof item.lat === 'number'
+          ? item.lat
+          : 0;
+    const lng =
+      typeof item.longitude === 'number'
+        ? item.longitude
+        : typeof item.lng === 'number'
+          ? item.lng
+          : 0;
+    const venue: Venue = {
+      id: item.venueId,
+      name: (item.name as string) || 'Venue',
+      address: (item.address as string) || '',
+      latitude: lat,
+      longitude: lng,
+      category: (item.category as string) || '',
+      createdBy: (item.createdBy as string) || '',
+      createdAt: (item.createdAt as string) || '',
+      updatedAt: (item.updatedAt as string) || '',
+      isActive: (item.isActive as boolean) ?? true,
+      peepCount: (item.peepCount as number) || 0,
+      averageRating: (item.averageRating as number) || 0,
+      totalRatings: (item.totalRatings as number) || 0,
+      description: item.description as string | undefined,
+      imageUrl: item.imageUrl as string | undefined,
+    };
+    navigation.navigate('Venue', { venue });
   };
 
   if (isLoading) {
@@ -149,7 +183,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   }
 
   return (
-    <>
     <ScrollView style={styles.container}>
       {/* Profile Header */}
       <View style={styles.header}>
@@ -162,13 +195,13 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             </View>
           )}
         </View>
-        
+
         <Text style={styles.userName}>
           {user.firstName} {user.lastName}
         </Text>
         <Text style={styles.userHandle}>@{user.username}</Text>
         <Text style={styles.userEmail}>{user.email}</Text>
-        
+
         {user.bio && (
           <Text style={styles.userBio}>{user.bio}</Text>
         )}
@@ -195,17 +228,56 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         </View>
       </View>
 
+      {/* Favorites */}
+      <View style={styles.favoritesSection}>
+        <View style={styles.favoritesSectionHeader}>
+          <Text style={styles.favoritesSectionTitle}>Favorites</Text>
+          <TouchableOpacity onPress={() => loadFavorites()} accessibilityRole="button">
+            <Icon name="refresh" size={22} color={PRIMARY} />
+          </TouchableOpacity>
+        </View>
+        {favoritesLoading && favorites.length === 0 ? (
+          <View style={styles.favoritesSectionLoading}>
+            <ActivityIndicator color={ACCENT} />
+          </View>
+        ) : favorites.length === 0 ? (
+          <Text style={styles.favoritesEmptyInline}>No favorite venues yet.</Text>
+        ) : (
+          favorites.map((item) => (
+            <View key={item.venueId} style={styles.favoriteRow}>
+              <TouchableOpacity
+                style={styles.favoriteRowMain}
+                onPress={() => openVenue(item)}
+                activeOpacity={0.7}
+              >
+                <Icon name="place" size={22} color={PRIMARY} />
+                <View style={styles.favoriteRowText}>
+                  <Text style={styles.favoriteName}>{item.name || 'Venue'}</Text>
+                  <Text style={styles.favoriteCrowd}>
+                    {item.currentCrowdSize != null
+                      ? `Current crowd: ${item.currentCrowdSize}/5`
+                      : 'No recent peep'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.favoriteHeart}
+                onPress={() => handleRemoveFavorite(item.venueId)}
+                accessibilityRole="button"
+                accessibilityLabel={`Unfavorite ${item.name || 'venue'}`}
+              >
+                <Icon name="favorite" size={26} color={ACCENT} />
+              </TouchableOpacity>
+            </View>
+          ))
+        )}
+      </View>
+
       {/* Menu Items */}
       <View style={styles.menuContainer}>
         <TouchableOpacity style={styles.menuItem} onPress={handleMyPeeps}>
           <Icon name="chat-bubble-outline" size={24} color="#007AFF" />
           <Text style={styles.menuItemText}>My Peeps</Text>
-          <Icon name="chevron-right" size={24} color="#CCCCCC" />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={handleFavorites}>
-          <Icon name="favorite-border" size={24} color="#007AFF" />
-          <Text style={styles.menuItemText}>Favorites</Text>
           <Icon name="chevron-right" size={24} color="#CCCCCC" />
         </TouchableOpacity>
 
@@ -241,76 +313,6 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
         <Text style={styles.versionText}>Peepl 2025 v2.0.0</Text>
       </View>
     </ScrollView>
-
-    <Modal
-      visible={favoritesModalVisible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={() => setFavoritesModalVisible(false)}
-    >
-      <View style={styles.favoritesModal}>
-        <View style={styles.favoritesHeader}>
-          <Text style={styles.favoritesTitle}>Favorite venues</Text>
-          <TouchableOpacity
-            onPress={() => setFavoritesModalVisible(false)}
-            accessibilityRole="button"
-            accessibilityLabel="Close favorites"
-          >
-            <Icon name="close" size={28} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-        {favoritesLoading && favorites.length === 0 ? (
-          <View style={styles.favoritesCentered}>
-            <ActivityIndicator size="large" color={ACCENT} />
-          </View>
-        ) : (
-          <FlatList
-            data={favorites}
-            keyExtractor={(item) => item.id}
-            refreshControl={
-              <RefreshControl refreshing={favoritesRefreshing} onRefresh={onFavoritesRefresh} tintColor={ACCENT} />
-            }
-            ListEmptyComponent={
-              <View style={styles.favoritesEmpty}>
-                <Icon name="favorite-border" size={48} color={ACCENT} />
-                <Text style={styles.favoritesEmptyText}>No favorites yet</Text>
-                <Text style={styles.favoritesEmptyHint}>Save venues from a venue page to see them here.</Text>
-              </View>
-            }
-            renderItem={({ item }) => (
-              <View style={styles.favoriteRow}>
-                <TouchableOpacity
-                  style={styles.favoriteRowMain}
-                  onPress={() => {
-                    setFavoritesModalVisible(false);
-                    navigation.navigate('Venue', { venue: item });
-                  }}
-                >
-                  <Icon name="place" size={22} color={PRIMARY} />
-                  <View style={styles.favoriteRowText}>
-                    <Text style={styles.favoriteName}>{item.name}</Text>
-                    {item.category ? (
-                      <Text style={styles.favoriteMeta}>{item.category}</Text>
-                    ) : null}
-                  </View>
-                  <Icon name="chevron-right" size={24} color="#CCCCCC" />
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.favoriteRemove}
-                  onPress={() => handleRemoveFavorite(item.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Remove ${item.name} from favorites`}
-                >
-                  <Icon name="delete-outline" size={24} color="#FF3B30" />
-                </TouchableOpacity>
-              </View>
-            )}
-            contentContainerStyle={favorites.length === 0 ? styles.favoritesListEmpty : undefined}
-          />
-        )}
-      </View>
-    </Modal>
-    </>
   );
 }
 
@@ -408,6 +410,68 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 4,
   },
+  favoritesSection: {
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#fafafa',
+  },
+  favoritesSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  favoritesSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: PRIMARY,
+  },
+  favoritesSectionLoading: {
+    paddingVertical: 16,
+    alignItems: 'center',
+  },
+  favoritesEmptyInline: {
+    fontSize: 14,
+    color: '#666',
+    fontStyle: 'italic',
+  },
+  favoriteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E8E8E8',
+    overflow: 'hidden',
+  },
+  favoriteRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  favoriteRowText: {
+    flex: 1,
+    marginLeft: 10,
+  },
+  favoriteName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  favoriteCrowd: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: 4,
+  },
+  favoriteHeart: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
   menuContainer: {
     paddingVertical: 10,
   },
@@ -451,80 +515,5 @@ const styles = StyleSheet.create({
   versionText: {
     fontSize: 12,
     color: '#999',
-  },
-  favoritesModal: {
-    flex: 1,
-    backgroundColor: '#ffffff',
-  },
-  favoritesHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    backgroundColor: PRIMARY,
-  },
-  favoritesTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  favoritesCentered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  favoritesListEmpty: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  favoritesEmpty: {
-    alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingVertical: 48,
-  },
-  favoritesEmptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
-    marginTop: 12,
-  },
-  favoritesEmptyHint: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  favoriteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
-  },
-  favoriteRowMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingLeft: 16,
-    paddingRight: 8,
-  },
-  favoriteRowText: {
-    flex: 1,
-    marginLeft: 12,
-  },
-  favoriteName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  favoriteMeta: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  favoriteRemove: {
-    paddingHorizontal: 16,
-    paddingVertical: 14,
   },
 });
