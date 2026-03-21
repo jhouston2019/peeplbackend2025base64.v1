@@ -10,80 +10,77 @@ import {
   Platform,
   Alert,
   ScrollView,
+  ActivityIndicator,
+  Linking,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import auth from '@react-native-firebase/auth';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
 import { RegisterData } from '../types/User';
+import { authService } from '../services/AuthService';
 
 interface RegisterScreenProps {
-  onRegister: (userData: RegisterData) => void;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Register'>;
+  onRegister?: (userData: RegisterData) => void | Promise<void>;
+  navigation: StackNavigationProp<RootStackParamList, 'Register'>;
 }
 
-export default function RegisterScreen({ onRegister, navigation }: RegisterScreenProps) {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    username: '',
-    firstName: '',
-    lastName: '',
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+const TERMS_URL = 'https://peepl.app/terms';
+const PRIVACY_URL = 'https://peepl.app/privacy';
+
+export default function RegisterScreen({ navigation }: RegisterScreenProps) {
+  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+  const splitFullName = (name: string): { firstName: string; lastName: string } => {
+    const trimmed = name.trim();
+    const parts = trimmed.split(/\s+/);
+    const firstName = parts[0] || '';
+    const lastName = parts.slice(1).join(' ') || '';
+    return { firstName, lastName };
   };
 
   const handleRegister = async () => {
-    // Validation
-    if (!formData.email.trim() || !formData.password.trim() || 
-        !formData.username.trim() || !formData.firstName.trim() || 
-        !formData.lastName.trim()) {
+    if (!fullName.trim() || !username.trim() || !email.trim() || !password.trim()) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    if (!isValidEmail(formData.email)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+    if (password.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters');
       return;
     }
 
-    if (formData.password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
-    if (formData.username.length < 3) {
-      Alert.alert('Error', 'Username must be at least 3 characters long');
-      return;
-    }
+    const { firstName, lastName } = splitFullName(fullName);
+    const payload: RegisterData = {
+      email: email.trim(),
+      password,
+      username: username.trim(),
+      firstName,
+      lastName,
+    };
 
     setIsLoading(true);
     try {
-      await onRegister({
-        email: formData.email.trim(),
-        password: formData.password,
-        username: formData.username.trim(),
-        firstName: formData.firstName.trim(),
-        lastName: formData.lastName.trim(),
-      });
+      const response = await authService.register(payload);
+
+      if (response.success) {
+        try {
+          await auth().currentUser?.updateProfile({ displayName: fullName.trim() });
+        } catch {
+          // displayName is optional for confirmation screen
+        }
+        navigation.navigate('SignUpConfirmed' as never);
+      } else {
+        Alert.alert('Registration failed', response.error || 'Please try again');
+      }
+    } catch {
+      Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const isValidEmail = (email: string): boolean => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
   };
 
   return (
@@ -92,149 +89,107 @@ export default function RegisterScreen({ onRegister, navigation }: RegisterScree
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-          <View style={styles.content}>
-            {/* Header */}
-            <View style={styles.header}>
-              <Icon name="person-add" size={60} color="#007AFF" />
-              <Text style={styles.title}>Join Peepl</Text>
-              <Text style={styles.subtitle}>Create your account to start sharing experiences</Text>
-            </View>
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.header}>Join Peepl</Text>
 
-            {/* Registration Form */}
-            <View style={styles.form}>
-              {/* Name Fields */}
-              <View style={styles.nameRow}>
-                <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="First Name"
-                    placeholderTextColor="#999"
-                    value={formData.firstName}
-                    onChangeText={(value) => handleInputChange('firstName', value)}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                  />
-                </View>
+          <TouchableOpacity
+            style={styles.facebookButton}
+            onPress={() => Alert.alert('OAuth coming soon')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.facebookButtonText}>Sign up with Facebook</Text>
+          </TouchableOpacity>
 
-                <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <Icon name="person" size={20} color="#666" style={styles.inputIcon} />
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Last Name"
-                    placeholderTextColor="#999"
-                    value={formData.lastName}
-                    onChangeText={(value) => handleInputChange('lastName', value)}
-                    autoCapitalize="words"
-                    autoCorrect={false}
-                  />
-                </View>
-              </View>
+          <TouchableOpacity
+            style={styles.googleButton}
+            onPress={() => Alert.alert('OAuth coming soon')}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.googleButtonText}>Sign up with Google</Text>
+          </TouchableOpacity>
 
-              {/* Username */}
-              <View style={styles.inputContainer}>
-                <Icon name="alternate-email" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Username"
-                  placeholderTextColor="#999"
-                  value={formData.username}
-                  onChangeText={(value) => handleInputChange('username', value)}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or sign up with email</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
-              {/* Email */}
-              <View style={styles.inputContainer}>
-                <Icon name="email" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Email"
-                  placeholderTextColor="#999"
-                  value={formData.email}
-                  onChangeText={(value) => handleInputChange('email', value)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Full name"
+            placeholderTextColor="#757575"
+            value={fullName}
+            onChangeText={setFullName}
+            autoCapitalize="words"
+          />
 
-              {/* Password */}
-              <View style={styles.inputContainer}>
-                <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Password"
-                  placeholderTextColor="#999"
-                  value={formData.password}
-                  onChangeText={(value) => handleInputChange('password', value)}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Icon
-                    name={showPassword ? 'visibility' : 'visibility-off'}
-                    size={20}
-                    color="#666"
-                  />
-                </TouchableOpacity>
-              </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Username"
+            placeholderTextColor="#757575"
+            value={username}
+            onChangeText={setUsername}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-              {/* Confirm Password */}
-              <View style={styles.inputContainer}>
-                <Icon name="lock" size={20} color="#666" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="Confirm Password"
-                  placeholderTextColor="#999"
-                  value={formData.confirmPassword}
-                  onChangeText={(value) => handleInputChange('confirmPassword', value)}
-                  secureTextEntry={!showConfirmPassword}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                >
-                  <Icon
-                    name={showConfirmPassword ? 'visibility' : 'visibility-off'}
-                    size={20}
-                    color="#666"
-                  />
-                </TouchableOpacity>
-              </View>
+          <TextInput
+            style={styles.input}
+            placeholder="Email address"
+            placeholderTextColor="#757575"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-              {/* Register Button */}
-              <TouchableOpacity
-                style={[styles.registerButton, isLoading && styles.registerButtonDisabled]}
-                onPress={handleRegister}
-                disabled={isLoading}
-              >
-                <Text style={styles.registerButtonText}>
-                  {isLoading ? 'Creating Account...' : 'Create Account'}
-                </Text>
-              </TouchableOpacity>
+          <TextInput
+            style={styles.input}
+            placeholder="Password"
+            placeholderTextColor="#757575"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
 
-              {/* Terms */}
-              <Text style={styles.termsText}>
-                By creating an account, you agree to our Terms of Service and Privacy Policy
-              </Text>
-            </View>
+          <Text style={styles.termsText}>
+            By creating an account, you agree to our{' '}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL(TERMS_URL)}>
+              Terms of Service
+            </Text>{' '}
+            and{' '}
+            <Text style={styles.termsLink} onPress={() => Linking.openURL(PRIVACY_URL)}>
+              Privacy Policy
+            </Text>
+            .
+          </Text>
 
-            {/* Footer */}
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Login')}>
-                <Text style={styles.signInText}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
+          <TouchableOpacity
+            style={[styles.createButton, isLoading && styles.createButtonDisabled]}
+            onPress={handleRegister}
+            disabled={isLoading}
+            activeOpacity={0.85}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#000000" />
+            ) : (
+              <Text style={styles.createButtonText}>Create Account</Text>
+            )}
+          </TouchableOpacity>
+
+          <View style={styles.footer}>
+            <Text style={styles.footerPlain}>Already have an account? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Login')}>
+              <Text style={styles.footerLink}>Sign in</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -245,7 +200,7 @@ export default function RegisterScreen({ onRegister, navigation }: RegisterScree
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#1565C0',
   },
   keyboardView: {
     flex: 1,
@@ -253,96 +208,107 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  content: {
-    paddingHorizontal: 30,
-    paddingVertical: 20,
+  scrollContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 24,
+    paddingBottom: 40,
   },
   header: {
-    alignItems: 'center',
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
+    color: '#FFFFFF',
+    fontSize: 32,
     fontWeight: 'bold',
-    color: '#007AFF',
-    marginTop: 15,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666666',
+    marginBottom: 24,
     textAlign: 'center',
-    marginTop: 8,
   },
-  form: {
-    marginBottom: 30,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  facebookButton: {
+    backgroundColor: '#1877F2',
     borderRadius: 12,
-    marginBottom: 16,
-    paddingHorizontal: 16,
-    backgroundColor: '#F8F8F8',
-  },
-  halfWidth: {
-    width: '48%',
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    height: 50,
-    fontSize: 16,
-    color: '#333',
-  },
-  eyeIcon: {
-    padding: 5,
-  },
-  registerButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 12,
-    height: 50,
-    justifyContent: 'center',
+    paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 10,
+    marginBottom: 12,
   },
-  registerButtonDisabled: {
-    backgroundColor: '#B0B0B0',
-  },
-  registerButtonText: {
-    color: '#ffffff',
+  facebookButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
   },
+  googleButton: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  googleButtonText: {
+    color: '#212121',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  dividerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  dividerText: {
+    color: '#FFFFFF',
+    paddingHorizontal: 10,
+    fontSize: 13,
+  },
+  input: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#212121',
+    marginBottom: 14,
+  },
   termsText: {
+    color: '#FFFFFF',
     fontSize: 12,
-    color: '#666666',
     textAlign: 'center',
-    marginTop: 15,
     lineHeight: 18,
+    marginBottom: 20,
+    marginTop: 4,
+  },
+  termsLink: {
+    color: '#FFC107',
+    fontWeight: '600',
+  },
+  createButton: {
+    backgroundColor: '#FFC107',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  createButtonDisabled: {
+    opacity: 0.7,
+  },
+  createButtonText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    flexWrap: 'wrap',
   },
-  footerText: {
-    color: '#666666',
-    fontSize: 14,
+  footerPlain: {
+    color: '#FFFFFF',
+    fontSize: 15,
   },
-  signInText: {
-    color: '#007AFF',
-    fontSize: 14,
+  footerLink: {
+    color: '#FFFFFF',
+    fontSize: 15,
     fontWeight: '600',
-    marginLeft: 5,
+    textDecorationLine: 'underline',
   },
 });
