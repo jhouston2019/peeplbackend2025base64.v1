@@ -18,6 +18,7 @@ require("dotenv").config();
 
 // Import services
 const notificationService = require("./src/services/NotificationService");
+const { triggerCrowdConfirmationIfNeeded } = require("./src/services/NotificationService");
 const geofencingService = require("./src/services/GeofencingService");
 const { calculateDistance } = require("./src/utils/geo");
 const { awardPoints, POINTS_RULES } = require("./src/services/PointsService");
@@ -454,6 +455,12 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
     });
 
     logger.info(`New peep created: ${peepRef.id} by ${userId}`);
+
+    const venueName = venueData.name || venueDoc.id;
+    triggerCrowdConfirmationIfNeeded(venueId, venueName).catch(e =>
+      logger.error('Push trigger failed:', e)
+    );
+
     res.status(201).json({
       message: "Peep created successfully",
       peepId: peepRef.id,

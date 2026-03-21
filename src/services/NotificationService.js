@@ -294,4 +294,58 @@ class NotificationService {
   }
 }
 
-module.exports = new NotificationService();
+const notificationService = new NotificationService();
+
+async function triggerCrowdConfirmationIfNeeded(venueId, venueName) {
+  const db = admin.firestore();
+  const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
+
+  const recentPeeps = await db.collection('peeps')
+    .where('venueId', '==', venueId)
+    .where('crowdSize', '>=', 4)
+    .where('createdAt', '>=', thirtyMinutesAgo)
+    .get();
+
+  if (recentPeeps.size < 3) return;
+
+  const favoritesSnap = await db.collectionGroup('favorites')
+    .where('venueId', '==', venueId)
+    .get();
+
+  const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
+  for (const favDoc of favoritesSnap.docs) {
+    const userId = favDoc.ref.parent.parent.id;
+
+    const recentNotifSnap = await db.collection('notification_throttle')
+      .where('userId', '==', userId)
+      .where('venueId', '==', venueId)
+      .where('sentAt', '>=', twoHoursAgo)
+      .limit(1)
+      .get();
+
+    if (!recentNotifSnap.empty) continue;
+
+    const userDoc = await db.collection('users').doc(userId).get();
+    const fcmToken = userDoc.data()?.fcmToken;
+    if (!fcmToken) continue;
+
+    await admin.messaging().send({
+      token: fcmToken,
+      notification: {
+        title: `${venueName} is getting crowded`,
+        body: 'Busy right now.',
+      },
+      data: { venueId, type: 'crowd_spike' },
+    });
+
+    await db.collection('notification_throttle').add({
+      userId,
+      venueId,
+      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+  }
+}
+
+module.exports = notificationService;
+module.exports.triggerCrowdConfirmationIfNeeded = triggerCrowdConfirmationIfNeeded;
