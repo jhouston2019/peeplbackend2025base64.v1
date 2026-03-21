@@ -14,7 +14,7 @@ import {
 import Slider from '@react-native-community/slider';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import { launchImageLibrary, ImagePickerResponse, MediaType } from 'react-native-image-picker';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
@@ -23,7 +23,7 @@ import { ApiService } from '../services/ApiService';
 
 interface CreatePeepScreenProps {
   route: RouteProp<RootStackParamList, 'CreatePeep'>;
-  navigation: NativeStackNavigationProp<RootStackParamList, 'CreatePeep'>;
+  navigation: StackNavigationProp<RootStackParamList, 'CreatePeep'>;
 }
 
 const AGE_RANGE_OPTIONS = ['0-10', '10-14', '14-18', '19-24', '25-30', '31-40', '41-50', '51-60', '61-70', '71-80', '80+'];
@@ -109,10 +109,16 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
         } : undefined,
       };
 
-      const response = await ApiService.createPeep(peepData);
-      
+      const response = (await ApiService.createPeep(peepData)) as {
+        isPioneer?: boolean;
+        venuesPioneedCount?: number;
+      };
+
       if (response.isPioneer) {
-        navigation.navigate('PioneerCongrats');
+        navigation.navigate('PioneerCongrats', {
+          venueName: selectedVenue.name,
+          venuesPioneedCount: response.venuesPioneedCount ?? 1,
+        });
       } else {
         Alert.alert(
           'Success',

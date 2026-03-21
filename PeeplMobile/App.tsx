@@ -24,6 +24,11 @@ import VenueScreen from './src/screens/VenueScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import CreatePeepScreen from './src/screens/CreatePeepScreen';
 import VenueListScreen from './src/screens/VenueListScreen';
+import PioneerCongratScreen from './src/screens/PioneerCongratScreen';
+import DealsScreen from './src/screens/DealsScreen';
+import DealClaimedScreen from './src/screens/DealClaimedScreen';
+import GetPeepsScreen from './src/screens/GetPeepsScreen';
+import LeaderboardScreen from './src/screens/LeaderboardScreen';
 
 // Import services
 import { authService } from './src/services/AuthService';
@@ -38,6 +43,15 @@ import { RootStackParamList } from './src/types/Navigation';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
+
+function MerchantSignInStub(): JSX.Element {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
+      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Merchant sign-in</Text>
+      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
+    </View>
+  );
+}
 
 // Main Tab Navigator
 function MainTabs() {
@@ -288,6 +302,36 @@ export default function App(): JSX.Element {
             title: 'Create Peep',
             headerBackTitle: 'Cancel',
           }}
+        />
+        <Stack.Screen
+          name="PioneerCongrats"
+          component={PioneerCongratScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Deals"
+          component={DealsScreen}
+          options={{ title: 'Deals', headerTintColor: '#1565C0' }}
+        />
+        <Stack.Screen
+          name="DealClaimed"
+          component={DealClaimedScreen}
+          options={{ title: 'Your deal' }}
+        />
+        <Stack.Screen
+          name="MerchantSignIn"
+          component={MerchantSignInStub}
+          options={{ title: 'Advertise' }}
+        />
+        <Stack.Screen
+          name="GetPeeps"
+          component={GetPeepsScreen}
+          options={{ title: 'Get Peeps' }}
+        />
+        <Stack.Screen
+          name="Leaderboard"
+          component={LeaderboardScreen}
+          options={{ title: 'Leaderboard' }}
         />
       </Stack.Navigator>
       <Toast />
