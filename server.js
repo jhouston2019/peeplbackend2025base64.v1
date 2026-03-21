@@ -772,6 +772,79 @@ app.get('/leaderboard/rank', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/search/venues', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
+    const term = q.toLowerCase().trim();
+    const snap = await db.collection('venues')
+      .orderBy('nameLower')
+      .startAt(term)
+      .endAt(term + '\uf8ff')
+      .limit(20)
+      .get();
+    const venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    res.json({ venues });
+  } catch (error) {
+    logger.error('Search venues error:', error);
+    res.status(500).json({ error: 'Failed to search venues' });
+  }
+});
+
+app.get('/search/venues/nearby', authenticateToken, async (req, res) => {
+  try {
+    const { lat, lng, radius = 1 } = req.query;
+    if (!lat || !lng) return res.status(400).json({ error: 'lat and lng required' });
+    const center = [parseFloat(lat), parseFloat(lng)];
+    const radiusInM = parseFloat(radius) * 1000;
+    const bounds = geofire.geohashQueryBounds(center, radiusInM);
+    const snaps = await Promise.all(
+      bounds.map(b => db.collection('venues').orderBy('geohash').startAt(b[0]).endAt(b[1]).get())
+    );
+    const venues = snaps.flatMap(s => s.docs).filter(d => {
+      const { lat: vLat, lng: vLng } = d.data();
+      return geofire.distanceBetween([vLat, vLng], center) <= parseFloat(radius);
+    }).map(d => ({ id: d.id, ...d.data() }));
+    res.json({ venues });
+  } catch (error) {
+    logger.error('Search venues nearby error:', error);
+    res.status(500).json({ error: 'Failed to search nearby venues' });
+  }
+});
+
+app.get('/search/venues/city', authenticateToken, async (req, res) => {
+  try {
+    const { city } = req.query;
+    if (!city) return res.status(400).json({ error: 'city required' });
+    const snap = await db.collection('venues')
+      .where('cityLower', '==', city.toLowerCase().trim())
+      .limit(50)
+      .get();
+    res.json({ venues: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
+  } catch (error) {
+    logger.error('Search venues by city error:', error);
+    res.status(500).json({ error: 'Failed to search venues by city' });
+  }
+});
+
+app.get('/search/users', authenticateToken, async (req, res) => {
+  try {
+    const { q } = req.query;
+    if (!q || q.trim().length < 2) return res.status(400).json({ error: 'Query must be at least 2 characters' });
+    const term = q.toLowerCase().trim();
+    const snap = await db.collection('users')
+      .orderBy('usernameLower')
+      .startAt(term)
+      .endAt(term + '\uf8ff')
+      .limit(20)
+      .get();
+    res.json({ users: snap.docs.map(d => ({ id: d.id, username: d.data().username, profileImageUrl: d.data().profileImageUrl })) });
+  } catch (error) {
+    logger.error('Search users error:', error);
+    res.status(500).json({ error: 'Failed to search users' });
+  }
+});
+
 app.use((error, req, res, next) => {
   logger.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });
