@@ -845,6 +845,52 @@ app.get('/search/users', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/users/favorites', authenticateToken, async (req, res) => {
+  try {
+    const snap = await db.collection('users').doc(req.user.uid).collection('favorites').get();
+    const favorites = await Promise.all(
+      snap.docs.map(async (favDoc) => {
+        const venueId = favDoc.data().venueId || favDoc.id;
+        const vDoc = await db.collection('venues').doc(venueId).get();
+        if (!vDoc.exists) return null;
+        return { id: vDoc.id, ...vDoc.data() };
+      })
+    );
+    res.json({ favorites: favorites.filter(Boolean) });
+  } catch (error) {
+    logger.error('Favorites fetch error:', error);
+    res.status(500).json({ error: 'Failed to fetch favorites' });
+  }
+});
+
+app.post('/users/favorites', authenticateToken, async (req, res) => {
+  try {
+    const { venueId } = req.body;
+    if (!venueId) return res.status(400).json({ error: 'venueId required' });
+    const venueDoc = await db.collection('venues').doc(venueId).get();
+    if (!venueDoc.exists) return res.status(404).json({ error: 'Venue not found' });
+    await db.collection('users').doc(req.user.uid).collection('favorites').doc(venueId).set({
+      venueId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.status(201).json({ message: 'Favorite added' });
+  } catch (error) {
+    logger.error('Favorite add error:', error);
+    res.status(500).json({ error: 'Failed to add favorite' });
+  }
+});
+
+app.delete('/users/favorites/:venueId', authenticateToken, async (req, res) => {
+  try {
+    const { venueId } = req.params;
+    await db.collection('users').doc(req.user.uid).collection('favorites').doc(venueId).delete();
+    res.json({ message: 'Favorite removed' });
+  } catch (error) {
+    logger.error('Favorite remove error:', error);
+    res.status(500).json({ error: 'Failed to remove favorite' });
+  }
+});
+
 app.use((error, req, res, next) => {
   logger.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });
