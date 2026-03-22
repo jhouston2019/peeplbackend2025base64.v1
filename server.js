@@ -13,13 +13,10 @@ const compression = require("compression");
 const rateLimit = require("express-rate-limit");
 const multer = require("multer");
 const admin = require("firebase-admin");
-const jwt = require("jsonwebtoken");
-const bcrypt = require("bcryptjs");
 const { body, validationResult } = require("express-validator");
 const { createServer } = require("http");
 const { Server } = require("socket.io");
 const cron = require("node-cron");
-const axios = require("axios");
 const winston = require("winston");
 const geofire = require("geofire-common");
 
@@ -33,7 +30,6 @@ const stripe = process.env.STRIPE_SECRET_KEY
 const notificationService = require("./src/services/NotificationService");
 const { triggerCrowdConfirmationIfNeeded } = require("./src/services/NotificationService");
 const geofencingService = require("./src/services/GeofencingService");
-const { calculateDistance } = require("./src/utils/geo");
 const { awardPoints, POINTS_RULES } = require("./src/services/PointsService");
 
 // Initialize Express app
@@ -153,7 +149,6 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const auth = admin.auth();
 const storage = admin.storage();
 
 /*
@@ -1900,7 +1895,7 @@ cron.schedule("* * * * *", async () => {
   }
 });
 
-app.use((error, req, res, next) => {
+app.use((error, req, res, _next) => {
   Sentry.captureException(error);
   logger.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });
