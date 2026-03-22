@@ -84,7 +84,11 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
   };
 
   const renderPeepItem = ({ item: peep, index }: { item: Peep; index: number }) => (
-    <View style={styles.peepCard}>
+    <TouchableOpacity
+      style={styles.peepCard}
+      activeOpacity={0.9}
+      onPress={() => navigation.navigate('PeepDetail', { peepId: peep.id })}
+    >
       <View style={styles.peepHeader}>
         <View style={styles.userInfo}>
           {peep.user?.profileImageUrl && (
@@ -100,7 +104,7 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
         <Text style={styles.peepDate}>{formatTimeAgo(peep.createdAt)}</Text>
       </View>
 
-      <View style={styles.crowdPill} style={{ backgroundColor: getCrowdColor(peep.crowdSize) }}>
+      <View style={[styles.crowdPill, { backgroundColor: getCrowdColor(peep.crowdSize) }]}>
         <Text style={styles.crowdPillText}>{getCrowdLabel(peep.crowdSize)}</Text>
       </View>
 
@@ -130,7 +134,7 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
           <Text style={styles.peepActionText}>{peep.commentCount}</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   return (

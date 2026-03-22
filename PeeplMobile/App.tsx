@@ -34,6 +34,16 @@ import PioneersScreen from './src/screens/PioneersScreen';
 import UserProfileScreen from './src/screens/UserProfileScreen';
 import FollowListScreen from './src/screens/FollowListScreen';
 import MyPeepsScreen from './src/screens/MyPeepsScreen';
+import FavoritesScreen from './src/screens/FavoritesScreen';
+import PeepDetailScreen from './src/screens/PeepDetailScreen';
+import LikersScreen from './src/screens/LikersScreen';
+import GroupsScreen from './src/screens/GroupsScreen';
+import ShareScreen from './src/screens/ShareScreen';
+import InviteScreen from './src/screens/InviteScreen';
+import SearchScreen from './src/screens/SearchScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import SettingsScreen from './src/screens/SettingsScreen';
+import { MenuProvider, navigationRef, MenuHamburger } from './src/screens/MenuScreen';
 
 // Import services
 import { authService } from './src/services/AuthService';
@@ -58,32 +68,11 @@ function MerchantSignInStub(): JSX.Element {
   );
 }
 
-function FavoritesStub(): JSX.Element {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
-      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Favorites</Text>
-      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
-    </View>
-  );
-}
-
-function GroupsStub(): JSX.Element {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
-      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Groups</Text>
-      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
-    </View>
-  );
-}
-
-function SettingsStub(): JSX.Element {
-  return (
-    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
-      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Settings</Text>
-      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
-    </View>
-  );
-}
+const headerBlue = {
+  headerStyle: { backgroundColor: '#1565C0' },
+  headerTintColor: '#ffffff',
+  headerTitleStyle: { fontWeight: 'bold' as const },
+};
 
 // Main Tab Navigator
 function MainTabs() {
@@ -105,14 +94,32 @@ function MainTabs() {
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#007AFF',
+        tabBarActiveTintColor: '#1565C0',
         tabBarInactiveTintColor: 'gray',
         headerShown: false,
       })}
     >
       <Tab.Screen name="Map" component={MapScreen} />
-      <Tab.Screen name="Venues" component={VenueListScreen} />
-      <Tab.Screen name="Profile" component={ProfileScreen} />
+      <Tab.Screen
+        name="Venues"
+        component={VenueListScreen}
+        options={{
+          headerShown: true,
+          title: 'Venues',
+          ...headerBlue,
+          headerLeft: () => <MenuHamburger />,
+        }}
+      />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{
+          headerShown: true,
+          title: 'Profile',
+          ...headerBlue,
+          headerLeft: () => <MenuHamburger />,
+        }}
+      />
     </Tab.Navigator>
   );
 }
@@ -306,7 +313,7 @@ export default function App(): JSX.Element {
 
   if (!isAuthenticated) {
     return (
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <Stack.Navigator screenOptions={{ headerShown: false }}>
           <Stack.Screen name="Login">
             {props => <LoginScreen {...props} onLogin={handleLogin} />}
@@ -321,89 +328,134 @@ export default function App(): JSX.Element {
   }
 
   return (
-    <NavigationContainer>
-      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-      <Stack.Navigator>
-        <Stack.Screen 
-          name="MainTabs" 
-          component={MainTabs} 
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen 
-          name="Venue" 
-          component={VenueScreen}
-          options={({ route }) => ({
-            title: route.params.venue.name || 'Venue',
-            headerBackTitle: 'Back',
-          })}
-        />
-        <Stack.Screen 
-          name="CreatePeep" 
-          component={CreatePeepScreen}
-          options={{
-            title: 'Create Peep',
-            headerBackTitle: 'Cancel',
-          }}
-        />
-        <Stack.Screen
-          name="PioneerCongrats"
-          component={PioneerCongratScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="Deals"
-          component={DealsScreen}
-          options={{ title: 'Deals', headerTintColor: '#1565C0' }}
-        />
-        <Stack.Screen
-          name="DealClaimed"
-          component={DealClaimedScreen}
-          options={{ title: 'Your deal' }}
-        />
-        <Stack.Screen
-          name="MerchantSignIn"
-          component={MerchantSignInStub}
-          options={{ title: 'Advertise' }}
-        />
-        <Stack.Screen
-          name="GetPeeps"
-          component={GetPeepsScreen}
-          options={{ title: 'Get Peeps' }}
-        />
-        <Stack.Screen
-          name="Leaderboard"
-          component={LeaderboardScreen}
-          options={{ title: 'Leaderboard', headerTintColor: '#1565C0' }}
-        />
-        <Stack.Screen
-          name="Pioneers"
-          component={PioneersScreen}
-          options={{ headerShown: false }}
-        />
-        <Stack.Screen
-          name="UserProfile"
-          component={UserProfileScreen}
-          options={{ title: 'Profile', headerTintColor: '#1565C0' }}
-        />
-        <Stack.Screen
-          name="FollowList"
-          component={FollowListScreen}
-          options={{ headerTintColor: '#1565C0' }}
-        />
-        <Stack.Screen
-          name="MyPeeps"
-          component={MyPeepsScreen}
-          options={{
-            title: 'My Peeps',
-            headerStyle: { backgroundColor: '#1565C0' },
-            headerTintColor: '#ffffff',
-            headerTitleStyle: { fontWeight: 'bold' },
-          }}
-        />
-        <Stack.Screen name="Favorites" component={FavoritesStub} options={{ title: 'Favorites' }} />
-        <Stack.Screen name="Groups" component={GroupsStub} options={{ title: 'Groups' }} />
-        <Stack.Screen name="Settings" component={SettingsStub} options={{ title: 'Settings' }} />
-      </Stack.Navigator>
+    <NavigationContainer ref={navigationRef}>
+      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
+      <MenuProvider>
+        <Stack.Navigator>
+          <Stack.Screen
+            name="MainTabs"
+            component={MainTabs}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Venue"
+            component={VenueScreen}
+            options={({ route }) => ({
+              title: route.params.venue.name || 'Venue',
+              headerBackTitle: 'Back',
+            })}
+          />
+          <Stack.Screen
+            name="CreatePeep"
+            component={CreatePeepScreen}
+            options={{
+              title: 'Create Peep',
+              headerBackTitle: 'Cancel',
+            }}
+          />
+          <Stack.Screen
+            name="PioneerCongrats"
+            component={PioneerCongratScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Deals"
+            component={DealsScreen}
+            options={{ title: 'Deals', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="DealClaimed"
+            component={DealClaimedScreen}
+            options={{ title: 'Your deal' }}
+          />
+          <Stack.Screen
+            name="MerchantSignIn"
+            component={MerchantSignInStub}
+            options={{ title: 'Advertise' }}
+          />
+          <Stack.Screen
+            name="GetPeeps"
+            component={GetPeepsScreen}
+            options={{ title: 'Get Peeps' }}
+          />
+          <Stack.Screen
+            name="Leaderboard"
+            component={LeaderboardScreen}
+            options={{ title: 'Leaderboard', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Pioneers"
+            component={PioneersScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="UserProfile"
+            component={UserProfileScreen}
+            options={{ title: 'Profile', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="FollowList"
+            component={FollowListScreen}
+            options={{ headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="MyPeeps"
+            component={MyPeepsScreen}
+            options={{
+              title: 'My Peeps',
+              headerStyle: { backgroundColor: '#1565C0' },
+              headerTintColor: '#ffffff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+          />
+          <Stack.Screen
+            name="Favorites"
+            component={FavoritesScreen}
+            options={{
+              title: 'Favorites',
+              headerStyle: { backgroundColor: '#1565C0' },
+              headerTintColor: '#ffffff',
+              headerTitleStyle: { fontWeight: 'bold' },
+            }}
+          />
+          <Stack.Screen name="Groups" component={GroupsScreen} options={{ headerShown: false }} />
+          <Stack.Screen
+            name="Settings"
+            component={SettingsScreen}
+            options={{ title: 'Settings', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="PeepDetail"
+            component={PeepDetailScreen}
+            options={{ title: 'Peep', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Likers"
+            component={LikersScreen}
+            options={{ title: 'Liked by', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Share"
+            component={ShareScreen}
+            options={{ title: 'Share Peep', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Invite"
+            component={InviteScreen}
+            options={{ title: 'Invite Friends', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Search"
+            component={SearchScreen}
+            options={{ title: 'Search', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="Notifications"
+            component={NotificationsScreen}
+            options={{ title: 'Notifications', headerTintColor: '#1565C0' }}
+          />
+        </Stack.Navigator>
+      </MenuProvider>
       <Toast />
     </NavigationContainer>
   );

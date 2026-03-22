@@ -56,4 +56,10 @@ export type RootStackParamList = {
   Favorites: undefined;
   Groups: undefined;
   Settings: undefined;
+  PeepDetail: { peepId: string };
+  Likers: { peepId: string };
+  Share: { peepId: string };
+  Invite: undefined;
+  Search: undefined;
+  Notifications: undefined;
 };

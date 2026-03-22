@@ -239,6 +239,123 @@ app.get("/users/profile", authenticateToken, async (req, res) => {
   }
 });
 
+app.get("/users/:userId", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const userDoc = await db.collection("users").doc(userId).get();
+    if (!userDoc.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    const d = userDoc.data();
+    const followersSnap = await db.collection("follows").where("followingId", "==", userId).get();
+    const followingSnap = await db.collection("follows").where("followerId", "==", userId).get();
+    const peepsSnap = await db.collection("peeps").where("userId", "==", userId).where("isActive", "==", true).limit(500).get();
+    let isFollowing = false;
+    if (req.user.uid !== userId) {
+      const f = await db.collection("follows").doc(`${req.user.uid}_${userId}`).get();
+      isFollowing = f.exists;
+    }
+    res.json({
+      uid: userId,
+      ...d,
+      followersCount: followersSnap.size,
+      followingCount: followingSnap.size,
+      peepsCount: peepsSnap.size,
+      isFollowing,
+    });
+  } catch (error) {
+    logger.error("User by id error:", error);
+    res.status(500).json({ error: "Failed to fetch user" });
+  }
+});
+
+app.post("/users/:userId/follow", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    if (userId === req.user.uid) {
+      return res.status(400).json({ error: "Cannot follow yourself" });
+    }
+    const target = await db.collection("users").doc(userId).get();
+    if (!target.exists) {
+      return res.status(404).json({ error: "User not found" });
+    }
+    await db.collection("follows").doc(`${req.user.uid}_${userId}`).set({
+      followerId: req.user.uid,
+      followingId: userId,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ following: true });
+  } catch (error) {
+    logger.error("Follow error:", error);
+    res.status(500).json({ error: "Failed to follow" });
+  }
+});
+
+app.delete("/users/:userId/follow", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    await db.collection("follows").doc(`${req.user.uid}_${userId}`).delete();
+    res.json({ following: false });
+  } catch (error) {
+    logger.error("Unfollow error:", error);
+    res.status(500).json({ error: "Failed to unfollow" });
+  }
+});
+
+app.get("/users/:userId/followers", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const snap = await db.collection("follows").where("followingId", "==", userId).get();
+    const rows = await Promise.all(
+      snap.docs.map(async (doc) => {
+        const followerId = doc.data().followerId;
+        const u = await db.collection("users").doc(followerId).get();
+        const ud = u.data() || {};
+        const f = await db.collection("follows").doc(`${req.user.uid}_${followerId}`).get();
+        return {
+          userId: followerId,
+          username: ud.username || "User",
+          pioneerCount: ud.pioneerCount || 0,
+          points: ud.points || 0,
+          profileImageUrl: ud.profileImageUrl || null,
+          isFollowing: f.exists,
+        };
+      })
+    );
+    res.json({ users: rows });
+  } catch (error) {
+    logger.error("Followers list error:", error);
+    res.status(500).json({ error: "Failed to list followers" });
+  }
+});
+
+app.get("/users/:userId/following", authenticateToken, async (req, res) => {
+  try {
+    const { userId } = req.params;
+    const snap = await db.collection("follows").where("followerId", "==", userId).get();
+    const rows = await Promise.all(
+      snap.docs.map(async (doc) => {
+        const followingId = doc.data().followingId;
+        const u = await db.collection("users").doc(followingId).get();
+        const ud = u.data() || {};
+        const f = await db.collection("follows").doc(`${req.user.uid}_${followingId}`).get();
+        return {
+          userId: followingId,
+          username: ud.username || "User",
+          pioneerCount: ud.pioneerCount || 0,
+          points: ud.points || 0,
+          profileImageUrl: ud.profileImageUrl || null,
+          isFollowing: f.exists,
+        };
+      })
+    );
+    res.json({ users: rows });
+  } catch (error) {
+    logger.error("Following list error:", error);
+    res.status(500).json({ error: "Failed to list following" });
+  }
+});
+
 app.put("/users/profile", authenticateToken, [
   body("username").optional().isLength({ min: 3, max: 30 }),
   body("firstName").optional().isLength({ min: 1, max: 50 }),
@@ -497,6 +614,118 @@ app.get("/peeps/venue/:venueId", async (req, res) => {
   } catch (error) {
     logger.error("Peeps fetch error:", error);
     res.status(500).json({ error: "Failed to fetch peeps" });
+  }
+});
+
+app.get("/peeps", authenticateToken, async (req, res) => {
+  try {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ error: "userId required" });
+    }
+    const snap = await db
+      .collection("peeps")
+      .where("userId", "==", userId)
+      .where("isActive", "==", true)
+      .limit(200)
+      .get();
+    const peeps = await Promise.all(
+      snap.docs.map(async (doc) => {
+        const data = doc.data();
+        let venueName = "";
+        if (data.venueId) {
+          const v = await db.collection("venues").doc(data.venueId).get();
+          venueName = v.data()?.name || "";
+        }
+        const u = await db.collection("users").doc(data.userId).get();
+        const ud = u.data() || {};
+        return {
+          id: doc.id,
+          ...data,
+          venue: { name: venueName, address: "" },
+          user: {
+            username: ud.username || "",
+            firstName: ud.firstName || "",
+            lastName: ud.lastName || "",
+            profileImageUrl: ud.profileImageUrl || undefined,
+          },
+        };
+      })
+    );
+    const peepTime = d => {
+      const c = d.createdAt;
+      if (!c) return 0;
+      if (typeof c.toMillis === 'function') return c.toMillis();
+      if (c.seconds != null) return c.seconds * 1000;
+      return 0;
+    };
+    peeps.sort((a, b) => peepTime(b) - peepTime(a));
+    res.json({ peeps: peeps.slice(0, 100) });
+  } catch (error) {
+    logger.error("Peeps by user error:", error);
+    res.status(500).json({ error: "Failed to fetch peeps" });
+  }
+});
+
+app.get("/peeps/:peepId", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    if (peepId === "venue") {
+      return res.status(404).json({ error: "Not found" });
+    }
+    const doc = await db.collection("peeps").doc(peepId).get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Peep not found" });
+    }
+    const data = doc.data();
+    const userDoc = await db.collection("users").doc(data.userId).get();
+    const ud = userDoc.data() || {};
+    const venueDoc = data.venueId ? await db.collection("venues").doc(data.venueId).get() : null;
+    const vd = venueDoc?.data() || {};
+    const likeDoc = await db.collection("peeps").doc(peepId).collection("likes").doc(req.user.uid).get();
+    const likesSnap = await db.collection("peeps").doc(peepId).collection("likes").limit(5).get();
+    const likerPreview = await Promise.all(
+      likesSnap.docs.map(async (l) => {
+        const uu = await db.collection("users").doc(l.id).get();
+        const uud = uu.data() || {};
+        return {
+          userId: l.id,
+          profileImageUrl: uud.profileImageUrl || null,
+          username: uud.username || "",
+        };
+      })
+    );
+    res.json({
+      id: doc.id,
+      ...data,
+      notes: data.notes || data.description || "",
+      photoUrl: data.imageUrl || data.photoUrl || null,
+      likedByMe: likeDoc.exists,
+      likerPreview,
+      user: {
+        username: ud.username || "",
+        firstName: ud.firstName || "",
+        lastName: ud.lastName || "",
+        profileImageUrl: ud.profileImageUrl || undefined,
+      },
+      venue: {
+        name: vd.name || "",
+        address: vd.address || "",
+        id: data.venueId || null,
+      },
+    });
+  } catch (error) {
+    logger.error("Peep by id error:", error);
+    res.status(500).json({ error: "Failed to fetch peep" });
+  }
+});
+
+app.post("/peeps/:peepId/share", authenticateToken, async (req, res) => {
+  try {
+    res.json({ shared: true, message: "Peep shared" });
+  } catch (error) {
+    logger.error("Peep share error:", error);
+    res.status(500).json({ error: "Failed to share" });
   }
 });
 
@@ -898,6 +1127,153 @@ app.delete('/users/favorites/:venueId', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Favorite remove error:', error);
     res.status(500).json({ error: 'Failed to remove favorite' });
+  }
+});
+
+app.get('/groups', authenticateToken, async (req, res) => {
+  try {
+    const snap = await db.collection('groups').limit(100).get();
+    const groups = await Promise.all(
+      snap.docs.map(async (d) => {
+        const data = d.data();
+        const membersSnap = await d.ref.collection('members').get();
+        return {
+          id: d.id,
+          name: data.name || 'Group',
+          photoUrl: data.photoUrl || null,
+          memberCount: membersSnap.size,
+          peepsToday: data.peepsToday || 0,
+        };
+      })
+    );
+    res.json({ groups });
+  } catch (error) {
+    logger.error('Groups list error:', error);
+    res.json({ groups: [] });
+  }
+});
+
+app.get('/groups/mine', authenticateToken, async (req, res) => {
+  try {
+    const u = await db.collection('users').doc(req.user.uid).get();
+    const ids = u.data()?.groupIds || [];
+    const out = [];
+    for (const gid of ids) {
+      const g = await db.collection('groups').doc(gid).get();
+      if (!g.exists) continue;
+      const data = g.data();
+      const membersSnap = await g.ref.collection('members').get();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      out.push({
+        id: g.id,
+        name: data.name || 'Group',
+        photoUrl: data.photoUrl || null,
+        memberCount: membersSnap.size,
+        peepsToday: data.peepsToday || 0,
+      });
+    }
+    res.json({ groups: out });
+  } catch (error) {
+    logger.error('My groups error:', error);
+    res.json({ groups: [] });
+  }
+});
+
+app.post('/groups/:groupId/join', authenticateToken, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const gref = db.collection('groups').doc(groupId);
+    const g = await gref.get();
+    if (!g.exists) {
+      return res.status(404).json({ error: 'Group not found' });
+    }
+    await gref.collection('members').doc(req.user.uid).set({
+      joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await db.collection('users').doc(req.user.uid).set(
+      { groupIds: admin.firestore.FieldValue.arrayUnion(groupId) },
+      { merge: true }
+    );
+    res.json({ joined: true });
+  } catch (error) {
+    logger.error('Group join error:', error);
+    res.status(500).json({ error: 'Failed to join group' });
+  }
+});
+
+app.delete('/groups/:groupId/leave', authenticateToken, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    await db.collection('groups').doc(groupId).collection('members').doc(req.user.uid).delete();
+    await db.collection('users').doc(req.user.uid).set(
+      { groupIds: admin.firestore.FieldValue.arrayRemove(groupId) },
+      { merge: true }
+    );
+    res.json({ joined: false });
+  } catch (error) {
+    logger.error('Group leave error:', error);
+    res.status(500).json({ error: 'Failed to leave group' });
+  }
+});
+
+app.post('/groups/:groupId/share', authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.body || {};
+    res.json({ shared: true, peepId });
+  } catch (error) {
+    logger.error('Group share error:', error);
+    res.status(500).json({ error: 'Failed to share to group' });
+  }
+});
+
+app.get('/notifications', authenticateToken, async (req, res) => {
+  try {
+    const snap = await db.collection('notifications')
+      .where('userId', '==', req.user.uid)
+      .limit(50)
+      .get();
+    const notifications = snap.docs.map(d => {
+      const x = d.data();
+      return {
+        id: d.id,
+        ...x,
+        createdAt: x.createdAt?.toDate?.()?.toISOString?.() || x.createdAt || new Date().toISOString(),
+      };
+    });
+    notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    res.json({ notifications });
+  } catch (error) {
+    logger.error('Notifications fetch error:', error);
+    res.json({ notifications: [] });
+  }
+});
+
+app.patch('/notifications/:notificationId/read', authenticateToken, async (req, res) => {
+  try {
+    await db.collection('notifications').doc(req.params.notificationId).update({
+      read: true,
+      readAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Notification read error:', error);
+    res.status(500).json({ error: 'Failed to mark read' });
+  }
+});
+
+app.patch('/notifications/read-all', authenticateToken, async (req, res) => {
+  try {
+    const snap = await db.collection('notifications')
+      .where('userId', '==', req.user.uid)
+      .get();
+    const batch = db.batch();
+    snap.docs.forEach(d => batch.update(d.ref, { read: true }));
+    await batch.commit();
+    res.json({ ok: true });
+  } catch (error) {
+    logger.error('Notifications read all error:', error);
+    res.status(500).json({ error: 'Failed' });
   }
 });
 

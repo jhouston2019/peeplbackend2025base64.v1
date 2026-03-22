@@ -140,7 +140,15 @@ export default function MyPeepsScreen({ navigation }: MyPeepsScreenProps) {
         keyExtractor={item => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={ACCENT} />}
         renderItem={({ item }) => (
-          <View style={styles.card}>
+          <TouchableOpacity
+            style={styles.card}
+            activeOpacity={0.9}
+            onPress={() => {
+              (rootNav as { navigate: (n: string, p: object) => void }).navigate('PeepDetail', {
+                peepId: item.id,
+              });
+            }}
+          >
             {item.imageUrl || item.venue?.name ? (
               <Image
                 source={{
@@ -179,7 +187,7 @@ export default function MyPeepsScreen({ navigation }: MyPeepsScreenProps) {
                 <Text style={styles.countText}>  💬 {item.commentCount ?? 0}</Text>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
         )}
       />
     </View>

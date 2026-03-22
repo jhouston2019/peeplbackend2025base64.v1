@@ -132,6 +132,11 @@ export class AuthService {
     this.token = null;
   }
 
+  /** Alias for logout (settings / sign-out flows). */
+  async signOut(): Promise<void> {
+    return this.logout();
+  }
+
   async isAuthenticated(): Promise<boolean> {
     const currentUser = auth().currentUser;
     return !!currentUser;
