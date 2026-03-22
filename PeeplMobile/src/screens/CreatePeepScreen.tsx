@@ -20,6 +20,7 @@ import { RootStackParamList } from '../types/Navigation';
 import { Venue } from '../types/Venue';
 import { CreatePeepData } from '../types/Peep';
 import { ApiService } from '../services/ApiService';
+import analytics from '../services/AnalyticsService';
 
 interface CreatePeepScreenProps {
   route: RouteProp<RootStackParamList, 'CreatePeep'>;
@@ -134,6 +135,13 @@ export default function CreatePeepScreen({ route, navigation }: CreatePeepScreen
         isPioneer?: boolean;
         venuesPioneedCount?: number;
       };
+
+      analytics.track('peep_created', {
+        crowdSize,
+        vibe: selectedVibes,
+        hasPioneer: !!response.isPioneer,
+        hasPhoto: !!selectedImage,
+      });
 
       if (response.isPioneer) {
         navigation.navigate('PioneerCongrats', {

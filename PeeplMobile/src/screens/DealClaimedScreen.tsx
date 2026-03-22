@@ -12,6 +12,7 @@ import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
 import { authService } from '../services/AuthService';
+import analytics from '../services/AnalyticsService';
 
 const BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-production-api.com';
 
@@ -49,6 +50,10 @@ export default function DealClaimedScreen({ route }: Props) {
       // claim recording best-effort
     }
   }, [deal.adId]);
+
+  useEffect(() => {
+    analytics.track('deal_claimed', { merchantName: deal.merchantName, adId: deal.adId });
+  }, [deal.merchantName, deal.adId]);
 
   useEffect(() => {
     postClaim();

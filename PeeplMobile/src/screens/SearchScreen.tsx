@@ -159,6 +159,8 @@ export default function SearchScreen({ navigation }: Props) {
   }, [q]);
 
   const submitSearch = () => {
+    const term = q.trim();
+    if (term) analytics.track('search_performed', { query: term });
     saveRecent(q);
   };
 

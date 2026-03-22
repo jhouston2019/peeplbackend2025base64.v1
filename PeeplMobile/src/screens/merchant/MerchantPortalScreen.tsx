@@ -18,6 +18,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { authService } from '../../services/AuthService';
+import analytics from '../../services/AnalyticsService';
 import { RootStackParamList } from '../../types/Navigation';
 
 const BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-production-api.com';
@@ -171,6 +172,8 @@ export default function MerchantPortalScreen({ route, navigation }: Props) {
         Alert.alert('Ad', (data as { error?: string }).error || 'Could not submit');
         return;
       }
+      const cost = (data as { totalCost?: number }).totalCost ?? 0;
+      analytics.track('merchant_ad_submitted', { rateType, totalCost: cost });
       Alert.alert('Your ad is live!');
       setStep(1);
       setOfferText('');

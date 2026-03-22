@@ -18,6 +18,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
 import { RegisterData } from '../types/User';
 import { authService } from '../services/AuthService';
+import analytics from '../services/AnalyticsService';
 
 interface RegisterScreenProps {
   onRegister?: (userData: RegisterData) => void | Promise<void>;
@@ -67,6 +68,7 @@ export default function RegisterScreen({ navigation }: RegisterScreenProps) {
       const response = await authService.register(payload);
 
       if (response.success) {
+        analytics.track('sign_up_completed', { method: 'email' });
         try {
           await auth().currentUser?.updateProfile({ displayName: fullName.trim() });
         } catch {

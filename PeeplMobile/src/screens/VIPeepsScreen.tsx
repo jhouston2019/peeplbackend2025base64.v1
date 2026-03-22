@@ -12,6 +12,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
 import { authService } from '../services/AuthService';
+import analytics from '../services/AnalyticsService';
 
 const PRIMARY = '#1565C0';
 const GOLD = '#FFC107';
@@ -161,7 +162,10 @@ export default function VIPeepsScreen({ navigation }: Props) {
         </View>
         <TouchableOpacity
           style={styles.cta}
-          onPress={() => Alert.alert('VIPeeps', 'Stripe integration coming in Task 68')}
+          onPress={() => {
+            analytics.track('vipeeps_started');
+            Alert.alert('VIPeeps', 'Stripe integration coming in Task 68');
+          }}
         >
           <Text style={styles.ctaText}>Start VIPeeps — $4.99/mo</Text>
         </TouchableOpacity>

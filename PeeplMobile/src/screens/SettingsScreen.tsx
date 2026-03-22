@@ -7,6 +7,7 @@ import {
   Switch,
   TouchableOpacity,
   Alert,
+  Linking,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +24,9 @@ const KEYS = {
   deals: 'settings:dealAlerts',
   follower: 'settings:followerActivity',
 };
+
+const PRIVACY_URL = 'https://peepl.app/privacy';
+const TERMS_URL = 'https://peepl.app/terms';
 
 type Nav = StackNavigationProp<RootStackParamList, 'Settings'>;
 
@@ -127,6 +131,22 @@ export default function SettingsScreen({ navigation }: Props) {
       <Text style={styles.section}>Privacy</Text>
       {row('Location sharing', locationSharing, v => persistPrivacy('locationSharing', v))}
       {row('Public profile', publicProfile, v => persistPrivacy('publicProfile', v))}
+
+      <Text style={styles.section}>Legal</Text>
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => Linking.openURL(PRIVACY_URL)}
+      >
+        <Text style={styles.linkLabel}>Privacy Policy</Text>
+        <Icon name="chevron-right" size={22} color="#999" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => Linking.openURL(TERMS_URL)}
+      >
+        <Text style={styles.linkLabel}>Terms of Service</Text>
+        <Icon name="chevron-right" size={22} color="#999" />
+      </TouchableOpacity>
 
       <Text style={styles.section}>Account</Text>
       <TouchableOpacity

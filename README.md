@@ -294,4 +294,16 @@ MIT License - see LICENSE file for details
 
 ---
 
+## App Store Accounts
+
+| | |
+| --- | --- |
+| **Apple Team ID** | [fill in after enrollment] |
+| **Apple Bundle ID** | com.peepl.app |
+| **Google Play package name** | com.peepl.app |
+
+Enrollment and signing materials must stay out of the repository; use a password manager or GitHub Secrets.
+
+---
+
 **Peepl 2025** - The future of social location sharing is here! 🚀

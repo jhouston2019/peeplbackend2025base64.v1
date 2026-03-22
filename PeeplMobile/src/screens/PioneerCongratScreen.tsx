@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   View,
   Text,
@@ -20,6 +20,10 @@ type PioneerCongratScreenProps = {
 
 export default function PioneerCongratScreen({ route, navigation }: PioneerCongratScreenProps) {
   const { venueName, venuesPioneedCount } = route.params;
+
+  useEffect(() => {
+    analytics.track('pioneer_earned', { venueName });
+  }, [venueName]);
 
   const backToFeed = () => {
     navigation.dispatch(
