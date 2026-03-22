@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import auth from '@react-native-firebase/auth';
 import {
   SafeAreaView,
   StatusBar,
@@ -29,6 +30,10 @@ import DealsScreen from './src/screens/DealsScreen';
 import DealClaimedScreen from './src/screens/DealClaimedScreen';
 import GetPeepsScreen from './src/screens/GetPeepsScreen';
 import LeaderboardScreen from './src/screens/LeaderboardScreen';
+import PioneersScreen from './src/screens/PioneersScreen';
+import UserProfileScreen from './src/screens/UserProfileScreen';
+import FollowListScreen from './src/screens/FollowListScreen';
+import MyPeepsScreen from './src/screens/MyPeepsScreen';
 
 // Import services
 import { authService } from './src/services/AuthService';
@@ -48,6 +53,33 @@ function MerchantSignInStub(): JSX.Element {
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
       <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Merchant sign-in</Text>
+      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
+    </View>
+  );
+}
+
+function FavoritesStub(): JSX.Element {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
+      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Favorites</Text>
+      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
+    </View>
+  );
+}
+
+function GroupsStub(): JSX.Element {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
+      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Groups</Text>
+      <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
+    </View>
+  );
+}
+
+function SettingsStub(): JSX.Element {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#1565C0' }}>
+      <Text style={{ color: '#ffffff', fontSize: 18, fontWeight: '600' }}>Settings</Text>
       <Text style={{ color: '#E3F2FD', marginTop: 8 }}>Coming soon</Text>
     </View>
   );
@@ -93,6 +125,16 @@ export default function App(): JSX.Element {
 
   useEffect(() => {
     initializeApp();
+  }, []);
+
+  useEffect(() => {
+    const unsub = auth().onAuthStateChanged(fbUser => {
+      if (!fbUser) {
+        setIsAuthenticated(false);
+        setUser(null);
+      }
+    });
+    return unsub;
   }, []);
 
   const initializeApp = async () => {
@@ -331,8 +373,36 @@ export default function App(): JSX.Element {
         <Stack.Screen
           name="Leaderboard"
           component={LeaderboardScreen}
-          options={{ title: 'Leaderboard' }}
+          options={{ title: 'Leaderboard', headerTintColor: '#1565C0' }}
         />
+        <Stack.Screen
+          name="Pioneers"
+          component={PioneersScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="UserProfile"
+          component={UserProfileScreen}
+          options={{ title: 'Profile', headerTintColor: '#1565C0' }}
+        />
+        <Stack.Screen
+          name="FollowList"
+          component={FollowListScreen}
+          options={{ headerTintColor: '#1565C0' }}
+        />
+        <Stack.Screen
+          name="MyPeeps"
+          component={MyPeepsScreen}
+          options={{
+            title: 'My Peeps',
+            headerStyle: { backgroundColor: '#1565C0' },
+            headerTintColor: '#ffffff',
+            headerTitleStyle: { fontWeight: 'bold' },
+          }}
+        />
+        <Stack.Screen name="Favorites" component={FavoritesStub} options={{ title: 'Favorites' }} />
+        <Stack.Screen name="Groups" component={GroupsStub} options={{ title: 'Groups' }} />
+        <Stack.Screen name="Settings" component={SettingsStub} options={{ title: 'Settings' }} />
       </Stack.Navigator>
       <Toast />
     </NavigationContainer>

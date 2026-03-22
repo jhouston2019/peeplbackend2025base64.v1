@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -6,514 +6,398 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  ImageBackground,
+  Share,
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import axios from 'axios';
 import auth from '@react-native-firebase/auth';
-import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/Navigation';
-import { User } from '../types/User';
-import { Venue } from '../types/Venue';
 import { authService } from '../services/AuthService';
 
-const API_BASE_URL = __DEV__
-  ? 'http://localhost:3000'
-  : 'https://your-production-api.com';
-
+const BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-production-api.com';
 const PRIMARY = '#1565C0';
 const ACCENT = '#FFC107';
 
-interface FavoriteVenueRow {
-  venueId: string;
-  name?: string;
-  currentCrowdSize: number | null;
-  lastPeepAt?: unknown;
-  [key: string]: unknown;
-}
+type ProfileUser = {
+  uid?: string;
+  username: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  profileImageUrl?: string;
+  pioneerCount?: number;
+  peepsCount?: number;
+  points?: number;
+  followersCount?: number;
+  followingCount?: number;
+};
 
 interface ProfileScreenProps {
-  navigation: NativeStackNavigationProp<RootStackParamList, 'Profile'>;
+  navigation: StackNavigationProp<RootStackParamList, 'Profile'>;
 }
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
-  const [user, setUser] = useState<User | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [favorites, setFavorites] = useState<FavoriteVenueRow[]>([]);
-  const [favoritesLoading, setFavoritesLoading] = useState(false);
+  const [user, setUser] = useState<ProfileUser | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    loadUserProfile();
+  const rootNav = navigation.getParent() ?? navigation;
+
+  const loadProfile = useCallback(async () => {
+    const uid = auth().currentUser?.uid;
+    if (!uid) {
+      setUser(null);
+      setLoading(false);
+      return;
+    }
+    try {
+      const token = await authService.getIdToken();
+      const res = await fetch(`${BASE_URL}/users/${uid}`, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const fallback = await authService.getCurrentUser();
+        if (fallback) {
+          setUser({
+            username: fallback.username,
+            firstName: fallback.firstName,
+            lastName: fallback.lastName,
+            email: fallback.email,
+            profileImageUrl: fallback.profileImageUrl,
+            uid: fallback.uid,
+          });
+        }
+        return;
+      }
+      const data = (await res.json()) as Record<string, unknown>;
+      setUser({
+        uid: String(data.uid ?? data.id ?? uid),
+        username: String(data.username ?? ''),
+        firstName: data.firstName != null ? String(data.firstName) : undefined,
+        lastName: data.lastName != null ? String(data.lastName) : undefined,
+        email: data.email != null ? String(data.email) : undefined,
+        profileImageUrl: data.profileImageUrl ? String(data.profileImageUrl) : undefined,
+        pioneerCount: data.pioneerCount != null ? Number(data.pioneerCount) : 0,
+        peepsCount: data.peepsCount != null ? Number(data.peepsCount) : Number(data.peepCount ?? 0),
+        points: data.points != null ? Number(data.points) : 0,
+        followersCount:
+          data.followersCount != null ? Number(data.followersCount) : Number(data.followers ?? 0),
+        followingCount:
+          data.followingCount != null ? Number(data.followingCount) : Number(data.following ?? 0),
+      });
+    } catch {
+      const fallback = await authService.getCurrentUser();
+      if (fallback) {
+        setUser({
+          username: fallback.username,
+          firstName: fallback.firstName,
+          lastName: fallback.lastName,
+          email: fallback.email,
+          profileImageUrl: fallback.profileImageUrl,
+          uid: fallback.uid,
+        });
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const loadUserProfile = async () => {
-    try {
-      const userData = await authService.getCurrentUser();
-      setUser(userData);
-    } catch (error) {
-      console.error('Error loading user profile:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const getAuthHeaders = async () => {
-    const token = await auth().currentUser?.getIdToken();
-    return {
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    };
-  };
-
-  const loadFavorites = useCallback(async () => {
-    setFavoritesLoading(true);
-    try {
-      const headers = await getAuthHeaders();
-      const res = await axios.get<{ favorites: FavoriteVenueRow[] }>(
-        `${API_BASE_URL}/users/favorites`,
-        { headers }
-      );
-      setFavorites(res.data.favorites || []);
-    } catch (error) {
-      console.error('Error loading favorites:', error);
-      Alert.alert('Error', 'Could not load favorite venues.');
-    } finally {
-      setFavoritesLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (user) {
-      loadFavorites();
-    }
-  }, [user, loadFavorites]);
+    loadProfile();
+  }, [loadProfile]);
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        {
-          text: 'Cancel',
-          style: 'cancel',
-        },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            await authService.logout();
-            // Navigation will be handled by App.tsx
-          },
-        },
-      ]
-    );
-  };
+  const displayName =
+    user?.firstName || user?.lastName
+      ? `${user?.firstName ?? ''} ${user?.lastName ?? ''}`.trim()
+      : user?.username ?? 'Peepl user';
 
-  const handleEditProfile = () => {
-    Alert.alert('Edit Profile', 'Profile editing feature coming soon!');
-  };
-
-  const handleSettings = () => {
-    Alert.alert('Settings', 'Settings feature coming soon!');
-  };
-
-  const handleMyPeeps = () => {
-    Alert.alert('My Peeps', 'My peeps feature coming soon!');
-  };
-
-  const handleRemoveFavorite = async (venueId: string) => {
+  const onSharePeepl = async () => {
     try {
-      const headers = await getAuthHeaders();
-      await axios.delete(`${API_BASE_URL}/users/favorites/${venueId}`, { headers });
-      setFavorites((prev) => prev.filter((v) => v.venueId !== venueId));
-    } catch (error) {
-      console.error('Error removing favorite:', error);
-      Alert.alert('Error', 'Could not remove this favorite.');
+      await Share.share({
+        message: 'Check out Peepl — know before you go. https://peepl.app/download',
+      });
+    } catch {
+      // ignore
     }
   };
 
-  const openVenue = (item: FavoriteVenueRow) => {
-    const lat =
-      typeof item.latitude === 'number'
-        ? item.latitude
-        : typeof item.lat === 'number'
-          ? item.lat
-          : 0;
-    const lng =
-      typeof item.longitude === 'number'
-        ? item.longitude
-        : typeof item.lng === 'number'
-          ? item.lng
-          : 0;
-    const venue: Venue = {
-      id: item.venueId,
-      name: (item.name as string) || 'Venue',
-      address: (item.address as string) || '',
-      latitude: lat,
-      longitude: lng,
-      category: (item.category as string) || '',
-      createdBy: (item.createdBy as string) || '',
-      createdAt: (item.createdAt as string) || '',
-      updatedAt: (item.updatedAt as string) || '',
-      isActive: (item.isActive as boolean) ?? true,
-      peepCount: (item.peepCount as number) || 0,
-      averageRating: (item.averageRating as number) || 0,
-      totalRatings: (item.totalRatings as number) || 0,
-      description: item.description as string | undefined,
-      imageUrl: item.imageUrl as string | undefined,
-    };
-    navigation.navigate('Venue', { venue });
+  const onLogout = () => {
+    Alert.alert('Log out', 'Are you sure you want to log out?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: async () => {
+          await authService.logout();
+        },
+      },
+    ]);
   };
 
-  if (isLoading) {
+  const go = (screen: string, params?: object) => {
+    (rootNav as { navigate: (name: string, p?: object) => void }).navigate(screen, params);
+  };
+
+  if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <Text>Loading profile...</Text>
+      <View style={styles.loadingWrap}>
+        <ActivityIndicator size="large" color={ACCENT} />
       </View>
     );
   }
 
   if (!user) {
     return (
-      <View style={styles.errorContainer}>
-        <Text>Error loading profile</Text>
+      <View style={styles.loadingWrap}>
+        <Text style={styles.errText}>Could not load profile</Text>
       </View>
     );
   }
 
+  const uid = auth().currentUser?.uid ?? user.uid ?? '';
+
   return (
-    <ScrollView style={styles.container}>
-      {/* Profile Header */}
-      <View style={styles.header}>
-        <View style={styles.profileImageContainer}>
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <View style={styles.heroWrap}>
+        {user.profileImageUrl ? (
+          <ImageBackground source={{ uri: user.profileImageUrl }} style={styles.heroImg} imageStyle={styles.heroImgInner}>
+            <LinearGradient colors={['transparent', PRIMARY]} style={styles.heroGrad} />
+          </ImageBackground>
+        ) : (
+          <View style={[styles.heroImg, styles.heroSolid]}>
+            <LinearGradient colors={['transparent', PRIMARY]} style={styles.heroGrad} />
+          </View>
+        )}
+        <View style={styles.avatarWrap}>
           {user.profileImageUrl ? (
-            <Image source={{ uri: user.profileImageUrl }} style={styles.profileImage} />
+            <Image source={{ uri: user.profileImageUrl }} style={styles.avatar} />
           ) : (
-            <View style={styles.defaultProfileImage}>
-              <Icon name="person" size={40} color="#666" />
+            <View style={[styles.avatar, styles.avatarPh]}>
+              <Icon name="person" size={44} color="#FFFFFF" />
             </View>
           )}
         </View>
-
-        <Text style={styles.userName}>
-          {user.firstName} {user.lastName}
-        </Text>
-        <Text style={styles.userHandle}>@{user.username}</Text>
-        <Text style={styles.userEmail}>{user.email}</Text>
-
-        {user.bio && (
-          <Text style={styles.userBio}>{user.bio}</Text>
-        )}
-
-        <TouchableOpacity style={styles.editProfileButton} onPress={handleEditProfile}>
-          <Icon name="edit" size={16} color="#007AFF" />
-          <Text style={styles.editProfileButtonText}>Edit Profile</Text>
-        </TouchableOpacity>
       </View>
 
-      {/* Stats */}
-      <View style={styles.statsContainer}>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Peeps</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Following</Text>
-        </View>
-        <View style={styles.stat}>
-          <Text style={styles.statNumber}>0</Text>
-          <Text style={styles.statLabel}>Followers</Text>
-        </View>
-      </View>
-
-      {/* Favorites */}
-      <View style={styles.favoritesSection}>
-        <View style={styles.favoritesSectionHeader}>
-          <Text style={styles.favoritesSectionTitle}>Favorites</Text>
-          <TouchableOpacity onPress={() => loadFavorites()} accessibilityRole="button">
-            <Icon name="refresh" size={22} color={PRIMARY} />
-          </TouchableOpacity>
-        </View>
-        {favoritesLoading && favorites.length === 0 ? (
-          <View style={styles.favoritesSectionLoading}>
-            <ActivityIndicator color={ACCENT} />
+      <View style={styles.nameBlock}>
+        <Text style={styles.name}>{displayName}</Text>
+        {user.username ? <Text style={styles.handle}>@{user.username}</Text> : null}
+        {(user.pioneerCount ?? 0) > 0 ? (
+          <View style={styles.pioneerPill}>
+            <Text style={styles.pioneerPillText}>⭐ {user.pioneerCount} Pioneer</Text>
           </View>
-        ) : favorites.length === 0 ? (
-          <Text style={styles.favoritesEmptyInline}>No favorite venues yet.</Text>
-        ) : (
-          favorites.map((item) => (
-            <View key={item.venueId} style={styles.favoriteRow}>
-              <TouchableOpacity
-                style={styles.favoriteRowMain}
-                onPress={() => openVenue(item)}
-                activeOpacity={0.7}
-              >
-                <Icon name="place" size={22} color={PRIMARY} />
-                <View style={styles.favoriteRowText}>
-                  <Text style={styles.favoriteName}>{item.name || 'Venue'}</Text>
-                  <Text style={styles.favoriteCrowd}>
-                    {item.currentCrowdSize != null
-                      ? `Current crowd: ${item.currentCrowdSize}/5`
-                      : 'No recent peep'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.favoriteHeart}
-                onPress={() => handleRemoveFavorite(item.venueId)}
-                accessibilityRole="button"
-                accessibilityLabel={`Unfavorite ${item.name || 'venue'}`}
-              >
-                <Icon name="favorite" size={26} color={ACCENT} />
-              </TouchableOpacity>
-            </View>
-          ))
-        )}
+        ) : null}
       </View>
 
-      {/* Menu Items */}
-      <View style={styles.menuContainer}>
-        <TouchableOpacity style={styles.menuItem} onPress={handleMyPeeps}>
-          <Icon name="chat-bubble-outline" size={24} color="#007AFF" />
-          <Text style={styles.menuItemText}>My Peeps</Text>
-          <Icon name="chevron-right" size={24} color="#CCCCCC" />
+      <View style={styles.statsRow}>
+        <TouchableOpacity style={styles.statCard} onPress={() => go('MyPeeps')} activeOpacity={0.8}>
+          <Text style={styles.statNum}>{user.peepsCount ?? 0}</Text>
+          <Text style={styles.statLbl}>Peeps</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem} onPress={handleSettings}>
-          <Icon name="settings" size={24} color="#007AFF" />
-          <Text style={styles.menuItemText}>Settings</Text>
-          <Icon name="chevron-right" size={24} color="#CCCCCC" />
+        <TouchableOpacity style={styles.statCard} onPress={() => go('Leaderboard')} activeOpacity={0.8}>
+          <Text style={styles.statNum}>{user.points ?? 0}</Text>
+          <Text style={styles.statLbl}>Points</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="help-outline" size={24} color="#007AFF" />
-          <Text style={styles.menuItemText}>Help & Support</Text>
-          <Icon name="chevron-right" size={24} color="#CCCCCC" />
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={() => go('FollowList', { userId: uid, type: 'followers' })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.statNum}>{user.followersCount ?? 0}</Text>
+          <Text style={styles.statLbl}>Followers</Text>
         </TouchableOpacity>
-
-        <TouchableOpacity style={styles.menuItem}>
-          <Icon name="info-outline" size={24} color="#007AFF" />
-          <Text style={styles.menuItemText}>About</Text>
-          <Icon name="chevron-right" size={24} color="#CCCCCC" />
+        <TouchableOpacity
+          style={styles.statCard}
+          onPress={() => go('FollowList', { userId: uid, type: 'following' })}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.statNum}>{user.followingCount ?? 0}</Text>
+          <Text style={styles.statLbl}>Following</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Logout Button */}
-      <View style={styles.logoutContainer}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Icon name="logout" size={20} color="#FF3B30" />
-          <Text style={styles.logoutButtonText}>Logout</Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* App Version */}
-      <View style={styles.versionContainer}>
-        <Text style={styles.versionText}>Peepl 2025 v2.0.0</Text>
+      <View style={styles.menu}>
+        <MenuRow icon="chat-bubble-outline" label="My Peeps" onPress={() => go('MyPeeps')} />
+        <MenuRow icon="favorite-border" label="Favorites" onPress={() => go('Favorites')} />
+        <MenuRow icon="leaderboard" label="Points & Leaderboard" onPress={() => go('Leaderboard')} />
+        <MenuRow
+          icon="thumb-up-off-alt"
+          label="Likes"
+          onPress={() => Alert.alert('Likes', 'Coming soon.')}
+        />
+        <MenuRow icon="star-outline" label="Places Pioneered" onPress={() => go('Pioneers')} />
+        <MenuRow icon="group" label="Groups" onPress={() => go('Groups')} />
+        <MenuRow icon="share" label="Share Peepl" onPress={onSharePeepl} />
+        <MenuRow icon="storefront" label="Merchant / Advertise" onPress={() => go('MerchantSignIn')} />
+        <MenuRow icon="settings" label="Settings" onPress={() => go('Settings')} />
+        <MenuRow icon="logout" label="Log Out" onPress={onLogout} danger />
       </View>
     </ScrollView>
   );
 }
 
+function MenuRow({
+  icon,
+  label,
+  onPress,
+  danger,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+  danger?: boolean;
+}) {
+  return (
+    <TouchableOpacity style={styles.menuRow} onPress={onPress} activeOpacity={0.7}>
+      <Icon name={icon} size={22} color={danger ? '#C62828' : PRIMARY} />
+      <Text style={[styles.menuLabel, danger && styles.menuLabelDanger]}>{label}</Text>
+      <Icon name="chevron-right" size={22} color="#BDBDBD" />
+    </TouchableOpacity>
+  );
+}
+
 const styles = StyleSheet.create({
-  container: {
+  scroll: {
     flex: 1,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#F5F5F5',
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+  scrollContent: {
+    paddingBottom: 40,
   },
-  errorContainer: {
+  loadingWrap: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F5F5F5',
   },
-  header: {
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f8f9fa',
-  },
-  profileImageContainer: {
-    marginBottom: 16,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-  },
-  defaultProfileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  userName: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
-  },
-  userHandle: {
-    fontSize: 16,
+  errText: {
     color: '#666',
-    marginBottom: 4,
   },
-  userEmail: {
+  heroWrap: {
+    position: 'relative',
+    marginBottom: 44,
+  },
+  heroImg: {
+    height: 200,
+    width: '100%',
+    justifyContent: 'flex-end',
+  },
+  heroImgInner: {
+    resizeMode: 'cover',
+  },
+  heroSolid: {
+    backgroundColor: PRIMARY,
+  },
+  heroGrad: {
+    height: '50%',
+    width: '100%',
+  },
+  avatarWrap: {
+    position: 'absolute',
+    bottom: -40,
+    alignSelf: 'center',
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 4,
+    borderColor: '#FFFFFF',
+    backgroundColor: PRIMARY,
+  },
+  avatarPh: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  nameBlock: {
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 48,
+    paddingBottom: 20,
+    backgroundColor: PRIMARY,
+    marginTop: -1,
+  },
+  name: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  handle: {
+    color: '#E3F2FD',
+    marginTop: 4,
+    fontSize: 15,
+  },
+  pioneerPill: {
+    marginTop: 10,
+    backgroundColor: ACCENT,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  pioneerPillText: {
+    color: '#000000',
+    fontWeight: 'bold',
     fontSize: 14,
-    color: '#999',
+  },
+  statsRow: {
+    flexDirection: 'row',
+    marginHorizontal: 12,
+    marginTop: 20,
     marginBottom: 8,
   },
-  userBio: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  editProfileButton: {
-    flexDirection: 'row',
+  statCard: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 4,
+    borderRadius: 12,
+    paddingVertical: 12,
     alignItems: 'center',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: '#007AFF',
-    borderRadius: 20,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
   },
-  editProfileButtonText: {
-    color: '#007AFF',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-  },
-  stat: {
-    alignItems: 'center',
-  },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 4,
-  },
-  favoritesSection: {
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    backgroundColor: '#fafafa',
-  },
-  favoritesSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  favoritesSectionTitle: {
+  statNum: {
     fontSize: 18,
-    fontWeight: '700',
+    fontWeight: 'bold',
     color: PRIMARY,
   },
-  favoritesSectionLoading: {
-    paddingVertical: 16,
-    alignItems: 'center',
-  },
-  favoritesEmptyInline: {
-    fontSize: 14,
-    color: '#666',
-    fontStyle: 'italic',
-  },
-  favoriteRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: '#E8E8E8',
-    overflow: 'hidden',
-  },
-  favoriteRowMain: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  favoriteRowText: {
-    flex: 1,
-    marginLeft: 10,
-  },
-  favoriteName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  favoriteCrowd: {
-    fontSize: 13,
-    color: '#666',
+  statLbl: {
+    fontSize: 11,
+    color: '#757575',
     marginTop: 4,
   },
-  favoriteHeart: {
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+  menu: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 12,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginTop: 8,
   },
-  menuContainer: {
-    paddingVertical: 10,
-  },
-  menuItem: {
+  menuRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  menuItemText: {
+  menuLabel: {
     flex: 1,
+    marginLeft: 12,
     fontSize: 16,
-    color: '#333',
-    marginLeft: 16,
+    color: '#212121',
   },
-  logoutContainer: {
-    padding: 20,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#FF3B30',
-    borderRadius: 8,
-  },
-  logoutButtonText: {
-    color: '#FF3B30',
-    fontSize: 16,
+  menuLabelDanger: {
+    color: '#C62828',
     fontWeight: '600',
-    marginLeft: 8,
-  },
-  versionContainer: {
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  versionText: {
-    fontSize: 12,
-    color: '#999',
   },
 });
