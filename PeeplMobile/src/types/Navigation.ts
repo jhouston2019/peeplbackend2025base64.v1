@@ -31,6 +31,8 @@ export type RootStackParamList = {
   Venue: { venue: Venue };
   CreatePeep: {
     venue?: Venue;
+    venueId?: string;
+    venueName?: string;
     location?: {
       latitude: number;
       longitude: number;
@@ -62,4 +64,7 @@ export type RootStackParamList = {
   Invite: undefined;
   Search: undefined;
   Notifications: undefined;
+  AccountInfo: undefined;
+  VIPeeps: undefined;
+  Report: { peepId: string };
 };

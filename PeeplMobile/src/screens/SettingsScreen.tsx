@@ -131,9 +131,23 @@ export default function SettingsScreen({ navigation }: Props) {
       <Text style={styles.section}>Account</Text>
       <TouchableOpacity
         style={styles.linkRow}
-        onPress={() => navigation.navigate('MyPeeps')}
+        onPress={() => navigation.navigate('AccountInfo')}
+      >
+        <Text style={styles.linkLabel}>Account Info</Text>
+        <Icon name="chevron-right" size={22} color="#999" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => navigation.navigate('VIPeeps')}
       >
         <Text style={styles.linkLabel}>VIPeeps</Text>
+        <Icon name="chevron-right" size={22} color="#999" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={styles.linkRow}
+        onPress={() => navigation.navigate('MyPeeps')}
+      >
+        <Text style={styles.linkLabel}>My Peeps</Text>
         <Icon name="chevron-right" size={22} color="#999" />
       </TouchableOpacity>
       <TouchableOpacity

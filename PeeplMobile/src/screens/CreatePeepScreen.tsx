@@ -30,9 +30,30 @@ const AGE_RANGE_OPTIONS = ['0-10', '10-14', '14-18', '19-24', '25-30', '31-40', 
 const VIBE_OPTIONS = ['Chill', 'Laid Back', 'Casual', 'Rowdy', 'Dancing', 'Groovy', 'Formal', 'Sexy', 'Sports Fans', 'Families', 'Grungy', 'Business'];
 const CROWD_SIZE_LABELS = ['Empty', 'Light', 'Moderate', 'Busy', 'Packed'];
 
+function buildVenueFromIds(venueId: string, venueName: string): Venue {
+  return {
+    id: venueId,
+    name: venueName,
+    address: '',
+    latitude: 0,
+    longitude: 0,
+    category: '',
+    createdBy: '',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    isActive: true,
+    peepCount: 0,
+    averageRating: 0,
+    totalRatings: 0,
+  };
+}
+
 export default function CreatePeepScreen({ route, navigation }: CreatePeepScreenProps) {
-  const { venue, location, venues = [] } = route.params;
-  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(venue || null);
+  const { venue, location, venues = [], venueId, venueName } = route.params || {};
+  const initialVenue =
+    venue ||
+    (venueId && venueName ? buildVenueFromIds(venueId, venueName) : null);
+  const [selectedVenue, setSelectedVenue] = useState<Venue | null>(initialVenue);
   const [description, setDescription] = useState('');
   const [crowdSize, setCrowdSize] = useState<1 | 2 | 3 | 4 | 5>(3);
   const [mfRatio, setMfRatio] = useState(50);

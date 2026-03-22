@@ -360,10 +360,11 @@ app.put("/users/profile", authenticateToken, [
   body("username").optional().isLength({ min: 3, max: 30 }),
   body("firstName").optional().isLength({ min: 1, max: 50 }),
   body("lastName").optional().isLength({ min: 1, max: 50 }),
-  body("bio").optional().isLength({ max: 500 })
+  body("bio").optional().isLength({ max: 500 }),
+  body("phone").optional().isLength({ max: 30 })
 ], validateRequest, async (req, res) => {
   try {
-    const allowedFields = ['username', 'firstName', 'lastName', 'bio', 'profileImageUrl', 'preferences'];
+    const allowedFields = ['username', 'firstName', 'lastName', 'bio', 'profileImageUrl', 'preferences', 'phone'];
     const updateData = {};
     allowedFields.forEach(field => {
       if (req.body[field] !== undefined) {
@@ -726,6 +727,23 @@ app.post("/peeps/:peepId/share", authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error("Peep share error:", error);
     res.status(500).json({ error: "Failed to share" });
+  }
+});
+
+app.post("/peeps/:peepId/report", authenticateToken, async (req, res) => {
+  try {
+    const { peepId } = req.params;
+    const { reason } = req.body || {};
+    await db.collection("reports").add({
+      peepId,
+      reason: reason || "unknown",
+      reportedBy: req.user.uid,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ reported: true });
+  } catch (error) {
+    logger.error("Peep report error:", error);
+    res.status(500).json({ error: "Failed to submit report" });
   }
 });
 
@@ -1127,6 +1145,16 @@ app.delete('/users/favorites/:venueId', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Favorite remove error:', error);
     res.status(500).json({ error: 'Failed to remove favorite' });
+  }
+});
+
+app.delete('/users/account', authenticateToken, async (req, res) => {
+  try {
+    await db.collection('users').doc(req.user.uid).delete();
+    res.json({ deleted: true });
+  } catch (error) {
+    logger.error('Delete account error:', error);
+    res.status(500).json({ error: 'Failed to delete account' });
   }
 });
 

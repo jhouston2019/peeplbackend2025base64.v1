@@ -71,8 +71,10 @@ const SOCIAL: Row[] = [
 
 const ACCOUNT: Row[] = [
   { icon: 'person', label: 'Profile', screen: 'MainTabs', params: { screen: 'Profile' } },
+  { icon: 'badge', label: 'Account Info', screen: 'AccountInfo' },
   { icon: 'favorite', label: 'Favorites', screen: 'Favorites' },
-  { icon: 'photo-library', label: 'VIPeeps', screen: 'MyPeeps' },
+  { icon: 'workspace-premium', label: 'VIPeeps', screen: 'VIPeeps' },
+  { icon: 'photo-library', label: 'My Peeps', screen: 'MyPeeps' },
   { icon: 'settings', label: 'Settings', screen: 'Settings' },
 ];
 

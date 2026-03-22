@@ -56,6 +56,16 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
     navigation.navigate('CreatePeep', { venue });
   };
 
+  const goPioneerCreate = () => {
+    navigation.navigate('CreatePeep', {
+      venueId: venue.id,
+      venueName: venue.name,
+    });
+  };
+
+  const showEmptyPeeps =
+    !isLoading && (peeps.length === 0 || (venue.peepCount ?? 0) === 0);
+
   const formatTimeAgo = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -188,14 +198,19 @@ export default function VenueScreen({ route, navigation }: VenueScreenProps) {
       {/* Peeps Feed */}
       <View style={styles.peepsSection}>
         <Text style={styles.sectionTitle}>Recent Peeps</Text>
-        
+
         {isLoading ? (
           <Text style={styles.loadingText}>Loading peeps...</Text>
-        ) : peeps.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Icon name="chat-bubble-outline" size={48} color="#CCCCCC" />
-            <Text style={styles.emptyStateText}>No peeps yet</Text>
-            <Text style={styles.emptyStateSubtext}>Be the first to share your experience!</Text>
+        ) : showEmptyPeeps ? (
+          <View style={styles.emptyPeepsWrap}>
+            <Text style={styles.emptyEyes}>👀</Text>
+            <Text style={styles.emptyTitle}>No peeps yet.</Text>
+            <Text style={styles.emptySubtitle}>
+              {`Be the first to report what's happening at ${venue.name}.`}
+            </Text>
+            <TouchableOpacity style={styles.pioneerBtn} onPress={goPioneerCreate} activeOpacity={0.9}>
+              <Text style={styles.pioneerBtnText}>⭐ Be the Pioneer</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <FlatList
@@ -325,20 +340,41 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 16,
   },
-  emptyState: {
+  emptyPeepsWrap: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 24,
+    paddingHorizontal: 12,
   },
-  emptyStateText: {
+  emptyEyes: {
+    fontSize: 60,
+    opacity: 0.4,
+    marginBottom: 8,
+  },
+  emptyTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 12,
+    fontWeight: 'bold',
+    color: '#888',
+    textAlign: 'center',
   },
-  emptyStateSubtext: {
+  emptySubtitle: {
     fontSize: 14,
-    color: '#999',
-    marginTop: 4,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 10,
+    lineHeight: 20,
+  },
+  pioneerBtn: {
+    marginTop: 20,
+    width: '100%',
+    backgroundColor: '#FFC107',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  pioneerBtnText: {
+    color: '#111',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   peepCard: {
     backgroundColor: '#ffffff',

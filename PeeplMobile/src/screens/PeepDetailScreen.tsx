@@ -303,6 +303,13 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
             <Icon name="share" size={26} color={PRIMARY} />
             <Text style={styles.actionLabel}>Share</Text>
           </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionBtn}
+            onPress={() => navigation.navigate('Report', { peepId })}
+          >
+            <Icon name="flag" size={26} color={PRIMARY} />
+            <Text style={styles.actionLabel}>Report</Text>
+          </TouchableOpacity>
         </View>
 
         {(peep.likerPreview || []).length > 0 ? (
@@ -413,8 +420,13 @@ const styles = StyleSheet.create({
   },
   chipText: { color: PRIMARY, fontWeight: '600' },
   notes: { paddingHorizontal: 16, marginTop: 12, fontSize: 15, color: '#333' },
-  actions: { flexDirection: 'row', justifyContent: 'space-around', paddingVertical: 16 },
-  actionBtn: { alignItems: 'center' },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    paddingVertical: 16,
+  },
+  actionBtn: { alignItems: 'center', minWidth: 72 },
   actionLabel: { marginTop: 4, color: PRIMARY, fontWeight: '600' },
   likersRow: { flexDirection: 'row', paddingHorizontal: 16, marginBottom: 8 },
   likerAv: {

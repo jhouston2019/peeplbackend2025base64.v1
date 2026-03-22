@@ -9,7 +9,9 @@ import {
   Alert,
   PermissionsAndroid,
   Platform,
+  TouchableOpacity,
 } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -129,9 +131,25 @@ export default function App(): JSX.Element {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [isConnected, setIsConnected] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   useEffect(() => {
     initializeApp();
+  }, []);
+
+  useEffect(() => {
+    NetInfo.fetch().then(s => {
+      setIsConnected(s.isConnected ?? true);
+      if (s.isConnected) setLastUpdated(new Date());
+    });
+    const unsub = NetInfo.addEventListener(state => {
+      setIsConnected(state.isConnected ?? true);
+      if (state.isConnected) {
+        setLastUpdated(new Date());
+      }
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -311,17 +329,40 @@ export default function App(): JSX.Element {
     );
   }
 
+  const offlineOverlay = !isConnected ? (
+    <View style={styles.offlineOverlay} pointerEvents="auto">
+      <Text style={styles.offlineIcon}>📡</Text>
+      <Text style={styles.offlineTitle}>No connection</Text>
+      <Text style={styles.offlineBody}>Check your internet connection and try again.</Text>
+      {lastUpdated ? (
+        <Text style={styles.offlineTimestamp}>
+          Last updated {Math.round((Date.now() - lastUpdated.getTime()) / 60000)} min ago
+        </Text>
+      ) : null}
+      <TouchableOpacity
+        onPress={() => {
+          NetInfo.fetch().then(s => setIsConnected(s.isConnected ?? true));
+        }}
+      >
+        <Text style={styles.retryButton}>Try again</Text>
+      </TouchableOpacity>
+    </View>
+  ) : null;
+
   if (!isAuthenticated) {
     return (
       <NavigationContainer ref={navigationRef}>
-        <Stack.Navigator screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="Login">
-            {props => <LoginScreen {...props} onLogin={handleLogin} />}
-          </Stack.Screen>
-          <Stack.Screen name="Register">
-            {props => <RegisterScreen {...props} onRegister={handleRegister} />}
-          </Stack.Screen>
-        </Stack.Navigator>
+        <View style={{ flex: 1 }}>
+          <Stack.Navigator screenOptions={{ headerShown: false }}>
+            <Stack.Screen name="Login">
+              {props => <LoginScreen {...props} onLogin={handleLogin} />}
+            </Stack.Screen>
+            <Stack.Screen name="Register">
+              {props => <RegisterScreen {...props} onRegister={handleRegister} />}
+            </Stack.Screen>
+          </Stack.Navigator>
+          {offlineOverlay}
+        </View>
         <Toast />
       </NavigationContainer>
     );
@@ -329,9 +370,10 @@ export default function App(): JSX.Element {
 
   return (
     <NavigationContainer ref={navigationRef}>
-      <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
-      <MenuProvider>
-        <Stack.Navigator>
+      <View style={{ flex: 1 }}>
+        <StatusBar barStyle="light-content" backgroundColor="#1565C0" />
+        <MenuProvider>
+          <Stack.Navigator>
           <Stack.Screen
             name="MainTabs"
             component={MainTabs}
@@ -454,8 +496,25 @@ export default function App(): JSX.Element {
             component={NotificationsScreen}
             options={{ title: 'Notifications', headerTintColor: '#1565C0' }}
           />
+          <Stack.Screen
+            name="AccountInfo"
+            component={AccountInfoScreen}
+            options={{ title: 'Account Info', headerTintColor: '#1565C0' }}
+          />
+          <Stack.Screen
+            name="VIPeeps"
+            component={VIPeepsScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="Report"
+            component={ReportScreen}
+            options={{ title: 'Report Peep', headerTintColor: '#1565C0' }}
+          />
         </Stack.Navigator>
-      </MenuProvider>
+        </MenuProvider>
+        {offlineOverlay}
+      </View>
       <Toast />
     </NavigationContainer>
   );
@@ -481,5 +540,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666666',
     marginTop: 10,
+  },
+  offlineOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: '#1565C0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 9999,
+    paddingHorizontal: 24,
+  },
+  offlineIcon: { fontSize: 48, marginBottom: 12 },
+  offlineTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', marginBottom: 8 },
+  offlineBody: { color: '#E3F2FD', fontSize: 16, textAlign: 'center' },
+  offlineTimestamp: { color: '#B0BEC5', fontSize: 13, marginTop: 16 },
+  retryButton: {
+    color: '#FFC107',
+    fontSize: 17,
+    fontWeight: '700',
+    marginTop: 24,
+    padding: 12,
   },
 });
