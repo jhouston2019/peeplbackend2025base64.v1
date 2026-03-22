@@ -45,6 +45,17 @@ import InviteScreen from './src/screens/InviteScreen';
 import SearchScreen from './src/screens/SearchScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
+import AccountInfoScreen from './src/screens/AccountInfoScreen';
+import VIPeepsScreen from './src/screens/VIPeepsScreen';
+import ReportScreen from './src/screens/ReportScreen';
+import MerchantSignInScreen from './src/screens/merchant/MerchantSignInScreen';
+import MerchantSetupStep1Screen from './src/screens/merchant/MerchantSetupStep1Screen';
+import MerchantSetupStep2Screen from './src/screens/merchant/MerchantSetupStep2Screen';
+import MerchantAccountNumberScreen from './src/screens/merchant/MerchantAccountNumberScreen';
+import MerchantPortalScreen from './src/screens/merchant/MerchantPortalScreen';
+import MerchantActivityScreen from './src/screens/merchant/MerchantActivityScreen';
+import MerchantAccountInfoScreen from './src/screens/merchant/MerchantAccountInfoScreen';
+import HowToAdvertiseScreen from './src/screens/merchant/HowToAdvertiseScreen';
 import { MenuProvider, navigationRef, MenuHamburger } from './src/screens/MenuScreen';
 
 // Import services
@@ -412,8 +423,43 @@ export default function App(): JSX.Element {
           />
           <Stack.Screen
             name="MerchantSignIn"
-            component={MerchantSignInStub}
-            options={{ title: 'Advertise' }}
+            component={MerchantSignInScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantSetupStep1"
+            component={MerchantSetupStep1Screen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantSetupStep2"
+            component={MerchantSetupStep2Screen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantAccountNumber"
+            component={MerchantAccountNumberScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantPortal"
+            component={MerchantPortalScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantActivity"
+            component={MerchantActivityScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MerchantAccountInfo"
+            component={MerchantAccountInfoScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="HowToAdvertise"
+            component={HowToAdvertiseScreen}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="GetPeeps"

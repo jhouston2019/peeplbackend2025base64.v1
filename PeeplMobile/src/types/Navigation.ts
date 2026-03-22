@@ -13,6 +13,36 @@ export type DealClaimedDeal = {
   adId: string;
 };
 
+/** Merchant document from merchant_accounts (API / Firestore). */
+export type MerchantDoc = {
+  id: string;
+  businessName?: string;
+  merchantNumber?: string;
+  category?: string;
+  address?: string;
+  city?: string;
+  contactName?: string;
+  email?: string;
+  phone?: string;
+  paymentLast4?: string | null;
+  isActive?: boolean;
+  [key: string]: unknown;
+};
+
+export type MerchantSetupStep1Data = {
+  businessName: string;
+  address: string;
+  city: string;
+  category:
+    | 'bar_pub'
+    | 'restaurant'
+    | 'coffee'
+    | 'retail'
+    | 'services'
+    | 'entertainment'
+    | 'other';
+};
+
 export type MainTabsParamList = {
   Map: undefined;
   Venues: undefined;
@@ -43,6 +73,23 @@ export type RootStackParamList = {
   Deals: undefined;
   DealClaimed: { deal: DealClaimedDeal };
   MerchantSignIn: undefined;
+  MerchantSetupStep1: undefined;
+  MerchantSetupStep2: { step1: MerchantSetupStep1Data };
+  MerchantAccountNumber: {
+    merchantId: string;
+    merchantNumber: string;
+    businessName: string;
+    address: string;
+    city: string;
+    category: string;
+    contactName: string;
+    email: string;
+    phone: string;
+  };
+  MerchantPortal: { merchant: MerchantDoc };
+  MerchantActivity: { merchantId: string };
+  MerchantAccountInfo: { merchant: MerchantDoc };
+  HowToAdvertise: undefined;
   GetPeeps: undefined;
   Leaderboard: undefined;
   SignUpConfirmed: undefined;

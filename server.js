@@ -96,6 +96,47 @@ const db = admin.firestore();
 const auth = admin.auth();
 const storage = admin.storage();
 
+/*
+  MERCHANT DATA MODEL
+
+  Collection: merchant_accounts
+  Fields:
+    - businessName: string
+    - category: 'bar_pub' | 'restaurant' | 'coffee' | 'retail' | 'services' | 'entertainment' | 'other'
+    - address: string
+    - city: string
+    - contactName: string
+    - email: string
+    - phone: string
+    - paymentMethod: string (Stripe payment method ID)
+    - merchantNumber: string (7-digit generated number, e.g. '#7547698')
+    - createdAt: Timestamp
+    - isActive: boolean
+    - stripeCustomerId: string
+    - ownerId: string (Firebase Auth UID)
+
+  Collection: merchant_ads
+  Fields:
+    - merchantId: string (doc ID from merchant_accounts)
+    - offerText: string (max 40 chars)
+    - startTime: Timestamp
+    - endTime: Timestamp
+    - rateType: 'basic' | 'standard' | 'premium'
+    - ratePerHour: number (10 | 25 | 50)
+    - totalCost: number
+    - status: 'pending' | 'live' | 'ended' | 'cancelled'
+    - impressions: number
+    - claims: number
+    - venueRadius: number (km, default 1)
+    - lat: number
+    - lng: number
+    - createdAt: Timestamp
+*/
+
+function generateMerchantNumber() {
+  return "#" + Math.floor(1000000 + Math.random() * 9000000).toString();
+}
+
 // Configure multer for file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -1302,6 +1343,188 @@ app.patch('/notifications/read-all', authenticateToken, async (req, res) => {
   } catch (error) {
     logger.error('Notifications read all error:', error);
     res.status(500).json({ error: 'Failed' });
+  }
+});
+
+// --- Merchant portal (Tasks 57–66) ---
+
+app.post("/merchant/signin", async (req, res) => {
+  try {
+    const { merchantNumber, password } = req.body || {};
+    const snap = await db
+      .collection("merchant_accounts")
+      .where("merchantNumber", "==", merchantNumber)
+      .limit(1)
+      .get();
+    if (snap.empty) {
+      return res.status(401).json({ error: "Invalid credentials" });
+    }
+    void password;
+    // TODO: verify password with Firebase Auth using email from doc
+    const merchant = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    res.json({ merchant });
+  } catch (error) {
+    logger.error("Merchant signin error:", error);
+    res.status(500).json({ error: "Sign in failed" });
+  }
+});
+
+app.post("/merchant/setup", authenticateToken, async (req, res) => {
+  try {
+    const {
+      businessName,
+      category,
+      address,
+      city,
+      contactName,
+      email,
+      phone,
+    } = req.body || {};
+    const merchantNumber = generateMerchantNumber();
+    const docRef = await db.collection("merchant_accounts").add({
+      businessName,
+      category,
+      address,
+      city,
+      contactName,
+      email,
+      phone,
+      merchantNumber,
+      ownerId: req.user.uid,
+      isActive: true,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    res.json({ merchantId: docRef.id, merchantNumber });
+  } catch (error) {
+    logger.error("Merchant setup error:", error);
+    res.status(500).json({ error: "Setup failed" });
+  }
+});
+
+app.get("/merchant/ads", authenticateToken, async (req, res) => {
+  try {
+    const { merchantId } = req.query;
+    if (!merchantId) {
+      return res.status(400).json({ error: "merchantId required" });
+    }
+    const snap = await db
+      .collection("merchant_ads")
+      .where("merchantId", "==", merchantId)
+      .get();
+    const ads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    ads.sort((a, b) => {
+      const ta = a.createdAt?.toMillis?.() ?? 0;
+      const tb = b.createdAt?.toMillis?.() ?? 0;
+      return tb - ta;
+    });
+    res.json({ ads });
+  } catch (error) {
+    logger.error("Merchant ads list error:", error);
+    res.status(500).json({ error: "Failed to load ads" });
+  }
+});
+
+app.post("/merchant/ads", authenticateToken, async (req, res) => {
+  try {
+    const { merchantId, offerText, startTime, endTime, rateType } = req.body || {};
+    if (!offerText || offerText.length > 40) {
+      return res
+        .status(400)
+        .json({ error: "Offer text required, max 40 chars" });
+    }
+    const rates = { basic: 10, standard: 25, premium: 50 };
+    const ratePerHour = rates[rateType];
+    if (!ratePerHour) {
+      return res.status(400).json({ error: "Invalid rate type" });
+    }
+    const start = new Date(startTime);
+    const end = new Date(endTime);
+    const hours = (end - start) / 3600000;
+    if (hours <= 0) {
+      return res.status(400).json({ error: "End time must be after start time" });
+    }
+    const totalCost = parseFloat((hours * ratePerHour).toFixed(2));
+    const merchantDoc = await db.collection("merchant_accounts").doc(merchantId).get();
+    if (!merchantDoc.exists) {
+      return res.status(404).json({ error: "Merchant not found" });
+    }
+    const m = merchantDoc.data();
+    const adRef = await db.collection("merchant_ads").add({
+      merchantId,
+      offerText,
+      startTime: admin.firestore.Timestamp.fromDate(start),
+      endTime: admin.firestore.Timestamp.fromDate(end),
+      rateType,
+      ratePerHour,
+      totalCost,
+      status: start <= new Date() ? "live" : "pending",
+      impressions: 0,
+      claims: 0,
+      venueRadius: 1,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      lat: m.lat ?? null,
+      lng: m.lng ?? null,
+    });
+    res.json({ adId: adRef.id, totalCost });
+  } catch (error) {
+    logger.error("Merchant ad create error:", error);
+    res.status(500).json({ error: "Failed to create ad" });
+  }
+});
+
+app.get("/merchant/feed", authenticateToken, async (req, res) => {
+  try {
+    void req.query;
+    const snap = await db
+      .collection("merchant_ads")
+      .where("status", "==", "live")
+      .limit(20)
+      .get();
+    const ads = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    const batch = db.batch();
+    snap.docs.forEach((d) =>
+      batch.update(d.ref, {
+        impressions: admin.firestore.FieldValue.increment(1),
+      })
+    );
+    await batch.commit();
+    res.json({ ads });
+  } catch (error) {
+    logger.error("Merchant feed error:", error);
+    res.status(500).json({ error: "Feed failed" });
+  }
+});
+
+app.post("/merchant/ads/:adId/claim", authenticateToken, async (req, res) => {
+  try {
+    const adRef = db.collection("merchant_ads").doc(req.params.adId);
+    await adRef.update({ claims: admin.firestore.FieldValue.increment(1) });
+    res.json({ claimed: true });
+  } catch (error) {
+    logger.error("Merchant ad claim error:", error);
+    res.status(500).json({ error: "Claim failed" });
+  }
+});
+
+cron.schedule("* * * * *", async () => {
+  try {
+    const now = admin.firestore.Timestamp.now();
+    const pendingSnap = await db
+      .collection("merchant_ads")
+      .where("status", "==", "pending")
+      .where("startTime", "<=", now)
+      .get();
+    const liveSnap = await db
+      .collection("merchant_ads")
+      .where("status", "==", "live")
+      .where("endTime", "<=", now)
+      .get();
+    const batch = db.batch();
+    pendingSnap.docs.forEach((d) => batch.update(d.ref, { status: "live" }));
+    liveSnap.docs.forEach((d) => batch.update(d.ref, { status: "ended" }));
+    await batch.commit();
+  } catch (error) {
+    logger.error("Merchant ad status cron error:", error);
   }
 });
 
