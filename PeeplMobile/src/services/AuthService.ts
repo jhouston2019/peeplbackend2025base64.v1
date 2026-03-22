@@ -3,9 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import auth from '@react-native-firebase/auth';
 import { User, AuthResponse, LoginCredentials, RegisterData } from '../types/User';
 
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000' 
-  : 'https://your-production-api.com';
+export const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3000';
 
 export class AuthService {
   private static instance: AuthService;

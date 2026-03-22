@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import * as Sentry from '@sentry/react-native';
+import Config from 'react-native-config';
 import auth from '@react-native-firebase/auth';
 import {
   SafeAreaView,
@@ -22,6 +24,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 // Import screens
 import LoginScreen from './src/screens/LoginScreen';
 import RegisterScreen from './src/screens/RegisterScreen';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import SignUpConfirmedScreen from './src/screens/SignUpConfirmedScreen';
+import PermissionsScreen from './src/screens/PermissionsScreen';
 import MapScreen from './src/screens/MapScreen';
 import VenueScreen from './src/screens/VenueScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -68,6 +73,13 @@ import { pushNotificationService } from './src/services/PushNotificationService'
 import { User } from './src/types/User';
 import { Venue } from './src/types/Venue';
 import { RootStackParamList } from './src/types/Navigation';
+import analytics from './src/services/AnalyticsService';
+
+Sentry.init({
+  dsn: Config.SENTRY_DSN,
+  environment: __DEV__ ? 'development' : 'production',
+  tracesSampleRate: 1.0,
+});
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator<RootStackParamList>();
@@ -138,12 +150,16 @@ function MainTabs() {
 }
 
 // Main App Component
-export default function App(): JSX.Element {
+function App(): JSX.Element {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
   const [isConnected, setIsConnected] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  useEffect(() => {
+    analytics.track('app_opened');
+  }, []);
 
   useEffect(() => {
     initializeApp();
@@ -364,13 +380,20 @@ export default function App(): JSX.Element {
     return (
       <NavigationContainer ref={navigationRef}>
         <View style={{ flex: 1 }}>
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Navigator
+            initialRouteName="Onboarding"
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Onboarding" component={OnboardingScreen} />
             <Stack.Screen name="Login">
               {props => <LoginScreen {...props} onLogin={handleLogin} />}
             </Stack.Screen>
             <Stack.Screen name="Register">
               {props => <RegisterScreen {...props} onRegister={handleRegister} />}
             </Stack.Screen>
+            <Stack.Screen name="SignUpConfirmed" component={SignUpConfirmedScreen} />
+            <Stack.Screen name="Permissions" component={PermissionsScreen} />
+            <Stack.Screen name="MainTabs" component={MainTabs} />
           </Stack.Navigator>
           {offlineOverlay}
         </View>
@@ -611,3 +634,5 @@ const styles = StyleSheet.create({
     padding: 12,
   },
 });
+
+export default Sentry.wrap(App);

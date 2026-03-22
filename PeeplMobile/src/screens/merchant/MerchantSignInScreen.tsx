@@ -14,8 +14,7 @@ import LinearGradient from 'react-native-linear-gradient';
 import { RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { MerchantDoc, RootStackParamList } from '../../types/Navigation';
-
-const BASE_URL = __DEV__ ? 'http://localhost:3000' : 'https://your-production-api.com';
+import { API_BASE_URL } from '../../services/AuthService';
 
 type Props = {
   route: RouteProp<RootStackParamList, 'MerchantSignIn'>;
@@ -66,6 +65,15 @@ export default function MerchantSignInScreen({ navigation }: Props) {
             keyboardType="numeric"
             value={merchantNumber}
             onChangeText={setMerchantNumber}
+            autoCapitalize="none"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Email"
+            placeholderTextColor="#90A4AE"
+            keyboardType="email-address"
+            value={email}
+            onChangeText={setEmail}
             autoCapitalize="none"
           />
           <TextInput

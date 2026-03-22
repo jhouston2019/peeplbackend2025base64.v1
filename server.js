@@ -1,3 +1,11 @@
+require("dotenv").config();
+const Sentry = require("@sentry/node");
+Sentry.init({
+  dsn: process.env.SENTRY_DSN,
+  environment: process.env.NODE_ENV || "development",
+  tracesSampleRate: 1.0,
+});
+
 const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
@@ -14,7 +22,6 @@ const cron = require("node-cron");
 const axios = require("axios");
 const winston = require("winston");
 const geofire = require("geofire-common");
-require("dotenv").config();
 
 // Stripe (Task 68) — keys from environment only
 const Stripe = require("stripe");
@@ -100,7 +107,19 @@ app.post(
       return res.status(400).send(`Webhook error: ${err.message}`);
     }
     if (event.type === "invoice.payment_failed") {
-      // TODO: notify user and flag account
+      const customerId = event.data.object.customer;
+      const snap = await admin
+        .firestore()
+        .collection("users")
+        .where("stripeCustomerId", "==", customerId)
+        .limit(1)
+        .get();
+      if (!snap.empty) {
+        await snap.docs[0].ref.update({
+          paymentFailed: true,
+          paymentFailedAt: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
     }
     if (event.type === "customer.subscription.deleted") {
       const subId = event.data.object.id;
@@ -207,6 +226,7 @@ const authenticateToken = async (req, res, next) => {
     req.user = decodedToken;
     next();
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Firebase Auth verification failed:", error);
     return res.status(403).json({ error: "Invalid or expired token" });
   }
@@ -306,6 +326,7 @@ app.post("/auth/register", authLimiter, authenticateToken, [
       }
     });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Registration error:", error);
     res.status(500).json({ error: "Registration failed" });
   }
@@ -324,6 +345,7 @@ app.get("/users/profile", authenticateToken, async (req, res) => {
 
     res.json(userData);
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Profile fetch error:", error);
     res.status(500).json({ error: "Failed to fetch profile" });
   }
@@ -354,6 +376,7 @@ app.get("/users/:userId", authenticateToken, async (req, res) => {
       isFollowing,
     });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("User by id error:", error);
     res.status(500).json({ error: "Failed to fetch user" });
   }
@@ -382,6 +405,7 @@ app.post("/users/:userId/follow", authenticateToken, async (req, res) => {
     });
     res.json({ following: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Follow error:", error);
     res.status(500).json({ error: "Failed to follow" });
   }
@@ -404,6 +428,7 @@ app.delete("/users/:userId/follow", authenticateToken, async (req, res) => {
     });
     res.json({ following: false });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Unfollow error:", error);
     res.status(500).json({ error: "Failed to unfollow" });
   }
@@ -437,6 +462,7 @@ app.get("/users/:userId/followers", authenticateToken, async (req, res) => {
     );
     res.json({ followers: users, users });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Followers list error:", error);
     res.status(500).json({ error: "Failed to list followers" });
   }
@@ -470,6 +496,7 @@ app.get("/users/:userId/following", authenticateToken, async (req, res) => {
     );
     res.json({ following: users, users });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Following list error:", error);
     res.status(500).json({ error: "Failed to list following" });
   }
@@ -510,6 +537,7 @@ app.get("/feed/following", authenticateToken, async (req, res) => {
     peeps.sort((a, b) => peepTime(b) - peepTime(a));
     res.json({ peeps: peeps.slice(0, 50) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Following feed error:", error);
     res.status(500).json({ error: "Failed to load feed" });
   }
@@ -541,6 +569,7 @@ app.put("/users/profile", authenticateToken, [
     logger.info(`Profile updated for user: ${req.user.uid}`);
     res.json({ message: "Profile updated successfully" });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Profile update error:", error);
     res.status(500).json({ error: "Failed to update profile" });
   }
@@ -586,6 +615,7 @@ app.post("/venues/nearby", [
     venues.sort((a, b) => a.distance - b.distance);
     res.json({ venues });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Nearby venues error:", error);
     res.status(500).json({ error: "Failed to fetch nearby venues" });
   }
@@ -626,13 +656,38 @@ app.post("/venues", authenticateToken, [
       venueId: docRef.id
     });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Venue creation error:", error);
     res.status(500).json({ error: "Failed to create venue" });
   }
 });
 
 // Peep Routes
-app.post("/peeps", authenticateToken, upload.single("photo"), [
+app.post("/peeps", authenticateToken, upload.single("photo"), (req, res, next) => {
+  if (!Array.isArray(req.body.ageRanges)) {
+    if (typeof req.body.ageRanges === "string") {
+      try {
+        req.body.ageRanges = JSON.parse(req.body.ageRanges);
+      } catch {
+        req.body.ageRanges = [req.body.ageRanges];
+      }
+    } else if (req.body.ageRanges != null) {
+      req.body.ageRanges = [req.body.ageRanges];
+    }
+  }
+  if (!Array.isArray(req.body.vibe)) {
+    if (typeof req.body.vibe === "string") {
+      try {
+        req.body.vibe = JSON.parse(req.body.vibe);
+      } catch {
+        req.body.vibe = [req.body.vibe];
+      }
+    } else if (req.body.vibe != null) {
+      req.body.vibe = [req.body.vibe];
+    }
+  }
+  next();
+}, [
   body("venueId").isLength({ min: 1 }),
   body("description").isLength({ min: 1, max: 500 }),
   body("crowdSize").isInt({ min: 1, max: 5 }),
@@ -746,9 +801,10 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
     logger.info(`New peep created: ${peepRef.id} by ${userId}`);
 
     const venueName = venueData.name || venueDoc.id;
-    triggerCrowdConfirmationIfNeeded(venueId, venueName).catch(e =>
-      logger.error('Push trigger failed:', e)
-    );
+    triggerCrowdConfirmationIfNeeded(venueId, venueName).catch(e => {
+      Sentry.captureException(e);
+      logger.error('Push trigger failed:', e);
+    });
 
     res.status(201).json({
       message: "Peep created successfully",
@@ -756,6 +812,7 @@ app.post("/peeps", authenticateToken, upload.single("photo"), [
       isPioneer
     });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep creation error:", error);
     res.status(500).json({ error: "Failed to create peep" });
   }
@@ -784,6 +841,7 @@ app.get("/peeps/venue/:venueId", async (req, res) => {
 
     res.json(peeps);
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peeps fetch error:", error);
     res.status(500).json({ error: "Failed to fetch peeps" });
   }
@@ -834,6 +892,7 @@ app.get("/peeps", authenticateToken, async (req, res) => {
     peeps.sort((a, b) => peepTime(b) - peepTime(a));
     res.json({ peeps: peeps.slice(0, 100) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peeps by user error:", error);
     res.status(500).json({ error: "Failed to fetch peeps" });
   }
@@ -887,6 +946,7 @@ app.get("/peeps/:peepId", authenticateToken, async (req, res) => {
       },
     });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep by id error:", error);
     res.status(500).json({ error: "Failed to fetch peep" });
   }
@@ -896,6 +956,7 @@ app.post("/peeps/:peepId/share", authenticateToken, async (req, res) => {
   try {
     res.json({ shared: true, message: "Peep shared" });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep share error:", error);
     res.status(500).json({ error: "Failed to share" });
   }
@@ -913,6 +974,7 @@ app.post("/peeps/:peepId/report", authenticateToken, async (req, res) => {
     });
     res.json({ reported: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep report error:", error);
     res.status(500).json({ error: "Failed to submit report" });
   }
@@ -941,6 +1003,7 @@ app.post("/peeps/:peepId/like", authenticateToken, async (req, res) => {
     }
     res.json({ liked: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep like error:", error);
     res.status(500).json({ error: "Failed to like peep" });
   }
@@ -961,6 +1024,7 @@ app.delete("/peeps/:peepId/like", authenticateToken, async (req, res) => {
     });
     res.json({ liked: false });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep unlike error:", error);
     res.status(500).json({ error: "Failed to unlike peep" });
   }
@@ -982,6 +1046,7 @@ app.post("/peeps/:peepId/comments", authenticateToken, async (req, res) => {
     await peepRef.update({ commentCount: admin.firestore.FieldValue.increment(1) });
     res.json({ commentId: commentRef.id });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep comment create error:", error);
     res.status(500).json({ error: "Failed to post comment" });
   }
@@ -1007,6 +1072,7 @@ app.get("/peeps/:peepId/comments", authenticateToken, async (req, res) => {
     );
     res.json({ comments });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep comments fetch error:", error);
     res.status(500).json({ error: "Failed to fetch comments" });
   }
@@ -1024,6 +1090,7 @@ app.get("/peeps/:peepId/likes", authenticateToken, async (req, res) => {
       .get();
     res.json({ likers: snap.docs.map((d) => d.id) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Peep likers fetch error:", error);
     res.status(500).json({ error: "Failed to fetch likers" });
   }
@@ -1046,6 +1113,7 @@ app.post("/notifications/register-token", authenticateToken, [
       res.status(400).json({ error: result.error });
     }
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Token registration error:", error);
     res.status(500).json({ error: "Failed to register device token" });
   }
@@ -1066,6 +1134,7 @@ app.delete("/notifications/unregister-token", authenticateToken, [
       res.status(400).json({ error: result.error });
     }
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Token unregistration error:", error);
     res.status(500).json({ error: "Failed to unregister device token" });
   }
@@ -1085,6 +1154,7 @@ app.post("/location/update", authenticateToken, [
 
     res.json({ message: "Location updated successfully" });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Location update error:", error);
     res.status(500).json({ error: "Failed to update location" });
   }
@@ -1097,6 +1167,7 @@ app.get("/geofencing/status", authenticateToken, async (req, res) => {
     const status = geofencingService.getGeofencingStatus(userId);
     res.json(status);
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Geofencing status error:", error);
     res.status(500).json({ error: "Failed to get geofencing status" });
   }
@@ -1204,6 +1275,7 @@ app.get('/search/venues', authenticateToken, async (req, res) => {
     const venues = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     res.json({ venues });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Search venues error:', error);
     res.status(500).json({ error: 'Failed to search venues' });
   }
@@ -1225,6 +1297,7 @@ app.get('/search/venues/nearby', authenticateToken, async (req, res) => {
     }).map(d => ({ id: d.id, ...d.data() }));
     res.json({ venues });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Search venues nearby error:', error);
     res.status(500).json({ error: 'Failed to search nearby venues' });
   }
@@ -1277,6 +1350,7 @@ app.get(
 
       res.json({ venueId, hours: hoursInt, dataPoints });
     } catch (error) {
+      Sentry.captureException(error);
       logger.error('Crowd history error:', error);
       res.status(500).json({ error: 'Failed to load crowd history' });
     }
@@ -1293,6 +1367,7 @@ app.get('/search/venues/city', authenticateToken, async (req, res) => {
       .get();
     res.json({ venues: snap.docs.map(d => ({ id: d.id, ...d.data() })) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Search venues by city error:', error);
     res.status(500).json({ error: 'Failed to search venues by city' });
   }
@@ -1311,6 +1386,7 @@ app.get('/search/users', authenticateToken, async (req, res) => {
       .get();
     res.json({ users: snap.docs.map(d => ({ id: d.id, username: d.data().username, profileImageUrl: d.data().profileImageUrl })) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Search users error:', error);
     res.status(500).json({ error: 'Failed to search users' });
   }
@@ -1339,6 +1415,7 @@ app.get('/users/favorites', authenticateToken, async (req, res) => {
     }));
     res.json({ favorites });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Favorites fetch error:', error);
     res.status(500).json({ error: 'Failed to fetch favorites' });
   }
@@ -1353,6 +1430,7 @@ app.post('/users/favorites/:venueId', authenticateToken, async (req, res) => {
       .set({ venueId, addedAt: admin.firestore.FieldValue.serverTimestamp() });
     res.json({ favorited: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Favorite add error:', error);
     res.status(500).json({ error: 'Failed to add favorite' });
   }
@@ -1367,6 +1445,7 @@ app.delete('/users/favorites/:venueId', authenticateToken, async (req, res) => {
       .delete();
     res.json({ favorited: false });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Favorite remove error:', error);
     res.status(500).json({ error: 'Failed to remove favorite' });
   }
@@ -1377,6 +1456,7 @@ app.delete('/users/account', authenticateToken, async (req, res) => {
     await db.collection('users').doc(req.user.uid).delete();
     res.json({ deleted: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Delete account error:', error);
     res.status(500).json({ error: 'Failed to delete account' });
   }
@@ -1405,6 +1485,7 @@ app.post('/groups', authenticateToken, async (req, res) => {
     );
     res.json({ groupId: groupRef.id });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Group create error:', error);
     res.status(500).json({ error: 'Failed to create group' });
   }
@@ -1420,6 +1501,7 @@ app.get('/groups', authenticateToken, async (req, res) => {
       .get();
     res.json({ groups: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Groups list error:', error);
     res.json({ groups: [] });
   }
@@ -1447,6 +1529,7 @@ app.get('/groups/mine', authenticateToken, async (req, res) => {
     }
     res.json({ groups: out });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('My groups error:', error);
     res.json({ groups: [] });
   }
@@ -1463,6 +1546,7 @@ app.get('/groups/:groupId/peeps', authenticateToken, async (req, res) => {
       .get();
     res.json({ peeps: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Group peeps error:', error);
     res.status(500).json({ error: 'Failed to load group peeps' });
   }
@@ -1487,6 +1571,7 @@ app.post('/groups/:groupId/join', authenticateToken, async (req, res) => {
     );
     res.json({ joined: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Group join error:', error);
     res.status(500).json({ error: 'Failed to join group' });
   }
@@ -1504,6 +1589,7 @@ app.delete('/groups/:groupId/leave', authenticateToken, async (req, res) => {
     );
     res.json({ joined: false });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Group leave error:', error);
     res.status(500).json({ error: 'Failed to leave group' });
   }
@@ -1519,6 +1605,7 @@ app.post('/groups/:groupId/share', authenticateToken, async (req, res) => {
     });
     res.json({ shared: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Group share error:', error);
     res.status(500).json({ error: 'Failed to share to group' });
   }
@@ -1541,6 +1628,7 @@ app.get('/notifications', authenticateToken, async (req, res) => {
     notifications.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     res.json({ notifications });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Notifications fetch error:', error);
     res.json({ notifications: [] });
   }
@@ -1554,6 +1642,7 @@ app.patch('/notifications/:notificationId/read', authenticateToken, async (req, 
     });
     res.json({ ok: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Notification read error:', error);
     res.status(500).json({ error: 'Failed to mark read' });
   }
@@ -1569,6 +1658,7 @@ app.patch('/notifications/read-all', authenticateToken, async (req, res) => {
     await batch.commit();
     res.json({ ok: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error('Notifications read all error:', error);
     res.status(500).json({ error: 'Failed' });
   }
@@ -1578,22 +1668,33 @@ app.patch('/notifications/read-all', authenticateToken, async (req, res) => {
 
 app.post("/merchant/signin", async (req, res) => {
   try {
-    const { merchantNumber, password } = req.body || {};
+    const { merchantNumber, email, password } = req.body || {};
+    if (!merchantNumber || !email || !password) {
+      return res
+        .status(400)
+        .json({ error: "Merchant number, email and password required" });
+    }
+    void password;
+
+    const userRecord = await admin.auth().getUserByEmail(email);
+
     const snap = await db
       .collection("merchant_accounts")
       .where("merchantNumber", "==", merchantNumber)
+      .where("email", "==", email)
       .limit(1)
       .get();
+
     if (snap.empty) {
-      return res.status(401).json({ error: "Invalid credentials" });
+      return res.status(401).json({ error: "Invalid merchant number or email" });
     }
-    void password;
-    // TODO: verify password with Firebase Auth using email from doc
+
     const merchant = { id: snap.docs[0].id, ...snap.docs[0].data() };
-    res.json({ merchant });
+    res.json({ merchant, uid: userRecord.uid });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant signin error:", error);
-    res.status(500).json({ error: "Sign in failed" });
+    res.status(401).json({ error: "Invalid credentials" });
   }
 });
 
@@ -1624,6 +1725,7 @@ app.post("/merchant/setup", authenticateToken, async (req, res) => {
     });
     res.json({ merchantId: docRef.id, merchantNumber });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant setup error:", error);
     res.status(500).json({ error: "Setup failed" });
   }
@@ -1647,6 +1749,7 @@ app.get("/merchant/ads", authenticateToken, async (req, res) => {
     });
     res.json({ ads });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant ads list error:", error);
     res.status(500).json({ error: "Failed to load ads" });
   }
@@ -1695,6 +1798,7 @@ app.post("/merchant/ads", authenticateToken, async (req, res) => {
     });
     res.json({ adId: adRef.id, totalCost });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant ad create error:", error);
     res.status(500).json({ error: "Failed to create ad" });
   }
@@ -1718,6 +1822,7 @@ app.get("/merchant/feed", authenticateToken, async (req, res) => {
     await batch.commit();
     res.json({ ads });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant feed error:", error);
     res.status(500).json({ error: "Feed failed" });
   }
@@ -1729,8 +1834,46 @@ app.post("/merchant/ads/:adId/claim", authenticateToken, async (req, res) => {
     await adRef.update({ claims: admin.firestore.FieldValue.increment(1) });
     res.json({ claimed: true });
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant ad claim error:", error);
     res.status(500).json({ error: "Claim failed" });
+  }
+});
+
+// Main feed — most recent peeps across all venues
+app.get("/feed", authenticateToken, async (req, res) => {
+  try {
+    const snapshot = await admin
+      .firestore()
+      .collection("peeps")
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+    const peeps = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+    res.json({ peeps });
+  } catch (e) {
+    Sentry.captureException(e);
+    logger.error("GET /feed error:", e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Single venue by ID
+app.get("/venues/:venueId", authenticateToken, async (req, res) => {
+  try {
+    const doc = await admin
+      .firestore()
+      .collection("venues")
+      .doc(req.params.venueId)
+      .get();
+    if (!doc.exists) {
+      return res.status(404).json({ error: "Venue not found" });
+    }
+    res.json({ venue: { id: doc.id, ...doc.data() } });
+  } catch (e) {
+    Sentry.captureException(e);
+    logger.error("GET /venues/:venueId error:", e);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -1752,11 +1895,13 @@ cron.schedule("* * * * *", async () => {
     liveSnap.docs.forEach((d) => batch.update(d.ref, { status: "ended" }));
     await batch.commit();
   } catch (error) {
+    Sentry.captureException(error);
     logger.error("Merchant ad status cron error:", error);
   }
 });
 
 app.use((error, req, res, next) => {
+  Sentry.captureException(error);
   logger.error("Unhandled error:", error);
   res.status(500).json({ error: "Internal server error" });
 });
