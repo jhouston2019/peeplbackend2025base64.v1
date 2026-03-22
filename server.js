@@ -16,6 +16,12 @@ const winston = require("winston");
 const geofire = require("geofire-common");
 require("dotenv").config();
 
+// Stripe (Task 68) — keys from environment only
+const Stripe = require("stripe");
+const stripe = process.env.STRIPE_SECRET_KEY
+  ? Stripe(process.env.STRIPE_SECRET_KEY)
+  : null;
+
 // Import services
 const notificationService = require("./src/services/NotificationService");
 const { triggerCrowdConfirmationIfNeeded } = require("./src/services/NotificationService");
@@ -73,6 +79,41 @@ app.use(cors({
   origin: process.env.CORS_ORIGIN?.split(",") || ["http://localhost:3000"],
   credentials: true
 }));
+
+// Stripe webhooks must receive the raw body (Task 68) — register before express.json()
+app.post(
+  "/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    if (!stripe) {
+      return res.status(503).json({ error: "Stripe not configured" });
+    }
+    const sig = req.headers["stripe-signature"];
+    let event;
+    try {
+      event = stripe.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      return res.status(400).send(`Webhook error: ${err.message}`);
+    }
+    if (event.type === "invoice.payment_failed") {
+      // TODO: notify user and flag account
+    }
+    if (event.type === "customer.subscription.deleted") {
+      const subId = event.data.object.id;
+      const snap = await admin
+        .firestore()
+        .collection("users")
+        .where("subscriptionId", "==", subId)
+        .get();
+      snap.docs.forEach((d) => d.ref.update({ isVIP: false }));
+    }
+    res.json({ received: true });
+  }
+);
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
@@ -169,6 +210,14 @@ const authenticateToken = async (req, res, next) => {
     logger.error("Firebase Auth verification failed:", error);
     return res.status(403).json({ error: "Invalid or expired token" });
   }
+};
+
+const requireVIP = async (req, res, next) => {
+  const userDoc = await db.collection("users").doc(req.user.uid).get();
+  if (!userDoc.data()?.isVIP) {
+    return res.status(403).json({ error: "VIPeeps subscription required" });
+  }
+  next();
 };
 
 // Validation middleware
@@ -325,6 +374,12 @@ app.post("/users/:userId/follow", authenticateToken, async (req, res) => {
       followingId: userId,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+    await db.collection("users").doc(userId).update({
+      followersCount: admin.firestore.FieldValue.increment(1),
+    });
+    await db.collection("users").doc(req.user.uid).update({
+      followingCount: admin.firestore.FieldValue.increment(1),
+    });
     res.json({ following: true });
   } catch (error) {
     logger.error("Follow error:", error);
@@ -335,7 +390,18 @@ app.post("/users/:userId/follow", authenticateToken, async (req, res) => {
 app.delete("/users/:userId/follow", authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    await db.collection("follows").doc(`${req.user.uid}_${userId}`).delete();
+    const ref = db.collection("follows").doc(`${req.user.uid}_${userId}`);
+    const existing = await ref.get();
+    if (!existing.exists) {
+      return res.json({ following: false });
+    }
+    await ref.delete();
+    await db.collection("users").doc(userId).update({
+      followersCount: admin.firestore.FieldValue.increment(-1),
+    });
+    await db.collection("users").doc(req.user.uid).update({
+      followingCount: admin.firestore.FieldValue.increment(-1),
+    });
     res.json({ following: false });
   } catch (error) {
     logger.error("Unfollow error:", error);
@@ -346,12 +412,17 @@ app.delete("/users/:userId/follow", authenticateToken, async (req, res) => {
 app.get("/users/:userId/followers", authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const snap = await db.collection("follows").where("followingId", "==", userId).get();
-    const rows = await Promise.all(
-      snap.docs.map(async (doc) => {
-        const followerId = doc.data().followerId;
-        const u = await db.collection("users").doc(followerId).get();
-        const ud = u.data() || {};
+    const snap = await db
+      .collection("follows")
+      .where("followingId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+    const users = await Promise.all(
+      snap.docs.map(async (d) => {
+        const followerId = d.data().followerId;
+        const userDoc = await db.collection("users").doc(followerId).get();
+        const ud = userDoc.data() || {};
         const f = await db.collection("follows").doc(`${req.user.uid}_${followerId}`).get();
         return {
           userId: followerId,
@@ -360,10 +431,11 @@ app.get("/users/:userId/followers", authenticateToken, async (req, res) => {
           points: ud.points || 0,
           profileImageUrl: ud.profileImageUrl || null,
           isFollowing: f.exists,
+          ...ud,
         };
       })
     );
-    res.json({ users: rows });
+    res.json({ followers: users, users });
   } catch (error) {
     logger.error("Followers list error:", error);
     res.status(500).json({ error: "Failed to list followers" });
@@ -373,12 +445,17 @@ app.get("/users/:userId/followers", authenticateToken, async (req, res) => {
 app.get("/users/:userId/following", authenticateToken, async (req, res) => {
   try {
     const { userId } = req.params;
-    const snap = await db.collection("follows").where("followerId", "==", userId).get();
-    const rows = await Promise.all(
-      snap.docs.map(async (doc) => {
-        const followingId = doc.data().followingId;
-        const u = await db.collection("users").doc(followingId).get();
-        const ud = u.data() || {};
+    const snap = await db
+      .collection("follows")
+      .where("followerId", "==", userId)
+      .orderBy("createdAt", "desc")
+      .limit(50)
+      .get();
+    const users = await Promise.all(
+      snap.docs.map(async (d) => {
+        const followingId = d.data().followingId;
+        const userDoc = await db.collection("users").doc(followingId).get();
+        const ud = userDoc.data() || {};
         const f = await db.collection("follows").doc(`${req.user.uid}_${followingId}`).get();
         return {
           userId: followingId,
@@ -387,13 +464,54 @@ app.get("/users/:userId/following", authenticateToken, async (req, res) => {
           points: ud.points || 0,
           profileImageUrl: ud.profileImageUrl || null,
           isFollowing: f.exists,
+          ...ud,
         };
       })
     );
-    res.json({ users: rows });
+    res.json({ following: users, users });
   } catch (error) {
     logger.error("Following list error:", error);
     res.status(500).json({ error: "Failed to list following" });
+  }
+});
+
+app.get("/feed/following", authenticateToken, async (req, res) => {
+  try {
+    const followingSnap = await db
+      .collection("follows")
+      .where("followerId", "==", req.user.uid)
+      .get();
+    const followingIds = followingSnap.docs.map((d) => d.data().followingId);
+    if (followingIds.length === 0) return res.json({ peeps: [] });
+    const chunks = [];
+    for (let i = 0; i < followingIds.length; i += 10) {
+      chunks.push(followingIds.slice(i, i + 10));
+    }
+    const snaps = await Promise.all(
+      chunks.map((chunk) =>
+        db
+          .collection("peeps")
+          .where("userId", "in", chunk)
+          .orderBy("createdAt", "desc")
+          .limit(50)
+          .get()
+      )
+    );
+    const peeps = snaps.flatMap((s) =>
+      s.docs.map((d) => ({ id: d.id, ...d.data() }))
+    );
+    const peepTime = (p) => {
+      const c = p.createdAt;
+      if (!c) return 0;
+      if (typeof c.toMillis === "function") return c.toMillis();
+      if (c.seconds != null) return c.seconds * 1000;
+      return 0;
+    };
+    peeps.sort((a, b) => peepTime(b) - peepTime(a));
+    res.json({ peeps: peeps.slice(0, 50) });
+  } catch (error) {
+    logger.error("Following feed error:", error);
+    res.status(500).json({ error: "Failed to load feed" });
   }
 });
 
@@ -429,6 +547,10 @@ app.put("/users/profile", authenticateToken, [
 });
 
 // Venue Routes
+// Required Firestore index: collection=venues, fields=[geohash ASC]
+// Create via Firebase Console or firestore.indexes.json
+// (Composite queries with isActive + geohash need a matching composite index.)
+
 app.post("/venues/nearby", [
   body("lat").isFloat({ min: -90, max: 90 }),
   body("lng").isFloat({ min: -180, max: 180 }),
@@ -477,8 +599,16 @@ app.post("/venues", authenticateToken, [
   body("category").isLength({ min: 1, max: 50 })
 ], validateRequest, async (req, res) => {
   try {
+    const lat = parseFloat(req.body.latitude);
+    const lng = parseFloat(req.body.longitude);
+    const cityLower = (req.body.city || "").toLowerCase().trim();
     const venueData = {
       ...req.body,
+      lat,
+      lng,
+      geohash: geofire.geohashForPoint([lat, lng]),
+      nameLower: String(req.body.name || "").toLowerCase(),
+      cityLower: cityLower || String(req.body.address || "").toLowerCase(),
       createdBy: req.user.uid,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -1100,6 +1230,59 @@ app.get('/search/venues/nearby', authenticateToken, async (req, res) => {
   }
 });
 
+app.get(
+  '/venues/:venueId/crowd-history',
+  authenticateToken,
+  requireVIP,
+  async (req, res) => {
+    try {
+      const { venueId } = req.params;
+      const { hours = 12 } = req.query;
+      const hoursInt = Math.min(Math.max(parseInt(String(hours), 10) || 12, 1), 24);
+      const since = new Date(Date.now() - hoursInt * 60 * 60 * 1000);
+
+      const snap = await db
+        .collection('peeps')
+        .where('venueId', '==', venueId)
+        .where('createdAt', '>=', admin.firestore.Timestamp.fromDate(since))
+        .orderBy('createdAt', 'asc')
+        .get();
+
+      const buckets = {};
+      for (let i = 0; i < hoursInt; i++) {
+        const bucketTime = new Date(since.getTime() + i * 60 * 60 * 1000);
+        const key = bucketTime.toISOString().slice(0, 13);
+        buckets[key] = { hour: key, peepCount: 0, totalCrowdSize: 0, avgCrowdSize: 0 };
+      }
+
+      snap.docs.forEach((doc) => {
+        const data = doc.data();
+        const peepTime = data.createdAt?.toDate
+          ? data.createdAt.toDate()
+          : new Date(data.createdAt);
+        const key = peepTime.toISOString().slice(0, 13);
+        if (buckets[key]) {
+          buckets[key].peepCount++;
+          buckets[key].totalCrowdSize += data.crowdSize || 0;
+          buckets[key].avgCrowdSize =
+            buckets[key].totalCrowdSize / buckets[key].peepCount;
+        }
+      });
+
+      const dataPoints = Object.values(buckets).map((b) => ({
+        hour: b.hour,
+        peepCount: b.peepCount,
+        avgCrowdSize: parseFloat(b.avgCrowdSize.toFixed(1)),
+      }));
+
+      res.json({ venueId, hours: hoursInt, dataPoints });
+    } catch (error) {
+      logger.error('Crowd history error:', error);
+      res.status(500).json({ error: 'Failed to load crowd history' });
+    }
+  }
+);
+
 app.get('/search/venues/city', authenticateToken, async (req, res) => {
   try {
     const { city } = req.query;
@@ -1199,23 +1382,43 @@ app.delete('/users/account', authenticateToken, async (req, res) => {
   }
 });
 
+app.post('/groups', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, isPublic = true } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'Group name required' });
+    const groupRef = await db.collection('groups').add({
+      name,
+      description: description || '',
+      isPublic,
+      creatorId: req.user.uid,
+      memberCount: 1,
+      peepsToday: 0,
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    });
+    await groupRef.collection('members').doc(req.user.uid).set({
+      joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+      role: 'admin',
+    });
+    await db.collection('users').doc(req.user.uid).set(
+      { groupIds: admin.firestore.FieldValue.arrayUnion(groupRef.id) },
+      { merge: true }
+    );
+    res.json({ groupId: groupRef.id });
+  } catch (error) {
+    logger.error('Group create error:', error);
+    res.status(500).json({ error: 'Failed to create group' });
+  }
+});
+
 app.get('/groups', authenticateToken, async (req, res) => {
   try {
-    const snap = await db.collection('groups').limit(100).get();
-    const groups = await Promise.all(
-      snap.docs.map(async (d) => {
-        const data = d.data();
-        const membersSnap = await d.ref.collection('members').get();
-        return {
-          id: d.id,
-          name: data.name || 'Group',
-          photoUrl: data.photoUrl || null,
-          memberCount: membersSnap.size,
-          peepsToday: data.peepsToday || 0,
-        };
-      })
-    );
-    res.json({ groups });
+    const snap = await db
+      .collection('groups')
+      .where('isPublic', '==', true)
+      .orderBy('memberCount', 'desc')
+      .limit(20)
+      .get();
+    res.json({ groups: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
   } catch (error) {
     logger.error('Groups list error:', error);
     res.json({ groups: [] });
@@ -1249,17 +1452,35 @@ app.get('/groups/mine', authenticateToken, async (req, res) => {
   }
 });
 
+app.get('/groups/:groupId/peeps', authenticateToken, async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const snap = await db
+      .collection('peeps')
+      .where('sharedToGroups', 'array-contains', groupId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
+    res.json({ peeps: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+  } catch (error) {
+    logger.error('Group peeps error:', error);
+    res.status(500).json({ error: 'Failed to load group peeps' });
+  }
+});
+
 app.post('/groups/:groupId/join', authenticateToken, async (req, res) => {
   try {
     const { groupId } = req.params;
-    const gref = db.collection('groups').doc(groupId);
-    const g = await gref.get();
+    const groupRef = db.collection('groups').doc(groupId);
+    const g = await groupRef.get();
     if (!g.exists) {
       return res.status(404).json({ error: 'Group not found' });
     }
-    await gref.collection('members').doc(req.user.uid).set({
+    await groupRef.collection('members').doc(req.user.uid).set({
       joinedAt: admin.firestore.FieldValue.serverTimestamp(),
+      role: 'member',
     });
+    await groupRef.update({ memberCount: admin.firestore.FieldValue.increment(1) });
     await db.collection('users').doc(req.user.uid).set(
       { groupIds: admin.firestore.FieldValue.arrayUnion(groupId) },
       { merge: true }
@@ -1274,7 +1495,9 @@ app.post('/groups/:groupId/join', authenticateToken, async (req, res) => {
 app.delete('/groups/:groupId/leave', authenticateToken, async (req, res) => {
   try {
     const { groupId } = req.params;
-    await db.collection('groups').doc(groupId).collection('members').doc(req.user.uid).delete();
+    const groupRef = db.collection('groups').doc(groupId);
+    await groupRef.collection('members').doc(req.user.uid).delete();
+    await groupRef.update({ memberCount: admin.firestore.FieldValue.increment(-1) });
     await db.collection('users').doc(req.user.uid).set(
       { groupIds: admin.firestore.FieldValue.arrayRemove(groupId) },
       { merge: true }
@@ -1288,8 +1511,13 @@ app.delete('/groups/:groupId/leave', authenticateToken, async (req, res) => {
 
 app.post('/groups/:groupId/share', authenticateToken, async (req, res) => {
   try {
+    const { groupId } = req.params;
     const { peepId } = req.body || {};
-    res.json({ shared: true, peepId });
+    if (!peepId) return res.status(400).json({ error: 'peepId required' });
+    await db.collection('peeps').doc(peepId).update({
+      sharedToGroups: admin.firestore.FieldValue.arrayUnion(groupId),
+    });
+    res.json({ shared: true });
   } catch (error) {
     logger.error('Group share error:', error);
     res.status(500).json({ error: 'Failed to share to group' });
