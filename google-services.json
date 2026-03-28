@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "651814138260",
+    "project_id": "crowd-checker-7bd94",
+    "storage_bucket": "crowd-checker-7bd94.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:651814138260:android:2b604d859bf4e721f8df81",
+        "android_client_info": {
+          "package_name": "com.peepl.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQwa6QNCaphJs6zKK06hsWkDnjq1l5Ifc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

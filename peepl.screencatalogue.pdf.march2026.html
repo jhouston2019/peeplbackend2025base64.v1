@@ -1,0 +1,1387 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<title>Peepl — Master Screen Catalogue</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#fff;color:#222;}
+
+  /* ── Print button (hidden when printing) ── */
+  .print-btn{
+    display:block;text-align:center;padding:18px;
+    background:#2244EE;color:#fff;font-size:15px;font-weight:700;
+    cursor:pointer;border:none;width:100%;letter-spacing:0.5px;
+  }
+  @media print{.print-btn{display:none;}}
+
+  /* ── Cover page ── */
+  .cover{
+    width:100%;min-height:297mm;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;
+    background:#2244EE;page-break-after:always;
+    padding:40px;
+  }
+  .cover h1{color:#fff;font-size:72px;font-style:italic;letter-spacing:-3px;font-weight:900;}
+  .cover h2{color:rgba(255,255,255,0.85);font-size:22px;font-weight:400;margin-top:12px;}
+  .cover .meta{color:rgba(255,255,255,0.6);font-size:14px;margin-top:32px;text-align:center;line-height:2;}
+  .cover .badge{background:#FFD700;color:#111;font-weight:900;font-size:18px;padding:10px 28px;border-radius:24px;margin-top:32px;}
+
+  /* ── Section divider ── */
+  .section-page{
+    width:100%;page-break-before:always;page-break-after:always;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    min-height:100mm;background:#f0f4ff;border-top:6px solid #2244EE;padding:40px;
+  }
+  .section-page h2{color:#2244EE;font-size:36px;font-weight:900;text-transform:uppercase;letter-spacing:2px;}
+  .section-page p{color:#666;font-size:14px;margin-top:10px;}
+
+  /* ── Grid page ── */
+  .grid-page{
+    width:210mm;margin:0 auto;padding:12mm 10mm;
+    page-break-after:always;
+  }
+  .page-header{
+    display:flex;justify-content:space-between;align-items:center;
+    border-bottom:2px solid #2244EE;padding-bottom:6px;margin-bottom:12px;
+  }
+  .page-header .logo{font-size:22px;font-weight:900;font-style:italic;color:#2244EE;}
+  .page-header .pg{font-size:11px;color:#888;}
+
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+
+  .screen-box{display:flex;flex-direction:column;align-items:center;}
+  .screen-label{font-size:8px;font-weight:700;color:#444;margin-bottom:5px;text-align:center;line-height:1.3;}
+
+  /* Phone shell */
+  .phone{
+    width:86px;background:#1a1a1a;border-radius:14px;
+    padding:4px 3px 5px;box-shadow:0 4px 16px rgba(0,0,0,0.35);
+  }
+  .phone-notch{width:22px;height:3px;background:#2a2a2a;border-radius:2px;margin:0 auto 3px;}
+  .phone-screen{border-radius:9px;overflow:hidden;height:172px;position:relative;}
+  .phone-home{width:28px;height:2px;background:#444;border-radius:1px;margin:4px auto 0;}
+
+  /* Screen inner content */
+  .sc{position:absolute;inset:0;display:flex;flex-direction:column;font-family:-apple-system,sans-serif;}
+  .hdr{background:#2244EE;display:flex;align-items:center;justify-content:space-between;padding:2px 5px;flex-shrink:0;}
+  .hdr-l,.hdr-r{font-size:3.5px;color:#fff;font-weight:600;width:20px;}
+  .hdr-r{text-align:right;}
+  .hdr-logo{font-size:6px;font-weight:900;font-style:italic;color:#fff;letter-spacing:-0.3px;}
+  .strp{background:#1133BB;padding:1px 4px;flex-shrink:0;}
+  .strp span{font-size:3.5px;color:#fff;font-weight:700;}
+  .shdr{background:#00BBDD;padding:1.5px 4px;flex-shrink:0;}
+  .shdr span{font-size:3.5px;color:#fff;font-weight:800;}
+  .vbb{background:#2244EE;padding:2px 4px;display:flex;justify-content:center;gap:3px;flex-shrink:0;}
+  .vbb span{font-size:3px;font-weight:700;}
+  .hnav{background:#2244EE;display:flex;justify-content:space-around;padding:2px 0;flex-shrink:0;}
+  .hnav span{font-size:3px;color:#fff;font-weight:700;}
+  .anav{background:#2244EE;display:flex;justify-content:space-around;padding:2px 0;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.2);}
+  .anav-item{text-align:center;}
+  .anav-p{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,0.2);display:flex;align-items:center;justify-content:center;margin:0 auto;}
+  .anav-p.active{background:#22CC44;}
+  .anav-p span{font-size:4px;font-style:italic;font-weight:900;color:#fff;}
+  .anav-lbl{font-size:2.5px;color:#bbb;font-weight:600;}
+  .anav-lbl.active{color:#22CC44;}
+  .scroll{flex:1;overflow:hidden;}
+  .card{height:26px;position:relative;margin-bottom:1px;flex-shrink:0;}
+  .card-info{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(0,0,0,0.6));}
+  .card-name{position:absolute;bottom:2px;left:3px;color:#fff;font-size:3.5px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,1);}
+  .card-user{position:absolute;bottom:0;right:0;left:0;background:rgba(10,10,10,0.9);padding:1px 3px;display:flex;justify-content:space-between;}
+  .card-user span{color:#ccc;font-size:2.5px;}
+  .ad-card{height:24px;position:relative;margin-bottom:1px;}
+  .ad-inner{position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,0.7),rgba(0,0,0,0.2));}
+  .ad-spon{position:absolute;top:2px;left:3px;background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);border-radius:1px;padding:0 2px;}
+  .ad-spon span{font-size:2px;color:#fff;font-weight:700;letter-spacing:0.3px;}
+  .ad-headline{position:absolute;top:8px;left:3px;font-size:4px;font-weight:800;color:#fff;}
+  .ad-sub{position:absolute;top:14px;left:3px;font-size:3px;color:rgba(255,255,255,0.8);}
+
+  /* Dot ring SVG wrapper */
+  .dr-wrap{position:absolute;top:3px;right:1px;}
+
+  /* Row */
+  .row-item{display:flex;justify-content:space-between;align-items:center;padding:2px 4px;border-bottom:1px solid #eee;background:#fff;}
+  .row-item span{font-size:3px;color:#222;}
+  .row-item .rv{color:#2244EE;font-weight:800;}
+
+  /* TOC page */
+  .toc-page{width:210mm;margin:0 auto;padding:14mm 12mm;page-break-after:always;}
+  .toc-title{font-size:20px;font-weight:900;color:#2244EE;margin-bottom:16px;border-bottom:2px solid #2244EE;padding-bottom:6px;}
+  .toc-section{margin-bottom:12px;}
+  .toc-sec-name{font-size:11px;font-weight:800;color:#2244EE;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;}
+  .toc-items{display:grid;grid-template-columns:repeat(2,1fr);gap:2px 20px;}
+  .toc-item{font-size:9px;color:#444;padding:1px 0;display:flex;gap:6px;}
+  .toc-num{color:#888;min-width:20px;}
+
+  @media print{
+    body{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+    .grid-page,.toc-page{page-break-after:always;}
+    .cover,.section-page{page-break-after:always;}
+  }
+</style>
+</head>
+<body>
+
+<button class="print-btn" onclick="window.print()">🖨️ Print / Save as PDF — use Ctrl+P or Cmd+P, then choose "Save as PDF"</button>
+
+<!-- ── COVER ── -->
+<div class="cover">
+  <h1>peepl</h1>
+  <h2>Master Screen Catalogue</h2>
+  <div class="badge">60 Screens · 9 Sections</div>
+  <div class="meta">
+    Consumer App · Merchant Portal · System Screens<br/>
+    Onboarding · Feed · Venue · Deals · Social · Gamification · Profile · Settings<br/><br/>
+    Confidential — Product Design Reference
+  </div>
+</div>
+
+<!-- ── TABLE OF CONTENTS ── -->
+<div class="toc-page">
+  <div class="toc-title">Table of Contents</div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Onboarding (9 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">1.</span>Splash</div>
+      <div class="toc-item"><span class="toc-num">2.</span>Onboard — Know Before You Go</div>
+      <div class="toc-item"><span class="toc-num">3.</span>Onboard — Real People, Real Time</div>
+      <div class="toc-item"><span class="toc-num">4.</span>Onboard — Become a Pioneer</div>
+      <div class="toc-item"><span class="toc-num">5.</span>Sign In</div>
+      <div class="toc-item"><span class="toc-num">6.</span>Sign Up</div>
+      <div class="toc-item"><span class="toc-num">7.</span>Sign Up Confirmed</div>
+      <div class="toc-item"><span class="toc-num">8.</span>Location Permission</div>
+      <div class="toc-item"><span class="toc-num">9.</span>Push Notification Permission</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Feed & Discovery (6 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">10.</span>Main Feed</div>
+      <div class="toc-item"><span class="toc-num">11.</span>Search</div>
+      <div class="toc-item"><span class="toc-num">12.</span>Search Results</div>
+      <div class="toc-item"><span class="toc-num">13.</span>Trending Now</div>
+      <div class="toc-item"><span class="toc-num">14.</span>No Peeps Today (Empty State)</div>
+      <div class="toc-item"><span class="toc-num">15.</span>No Connection</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Venue & Peeps (10 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">16.</span>Venue Page</div>
+      <div class="toc-item"><span class="toc-num">17.</span>Venue + Native Ad Injected</div>
+      <div class="toc-item"><span class="toc-num">18.</span>No Peeps Yet</div>
+      <div class="toc-item"><span class="toc-num">19.</span>Individual Peep Detail</div>
+      <div class="toc-item"><span class="toc-num">20.</span>Likers Page</div>
+      <div class="toc-item"><span class="toc-num">21.</span>Create Peep</div>
+      <div class="toc-item"><span class="toc-num">22.</span>Peep with Photo Selected</div>
+      <div class="toc-item"><span class="toc-num">23.</span>Age Range Selector</div>
+      <div class="toc-item"><span class="toc-num">24.</span>Peep Submitted</div>
+      <div class="toc-item"><span class="toc-num">25.</span>Pioneer Congrats</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Deals & Map (4 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">26.</span>Deals Feed</div>
+      <div class="toc-item"><span class="toc-num">27.</span>Deal Claimed</div>
+      <div class="toc-item"><span class="toc-num">28.</span>Get Peeps (3-mode)</div>
+      <div class="toc-item"><span class="toc-num">29.</span>Map — Live Crowd Heat Map</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Social (5 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">30.</span>Share a Peep</div>
+      <div class="toc-item"><span class="toc-num">31.</span>Invite Friends</div>
+      <div class="toc-item"><span class="toc-num">32.</span>Notifications Inbox</div>
+      <div class="toc-item"><span class="toc-num">33.</span>Crowd Push Alert</div>
+      <div class="toc-item"><span class="toc-num">34.</span>Report a Peep</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Gamification (5 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">35.</span>Leaderboard</div>
+      <div class="toc-item"><span class="toc-num">36.</span>Pioneers List</div>
+      <div class="toc-item"><span class="toc-num">37.</span>Scoreboard</div>
+      <div class="toc-item"><span class="toc-num">38.</span>VIPeeps Upsell</div>
+      <div class="toc-item"><span class="toc-num">39.</span>VIPeeps Active State</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Profile (11 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">40.</span>Profile Stats</div>
+      <div class="toc-item"><span class="toc-num">41.</span>Other User's Profile</div>
+      <div class="toc-item"><span class="toc-num">42.</span>My Peeps History</div>
+      <div class="toc-item"><span class="toc-num">43.</span>Peeps Received</div>
+      <div class="toc-item"><span class="toc-num">44.</span>Followers</div>
+      <div class="toc-item"><span class="toc-num">45.</span>Following</div>
+      <div class="toc-item"><span class="toc-num">46.</span>Favorites</div>
+      <div class="toc-item"><span class="toc-num">47.</span>Scoreboard (Profile)</div>
+      <div class="toc-item"><span class="toc-num">48.</span>Photo Gallery</div>
+      <div class="toc-item"><span class="toc-num">49.</span>Groups</div>
+      <div class="toc-item"><span class="toc-num">50.</span>Menu / Nav</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Settings (2 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">51.</span>Settings</div>
+      <div class="toc-item"><span class="toc-num">52.</span>Account Info</div>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-sec-name">Merchant Portal (9 screens)</div>
+    <div class="toc-items">
+      <div class="toc-item"><span class="toc-num">53.</span>Merchant Sign In</div>
+      <div class="toc-item"><span class="toc-num">54.</span>Ad Step 1 — Write Your Ad</div>
+      <div class="toc-item"><span class="toc-num">55.</span>Ad Step 2 — Choose Time Slot</div>
+      <div class="toc-item"><span class="toc-num">56.</span>Ad Step 3 — Review & Submit</div>
+      <div class="toc-item"><span class="toc-num">57.</span>Merchant Dashboard</div>
+      <div class="toc-item"><span class="toc-num">58.</span>Ad Performance</div>
+      <div class="toc-item"><span class="toc-num">59.</span>Merchant Account Info</div>
+      <div class="toc-item"><span class="toc-num">60.</span>Merchant Account # Issued</div>
+      <div class="toc-item"><span class="toc-num">+</span>How to Advertise</div>
+    </div>
+  </div>
+</div>
+
+<!-- helper to generate dot ring SVG inline -->
+<script>
+function dotRingSVG(status, sz) {
+  const n=12, r=sz*0.37, cx=sz/2, cy=sz/2, dr=sz*0.076;
+  const M={"PACKED!":{c:"#EE2222",f:12},"BUSY":{c:"#4444EE",f:9},"MODERATE":{c:"#3366CC",f:7},"MEDIUM":{c:"#3377BB",f:6},"LIGHT":{c:"#3388AA",f:3},"EMPTY":{c:"#888",f:0}};
+  const {c,f}=M[status]||{c:"#888",f:0};
+  const fs=status.length>5?sz*0.26:sz*0.3;
+  let circles='';
+  for(let i=0;i<n;i++){
+    const a=(i/n)*2*Math.PI-Math.PI/2;
+    circles+=`<circle cx="${(cx+r*Math.cos(a)).toFixed(1)}" cy="${(cy+r*Math.sin(a)).toFixed(1)}" r="${dr.toFixed(1)}" fill="${i<f?c:'rgba(255,255,255,0.15)'}"/>`;
+  }
+  return `<svg width="${sz}" height="${sz}" style="display:block;filter:drop-shadow(0 0.5px 2px rgba(0,0,0,0.9))">${circles}<text x="${cx}" y="${cy+0.5}" text-anchor="middle" dominant-baseline="middle" fill="white" font-size="${fs.toFixed(1)}" font-weight="900" font-family="system-ui">${status}</text></svg>`;
+}
+
+const G={
+  park:"linear-gradient(160deg,#3a7a28,#5a9a3a,#88c060,#a8d890,#88c0e0)",
+  joey:"linear-gradient(135deg,#c8e0b0,#e0f0c8,#a8c898)",
+  conv:"linear-gradient(135deg,#281038,#401858,#582070)",
+  ost:"linear-gradient(135deg,#2a1208,#501e0c,#783020)",
+  brew:"linear-gradient(135deg,#281408,#503018,#885028)",
+  tav:"linear-gradient(135deg,#201408,#402818,#684030)",
+  out:"linear-gradient(135deg,#203010,#385820,#587838)",
+  rest:"linear-gradient(135deg,#182010,#304020,#485830)",
+  gym:"linear-gradient(160deg,#c8dcea,#a8c4d8,#90b0c8)",
+  taq:"linear-gradient(135deg,#602800,#a04810,#d07028)",
+  apt:"linear-gradient(135deg,#383838,#585858,#787878)",
+  b1:"linear-gradient(135deg,#280c0c,#582828,#903838)",
+  b2:"linear-gradient(135deg,#0e2038,#204870,#3068b0)",
+  b3:"linear-gradient(135deg,#102010,#285828,#409840)",
+  cafe:"linear-gradient(135deg,#281608,#503020,#a07040,#c8a060)",
+  crd:"linear-gradient(135deg,#281848,#402870,#5838a0)",
+  sta:"linear-gradient(135deg,#120a02,#381c08,#8a5018,#d89018)",
+  amx:"linear-gradient(135deg,#906020,#c89040,#f0b860,#c07830)",
+  mrc:"linear-gradient(135deg,#203020,#386838,#509050)",
+  ngt:"linear-gradient(135deg,#0c0c28,#202050,#343470)",
+};
+
+// screen data: [id, label, content_generator]
+const screens = [
+  // Splash
+  ["splash","1. Splash",()=>`<div style="flex:1;background:#2244EE;display:flex;flex-direction:column;align-items:center;justify-content:center">
+    <div style="font-size:20px;font-weight:900;font-style:italic;color:#fff;letter-spacing:-1px">peepl</div>
+    <div style="color:rgba(255,255,255,0.7);font-size:3.5px;margin-top:3px;letter-spacing:1px">KNOW BEFORE YOU GO</div>
+    <div style="margin-top:16px;width:14px;height:14px;border-radius:50%;background:rgba(255,255,255,0.15);display:flex;align-items:center;justify-content:center">
+      <div style="width:0;height:0;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:6px solid rgba(255,255,255,0.8);margin-left:1px"></div>
+    </div>
+  </div>`],
+
+  // Onboard 1
+  ["ob1","2. Onboard — Know",()=>`<div style="flex:1;background:#fff;display:flex;flex-direction:column">
+    <div style="background:#2244EE;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+      <div style="font-size:22px">👥</div>
+      <div style="color:#fff;font-size:5px;font-weight:900;margin-top:3px;text-align:center;padding:0 6px">Know Before You Go</div>
+    </div>
+    <div style="flex:1;padding:6px;display:flex;flex-direction:column;justify-content:space-between">
+      <div style="color:#444;font-size:3.5px;text-align:center;line-height:1.6">See real-time crowd levels from real people at bars, restaurants, parks, and events near you.</div>
+      <div>
+        <div style="display:flex;gap:3px;justify-content:center;margin-bottom:5px">${[1,2,3].map(d=>`<div style="width:3px;height:3px;border-radius:50%;background:${d===1?'#2244EE':'#ddd'}"></div>`).join('')}</div>
+        <div style="background:#2244EE;border-radius:8px;padding:4px 0;text-align:center"><span style="color:#fff;font-size:4px;font-weight:700">Next →</span></div>
+      </div>
+    </div>
+  </div>`],
+
+  // Onboard 2
+  ["ob2","3. Onboard — Real Time",()=>`<div style="flex:1;background:#fff;display:flex;flex-direction:column">
+    <div style="background:#2244EE;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+      <div style="font-size:22px">📍</div>
+      <div style="color:#fff;font-size:5px;font-weight:900;margin-top:3px;text-align:center;padding:0 6px">Real People, Real Time</div>
+    </div>
+    <div style="flex:1;padding:6px;display:flex;flex-direction:column;justify-content:space-between">
+      <div style="color:#444;font-size:3.5px;text-align:center;line-height:1.6">Every Peep is posted by someone there right now. See crowd size, vibe, and wait times before you leave.</div>
+      <div>
+        <div style="display:flex;gap:3px;justify-content:center;margin-bottom:5px">${[1,2,3].map(d=>`<div style="width:3px;height:3px;border-radius:50%;background:${d===2?'#2244EE':'#ddd'}"></div>`).join('')}</div>
+        <div style="background:#2244EE;border-radius:8px;padding:4px 0;text-align:center"><span style="color:#fff;font-size:4px;font-weight:700">Next →</span></div>
+      </div>
+    </div>
+  </div>`],
+
+  // Onboard 3
+  ["ob3","4. Onboard — Pioneer",()=>`<div style="flex:1;background:#fff;display:flex;flex-direction:column">
+    <div style="background:#2244EE;height:70px;display:flex;flex-direction:column;align-items:center;justify-content:center;flex-shrink:0">
+      <div style="font-size:22px">🏆</div>
+      <div style="color:#fff;font-size:5px;font-weight:900;margin-top:3px;text-align:center;padding:0 6px">Become a Pioneer</div>
+    </div>
+    <div style="flex:1;padding:6px;display:flex;flex-direction:column;justify-content:space-between">
+      <div style="color:#444;font-size:3.5px;text-align:center;line-height:1.6">Be first to Peep a new venue and earn Pioneer status. Climb the leaderboard and unlock VIPeeps.</div>
+      <div>
+        <div style="display:flex;gap:3px;justify-content:center;margin-bottom:5px">${[1,2,3].map(d=>`<div style="width:3px;height:3px;border-radius:50%;background:${d===3?'#2244EE':'#ddd'}"></div>`).join('')}</div>
+        <div style="background:#2244EE;border-radius:8px;padding:4px 0;text-align:center"><span style="color:#fff;font-size:4px;font-weight:700">Get Started →</span></div>
+      </div>
+    </div>
+  </div>`],
+
+  // Sign In
+  ["signin","5. Sign In",()=>`<div style="flex:1;background:${G.out};position:relative;display:flex;flex-direction:column">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.45)"></div>
+    <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:14px 8px 0;flex:1">
+      <div style="font-size:16px;font-weight:900;font-style:italic;color:#2244EE;text-shadow:0 1px 4px rgba(255,255,255,0.4);margin-bottom:12px">peepl</div>
+      ${[["Email","user@example.com"],["Password","••••••••"]].map(([l,ph])=>`
+        <div style="width:100%;margin-bottom:5px">
+          <div style="color:#eee;font-size:3.5px;font-weight:700;margin-bottom:1.5px">${l}</div>
+          <div style="background:rgba(255,255,255,0.92);border-radius:3px;padding:3px 4px;font-size:3.5px;color:#555">${ph}</div>
+        </div>`).join('')}
+      <div style="background:#111;color:#fff;border-radius:3px;padding:4px;text-align:center;font-weight:700;font-size:4px;width:100%;margin-bottom:5px">Log In</div>
+      <span style="background:rgba(255,255,255,0.9);color:#2244EE;font-size:3px;font-weight:700;border-radius:6px;padding:2px 5px">Don't have an account? Sign Up</span>
+    </div>
+  </div>`],
+
+  // Sign Up
+  ["signup","6. Sign Up",()=>`<div style="flex:1;background:#fff;display:flex;flex-direction:column">
+    <div class="hdr"><span class="hdr-l">Back</span><span class="hdr-logo">peepl</span><span class="hdr-r"></span></div>
+    <div class="strp"><span>Create Your Account</span></div>
+    <div style="flex:1;padding:4px;overflow:hidden">
+      ${[["Your Name","e.g. Rick Flair"],["Username","e.g. rickflair"],["Email","you@email.com"],["Password","min. 6 chars"]].map(([l,ph])=>`
+        <div style="margin-bottom:3px">
+          <div style="font-size:3px;font-weight:700;color:#333;margin-bottom:1px">${l}</div>
+          <div style="background:#f4f4f4;border-radius:3px;padding:2.5px 4px;font-size:3px;color:#aaa;border:0.5px solid #e0e0e0">${ph}</div>
+        </div>`).join('')}
+      <div style="background:#2244EE;border-radius:3px;padding:4px;text-align:center;margin-top:3px"><span style="color:#fff;font-size:4px;font-weight:700">Create Account</span></div>
+    </div>
+  </div>`],
+
+  // Sign Up Confirmed
+  ["confirmed","7. Sign Up Confirmed",()=>`<div style="flex:1;background:#2244EE;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+    <div style="font-size:22px">🎉</div>
+    <div style="color:#fff;font-size:7px;font-weight:900;margin-top:5px;text-align:center">Welcome to Peepl!</div>
+    <div style="color:rgba(255,255,255,0.8);font-size:3.5px;text-align:center;margin-top:4px;line-height:1.6">You're all set. Start exploring what's happening near you — or Peep your first spot and become a Pioneer.</div>
+    <div style="background:#fff;border-radius:8px;padding:4px 12px;margin-top:10px"><span style="color:#2244EE;font-size:4px;font-weight:800">Let's Go →</span></div>
+  </div>`],
+
+  // Loc Permission
+  ["locperm","8. Location Permission",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    <div class="hdr"><span class="hdr-l">Peep!</span><span class="hdr-logo">peepl</span><span class="hdr-r">Get Peeps!</span></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+      <div style="font-size:18px">📍</div>
+      <div style="color:#111;font-size:6px;font-weight:900;margin-top:5px;text-align:center">Allow Location Access</div>
+      <div style="color:#555;font-size:3px;text-align:center;margin-top:3px;line-height:1.6">Peepl needs your location to show crowd reports near you.</div>
+      <div style="background:#fff;border-radius:5px;padding:5px 6px;margin-top:8px;width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+        <div style="color:#111;font-size:3.5px;font-weight:700;text-align:center;margin-bottom:3px">Allow "Peepl" to use your location?</div>
+        ${["Allow While Using App","Allow Once","Don't Allow"].map((t,i)=>`<div style="padding:3px;border-top:${i>0?'0.5px solid #eee':'none'};text-align:center"><span style="color:${i<2?'#2244EE':'#e53935'};font-size:4px;font-weight:700">${t}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>`],
+
+  // Push Permission
+  ["pushperm","9. Push Permission",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    <div class="hdr"><span class="hdr-l">Peep!</span><span class="hdr-logo">peepl</span><span class="hdr-r">Get Peeps!</span></div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+      <div style="font-size:18px">🔔</div>
+      <div style="color:#111;font-size:6px;font-weight:900;margin-top:5px;text-align:center">Stay in the Know</div>
+      <div style="color:#555;font-size:3px;text-align:center;margin-top:3px;line-height:1.6">Get notified when your favorite spots get crowded and when friends check in nearby.</div>
+      <div style="background:#fff;border-radius:5px;padding:5px 6px;margin-top:8px;width:100%;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+        <div style="color:#111;font-size:3.5px;font-weight:700;text-align:center;margin-bottom:2px">"Peepl" Would Like to Send Notifications</div>
+        <div style="color:#777;font-size:2.5px;text-align:center;margin-bottom:3px">Crowd alerts, Pioneer updates, friend activity.</div>
+        ${["Allow","Don't Allow"].map((t,i)=>`<div style="padding:3px;border-top:${i>0?'0.5px solid #eee':'none'};text-align:center"><span style="color:${i===0?'#2244EE':'#e53935'};font-size:4px;font-weight:700">${t}</span></div>`).join('')}
+      </div>
+    </div>
+  </div>`],
+];
+
+function feedCard(nm,st,bg,mf,wait){
+  return `<div style="height:26px;position:relative;margin-bottom:1px;flex-shrink:0">
+    <div style="position:absolute;inset:0;background:${bg}"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(0,0,0,0.6))"></div>
+    <div style="position:absolute;top:1px;right:1px">${dotRingSVG(st,12)}</div>
+    ${(mf||wait)?`<div style="position:absolute;top:1px;right:15px">${mf?`<div style="color:#fff;font-size:2.5px;font-weight:700">M/F: ${mf}</div>`:''}${wait?`<div style="color:#fff;font-size:2.5px;font-weight:700">Wait: ${wait}</div>`:''}  </div>`:''}
+    <div style="position:absolute;bottom:5px;left:3px;color:#fff;font-size:3.5px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,1)">${nm}</div>
+    <div style="position:absolute;bottom:0;right:0;left:0;background:rgba(10,10,10,0.9);padding:0.5px 3px;display:flex;justify-content:space-between">
+      <span style="color:#ccc;font-size:2px">LordByron</span><span style="color:#ccc;font-size:2px">Recent</span><span style="color:#ccc;font-size:2px">2 mi</span>
+    </div>
+  </div>`;
+}
+function adCard(bg,headline,sub){
+  return `<div style="height:24px;position:relative;margin-bottom:1px;flex-shrink:0">
+    <div style="position:absolute;inset:0;background:${bg}"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(to right,rgba(0,0,0,0.7),rgba(0,0,0,0.15))"></div>
+    <div style="position:absolute;top:2px;left:3px">
+      <div style="background:rgba(255,255,255,0.2);border:0.5px solid rgba(255,255,255,0.4);border-radius:1px;padding:0 2px;display:inline-block;margin-bottom:1px"><span style="font-size:2px;color:#fff;font-weight:700;letter-spacing:0.3px">SPONSORED</span></div>
+      <div style="font-size:4px;font-weight:800;color:#fff">${headline}</div>
+      <div style="font-size:3px;color:rgba(255,255,255,0.85)">${sub}</div>
+    </div>
+  </div>`;
+}
+function hdr(l='Peep!',r='Get Peeps!'){
+  return `<div class="hdr"><span class="hdr-l">${l}</span><span class="hdr-logo">peepl</span><span class="hdr-r">${r}</span></div>`;
+}
+function strp(t){return `<div class="strp"><span>${t}</span></div>`;}
+function shdr(t){return `<div class="shdr"><span>${t}</span></div>`;}
+function vbb(){return `<div class="vbb"><span style="color:#FFD700;font-weight:700">DEALS</span><span style="color:#fff">*</span><span style="color:#fff">Map</span><span style="color:#fff">*</span><span style="color:#fff">Menu</span><span style="color:#fff">*</span><span style="color:#FFD700;font-weight:700">SHARE</span></div>`;}
+function hnav(){return `<div class="hnav"><span>Home /</span><span>Menu /</span><span>Search /</span><span>Profile</span></div>`;}
+function anav(a='feed'){
+  return `<div class="anav">
+    <div class="anav-item"><span style="font-size:5px">💲</span><div class="anav-lbl${a==='deals'?' active':''}">Deals</div></div>
+    <div class="anav-item"><div class="anav-p${a==='feed'?' active':''}"><span>p</span></div><div class="anav-lbl${a==='feed'?' active':''}">Get Peeps</div></div>
+    <div class="anav-item"><span style="font-size:5px">👤</span><div class="anav-lbl${a==='profile'?' active':''}">Profile</div></div>
+  </div>`;}
+function tick(){return `<div style="background:#1a88cc;padding:1px 4px;flex-shrink:0;display:flex;gap:4px">${[["Establishment",4],["Twain's",3],["Noche",3]].map(([n,v])=>`<span style="color:#fff;font-size:2.5px;font-weight:700">${n} - <span style="color:#FFD700">${v}</span></span>`).join('')}</div>`;}
+function profileBanner(nm='Rick Flair',sb='+Follow'){
+  return `<div style="position:relative;height:24px;flex-shrink:0">
+    <div style="position:absolute;inset:0;background:${G.cafe}"></div>
+    <div style="position:absolute;right:0;top:0;bottom:0;width:55%;background:${G.crd};opacity:0.7"></div>
+    <div style="position:absolute;left:4px;bottom:2px;width:16px;height:16px;border-radius:2px;background:linear-gradient(135deg,#8a6040,#c09060);border:1px solid #fff;display:flex;align-items:center;justify-content:center;font-size:9px">🤼</div>
+    <div style="position:absolute;left:22px;bottom:6px">
+      <div style="color:#fff;font-size:4.5px;font-weight:900;text-shadow:0 0.5px 2px rgba(0,0,0,0.9)">${nm}</div>
+      <div style="color:#00BBDD;font-size:2.5px;font-weight:700">${sb}</div>
+    </div>
+  </div>`;}
+function rowItem(l,v){return `<div style="display:flex;justify-content:space-between;align-items:center;padding:1.5px 4px;border-bottom:0.5px solid #eee;background:#fff"><span style="font-size:3px;color:#222">${l}</span>${v!==undefined?`<span style="font-size:3px;color:#2244EE;font-weight:800">${v}</span>`:''}</div>`;}
+
+// Build remaining screens via JS
+const moreScreens = [
+  // 10 Main Feed
+  ["mainfeed","10. Main Feed",()=>`<div style="flex:1;background:#181818;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}${strp("What's happening")}
+    <div style="flex:1;overflow:hidden">
+      ${feedCard("Joey D's Oak Room","PACKED!",G.joey,"50/50","Minutes")}
+      ${adCard(G.sta,"Stella Artois","She's a thing of beauty")}
+      ${feedCard("Osteria 832","BUSY",G.ost,"","None")}
+      ${feedCard("Piedmont Park","MODERATE",G.park,"50/50","")}
+      ${adCard(G.amx,"American Express","Don't live life without it")}
+    </div>
+    ${anav('feed')}
+  </div>`],
+
+  // 11 Search
+  ["search","11. Search",()=>`<div style="flex:1;background:#181818;display:flex;flex-direction:column">
+    ${hdr('Cancel')}
+    <div style="background:#2244EE;padding:2px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      <span style="color:#fff;font-size:4px;font-weight:700">≡↓</span>
+      <div style="flex:1;background:rgba(255,255,255,0.2);border-radius:3px;padding:2px 4px"><span style="color:rgba(255,255,255,0.6);font-size:3px">🔍 Search for a place</span></div>
+    </div>
+    ${strp("What's happening")}
+    <div style="flex:1;overflow:hidden">
+      ${feedCard("Sivas Tavern","LIGHT",G.tav,"50/50","")}
+      ${feedCard("Chomp and Stomp","PACKED!",G.out,"50/50","")}
+      ${adCard(G.sta,"Stella Artois","She's a thing of beauty")}
+      ${feedCard("Two Birds Taphouse","BUSY",G.brew,"50/50","")}
+    </div>
+    <div style="background:#2244EE;padding:1.5px 4px;display:flex;gap:2px;flex-shrink:0">${["Deals","Peeps","Profiles"].map(t=>`<div style="flex:1;background:rgba(255,255,255,0.1);border:0.5px solid rgba(100,160,255,0.4);border-radius:2px;padding:2px 0;text-align:center"><span style="color:#88aaff;font-size:3px;font-weight:700">${t}</span></div>`).join('')}</div>
+  </div>`],
+
+  // 12 Search Results
+  ["searchresults","12. Search Results",()=>`<div style="flex:1;background:#f4f4f4;display:flex;flex-direction:column">
+    ${hdr('Cancel')}
+    <div style="background:#2244EE;padding:2px 4px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      <div style="flex:1;background:rgba(255,255,255,0.9);border-radius:3px;padding:2px 4px;display:flex;gap:2px"><span style="font-size:3.5px">🔍</span><span style="color:#333;font-size:3.5px;font-weight:600">Piedmont</span></div>
+      <span style="color:rgba(255,255,255,0.7);font-size:3px">Cancel</span>
+    </div>
+    <div style="background:#eee;padding:1px 4px;flex-shrink:0"><span style="font-size:2.5px;color:#888">5 results near Atlanta, GA</span></div>
+    <div style="flex:1;overflow:hidden">
+      ${[["Piedmont Park",G.park,"MODERATE"],["Joey D's Oak Room",G.joey,"PACKED!"],["Osteria 832",G.ost,"BUSY"],["Monday Night Brewing",G.brew,"BUSY"],["Establishment",G.b1,"MODERATE"]].map(([nm,bg,st])=>`
+        <div style="display:flex;margin-bottom:1px;align-items:stretch">
+          <div style="width:18px;height:15px;background:${bg};flex-shrink:0"></div>
+          <div style="flex:1;padding:2px 4px;background:#fff;border-bottom:0.5px solid #eee"><div style="font-size:3.5px;font-weight:700">${nm}</div></div>
+          <div style="width:15px;height:15px;background:${bg};display:flex;align-items:center;justify-content:center;flex-shrink:0">${dotRingSVG(st,10)}</div>
+        </div>`).join('')}
+    </div>
+    <div style="background:#2244EE;padding:1.5px 4px;display:flex;gap:2px;flex-shrink:0">${["Deals","Peeps","Profiles"].map(t=>`<div style="flex:1;background:rgba(255,255,255,0.1);border:0.5px solid rgba(100,160,255,0.4);border-radius:2px;padding:2px 0;text-align:center"><span style="color:#88aaff;font-size:3px;font-weight:700">${t}</span></div>`).join('')}</div>
+  </div>`],
+
+  // 13 Trending
+  ["trending","13. Trending",()=>`<div style="flex:1;background:#181818;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}${strp("🔥 Trending Now")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Piedmont Park",G.park,"PACKED!","↑ Busier"],["Monday Night Brewing",G.brew,"BUSY","→ Steady"],["Pure Taqueria",G.taq,"BUSY","↓ Clearing"],["LA Fitness",G.gym,"MEDIUM","→ Steady"]].map(([nm,bg,st,tr])=>`
+        <div style="height:26px;position:relative;margin-bottom:1px;flex-shrink:0">
+          <div style="position:absolute;inset:0;background:${bg}"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(0,0,0,0.6))"></div>
+          <div style="position:absolute;top:1px;right:1px">${dotRingSVG(st,12)}</div>
+          <div style="position:absolute;bottom:4px;left:3px">
+            <div style="color:#fff;font-size:3.5px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,1)">${nm}</div>
+            <div style="color:#00BBDD;font-size:2.5px;font-weight:700">${tr}</div>
+          </div>
+        </div>`).join('')}
+    </div>
+    ${anav('feed')}
+  </div>`],
+
+  // 14 Empty State
+  ["empty","14. No Peeps Today",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}${strp("What's happening")}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+      <div style="font-size:20px">📭</div>
+      <div style="color:#222;font-size:6px;font-weight:900;margin-top:5px;text-align:center">No Peeps Today</div>
+      <div style="color:#888;font-size:3px;text-align:center;margin-top:3px;line-height:1.6">Be the first to Peep your area today.</div>
+      <div style="background:#2244EE;border-radius:8px;padding:4px 10px;margin-top:8px"><span style="color:#fff;font-size:4px;font-weight:700">Peep Now 📍</span></div>
+    </div>
+    ${anav('feed')}
+  </div>`],
+
+  // 15 No Connection
+  ["noconn","15. No Connection",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+      <div style="font-size:20px">📵</div>
+      <div style="color:#222;font-size:6px;font-weight:900;margin-top:5px;text-align:center">No Connection</div>
+      <div style="color:#666;font-size:3px;text-align:center;margin-top:3px;line-height:1.6">Check your Wi-Fi or cellular signal.</div>
+      <div style="background:#2244EE;border-radius:8px;padding:4px 10px;margin-top:8px"><span style="color:#fff;font-size:4px;font-weight:700">Try Again</span></div>
+    </div>
+  </div>`],
+
+  // 16 Venue Page
+  ["venue","16. Venue Page",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="background:${G.park};height:28px;position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+      <div style="position:absolute;bottom:2px;left:4px"><div style="color:#fff;font-size:5px;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,1)">Piedmont Park</div><div style="color:rgba(255,255,255,0.8);font-size:2.5px">Atlanta, GA</div></div>
+      <div style="position:absolute;top:2px;right:4px"><div style="color:#fff;font-size:2.5px;font-weight:700">Avg: <span style="color:#FFD700">7</span></div></div>
+    </div>
+    <div style="background:#fff;border:1px solid #e53935;margin:2px 3px;border-radius:1px;padding:1.5px 3px;text-align:center;flex-shrink:0"><span style="color:#e53935;font-weight:900;font-size:2.5px">*** FREE DASANI ALL DAY ***</span></div>
+    <div style="flex:1;overflow:hidden">
+      ${feedCard("Piedmont Park","PACKED!",G.park,"50/50","None")}
+      ${feedCard("Piedmont Park","BUSY",G.park,"60/40","")}
+      ${feedCard("Piedmont Park","MODERATE",G.park,"","None")}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 17 Venue + Ad
+  ["venuewithed","17. Venue + Ad Injected",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="background:${G.park};height:24px;position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+      <div style="position:absolute;bottom:3px;left:4px"><div style="color:#fff;font-size:5px;font-weight:900">Piedmont Park</div></div>
+    </div>
+    <div style="flex:1;overflow:hidden">
+      ${feedCard("Piedmont Park","PACKED!",G.park,"50/50","")}
+      ${feedCard("Piedmont Park","BUSY",G.park,"60/40","")}
+      ${adCard(G.sta,"Stella Artois","She's a thing of beauty")}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 18 No Peeps Yet
+  ["nopeeps","18. No Peeps Yet",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="background:${G.park};height:24px;position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.3)"></div>
+      <div style="position:absolute;bottom:3px;left:4px"><div style="color:#fff;font-size:5px;font-weight:900">Chastain Park</div></div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+      <div style="font-size:16px">👀</div>
+      <div style="color:#222;font-size:5.5px;font-weight:900;margin-top:4px;text-align:center">No Peeps Yet</div>
+      <div style="color:#666;font-size:3px;text-align:center;margin-top:2px;line-height:1.6">Be the first to Peep this spot and earn Pioneer status!</div>
+      <div style="background:#2244EE;border-radius:8px;padding:3px 8px;margin-top:6px"><span style="color:#fff;font-size:3.5px;font-weight:700">Peep Here →</span></div>
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 19 Peep Detail
+  ["peepdetail","19. Peep Detail",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="background:#2244EE;padding:4px 5px;display:flex;justify-content:space-between;flex-shrink:0">
+      <div>
+        <div style="color:#fff;font-weight:900;font-size:4.5px">Piedmont Park</div>
+        <div style="color:#ccc;font-size:2.5px;margin-top:1px">Crowd Size</div>
+        ${dotRingSVG("BUSY",20)}
+        <div style="color:#ddd;font-size:2.5px;margin-top:1px">M/F: 50/50 · Vibe: Laid Back</div>
+      </div>
+      <div style="text-align:right">
+        <div style="color:#ddd;font-size:2.5px">11/12 3:45pm</div>
+        <div style="width:14px;height:14px;border-radius:50%;background:${G.cafe};margin-top:2px;display:flex;align-items:center;justify-content:center;font-size:8px;margin-left:auto">🤼</div>
+        <div style="color:#fff;font-size:3px;font-weight:700;margin-top:1px">Rick Flair</div>
+        <div style="color:#00BBDD;font-size:2.5px">+Follow</div>
+      </div>
+    </div>
+    <div style="padding:2px 4px;background:#fff;flex-shrink:0"><span style="font-size:4px;font-weight:700">Sax Man!</span></div>
+    <div style="height:36px;background:${G.park};flex-shrink:0"></div>
+    <div style="background:#e0e0e0;padding:2px 5px;display:flex;justify-content:space-between;flex-shrink:0">
+      <span style="color:#2244EE;font-size:4px;font-weight:700">+ Like</span>
+      <span style="color:#2244EE;font-size:4px;font-weight:700">+ Comment</span>
+      <span style="color:#c8a000;font-size:4px;font-weight:700">+ Share</span>
+    </div>
+    <div style="flex:1;padding:3px 4px;background:#fff;overflow:hidden">
+      <div style="font-size:3.5px;font-weight:900;margin-bottom:2px;text-decoration:underline">Comments</div>
+      ${[["Rick James","Enjoy yourself!"],["Parker Posey","I love grass."]].map(([u,t])=>`<div style="font-size:3px;margin-bottom:2px"><span style="font-weight:800;color:#2244EE">${u}:</span><span style="color:#333"> ${t}</span></div>`).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 20 Likers
+  ["likers","20. Likers Page",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back')}${shdr("Liked by")}
+    <div style="flex:1;overflow:hidden">
+      ${[["👩","Doris Day","2m ago"],["⚽","Messi","5m ago"],["🤼","Rick Flair","8m ago"],["🦜","Big Blo","12m ago"],["🐦","Toucan Sam","20m ago"],["👤","anon-91703","1h ago"]].map(([ic,nm,tm])=>`
+        <div style="display:flex;align-items:center;padding:2px 4px;border-bottom:0.5px solid #eee;gap:4px;background:#fff">
+          <div style="width:12px;height:12px;border-radius:2px;background:${G.crd};display:flex;align-items:center;justify-content:center;font-size:7px;flex-shrink:0">${ic}</div>
+          <span style="font-size:3.5px;font-weight:700;flex:1">${nm}</span>
+          <span style="font-size:2.5px;color:#aaa">${tm}</span>
+        </div>`).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 21 Create Peep
+  ["peepcreate","21. Create Peep",()=>`<div style="flex:1;background:#f5f5f5;display:flex;flex-direction:column">
+    ${hdr('Cancel','Peep!')}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:2px;margin-bottom:3px">
+          <span style="font-size:5px">📍</span><span style="font-size:3px;font-weight:700;width:18px">Location</span>
+          <div style="flex:1;border:0.5px solid #ddd;border-radius:2px;padding:2px 3px;font-size:3px;color:#333">Central Park</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:2px">
+          <span style="font-size:5px">📸</span><span style="font-size:3px;font-weight:700;width:18px">Photo</span>
+          <div style="flex:1;height:18px;background:${G.park};border-radius:2px;display:flex;align-items:center;justify-content:center"><span style="color:rgba(255,255,255,0.85);font-size:3px">+ Add Photo</span></div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:2px;margin-bottom:2px">
+          <span style="font-size:5px">👥</span><span style="font-size:3px;font-weight:700;flex:1">Crowd Level</span><span style="font-size:4px;font-weight:900;color:#EE2222">7</span>
+        </div>
+        <div style="height:3px;background:#eee;border-radius:2px;overflow:hidden"><div style="width:70%;height:100%;background:#2244EE;border-radius:2px"></div></div>
+      </div>
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:3px">
+        <div style="display:flex;gap:2px;flex-wrap:wrap;margin-bottom:3px">
+          <span style="font-size:3px;font-weight:700">✨ Vibe:</span>
+          ${["Cozy","Trendy","Upscale"].map((v,i)=>`<span style="padding:1px 3px;border-radius:4px;background:${i===1?'#2244EE':'#eee'};color:${i===1?'#fff':'#333'};font-size:2.5px">${v}</span>`).join('')}
+        </div>
+        <div style="display:flex;gap:2px;flex-wrap:wrap">
+          <span style="font-size:3px;font-weight:700">⏱️ Wait:</span>
+          ${["No wait","5-10m"].map((w,i)=>`<span style="padding:1px 3px;border-radius:4px;background:${i===1?'#2244EE':'#eee'};color:${i===1?'#fff':'#333'};font-size:2.5px">${w}</span>`).join('')}
+        </div>
+      </div>
+      <div style="background:#FFC107;border-radius:4px;padding:4px;text-align:center;font-weight:700;font-size:4px">📤 Submit Peep</div>
+    </div>
+  </div>`],
+
+  // 22 Peep with Photo
+  ["peepwithphoto","22. Peep w/ Photo",()=>`<div style="flex:1;background:#f5f5f5;display:flex;flex-direction:column">
+    ${hdr('Cancel','Peep!')}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:2px;margin-bottom:3px">
+          <span style="font-size:5px">📍</span><span style="font-size:3px;font-weight:700;width:18px">Location</span>
+          <div style="flex:1;border:0.5px solid #ddd;border-radius:2px;padding:2px 3px;font-size:3px;color:#333">Piedmont Park</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:2px">
+          <span style="font-size:5px">📸</span><span style="font-size:3px;font-weight:700;width:18px">Photo</span>
+          <div style="flex:1;height:22px;background:${G.park};border-radius:2px;position:relative">
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,0.15)"></div>
+            <div style="position:absolute;bottom:2px;left:3px"><span style="color:#fff;font-size:3px;font-weight:700">Photo selected ✓</span></div>
+          </div>
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:3px">
+        <div style="display:flex;align-items:center;gap:2px;margin-bottom:2px">
+          <span style="font-size:5px">👥</span><span style="font-size:3px;font-weight:700;flex:1">Crowd Level</span><span style="font-size:4px;font-weight:900;color:#EE2222">8</span>
+        </div>
+        <div style="height:3px;background:#eee;border-radius:2px;overflow:hidden"><div style="width:80%;height:100%;background:#EE2222;border-radius:2px"></div></div>
+      </div>
+      <div style="background:#FFC107;border-radius:4px;padding:4px;text-align:center;font-weight:700;font-size:4px">📤 Submit Peep</div>
+    </div>
+  </div>`],
+
+  // 23 Age Range
+  ["agerange","23. Age Range Selector",()=>`<div style="flex:1;background:#f5f5f5;display:flex;flex-direction:column">
+    ${hdr('Cancel','Peep!')}
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="background:#fff;border-radius:4px;padding:5px;margin-bottom:4px">
+        <div style="font-size:4px;font-weight:800;margin-bottom:4px;color:#222">Crowd Age Range</div>
+        ${[["18-24","Younger crowd"],["25-35","Late 20s–mid-30s",true],["35-50","Mature crowd"],["50+","Older crowd"],["Mixed","All ages"]].map(([r,d,sel])=>`
+          <div style="display:flex;align-items:center;padding:3px 4px;border-radius:3px;margin-bottom:2px;background:${sel?'#2244EE10':'#f8f8f8'};border:0.5px solid ${sel?'#2244EE':'#eee'};gap:3px">
+            <div style="width:6px;height:6px;border-radius:50%;border:1px solid ${sel?'#2244EE':'#ccc'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${sel?`<div style="width:3px;height:3px;border-radius:50%;background:#2244EE"></div>`:''}</div>
+            <div><div style="font-size:3.5px;font-weight:700;color:${sel?'#2244EE':'#333'}">${r}</div><div style="font-size:2.5px;color:#888">${d}</div></div>
+          </div>`).join('')}
+      </div>
+      <div style="background:#FFC107;border-radius:4px;padding:4px;text-align:center;font-weight:700;font-size:4px">Continue →</div>
+    </div>
+  </div>`],
+
+  // 24 Peep Submit
+  ["peepsubmit","24. Peep Submitted",()=>`<div style="flex:1;background:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+    <div style="font-size:22px">✅</div>
+    <div style="color:#2244EE;font-size:7px;font-weight:900;margin-top:5px;text-align:center">Peep Submitted!</div>
+    <div style="color:#555;font-size:3px;text-align:center;margin-top:4px;line-height:1.6">Your crowd report is live. Checking if you're the first to Peep this spot...</div>
+    <div style="margin-top:8px;display:flex;gap:2px">${[1,0.5,0.2].map(o=>`<div style="width:3px;height:3px;border-radius:50%;background:#2244EE;opacity:${o}"></div>`).join('')}</div>
+  </div>`],
+
+  // 25 Pioneer
+  ["pioneer","25. Pioneer Congrats",()=>`<div style="flex:1;background:${G.ngt};display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+    <div style="font-size:26px">🏆</div>
+    <div style="color:#FFD700;font-size:8px;font-weight:900;margin-top:5px;text-align:center">You're a Pioneer!</div>
+    <div style="color:rgba(255,255,255,0.85);font-size:3px;text-align:center;margin-top:4px;line-height:1.6">You were the first to Peep Piedmont Park. You've earned Pioneer status and 500 points!</div>
+    <div style="background:#FFD700;border-radius:10px;padding:4px 12px;margin-top:10px"><span style="color:#111;font-size:4px;font-weight:900">Claim Your Badge 🏅</span></div>
+  </div>`],
+
+  // 26 Deals
+  ["deals","26. Deals",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}${strp("💰 Active Deals Near You")}
+    <div style="flex:1;overflow:hidden">
+      ${[{nm:"Monday Night Brewing",offer:"$2 off all pints",bg:G.brew,live:true},{nm:"Osteria 832",offer:"50% off apps",bg:G.ost,live:true},{nm:"Pure Taqueria",offer:"Free chips & salsa",bg:G.taq,live:false}].map(d=>`
+        <div style="height:32px;position:relative;margin-bottom:2px;flex-shrink:0">
+          <div style="position:absolute;inset:0;background:${d.bg}"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(0,0,0,0.7))"></div>
+          <div style="position:absolute;top:2px;right:3px;background:${d.live?'#e53935':'#555'};border-radius:4px;padding:0.5px 3px"><span style="color:#fff;font-size:2.5px;font-weight:700">${d.live?'LIVE':'UPCOMING'}</span></div>
+          <div style="position:absolute;bottom:3px;left:4px;right:4px">
+            <div style="color:#fff;font-size:4px;font-weight:900;text-shadow:0 1px 2px rgba(0,0,0,1)">${d.nm}</div>
+            <div style="color:#FFD700;font-size:3px;font-weight:700">${d.offer}</div>
+            <div style="display:flex;justify-content:space-between;margin-top:1px">
+              <span style="color:rgba(255,255,255,0.75);font-size:2.5px">⏱ Ends in 2h · 3 mi</span>
+              <div style="background:#2244EE;border-radius:4px;padding:0.5px 3px"><span style="color:#fff;font-size:2.5px;font-weight:700">Claim</span></div>
+            </div>
+          </div>
+        </div>`).join('')}
+    </div>
+    ${anav('deals')}
+  </div>`],
+
+  // 27 Deal Claimed
+  ["dealclaimed","27. Deal Claimed",()=>`<div style="flex:1;background:#22CC44;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+    <div style="font-size:22px">🎟️</div>
+    <div style="color:#fff;font-size:7px;font-weight:900;margin-top:5px;text-align:center">Deal Claimed!</div>
+    <div style="background:rgba(255,255,255,0.2);border-radius:5px;padding:6px;margin-top:6px;width:100%;text-align:center">
+      <div style="color:#fff;font-size:4px;font-weight:700">Monday Night Brewing</div>
+      <div style="color:rgba(255,255,255,0.9);font-size:3.5px;margin-top:1px">$2 off all pints</div>
+      <div style="color:rgba(255,255,255,0.7);font-size:2.5px;margin-top:2px">Show this screen to your server</div>
+      <div style="color:#fff;font-size:10px;font-weight:900;margin-top:3px;letter-spacing:2px">MNB-4829</div>
+    </div>
+    <div style="color:rgba(255,255,255,0.75);font-size:3px;margin-top:5px">Expires in 45 minutes</div>
+  </div>`],
+
+  // 28 Get Peeps
+  ["getpeeps","28. Get Peeps",()=>`<div style="flex:1;background:#181818;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="background:#2244EE;padding:2px 4px;display:flex;gap:2px;flex-shrink:0">
+      ${[["Near Me",true],["New City",false],["Venue",false]].map(([l,a])=>`<div style="flex:1;background:${a?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.08)'};border-radius:3px;padding:2px 0;text-align:center"><span style="color:${a?'#fff':'rgba(255,255,255,0.5)'};font-size:3px;font-weight:700">${l}</span></div>`).join('')}
+    </div>
+    ${strp("What's happening near you")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Piedmont Park",G.park,"PACKED!"],["Monday Night Brewing",G.brew,"BUSY"],["Pure Taqueria",G.taq,"BUSY"],["LA Fitness",G.gym,"MEDIUM"]].map(([nm,bg,st])=>`
+        <div style="height:26px;position:relative;margin-bottom:1px;flex-shrink:0">
+          <div style="position:absolute;inset:0;background:${bg}"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.05),rgba(0,0,0,0.6))"></div>
+          <div style="position:absolute;top:1px;right:1px">${dotRingSVG(st,12)}</div>
+          <div style="position:absolute;bottom:4px;left:3px;color:#fff;font-size:3.5px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,1)">${nm}</div>
+        </div>`).join('')}
+    </div>
+    ${anav('feed')}
+  </div>`],
+
+  // 29 Map
+  ["map","29. Map",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr('Get Peeps')}
+    <div style="flex:1;background:#dde8d0;position:relative;overflow:hidden">
+      <svg style="position:absolute;inset:0" width="100%" height="100%">
+        <rect width="100%" height="100%" fill="#dde8d0"/>
+        ${[0,30,60,90,120,150].map(y=>`<line x1="0" y1="${y}" x2="200" y2="${y}" stroke="#c8d8b8" stroke-width="0.5"/>`).join('')}
+        ${[0,40,80,120,160].map(x=>`<line x1="${x}" y1="0" x2="${x}" y2="200" stroke="#c8d8b8" stroke-width="0.5"/>`).join('')}
+        <rect x="8" y="40" width="20" height="10" rx="1" fill="#c0cca8" stroke="#a8b890" stroke-width="0.5"/>
+        <rect x="50" y="20" width="25" height="16" rx="1" fill="#c0cca8" stroke="#a8b890" stroke-width="0.5"/>
+        <path d="M0,65 Q50,58 90,68" stroke="#a0b8e0" stroke-width="3" fill="none" opacity="0.6"/>
+      </svg>
+      ${[{x:22,y:28,s:"PACKED!"},{x:52,y:50,s:"BUSY"},{x:68,y:32,s:"MODERATE"},{x:32,y:68,s:"LIGHT"},{x:62,y:76,s:"PACKED!"}].map(d=>`
+        <div style="position:absolute;left:${d.x}px;top:${d.y}px;transform:translate(-50%,-50%)">
+          ${dotRingSVG(d.s,14)}
+        </div>`).join('')}
+      <div style="position:absolute;bottom:4px;right:3px;background:rgba(255,255,255,0.93);border-radius:3px;padding:3px 4px">
+        ${[["PACKED!","#EE2222"],["BUSY","#4444EE"],["MODERATE","#3366CC"],["LIGHT","#3388AA"]].map(([s,c])=>`<div style="display:flex;align-items:center;gap:2px;margin-bottom:1px"><div style="width:3px;height:3px;border-radius:50%;background:${c}"></div><span style="font-size:2.5px;font-weight:700;color:#333">${s}</span></div>`).join('')}
+      </div>
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 30 Share Peep
+  ["share","30. Share Peep",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}
+    <div style="height:32px;background:${G.park};position:relative;flex-shrink:0">
+      <div style="position:absolute;inset:0;background:rgba(0,0,0,0.45)"></div>
+      <div style="position:absolute;bottom:3px;left:4px">
+        <div style="color:#fff;font-size:4.5px;font-weight:900">Piedmont Park is PACKED!</div>
+        <div style="color:rgba(255,255,255,0.85);font-size:3px">Peepled by Rick Flair · 2m ago</div>
+      </div>
+    </div>
+    <div style="background:#fff;border-radius:6px 6px 0 0;margin-top:-4px;flex:1;overflow:hidden">
+      <div style="padding:4px;border-bottom:0.5px solid #eee;text-align:center"><span style="color:#111;font-size:4px;font-weight:800">Share this Peep</span></div>
+      <div style="display:flex;flex-wrap:wrap;padding:4px;gap:4px;justify-content:center">
+        ${[["📱","Text"],["✉️","Email"],["📘","FB"],["📸","IG"],["🐦","Twitter"],["🔗","Copy"]].map(([ic,lb])=>`
+          <div style="display:flex;flex-direction:column;align-items:center;width:16px">
+            <div style="width:14px;height:14px;border-radius:50%;background:#f0f0f0;display:flex;align-items:center;justify-content:center;font-size:8px;margin-bottom:1px">${ic}</div>
+            <span style="font-size:2.5px;color:#555;font-weight:600">${lb}</span>
+          </div>`).join('')}
+      </div>
+      <div style="margin:0 5px;background:#f4f4f4;border-radius:3px;padding:2px 4px;font-size:3px;color:#555">Piedmont Park is PACKED! 🔴 via @peepl</div>
+    </div>
+  </div>`],
+
+  // 31 Invite Friends
+  ["invite","31. Invite Friends",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("Invite Friends")}
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="background:#fff;border-radius:4px;padding:4px;margin-bottom:4px">
+        <div style="font-size:3.5px;font-weight:700;margin-bottom:3px">Share your invite link</div>
+        <div style="background:#f0f4ff;border:0.5px solid #c0d0ff;border-radius:3px;padding:2.5px 4px;font-size:3px;color:#2244EE;margin-bottom:3px">peepl.app/invite/rickflair</div>
+        <div style="background:#2244EE;border-radius:3px;padding:3px;text-align:center"><span style="color:#fff;font-size:3.5px;font-weight:700">Copy Link</span></div>
+      </div>
+      <div style="background:#fff;border-radius:4px;padding:4px">
+        <div style="font-size:3.5px;font-weight:700;margin-bottom:3px">Invite from contacts</div>
+        ${[["👩","Doris Day","Not on Peepl"],["🐦","Toucan Sam","Not on Peepl"],["⚽","Messi","Already joined"]].map(([ic,nm,st])=>`
+          <div style="display:flex;align-items:center;padding:2px 0;border-bottom:0.5px solid #f5f5f5;gap:3px">
+            <div style="width:10px;height:10px;border-radius:50%;background:${G.crd};display:flex;align-items:center;justify-content:center;font-size:6px;flex-shrink:0">${ic}</div>
+            <div style="flex:1"><div style="font-size:3.5px;font-weight:700">${nm}</div><div style="font-size:2.5px;color:#aaa">${st}</div></div>
+            ${st!=="Already joined"?`<div style="background:#2244EE;border-radius:2px;padding:1px 3px"><span style="color:#fff;font-size:2.5px;font-weight:700">Invite</span></div>`:''}
+          </div>`).join('')}
+      </div>
+    </div>
+  </div>`],
+
+  // 32 Notifications
+  ["notifs","32. Notifications",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("Notifications")}
+    <div style="flex:1;overflow:hidden">
+      ${[["🔴","Piedmont Park just hit PACKED!","3m ago",true],["🏅","You're a Pioneer at Turner Field!","12m ago",true],["👤","Messi started following you","1h ago",false],["💬","Rick James liked your Peep","2h ago",false],["🎟️","New deal: Monday Night Brewing","4h ago",false]].map(([ic,tx,sb,nw])=>`
+        <div style="display:flex;align-items:flex-start;padding:2.5px 4px;border-bottom:0.5px solid #eee;gap:3px;background:${nw?'#f0f4ff':'#fff'}">
+          <div style="font-size:8px;width:10px;text-align:center;flex-shrink:0;margin-top:1px">${ic}</div>
+          <div style="flex:1"><div style="font-size:3px;font-weight:600;color:#222">${tx}</div><div style="font-size:2.5px;color:#aaa;margin-top:0.5px">${sb}</div></div>
+          ${nw?`<div style="width:3px;height:3px;border-radius:50%;background:#2244EE;flex-shrink:0;margin-top:2px"></div>`:''}
+        </div>`).join('')}
+    </div>
+    ${anav('feed')}
+  </div>`],
+
+  // 33 Push Alert
+  ["push","33. Crowd Push Alert",()=>`<div style="flex:1;background:${G.park};position:relative;display:flex;flex-direction:column">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.55)"></div>
+    <div style="position:relative;z-index:1;flex:1;display:flex;flex-direction:column">
+      ${hdr()}
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 8px">
+        <div style="background:rgba(255,255,255,0.96);border-radius:6px;padding:7px;width:100%">
+          <div style="display:flex;align-items:center;gap:4px;margin-bottom:4px">
+            <div style="width:14px;height:14px;border-radius:3px;background:#2244EE;display:flex;align-items:center;justify-content:center"><span style="color:#fff;font-size:7px;font-style:italic;font-weight:900">p</span></div>
+            <div><div style="font-size:4px;font-weight:800">peepl</div><div style="font-size:2.5px;color:#aaa">now</div></div>
+          </div>
+          <div style="font-size:4.5px;font-weight:800;margin-bottom:2px">🔴 Piedmont Park is PACKED!</div>
+          <div style="font-size:3px;color:#555;line-height:1.5">3 people just reported crowd level 9 at your favorite spot.</div>
+          <div style="display:flex;gap:3px;margin-top:5px">
+            <div style="flex:1;background:#f0f0f0;border-radius:3px;padding:3px;text-align:center"><span style="font-size:3.5px;font-weight:700;color:#555">Dismiss</span></div>
+            <div style="flex:1;background:#2244EE;border-radius:3px;padding:3px;text-align:center"><span style="font-size:3.5px;font-weight:700;color:#fff">View</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`],
+
+  // 34 Report
+  ["report","34. Report a Peep",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Cancel')}${strp("Report This Peep")}
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="color:#555;font-size:3px;margin-bottom:4px;line-height:1.5">Why are you reporting this peep?</div>
+      ${["Inaccurate crowd size","Inappropriate content","Spam or fake peep","Wrong location","Offensive language"].map((o,i)=>`
+        <div style="display:flex;align-items:center;padding:3px 4px;border-radius:3px;margin-bottom:3px;background:${i===0?'#2244EE18':'#fff'};border:0.5px solid ${i===0?'#2244EE':'#eee'};gap:3px">
+          <div style="width:6px;height:6px;border-radius:50%;border:1px solid ${i===0?'#2244EE':'#ccc'};display:flex;align-items:center;justify-content:center;flex-shrink:0">${i===0?`<div style="width:3px;height:3px;border-radius:50%;background:#2244EE"></div>`:''}</div>
+          <span style="font-size:3px;color:${i===0?'#2244EE':'#333'};font-weight:${i===0?700:400}">${o}</span>
+        </div>`).join('')}
+      <div style="background:#e53935;border-radius:3px;padding:4px;text-align:center;margin-top:2px"><span style="color:#fff;font-size:4px;font-weight:700">Submit Report</span></div>
+    </div>
+  </div>`],
+
+  // 35 Leaderboard
+  ["lboard","35. Leaderboard",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("← PEEPL Leaderboard")}
+    <div style="background:#e8eeff;padding:2px 5px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;border-bottom:0.5px solid #ccd">
+      <div style="display:flex;align-items:center;gap:3px">
+        <span style="font-size:3.5px;font-weight:700;color:#555">725</span>
+        <div style="width:10px;height:10px;border-radius:2px;background:${G.cafe};display:flex;align-items:center;justify-content:center;font-size:6px">🐻</div>
+      </div>
+      <div style="text-align:center"><div style="font-size:3px;color:#555">You (Huggy Bear)</div><div style="font-size:5px;font-weight:900;color:#2244EE">6,453</div></div>
+      <div style="display:flex;gap:2px">${["Friends","Everyone"].map((t,i)=>`<div style="background:${i===1?'#2244EE':'#dde'};border-radius:2px;padding:1px 3px"><span style="color:${i===1?'#fff':'#555'};font-size:3px;font-weight:700">${t}</span></div>`).join('')}</div>
+    </div>
+    <div style="display:flex;justify-content:space-around;align-items:flex-end;padding:3px 4px 2px;flex-shrink:0">
+      ${[{r:2,n:"50 Cent",p:"11,456",ic:"🎤",i:0},{r:1,n:"Rick Flair",p:"12,384",ic:"🤼",i:1},{r:3,n:"LoisLane",p:"11,432",ic:"👩",i:2}].map(p=>`
+        <div style="text-align:center;order:${[1,0,2][p.i]}">
+          <div style="font-size:3px;font-weight:700;color:#888">#${p.r}</div>
+          <div style="width:${[10,14,10][p.i]}px;height:${[10,14,10][p.i]}px;border-radius:2px;background:${G.cafe};margin:1px auto;display:flex;align-items:center;justify-content:center;font-size:${[6,8,6][p.i]}px;border:${p.i===1?'1px solid #FFD700':'0.5px solid #ccc'}">${p.ic}</div>
+          <div style="font-size:3px;font-weight:800">${p.n}</div>
+          <div style="font-size:3.5px;font-weight:900;color:#2244EE">${p.p}</div>
+        </div>`).join('')}
+    </div>
+    <div style="flex:1;overflow:hidden">
+      ${[["4","Madonna","11,396"],["5","Lucy Lui","11,378"],["6","Hulk","11,325"],["7","Marky Mark","11,312"],["8","LutherV33","11,273"],["9","SuzeQ","11,269"]].map(([r,n,p])=>`
+        <div style="display:flex;padding:1.5px 4px;border-bottom:0.5px solid #eee;background:#fff;align-items:center">
+          <span style="font-size:3px;color:#888;width:8px">${r}</span>
+          <span style="font-size:3.5px;flex:1">${n}</span>
+          <span style="font-size:3.5px;color:#2244EE;font-weight:700">${p}</span>
+        </div>`).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 36 Pioneers List
+  ["pioneers","36. Pioneers List",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("🏅 Pioneers")}
+    <div style="flex:1;overflow:hidden">
+      ${[["🤼","Piedmont Park","Rick Flair","3/12/15",42],["🦜","Establishment","Big Blo","4/2/15",38],["⚽","Monday Night Brewing","Messi","5/15/15",29],["👩","Tongue-n-Groove","LoisLane","6/1/15",24],["🎭","Osteria 832","Tootsie","6/8/15",18],["🎤","Joey D's","50 Cent","7/4/15",15]].map(([ic,nm,pi,dt,cnt])=>`
+        <div style="display:flex;align-items:center;padding:2.5px 4px;border-bottom:0.5px solid #eee;background:#fff;gap:3px">
+          <div style="width:11px;height:11px;border-radius:50%;background:${G.b2};display:flex;align-items:center;justify-content:center;font-size:6px;flex-shrink:0">${ic}</div>
+          <div style="flex:1"><div style="font-size:3.5px;font-weight:800">${nm}</div><div style="font-size:2.5px;color:#888">First: ${pi} · ${dt}</div></div>
+          <div style="text-align:right"><div style="font-size:3.5px;font-weight:700;color:#2244EE">${cnt}</div><div style="font-size:2px;color:#aaa">peeps</div></div>
+        </div>`).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 37 Scoreboard
+  ["scoreboard","37. Scoreboard",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("Scoreboard")}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="background:#fff;border-radius:3px;padding:4px;margin-bottom:3px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">Your Stats</div>
+        ${[["Total Peeps","78"],["Pioneers","13"],["Points","6,453"],["Rank","#725"]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;padding:1.5px 0;border-bottom:0.5px solid #f5f5f5"><span style="font-size:3px;color:#555">${l}</span><span style="font-size:3px;color:#2244EE;font-weight:800">${v}</span></div>`).join('')}
+      </div>
+      <div style="background:#fff;border-radius:3px;padding:4px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">Friends</div>
+        ${[["🤼","Rick Flair","12,384","#1"],["🎤","50 Cent","11,456","#2"],["🐻","You","6,453","#5"]].map(([ic,nm,pts,rk])=>`
+          <div style="display:flex;align-items:center;padding:2px 0;border-bottom:0.5px solid #f5f5f5;gap:3px">
+            <span style="font-size:3px;color:#888;width:8px">${rk}</span>
+            <span style="font-size:8px">${ic}</span>
+            <span style="font-size:3.5px;flex:1;font-weight:${nm==='You'?700:400};color:${nm==='You'?'#2244EE':'#333'}">${nm}</span>
+            <span style="font-size:3px;color:#2244EE;font-weight:700">${pts}</span>
+          </div>`).join('')}
+      </div>
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 38 VIPeeps
+  ["vipeeps","38. VIPeeps Upsell",()=>`<div style="flex:1;background:${G.ngt};display:flex;flex-direction:column">
+    ${hdr()}
+    <div style="flex:1;overflow:hidden;padding:4px 5px">
+      <div style="text-align:center;padding:4px 0">
+        <div style="font-size:18px">⭐</div>
+        <div style="color:#FFD700;font-size:7px;font-weight:900;margin-top:3px">VIPeeps</div>
+        <div style="color:rgba(255,255,255,0.7);font-size:3px;margin-top:1px">Upgrade for the full experience</div>
+      </div>
+      ${[["📊","Crowd History","24-hr trend graphs"],["🔔","Priority Alerts","First to know at 8+"],["📍","Unlimited Saves","No favorites limit"],["🎯","Deal Priority","Early deal access"],["🏆","VIP Badge","Stand out"]].map(([ic,f,d])=>`
+        <div style="background:rgba(255,255,255,0.12);border-radius:3px;padding:3px 4px;margin-bottom:2px">
+          <div style="color:#fff;font-size:3.5px;font-weight:700">${ic} ${f}</div>
+          <div style="color:rgba(255,255,255,0.6);font-size:2.5px;margin-top:0.5px">${d}</div>
+        </div>`).join('')}
+      <div style="background:#FFD700;border-radius:8px;padding:3px 0;text-align:center;margin-top:3px"><span style="color:#111;font-size:3.5px;font-weight:900">Subscribe — $4.99/month</span></div>
+    </div>
+  </div>`],
+
+  // 39 VIPeeps Active
+  ["vipeepsactive","39. VIPeeps Active",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("Profile")}${profileBanner()}
+    <div style="background:linear-gradient(135deg,#281848,#4a3080);padding:3px 5px;margin:2px 3px;border-radius:3px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      <span style="font-size:8px">⭐</span>
+      <div><div style="color:#FFD700;font-size:3.5px;font-weight:900">VIPeeps Active</div><div style="color:rgba(255,255,255,0.7);font-size:2.5px">Renews 12/1/2025</div></div>
+    </div>
+    <div style="flex:1;overflow:hidden">
+      ${[["Peeps",78],["Favorites","Unlimited"],["Points",675],["Followers",73],["Following",34]].map(([l,v])=>rowItem(l,v)).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 40 Profile Stats
+  ["profile","40. Profile Stats",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("Profile")}${profileBanner()}
+    <div style="flex:1;overflow:hidden">
+      ${[["Peeps",78],["Favorites",34],["Points/Leaderboard",675],["Likes",68],["Peeps Liked",56],["Pioneers",13],["Groups",6],["Followers",73],["Following",34],["Account Info & Settings",""]].map(([l,v])=>rowItem(l,v!==""?v:undefined)).join('')}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 41 Other User Profile
+  ["otherprofile","41. Other User's Profile",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back')}${strp("Profile")}${profileBanner("LordByron","+Follow")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Peeps",124],["Pioneers",8],["Likes",203],["Followers",312],["Following",89]].map(([l,v])=>rowItem(l,v)).join('')}
+      ${shdr("Recent Peeps")}
+      ${feedCard("Atlanta Airport","PACKED!",G.apt,"","")}
+      ${feedCard("Monday Night Brewing","BUSY",G.brew,"","")}
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 42 My Peeps History
+  ["myhistory","42. My Peeps History",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("My History — Peeps Place")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Righteous Room","PACKED!",G.b1],["Loca Luna","BUSY",G.b2],["Noche","MODERATE",G.b3],["Park Tavern","BUSY",G.brew],["Waffle House","LIGHT",G.tav],["Smash","MODERATE",G.ost]].map(([nm,st,bg])=>feedCard(nm,st,bg,"","")).join('')}
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 43 Peeps Received
+  ["peepsreceived","43. Peeps Received",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("My History — Peeps Received")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Establishment","Good looking crowd!","Big Blo","PACKED!",G.b2],["Tongue-n-Groove","Goomba City!","Tootsie","BUSY",G.b3],["Piedmont Park","Easy going!","Messi","MODERATE",G.park]].map(([venue,caption,user,crowd,bg])=>`
+        <div style="height:22px;position:relative;margin-bottom:1px;flex-shrink:0">
+          <div style="position:absolute;inset:0;background:${bg}"></div>
+          <div style="position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,0.1),rgba(0,0,0,0.55))"></div>
+          <div style="position:absolute;top:1px;left:1px">${dotRingSVG(crowd,10)}</div>
+          <div style="position:absolute;bottom:3px;left:13px">
+            <div style="color:#fff;font-size:3px;font-weight:800;text-shadow:0 1px 2px rgba(0,0,0,1)">${caption}</div>
+            <div style="color:rgba(255,255,255,0.8);font-size:2.5px;font-weight:700">${venue}</div>
+          </div>
+          <div style="position:absolute;bottom:3px;right:3px;color:#ddd;font-size:2.5px;font-weight:700">${user}</div>
+        </div>`).join('')}
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 44 Followers
+  ["followers","44. Followers",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("Followers")}
+    <div style="flex:1;overflow:hidden">
+      ${[["👩","Doris Day","Following"],["🦜","Big Blo",""],["🐦","Toucan Sam","Following"],["⚽","Messi","Following"],["🐤","Big Bird",""]].map(([ic,nm,st])=>`
+        <div style="display:flex;align-items:center;padding:2.5px 4px;border-bottom:0.5px solid #eee;gap:3px;background:#fff">
+          <div style="width:12px;height:12px;border-radius:2px;background:${G.crd};display:flex;align-items:center;justify-content:center;font-size:7px;flex-shrink:0">${ic}</div>
+          <span style="font-size:4px;font-weight:700;flex:1">${nm}</span>
+          ${st?`<span style="font-size:3px;color:#2244EE;font-weight:700">${st}</span>`:''}
+        </div>`).join('')}
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 45 Following
+  ["following","45. Following",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("Following")}
+    <div style="flex:1;overflow:hidden">
+      ${[["👩","Doris Day"],["🐦","Toucan Sam"],["⚽","Messi"]].map(([ic,nm])=>`
+        <div style="display:flex;align-items:center;padding:3px 4px;border-bottom:0.5px solid #eee;gap:3px;background:#fff">
+          <div style="width:12px;height:12px;border-radius:2px;background:${G.b2};display:flex;align-items:center;justify-content:center;font-size:7px;flex-shrink:0">${ic}</div>
+          <span style="font-size:4px;font-weight:700;flex:1">${nm}</span>
+          <span style="font-size:3px;color:#888">Follows You</span>
+        </div>`).join('')}
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 46 Favorites
+  ["favorites","46. Favorites",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("Favorites")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Establishment",G.b1],["Piedmont Park",G.park],["Noche",G.b2],["Ecco",G.ost],["Apres Diem",G.tav],["Chastain Park",G.out],["The DMV",G.apt],["Turner Field",G.b3]].map(([nm,bg])=>`
+        <div style="display:flex;align-items:center;padding:2px 4px;border-bottom:0.5px solid #eee;gap:3px;background:#fff">
+          <div style="width:10px;height:8px;border-radius:1px;background:${bg};flex-shrink:0"></div>
+          <span style="font-size:3.5px;font-weight:600">${nm}</span>
+        </div>`).join('')}
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 47 Photo Gallery
+  ["gallery","47. Photo Gallery",()=>`<div style="flex:1;background:#f0f0f0;display:flex;flex-direction:column">
+    ${hdr()}${tick()}${profileBanner()}${shdr("Personal Photo Gallery")}
+    <div style="flex:1;overflow:hidden;padding:2px">
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:2px">
+        ${ ["#8a3030","#304080","#306030","#805030","#603080","#308060","#804040","#408040","#204060","#602020","#206040","#606020","#402060","#204040","#602040","#406020"].map(c=>`<div style="height:14px;border-radius:1px;background:linear-gradient(135deg,${c},${c}88)"></div>`).join('') }
+      </div>
+    </div>
+    ${hnav()}
+  </div>`],
+
+  // 48 Groups
+  ["groups","48. Groups",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr()}${strp("Your Groups")}${profileBanner()}
+    <div style="flex:1;overflow:hidden">
+      ${[["Rowdy's",G.b1],["Brookhaven Social Club",G.park],["Atlanta Masters",G.b2],["V-Players of Georgia",G.out],["Greek Lovers",G.brew]].map(([nm,bg])=>`
+        <div style="display:flex;align-items:center;padding:2.5px 4px;border-bottom:0.5px solid #eee;background:#fff;gap:3px">
+          <div style="width:10px;height:8px;border-radius:1px;background:${bg};flex-shrink:0"></div>
+          <span style="font-size:3.5px;font-weight:600">${nm}</span>
+        </div>`).join('')}
+      <div style="padding:4px;text-align:center"><div style="background:#2244EE;border-radius:3px;padding:3px;display:inline-block"><span style="color:#fff;font-size:3.5px;font-weight:700">+ Create / Join Group</span></div></div>
+    </div>
+    ${vbb()}
+  </div>`],
+
+  // 49 Menu Nav
+  ["menu","49. Menu / Nav",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('✕ Close')}${profileBanner()}
+    <div style="flex:1;overflow:hidden">
+      ${[["🏠","Home / Feed"],["🔍","Search"],["📍","Get Peeps"],["💰","Deals"],["🗺️","Map"],["👤","My Profile"],["🏆","Leaderboard"],["🏅","Pioneers"],["👥","Groups"],["⭐","VIPeeps"],["⚙️","Settings"],["🚪","Sign Out"]].map(([ic,lb])=>`
+        <div style="display:flex;align-items:center;padding:2.5px 5px;border-bottom:0.5px solid #eee;gap:4px;background:#fff">
+          <span style="font-size:6px;width:8px;text-align:center">${ic}</span>
+          <span style="font-size:3.5px;color:#222;font-weight:500;flex:1">${lb}</span>
+          <span style="color:#ddd;font-size:5px">›</span>
+        </div>`).join('')}
+    </div>
+  </div>`],
+
+  // 50 Settings
+  ["settings","50. Settings",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back')}${strp("Settings")}
+    <div style="flex:1;overflow:hidden">
+      ${[{sec:"Appearance",items:[{ic:"☀️",l:"Dark Mode",sub:"Light or dark theme"}]},{sec:"Notifications",items:[{ic:"🔔",l:"Push Notifications",sub:"Crowd alerts"},{ic:"📍",l:"Location Alerts",sub:"Favorites activity"}]},{sec:"Account",items:[{ic:"👤",l:"Edit Profile",sub:""},{ic:"🚪",l:"Log Out",sub:"",red:true}]}].map(g=>`
+        <div>
+          <div style="padding:2px 4px;font-size:3px;font-weight:800;color:#2244EE">${g.sec}</div>
+          ${g.items.map(item=>`
+            <div style="display:flex;align-items:center;padding:3px 4px;border-bottom:0.5px solid #eee;gap:3px;background:#fff">
+              <span style="font-size:7px">${item.ic}</span>
+              <div style="flex:1"><div style="font-size:3.5px;font-weight:600;color:${item.red?'#e53935':'#222'}">${item.l}</div>${item.sub?`<div style="font-size:2.5px;color:#aaa">${item.sub}</div>`:''}</div>
+              ${!item.red?`<span style="color:#ccc;font-size:5px">›</span>`:''}
+            </div>`).join('')}
+        </div>`).join('')}
+      <div style="text-align:center;padding:6px;color:#bbb;font-size:3px">Peepl v2.1.0</div>
+    </div>
+  </div>`],
+
+  // 51 Account Info
+  ["accountinfo","51. Account Info",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back')}${strp("Account Info")}
+    <div style="flex:1;overflow:hidden">
+      ${[["Name","Rick Flair"],["Username","rickflair"],["Email","Rflair@gmail.com"],["Password","••••••••"],["Member Since","March 2015"]].map(([l,v])=>`
+        <div style="display:flex;padding:2.5px 4px;border-bottom:0.5px solid #eee;align-items:center;background:#fff">
+          <span style="font-size:3px;color:#555;width:28px;font-weight:600">${l}</span>
+          <span style="font-size:3px;color:#333;flex:1">${v}</span>
+          <span style="font-size:3px;color:#2244EE;font-weight:700">(edit)</span>
+        </div>`).join('')}
+      ${shdr("Account")}
+      ${[["Peepl Rating","4.8 ⭐"],["Pioneer Status","13 venues"],["VIPeeps","Active ⭐"],["Linked Accounts","FB, Google"]].map(([l,v])=>rowItem(l,v)).join('')}
+    </div>
+  </div>`],
+
+  // 52 How to Advertise
+  ["howtoad","52. How to Advertise",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back','')}${strp("How to Advertise on Peepl")}
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="background:${G.mrc};border-radius:4px;padding:5px;margin-bottom:4px;text-align:center">
+        <div style="color:#fff;font-size:5px;font-weight:900">Reach real people</div>
+        <div style="color:rgba(255,255,255,0.8);font-size:3px;margin-top:1px">at the moment they decide where to go</div>
+      </div>
+      ${[["📍","Hyper-local targeting","Appear in feeds near your venue"],["🕐","Time-slot buying","Pick exact hours your deal runs"],["📊","Real-time analytics","See impressions and clicks live"],["💰","Starting at $9.99/hr","Basic, Standard, Premium tiers"]].map(([ic,ti,bo])=>`
+        <div style="background:#fff;border-radius:3px;padding:3px 4px;margin-bottom:3px;display:flex;gap:3px">
+          <span style="font-size:8px;flex-shrink:0">${ic}</span>
+          <div><div style="font-size:3.5px;font-weight:800;margin-bottom:1px">${ti}</div><div style="font-size:2.5px;color:#555;line-height:1.5">${bo}</div></div>
+        </div>`).join('')}
+      <div style="background:#2244EE;border-radius:4px;padding:4px;text-align:center;margin-top:2px"><span style="color:#fff;font-size:4px;font-weight:700">Create Your First Ad →</span></div>
+    </div>
+  </div>`],
+
+  // 53 Merchant Sign In
+  ["msignin","53. Merchant Sign In",()=>`<div style="flex:1;background:${G.mrc};position:relative;display:flex;flex-direction:column">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.5)"></div>
+    <div style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;padding:14px 8px 0;flex:1">
+      <div style="font-size:16px;font-weight:900;font-style:italic;color:#fff;letter-spacing:-1px;margin-bottom:2px">peepl</div>
+      <div style="color:#FFD700;font-size:3.5px;font-weight:700;margin-bottom:12px">FOR MERCHANTS</div>
+      ${[["Business Email","owner@mybusiness.com"],["Password","••••••••"]].map(([l,ph])=>`
+        <div style="width:100%;margin-bottom:5px">
+          <div style="color:#eee;font-size:3.5px;font-weight:700;margin-bottom:1.5px">${l}</div>
+          <div style="background:rgba(255,255,255,0.9);border-radius:3px;padding:3px 4px;font-size:3.5px;color:#555">${ph}</div>
+        </div>`).join('')}
+      <div style="background:#FFD700;border-radius:3px;padding:4px;text-align:center;width:100%;margin-bottom:5px"><span style="color:#111;font-size:4px;font-weight:800">Sign In</span></div>
+      <span style="color:rgba(255,255,255,0.7);font-size:3px">New? <span style="color:#FFD700;font-weight:700">Create account</span></span>
+    </div>
+  </div>`],
+
+  // 54 Ad Step 1
+  ["mstep1","54. Ad Step 1 — Write",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Peep!','')}
+    <div style="background:#2244EE;padding:2px 5px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      ${[1,2,3].map(n=>`<div style="display:flex;align-items:center;gap:2px"><div style="width:8px;height:8px;border-radius:50%;background:${n<=1?'#fff':'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center"><span style="font-size:3px;font-weight:900;color:${n<=1?'#2244EE':'rgba(255,255,255,0.6)'}">${n}</span></div>${n<3?`<div style="width:8px;height:0.5px;background:rgba(255,255,255,0.3)"></div>`:''}</div>`).join('')}
+      <span style="color:#fff;font-size:3.5px;font-weight:700;margin-left:2px">Write Your Ad</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="font-size:3.5px;font-weight:700;margin-bottom:2px;color:#333">Your offer or message</div>
+      <div style="background:#f4f4f4;border-radius:3px;padding:3px 4px;font-size:3px;color:#555;height:22px;border:0.5px solid #ddd">Free appetizer with any entree tonight!</div>
+      <div style="text-align:right;font-size:2.5px;color:#aaa;margin-top:1px;margin-bottom:4px">47/120</div>
+      <div style="font-size:3.5px;font-weight:700;margin-bottom:2px;color:#333">Venue Name</div>
+      <div style="background:#f4f4f4;border-radius:3px;padding:3px 4px;font-size:3px;color:#555;border:0.5px solid #ddd;margin-bottom:4px">Osteria 832</div>
+      <div style="background:#2244EE;border-radius:3px;padding:4px;text-align:center;margin-top:4px"><span style="color:#fff;font-size:4px;font-weight:700">Next: Choose Time Slot →</span></div>
+    </div>
+  </div>`],
+
+  // 55 Ad Step 2
+  ["mstep2","55. Ad Step 2 — Time Slot",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Peep!','')}
+    <div style="background:#2244EE;padding:2px 5px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      ${[1,2,3].map(n=>`<div style="display:flex;align-items:center;gap:2px"><div style="width:8px;height:8px;border-radius:50%;background:${n<=2?'#fff':'rgba(255,255,255,0.3)'};display:flex;align-items:center;justify-content:center"><span style="font-size:3px;font-weight:900;color:${n<=2?'#2244EE':'rgba(255,255,255,0.6)'}">${n}</span></div>${n<3?`<div style="width:8px;height:0.5px;background:${n<2?'#fff':'rgba(255,255,255,0.3)'}"></div>`:''}</div>`).join('')}
+      <span style="color:#fff;font-size:3.5px;font-weight:700;margin-left:2px">Choose Time Slot</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:4px">
+      ${[["Basic","$9.99/hr","2hr min",false],["Standard","$19.99/hr","Boosted reach",true],["Premium","$39.99/hr","Top placement",false]].map(([t,p,d,sel])=>`
+        <div style="border:0.5px solid ${sel?'#2244EE':'#eee'};border-radius:3px;padding:3px 4px;margin-bottom:3px;background:${sel?'#2244EE10':'#fff'};display:flex;justify-content:space-between;align-items:center">
+          <div><div style="font-size:3.5px;font-weight:700;color:${sel?'#2244EE':'#333'}">${t}</div><div style="font-size:2.5px;color:#888">${d}</div></div>
+          <div style="color:#2244EE;font-size:4px;font-weight:900">${p}</div>
+        </div>`).join('')}
+      <div style="font-size:3.5px;font-weight:700;margin-bottom:2px;margin-top:2px;color:#333">Run Time</div>
+      <div style="display:flex;gap:2px">${["Tonight 8–10PM","Tomorrow 7–9PM","Custom"].map(t=>`<div style="flex:1;background:#f0f0f0;border-radius:2px;padding:2px;text-align:center"><span style="font-size:2.5px;font-weight:600">${t}</span></div>`).join('')}</div>
+    </div>
+  </div>`],
+
+  // 56 Ad Step 3
+  ["mstep3","56. Ad Step 3 — Review",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Peep!','')}
+    <div style="background:#2244EE;padding:2px 5px;display:flex;align-items:center;gap:3px;flex-shrink:0">
+      ${[1,2,3].map(n=>`<div style="display:flex;align-items:center;gap:2px"><div style="width:8px;height:8px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center"><span style="font-size:3px;font-weight:900;color:#2244EE">${n}</span></div>${n<3?`<div style="width:8px;height:0.5px;background:#fff"></div>`:''}</div>`).join('')}
+      <span style="color:#fff;font-size:3.5px;font-weight:700;margin-left:2px">Review & Submit</span>
+    </div>
+    <div style="flex:1;overflow:hidden;padding:4px">
+      <div style="background:#f8f8f8;border-radius:3px;padding:4px;margin-bottom:4px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">Order Summary</div>
+        ${[["Venue","Osteria 832"],["Ad type","Standard"],["Time slot","Tonight 8–10PM"],["Duration","2 hours"],["Total cost","$39.98"]].map(([l,v])=>`<div style="display:flex;justify-content:space-between;margin-bottom:2px"><span style="font-size:3px;color:#555">${l}</span><span style="font-size:3px;font-weight:700;color:${l==='Total cost'?'#2244EE':'#333'}">${v}</span></div>`).join('')}
+      </div>
+      <div style="background:#2244EE;border-radius:3px;padding:4px;text-align:center"><span style="color:#fff;font-size:4px;font-weight:700">Confirm and Pay</span></div>
+    </div>
+  </div>`],
+
+  // 57 Merchant Dashboard
+  ["mdash","57. Merchant Dashboard",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Peep!','')}${strp("Merchant Dashboard")}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="display:flex;gap:3px;margin-bottom:4px">
+        ${[["Impressions","2,841"],["Clicks","234"],["CTR","8.2%"]].map(([l,v])=>`<div style="flex:1;background:#fff;border-radius:3px;padding:3px;text-align:center"><div style="font-size:5px;font-weight:900;color:#2244EE">${v}</div><div style="font-size:2.5px;color:#888">${l}</div></div>`).join('')}
+      </div>
+      ${shdr("Active Ads")}
+      ${[{nm:"Osteria 832",offer:"Free apps",ends:"1h 22m",bg:G.ost},{nm:"Monday Night Brewing",offer:"$2 off pints",ends:"3h 10m",bg:G.brew}].map(a=>`
+        <div style="margin-bottom:3px">
+          <div style="height:18px;background:${a.bg};position:relative;border-radius:2px 2px 0 0">
+            <div style="position:absolute;inset:0;background:rgba(0,0,0,0.45);border-radius:2px 2px 0 0"></div>
+            <div style="position:absolute;bottom:2px;left:3px"><div style="color:#fff;font-size:3.5px;font-weight:800">${a.nm}</div><div style="color:#FFD700;font-size:2.5px">${a.offer}</div></div>
+            <div style="position:absolute;top:1.5px;right:3px;background:#e53935;border-radius:3px;padding:0.5px 2px"><span style="color:#fff;font-size:2px;font-weight:700">LIVE</span></div>
+          </div>
+          <div style="background:#fff;padding:1.5px 3px;border-radius:0 0 2px 2px;display:flex;justify-content:space-between"><span style="font-size:2.5px;color:#888">Ends in ${a.ends}</span><span style="font-size:2.5px;color:#2244EE;font-weight:700">Edit</span></div>
+        </div>`).join('')}
+      ${shdr("Scheduled")}
+      <div style="background:#fff;border-radius:3px;padding:4px;text-align:center;color:#aaa;font-size:3px;margin-top:2px">No scheduled ads. <span style="color:#2244EE;font-weight:700">Create →</span></div>
+    </div>
+  </div>`],
+
+  // 58 Ad Performance
+  ["mactivity","58. Ad Performance",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back','')}${strp("Ad Performance")}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="background:#fff;border-radius:3px;padding:4px;margin-bottom:3px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">Osteria 832 · Last 7 days</div>
+        <div style="display:flex;gap:3px">
+          ${[["Impr","2,841"],["Clicks","234"],["CTR","8.2%"],["Cost","$79.96"]].map(([l,v])=>`<div style="flex:1;text-align:center"><div style="font-size:4.5px;font-weight:900;color:#2244EE">${v}</div><div style="font-size:2.5px;color:#888">${l}</div></div>`).join('')}
+        </div>
+      </div>
+      <div style="background:#fff;border-radius:3px;padding:4px;margin-bottom:3px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">By Time Slot</div>
+        ${[["Fri 8–10PM","840","68","8.1%"],["Sat 7–9PM","1,120","98","8.7%"],["Sun 6–8PM","881","68","7.7%"]].map(([t,im,cl,r])=>`
+          <div style="display:flex;padding:2px 0;border-bottom:0.5px solid #f0f0f0;align-items:center">
+            <span style="font-size:3px;font-weight:700;width:32px;color:#555">${t}</span>
+            <span style="font-size:2.5px;color:#888;flex:1">${im}</span>
+            <span style="font-size:2.5px;color:#888;flex:1">${cl}</span>
+            <span style="font-size:3px;color:#2244EE;font-weight:700">${r}</span>
+          </div>`).join('')}
+      </div>
+      <div style="background:#2244EE;border-radius:3px;padding:4px;text-align:center"><span style="color:#fff;font-size:3.5px;font-weight:700">Create New Ad →</span></div>
+    </div>
+  </div>`],
+
+  // 59 Merchant Account
+  ["maccount","59. Merchant Account",()=>`<div style="flex:1;background:#f8f8f8;display:flex;flex-direction:column">
+    ${hdr('Back','')}${strp("Merchant Account")}
+    <div style="flex:1;overflow:hidden;padding:3px">
+      <div style="background:#fff;border-radius:3px;padding:4px;margin-bottom:3px">
+        <div style="font-size:3.5px;font-weight:800;margin-bottom:3px">Business Info</div>
+        ${[["Business","Osteria 832"],["Contact","John Smith"],["Email","john@osteria832.com"],["Account #","MRC-00291-A"]].map(([l,v])=>`<div style="display:flex;padding:2px 0;border-bottom:0.5px solid #f5f5f5"><span style="font-size:2.5px;color:#888;width:26px">${l}</span><span style="font-size:2.5px;color:#333;flex:1;font-weight:600">${v}</span></div>`).join('')}
+      </div>
+      ${shdr("Billing")}
+      ${[["Payment","Visa ···4242"],["Billing","Monthly"],["Next Charge","Dec 1, 2025"],["Total Spent","$239.88"]].map(([l,v])=>rowItem(l,v)).join('')}
+      <div style="padding:4px;text-align:center;background:#fff;margin-top:1px"><div style="border:0.5px solid #2244EE;border-radius:3px;padding:3px;display:inline-block"><span style="color:#2244EE;font-size:3.5px;font-weight:700">Update Payment Method</span></div></div>
+    </div>
+  </div>`],
+
+  // 60 Merchant Account Number
+  ["maccountnum","60. Merchant Acct # Issued",()=>`<div style="flex:1;background:${G.mrc};position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:0 10px">
+    <div style="position:absolute;inset:0;background:rgba(0,0,0,0.4)"></div>
+    <div style="position:relative;z-index:1;width:100%;text-align:center">
+      <div style="font-size:20px;margin-bottom:4px">🏢</div>
+      <div style="color:#fff;font-size:6.5px;font-weight:900">Account Created!</div>
+      <div style="color:rgba(255,255,255,0.8);font-size:3px;margin-top:3px;line-height:1.5">Welcome to Peepl for Merchants. Your account number is:</div>
+      <div style="background:rgba(255,255,255,0.15);border-radius:4px;padding:6px;margin-top:5px;border:1px solid rgba(255,255,255,0.3)">
+        <div style="color:rgba(255,255,255,0.7);font-size:2.5px;margin-bottom:2px">MERCHANT ACCOUNT NUMBER</div>
+        <div style="color:#FFD700;font-size:10px;font-weight:900;letter-spacing:2px">MRC-00291-A</div>
+      </div>
+      <div style="background:#FFD700;border-radius:8px;padding:4px 12px;margin-top:8px;display:inline-block"><span style="color:#111;font-size:4px;font-weight:900">Go to Dashboard →</span></div>
+    </div>
+  </div>`],
+];
+
+// Merge all screens
+const allScreens = [...screens, ...moreScreens];
+
+// Build pages (3 screens per row, 3 rows = 9 per page)
+const SECTION_BREAKS = {
+  10: "Feed & Discovery",
+  16: "Venue & Peeps",
+  26: "Deals & Map",
+  30: "Social",
+  35: "Gamification",
+  40: "Profile",
+  50: "Settings",
+  52: "Merchant Portal"
+};
+
+const perPage = 9;
+const pages = [];
+for(let i=0;i<allScreens.length;i+=perPage){
+  pages.push(allScreens.slice(i,i+perPage));
+}
+
+pages.forEach((page, pi) => {
+  const gridPage = document.createElement('div');
+  gridPage.className = 'grid-page';
+
+  gridPage.innerHTML = `
+    <div class="page-header">
+      <span class="logo">peepl</span>
+      <span style="color:#2244EE;font-size:13px;font-weight:700">Master Screen Catalogue</span>
+      <span class="pg">Page ${pi+2} of ${pages.length+1}</span>
+    </div>
+    <div class="grid">
+      ${page.map(([id, label, gen]) => `
+        <div class="screen-box">
+          <div class="screen-label">${label}</div>
+          <div class="phone">
+            <div class="phone-notch"></div>
+            <div class="phone-screen">
+              <div class="sc">${gen()}</div>
+            </div>
+            <div class="phone-home"></div>
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+  document.body.appendChild(gridPage);
+});
+</script>
+</body>
+</html>
