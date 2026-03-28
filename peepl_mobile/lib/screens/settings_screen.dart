@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme_notifier.dart';
 import '../services/auth_service.dart';
+import '../shell_tab_bus.dart';
 
 class SettingsScreen extends StatelessWidget {
   @override
@@ -48,7 +49,10 @@ class SettingsScreen extends StatelessWidget {
                     _buildSettingsTile(
                       icon: Icons.person_outline,
                       title: 'Profile',
-                      onTap: () => Navigator.pushNamed(context, '/profile'),
+                      onTap: () {
+                        Navigator.pop(context);
+                        ShellTabBus.requestTab(3);
+                      },
                     ),
                     _buildSettingsTile(
                       icon: Icons.notifications_outlined,

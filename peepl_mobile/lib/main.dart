@@ -7,7 +7,7 @@ import 'routes.dart';
 import 'services/auth_service.dart';
 import 'theme_notifier.dart';
 import 'screens/login_screen.dart';
-import 'screens/feed_screen.dart';
+import 'screens/main_shell.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,7 +36,7 @@ class PeeplApp extends StatelessWidget {
               routes: appRoutes,
               home: Consumer<User?>(
                 builder: (context, user, _) {
-                  return user == null ? LoginScreen() : FeedScreen();
+                  return user == null ? LoginScreen() : const MainShell();
                 },
               ),
               debugShowCheckedModeBanner: false,

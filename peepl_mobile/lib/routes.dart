@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'screens/feed_screen.dart';
-import 'screens/discover_screen.dart';
 import 'screens/post_screen.dart';
-import 'screens/chat_screen.dart';
-import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_screen.dart';
+import 'screens/main_shell.dart';
 
 Map<String, WidgetBuilder> appRoutes = {
-  '/feed': (_) => FeedScreen(),
-  '/discover': (_) => DiscoverScreen(),
+  '/home': (_) => const MainShell(),
+  '/feed': (_) => const MainShell(initialBodyIndex: 0),
+  '/discover': (_) => const MainShell(initialBodyIndex: 1),
   '/post': (_) => PostScreen(),
-  '/chat': (_) => ChatScreen(),
-  '/profile': (_) => ProfileScreen(),
+  '/chat': (_) => const MainShell(initialBodyIndex: 2),
+  '/profile': (_) => const MainShell(initialBodyIndex: 3),
   '/settings': (_) => SettingsScreen(),
   '/login': (_) => LoginScreen(),
   '/admin': (_) => const AdminScreen(),
