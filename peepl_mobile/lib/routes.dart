@@ -6,6 +6,7 @@ import 'screens/chat_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/admin_screen.dart';
 
 Map<String, WidgetBuilder> appRoutes = {
   '/feed': (_) => FeedScreen(),
@@ -15,4 +16,5 @@ Map<String, WidgetBuilder> appRoutes = {
   '/profile': (_) => ProfileScreen(),
   '/settings': (_) => SettingsScreen(),
   '/login': (_) => LoginScreen(),
+  '/admin': (_) => const AdminScreen(),
 };

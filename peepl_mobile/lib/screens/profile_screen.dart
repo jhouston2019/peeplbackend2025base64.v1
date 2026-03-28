@@ -1,0 +1,392 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../services/auth_service.dart';
+import 'location_detail_screen.dart';
+
+class ProfileScreen extends StatelessWidget {
+  User? get _user => FirebaseAuth.instance.currentUser;
+
+  Color _getCrowdingColor(int level) {
+    if (level <= 4) return const Color(0xFF4CAF50);
+    if (level <= 6) return const Color(0xFFFFA726);
+    return const Color(0xFFFF5722);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF1565C0),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildAppBar(context),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
+                  ),
+                ),
+                child: SingleChildScrollView(
+                  child: Column(
+                    children: [
+                      _buildProfileHeader(context),
+                      const Divider(height: 1),
+                      _buildPostsSection(context),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAppBar(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          ),
+          const Text(
+            'Profile',
+            style: TextStyle(
+                color: Colors.white,
+                fontSize: 24,
+                fontWeight: FontWeight.bold),
+          ),
+          GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/settings'),
+            child: const Icon(Icons.settings_outlined,
+                color: Colors.white, size: 28),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader(BuildContext context) {
+    final username =
+        _user?.displayName ?? _user?.email?.split('@').first ?? 'Peepler';
+    final email = _user?.email ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 48,
+            backgroundColor: const Color(0xFF1565C0),
+            child: Text(
+              username.isNotEmpty ? username[0].toUpperCase() : 'P',
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 40,
+                  fontWeight: FontWeight.bold),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            username,
+            style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1565C0)),
+          ),
+          if (email.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              email,
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+          const SizedBox(height: 20),
+          _buildPostsCount(),
+          const SizedBox(height: 20),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () {},
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Color(0xFF1565C0)),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Edit Profile',
+                    style: TextStyle(
+                        color: Color(0xFF1565C0),
+                        fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: () async {
+                    await AuthService().signOut();
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/login', (_) => false);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                  child: const Text(
+                    'Sign Out',
+                    style: TextStyle(
+                        color: Colors.red, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostsCount() {
+    if (_user == null) return const SizedBox.shrink();
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('userId', isEqualTo: _user!.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        final count = snapshot.data?.docs.length ?? 0;
+        return Column(
+          children: [
+            Text(
+              count.toString(),
+              style: const TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0)),
+            ),
+            Text(
+              count == 1 ? 'Post' : 'Posts',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildPostsSection(BuildContext context) {
+    if (_user == null) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Text('Sign in to see your posts',
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.fromLTRB(20, 20, 20, 12),
+          child: Text(
+            'My Posts',
+            style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF1565C0)),
+          ),
+        ),
+        StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('location_posts')
+              .where('userId', isEqualTo: _user!.uid)
+              .orderBy('timestamp', descending: true)
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(32),
+                  child: CircularProgressIndicator(
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                        Color(0xFF1565C0)),
+                  ),
+                ),
+              );
+            }
+
+            final docs = snapshot.data?.docs ?? [];
+            if (docs.isEmpty) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    children: [
+                      Icon(Icons.add_location_alt_outlined,
+                          size: 64, color: Colors.grey[300]),
+                      const SizedBox(height: 16),
+                      const Text('No posts yet',
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Share how crowded places are!',
+                        style: TextStyle(
+                            fontSize: 14, color: Colors.grey[400]),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              itemCount: docs.length,
+              itemBuilder: (context, index) {
+                final data = {
+                  'id': docs[index].id,
+                  ...docs[index].data() as Map<String, dynamic>
+                };
+                return _buildPostCard(context, data);
+              },
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPostCard(
+      BuildContext context, Map<String, dynamic> post) {
+    final crowdingLevel = (post['crowdingLevel'] ?? 0) as int;
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (_) => LocationDetailScreen(postData: post)),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.07),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.horizontal(
+                  left: Radius.circular(16)),
+              child: post['imageUrl'] != null &&
+                      (post['imageUrl'] as String).isNotEmpty
+                  ? Image.network(
+                      post['imageUrl'] as String,
+                      width: 80,
+                      height: 80,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                    )
+                  : _imagePlaceholder(),
+            ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 12, vertical: 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      post['locationName'] ?? 'Unknown',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 15),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (post['description'] != null &&
+                        (post['description'] as String).isNotEmpty)
+                      Text(
+                        post['description'] as String,
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey[600]),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        const Icon(Icons.favorite,
+                            size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text('${post['likesCount'] ?? 0}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey)),
+                        const SizedBox(width: 12),
+                        const Icon(Icons.comment,
+                            size: 14, color: Colors.grey),
+                        const SizedBox(width: 4),
+                        Text('${post['commentsCount'] ?? 0}',
+                            style: const TextStyle(
+                                fontSize: 12, color: Colors.grey)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: _getCrowdingColor(crowdingLevel),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    crowdingLevel.toString(),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _imagePlaceholder() {
+    return Container(
+      width: 80,
+      height: 80,
+      color: Colors.grey[200],
+      child: Icon(Icons.image, color: Colors.grey[400], size: 28),
+    );
+  }
+}

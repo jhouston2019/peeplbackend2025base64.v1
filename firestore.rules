@@ -1,9 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can read/write their own data
+
+    function isAppAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
+    }
+
+    // Users: own profile, or full access for admins (moderation / admin panel)
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow read: if request.auth != null && (request.auth.uid == userId || isAppAdmin());
+      allow create: if request.auth != null && request.auth.uid == userId;
+      allow update: if request.auth != null && (request.auth.uid == userId || isAppAdmin());
+      allow delete: if isAppAdmin();
+    }
+
+    // Location posts (feed). Likes update likesCount on any post (not only owner).
+    match /location_posts/{postId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null && (
+        isAppAdmin() ||
+        resource.data.userId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['likesCount', 'commentsCount'])
+      );
+      allow delete: if request.auth != null &&
+        (resource.data.userId == request.auth.uid || isAppAdmin());
+    }
+
+    match /location_posts/{postId}/likes/{likeUserId} {
+      allow read: if request.auth != null;
+      allow create, delete: if request.auth != null && request.auth.uid == likeUserId;
+    }
+
+    // Native ads (feed + admin toggle)
+    match /native_ads/{adId} {
+      allow read: if true;
+      allow create, update, delete: if isAppAdmin();
     }
     
     // Venues are publicly readable, only authenticated users can create
