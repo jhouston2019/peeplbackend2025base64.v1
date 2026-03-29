@@ -17,17 +17,25 @@ workflows:
   ios-workflow:
     name: iOS Build
     max_build_duration: 60
-    integrations:
-      app_store_connect: Codemagic
     environment:
       flutter: stable
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.peepl.app
+      groups:
+        - a
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
         working_directory: peepl_mobile
+      - name: Set up keychain
+        script: keychain initialize
+      - name: Add certificate to keychain
+        script: |
+          echo $CM_CERTIFICATE | base64 --decode > /tmp/distribution.p12
+          keychain add-certificates --certificate /tmp/distribution.p12 --certificate-password peepl123
+      - name: Set up provisioning profile
+        script: |
+          echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build iOS
         script: flutter build ipa --release
         working_directory: peepl_mobile
