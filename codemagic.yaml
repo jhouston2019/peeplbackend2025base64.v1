@@ -20,6 +20,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.peepl.app
+      integrations:
+        app_store_connect: Codemagic
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
@@ -31,6 +33,4 @@ workflows:
       - build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        api_key: 8RA5VFP66T
-        issuer_id: fe26843a-7311-4b33-984d-f99b7eb82603
         submit_to_testflight: true
