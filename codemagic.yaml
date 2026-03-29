@@ -29,14 +29,14 @@ workflows:
         script: keychain initialize
       - name: Fetch signing files
         script: |
-          openssl genrsa -out /tmp/cert_key.pem 2048
-          export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert_key.pem)
+          echo "Key ID: $APP_STORE_CONNECT_KEY_IDENTIFIER"
+          echo "Issuer ID: $APP_STORE_CONNECT_ISSUER_ID"
+          echo "Key length: ${#APP_STORE_CONNECT_PRIVATE_KEY}"
+          openssl genrsa -out /tmp/cert.pem 2048
+          export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert.pem)
           app-store-connect fetch-signing-files com.peepl.app \
             --type IOS_APP_STORE \
-            --create \
-            --issuer-id $APP_STORE_CONNECT_ISSUER_ID \
-            --key-id $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            --private-key "$APP_STORE_CONNECT_PRIVATE_KEY"
+            --create
       - name: Add certificates to keychain
         script: keychain add-certificates
       - name: Use provisioning profiles
