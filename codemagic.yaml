@@ -29,9 +29,11 @@ workflows:
         script: keychain initialize
       - name: Fetch signing files
         script: |
+          openssl genrsa -out /tmp/certificate_key.pem 2048
           app-store-connect fetch-signing-files com.peepl.app \
             --type IOS_APP_STORE \
-            --create
+            --create \
+            --certificate-key /tmp/certificate_key.pem
       - name: Add certificates to keychain
         script: keychain add-certificates
       - name: Use provisioning profiles
