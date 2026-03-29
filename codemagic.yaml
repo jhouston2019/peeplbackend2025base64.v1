@@ -25,10 +25,19 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
-      - name: Build iOS
+      - name: Set up keychain
+        script: keychain initialize
+      - name: Fetch signing files
         script: |
-          flutter build ipa --release \
-            --export-options-plist=/Users/builder/export_options.plist
+          app-store-connect fetch-signing-files com.peepl.app \
+            --type IOS_APP_STORE \
+            --create
+      - name: Add certificates to keychain
+        script: keychain add-certificates
+      - name: Use provisioning profiles
+        script: xcode-project use-profiles
+      - name: Build iOS
+        script: flutter build ipa --release
     artifacts:
       - build/ios/ipa/*.ipa
     publishing:
