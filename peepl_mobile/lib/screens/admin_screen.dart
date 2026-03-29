@@ -20,7 +20,7 @@ class _AdminScreenState extends State<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
     _checkAdminGate();
   }
 
@@ -110,6 +110,7 @@ class _AdminScreenState extends State<AdminScreen>
                           Tab(text: 'Posts'),
                           Tab(text: 'Stats'),
                           Tab(text: 'Ads'),
+                          Tab(text: 'Screens'),
                         ],
                       ),
                     ),
@@ -121,6 +122,7 @@ class _AdminScreenState extends State<AdminScreen>
                           _PostsTab(),
                           _StatsTab(),
                           _NativeAdsTab(),
+                          _ScreensTab(),
                         ],
                       ),
                     ),
@@ -643,6 +645,126 @@ class _NativeAdsTab extends StatelessWidget {
         );
       }
     }
+  }
+}
+
+class _ScreensTab extends StatelessWidget {
+  const _ScreensTab();
+
+  static final List<Map<String, String>> _mainRoutes = [
+    {'label': 'Home (main shell)', 'route': '/home'},
+    {'label': 'Feed', 'route': '/feed'},
+    {'label': 'Discover', 'route': '/discover'},
+    {'label': 'Chat', 'route': '/chat'},
+    {'label': 'Profile', 'route': '/profile'},
+    {'label': 'Post', 'route': '/post'},
+    {'label': 'Settings', 'route': '/settings'},
+    {'label': 'Login', 'route': '/login'},
+    {'label': 'Admin', 'route': '/admin'},
+    {'label': 'Location detail (demo)', 'route': '/location_detail_demo'},
+  ];
+
+  static final List<Map<String, String>> _userRoutes = [
+    {'label': 'Account Info', 'route': '/account_info'},
+    {'label': 'Create Peep', 'route': '/create_peep'},
+    {'label': 'Deal Claimed', 'route': '/deal_claimed'},
+    {'label': 'Deals', 'route': '/deals'},
+    {'label': 'Favorites', 'route': '/favorites'},
+    {'label': 'Follow List', 'route': '/follow_list'},
+    {'label': 'Get Peeps', 'route': '/get_peeps'},
+    {'label': 'Groups', 'route': '/groups'},
+    {'label': 'Invite', 'route': '/invite'},
+    {'label': 'Leaderboard', 'route': '/leaderboard'},
+    {'label': 'Likers', 'route': '/likers'},
+    {'label': 'Map', 'route': '/map'},
+    {'label': 'Menu', 'route': '/menu'},
+    {'label': 'My Peeps', 'route': '/my_peeps'},
+    {'label': 'Notifications', 'route': '/notifications'},
+    {'label': 'Onboarding', 'route': '/onboarding'},
+    {'label': 'Peep Detail', 'route': '/peep_detail'},
+    {'label': 'Permissions', 'route': '/permissions'},
+    {'label': 'Pioneer Congrat', 'route': '/pioneer_congrat'},
+    {'label': 'Pioneers', 'route': '/pioneers'},
+    {'label': 'Report', 'route': '/report'},
+    {'label': 'Search', 'route': '/search'},
+    {'label': 'Share', 'route': '/share'},
+    {'label': 'Sign Up Confirmed', 'route': '/sign_up_confirmed'},
+    {'label': 'User Profile', 'route': '/user_profile'},
+    {'label': 'Venue List', 'route': '/venue_list'},
+    {'label': 'Venue', 'route': '/venue'},
+    {'label': 'VIP Peeps', 'route': '/vip_peeps'},
+  ];
+
+  static final List<Map<String, String>> _merchantRoutes = [
+    {'label': 'How To Advertise', 'route': '/how_to_advertise'},
+    {'label': 'Merchant Account Info', 'route': '/merchant_account_info'},
+    {'label': 'Merchant Account Number', 'route': '/merchant_account_number'},
+    {'label': 'Merchant Activity', 'route': '/merchant_activity'},
+    {'label': 'Merchant Portal', 'route': '/merchant_portal'},
+    {'label': 'Merchant Setup Step 1', 'route': '/merchant_setup_step1'},
+    {'label': 'Merchant Setup Step 2', 'route': '/merchant_setup_step2'},
+    {'label': 'Merchant Sign In', 'route': '/merchant_sign_in'},
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
+      children: [
+        _buildSection(context, 'Main', _mainRoutes),
+        _buildSection(context, 'User', _userRoutes),
+        _buildSection(context, 'Merchant', _merchantRoutes),
+      ],
+    );
+  }
+
+  Widget _buildSection(
+    BuildContext context,
+    String title,
+    List<Map<String, String>> items,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(4, 12, 4, 8),
+          child: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w800,
+              color: _kPeeplBlue,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ),
+        ...items.map(
+          (e) => Card(
+            margin: const EdgeInsets.only(bottom: 8),
+            child: ListTile(
+              title: Text(
+                e['label']!,
+                style: const TextStyle(fontWeight: FontWeight.w500),
+              ),
+              subtitle: Text(
+                e['route']!,
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              ),
+              trailing: OutlinedButton(
+                onPressed: () {
+                  Navigator.pushNamed(context, e['route']!);
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: _kPeeplBlue,
+                  side: const BorderSide(color: _kPeeplBlue),
+                ),
+                child: const Text('Open'),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
