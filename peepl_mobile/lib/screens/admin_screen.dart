@@ -33,7 +33,7 @@ class _AdminScreenState extends State<AdminScreen>
     }
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(user.uid)
           .get();
       final ok = doc.data()?['isAdmin'] == true;
@@ -170,7 +170,7 @@ class _UsersTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('users').snapshots(),
+      stream: FirebaseFirestore.instance.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').snapshots(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return _errorCenter('Failed to load users: ${snapshot.error}');
@@ -277,7 +277,7 @@ class _UsersTab extends StatelessWidget {
     );
     if (ok != true || !context.mounted) return;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+      await FirebaseFirestore.instance.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(userId).update({
         'isBanned': true,
       });
       if (context.mounted) {
@@ -303,7 +303,7 @@ class _UsersTab extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete user document'),
         content: const Text(
-            'Remove this document from the users collection? This does not delete the Auth account.'),
+            'Remove this user document? This does not delete the Auth account.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -318,7 +318,7 @@ class _UsersTab extends StatelessWidget {
     );
     if (ok != true || !context.mounted) return;
     try {
-      await FirebaseFirestore.instance.collection('users').doc(userId).delete();
+      await FirebaseFirestore.instance.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(userId).delete();
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('User document deleted.')),
@@ -466,7 +466,7 @@ class _StatsTabState extends State<_StatsTab> {
     });
     try {
       final usersAgg = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .count()
           .get();
       final postsAgg = await FirebaseFirestore.instance

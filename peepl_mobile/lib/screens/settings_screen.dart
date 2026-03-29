@@ -116,7 +116,7 @@ class SettingsScreen extends StatelessWidget {
     if (user == null) return const SizedBox.shrink();
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(user.uid)
           .snapshots(),
       builder: (context, snap) {

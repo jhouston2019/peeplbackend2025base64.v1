@@ -171,7 +171,7 @@ class _MainShellState extends State<MainShell> {
 
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(user.uid)
           .snapshots(),
       builder: (context, snap) {
