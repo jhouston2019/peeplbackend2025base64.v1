@@ -7,10 +7,12 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
+        working_directory: peepl_mobile
       - name: Build APK
         script: flutter build apk --release
+        working_directory: peepl_mobile
     artifacts:
-      - build/**/outputs/**/*.apk
+      - peepl_mobile/build/**/outputs/**/*.apk
 
   ios-workflow:
     name: iOS Build
@@ -22,6 +24,7 @@ workflows:
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
+        working_directory: peepl_mobile
       - name: Set up keychain
         script: keychain initialize
       - name: Fetch signing files
@@ -33,10 +36,12 @@ workflows:
         script: keychain add-certificates
       - name: Use provisioning profiles
         script: xcode-project use-profiles
+        working_directory: peepl_mobile
       - name: Build iOS
         script: flutter build ipa --release
+        working_directory: peepl_mobile
     artifacts:
-      - build/ios/ipa/*.ipa
+      - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         api_key: $APP_STORE_CONNECT_PRIVATE_KEY
