@@ -37,10 +37,15 @@ workflows:
         script: |
           echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/
+          UUID=$(grep -a 'UUID' -A1 /tmp/profile.mobileprovision | grep -o '[-A-Za-z0-9]\{36\}')
+          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
       - name: Build iOS
-        script: flutter build ipa --release
-        working_directory: peepl_mobile
+        script: |
+          cd peepl_mobile
+          flutter build ipa --release \
+            --export-options-plist=/tmp/ExportOptions.plist
+        env:
+          EXPANDED_CODE_SIGN_IDENTITY: "Apple Distribution: James Houston (MJZ3VHZ23U)"
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
