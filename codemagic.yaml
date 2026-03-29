@@ -11,4 +11,26 @@ workflows:
         script: flutter build apk --release
     artifacts:
       - build/**/outputs/**/*.apk
-      
+
+  ios-workflow:
+    name: iOS Build
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peepl.app
+    scripts:
+      - name: Get Flutter packages
+        script: flutter packages pub get
+      - name: Build iOS
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        api_key: 8RA5VFP66T
+        issuer_id: fe26843a-7311-4b33-984d-f99b7eb82603
+        submit_to_testflight: true
