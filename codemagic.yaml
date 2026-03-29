@@ -18,7 +18,7 @@ workflows:
     environment:
       flutter: stable
       groups:
-        - ios-signing
+        - a
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
