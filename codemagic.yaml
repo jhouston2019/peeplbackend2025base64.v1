@@ -33,16 +33,46 @@ workflows:
         script: |
           echo $CM_CERTIFICATE | base64 --decode > /tmp/distribution.p12
           keychain add-certificates --certificate /tmp/distribution.p12 --certificate-password peepl123
+          echo "Certificate added. Verifying..."
+          security find-identity -v -p codesigning
       - name: Set up provisioning profile
         script: |
           echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           UUID=$(grep -a 'UUID' -A1 /tmp/profile.mobileprovision | grep -o '[-A-Za-z0-9]\{36\}')
+          echo "Profile UUID: $UUID"
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
+          ls ~/Library/MobileDevice/Provisioning\ Profiles/
+      - name: Create ExportOptions.plist
+        script: |
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>MJZ3VHZ23U</string>
+            <key>signingStyle</key>
+            <string>manual</string>
+            <key>signingCertificate</key>
+            <string>Apple Distribution</string>
+            <key>provisioningProfiles</key>
+            <dict>
+              <key>com.peepl.app</key>
+              <string>Peepl App Store</string>
+            </dict>
+          </dict>
+          </plist>
+          EOF
+          echo "ExportOptions.plist created"
+          cat /tmp/ExportOptions.plist
       - name: Build iOS
         script: |
           cd peepl_mobile
-          flutter build ipa --release
+          flutter build ipa --release \
+            --export-options-plist=/tmp/ExportOptions.plist
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
