@@ -17,31 +17,16 @@ workflows:
   ios-workflow:
     name: iOS Build
     max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic
     environment:
       flutter: stable
-      groups:
-        - a
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peepl.app
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
-        working_directory: peepl_mobile
-      - name: Set up keychain
-        script: keychain initialize
-      - name: Fetch signing files
-        script: |
-          echo "$APP_STORE_CONNECT_PRIVATE_KEY" | base64 --decode > /tmp/api_key.p8
-          openssl genrsa -out /tmp/cert.pem 2048
-          export CERTIFICATE_PRIVATE_KEY=$(cat /tmp/cert.pem)
-          app-store-connect fetch-signing-files com.peepl.app \
-            --type IOS_APP_STORE \
-            --create \
-            --issuer-id $APP_STORE_CONNECT_ISSUER_ID \
-            --key-id $APP_STORE_CONNECT_KEY_IDENTIFIER \
-            --private-key @/tmp/api_key.p8
-      - name: Add certificates to keychain
-        script: keychain add-certificates
-      - name: Use provisioning profiles
-        script: xcode-project use-profiles
         working_directory: peepl_mobile
       - name: Build iOS
         script: flutter build ipa --release
@@ -50,7 +35,4 @@ workflows:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
-        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
-        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
