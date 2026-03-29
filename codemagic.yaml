@@ -42,10 +42,7 @@ workflows:
       - name: Build iOS
         script: |
           cd peepl_mobile
-          flutter build ipa --release \
-            --export-options-plist=/tmp/ExportOptions.plist
-        env:
-          EXPANDED_CODE_SIGN_IDENTITY: "Apple Distribution: James Houston (MJZ3VHZ23U)"
+          flutter build ipa --release
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
