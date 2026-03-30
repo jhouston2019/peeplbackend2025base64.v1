@@ -76,10 +76,23 @@ workflows:
       - name: Build iOS
         script: |
           cd peepl_mobile
-          flutter build ipa --release \
-            --export-options-plist=/tmp/ExportOptions.plist
+          flutter packages pub get
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -archivePath /tmp/Runner.xcarchive \
+            archive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution: James Houston (MJZ3VHZ23U)" \
+            PROVISIONING_PROFILE_SPECIFIER="Peepl App Store" \
+            DEVELOPMENT_TEAM=MJZ3VHZ23U \
+            OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
+          xcodebuild -exportArchive \
+            -archivePath /tmp/Runner.xcarchive \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -exportPath /tmp/Runner
     artifacts:
-      - peepl_mobile/build/ios/ipa/*.ipa
+      - /tmp/Runner/*.ipa
     publishing:
       app_store_connect:
         auth: integration
