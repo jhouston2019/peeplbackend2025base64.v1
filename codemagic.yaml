@@ -34,7 +34,7 @@ workflows:
           security set-keychain-settings -lut 21600 build.keychain
           security unlock-keychain -p "peepl" build.keychain
           security import /tmp/distribution.p12 -k build.keychain -P peepl123 -T /usr/bin/codesign -T /usr/bin/xcodebuild -T /usr/bin/security
-          security list-keychain -d user -s build.keychain
+          security list-keychain -d user -s build.keychain login.keychain
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "peepl" build.keychain
           echo "=== ALL SIGNING IDENTITIES ==="
           security find-identity -v -p codesigning
