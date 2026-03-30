@@ -49,6 +49,7 @@ workflows:
           cd peepl_mobile/ios
           sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
           sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = MJZ3VHZ23U;/g' Runner.xcodeproj/project.pbxproj
+          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "Peepl App Store";/g' Runner.xcodeproj/project.pbxproj
           grep -n "CODE_SIGN_STYLE\|DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|CODE_SIGN_IDENTITY" Runner.xcodeproj/project.pbxproj
       - name: Create ExportOptions
         script: |
@@ -85,7 +86,6 @@ workflows:
             archive \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution: James Houston (MJZ3VHZ23U)" \
-            PROVISIONING_PROFILE_SPECIFIER="Peepl App Store" \
             DEVELOPMENT_TEAM=MJZ3VHZ23U \
             OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
           xcodebuild -exportArchive \
