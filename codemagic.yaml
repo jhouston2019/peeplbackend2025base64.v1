@@ -43,14 +43,6 @@ workflows:
           UUID=$(grep -a 'UUID' -A1 /tmp/profile.mobileprovision | grep -o '[-A-Za-z0-9]\{36\}')
           echo "Profile UUID: $UUID"
           cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-          ls ~/Library/MobileDevice/Provisioning\ Profiles/
-      - name: Set manual signing
-        script: |
-          cd peepl_mobile/ios
-          sed -i '' 's/CODE_SIGN_STYLE = Automatic;/CODE_SIGN_STYLE = Manual;/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/DEVELOPMENT_TEAM = "";/DEVELOPMENT_TEAM = MJZ3VHZ23U;/g' Runner.xcodeproj/project.pbxproj
-          sed -i '' 's/PROVISIONING_PROFILE_SPECIFIER = "";/PROVISIONING_PROFILE_SPECIFIER = "Peepl App Store";/g' Runner.xcodeproj/project.pbxproj
-          grep -n "CODE_SIGN_STYLE\|DEVELOPMENT_TEAM\|PROVISIONING_PROFILE\|CODE_SIGN_IDENTITY" Runner.xcodeproj/project.pbxproj
       - name: Create ExportOptions
         script: |
           cat > /tmp/ExportOptions.plist << EOF
@@ -77,23 +69,10 @@ workflows:
       - name: Build iOS
         script: |
           cd peepl_mobile
-          flutter packages pub get
-          flutter build ios --release --no-codesign
-          xcodebuild -workspace ios/Runner.xcworkspace \
-            -scheme Runner \
-            -configuration Release \
-            -archivePath /tmp/Runner.xcarchive \
-            archive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Distribution: James Houston (MJZ3VHZ23U)" \
-            DEVELOPMENT_TEAM=MJZ3VHZ23U \
-            OTHER_CODE_SIGN_FLAGS="--keychain build.keychain"
-          xcodebuild -exportArchive \
-            -archivePath /tmp/Runner.xcarchive \
-            -exportOptionsPlist /tmp/ExportOptions.plist \
-            -exportPath /tmp/Runner
+          flutter build ipa --release \
+            --export-options-plist=/tmp/ExportOptions.plist
     artifacts:
-      - /tmp/Runner/*.ipa
+      - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
         auth: integration
