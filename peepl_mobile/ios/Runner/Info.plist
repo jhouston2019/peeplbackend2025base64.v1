@@ -66,5 +66,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Peepl needs camera access to take photos and videos for your posts.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Peepl needs microphone access when you record video for a post.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Peepl needs photo library access to attach photos and videos to your posts.</string>
 </dict>
 </plist>

@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/feed_service.dart';
 import '../services/native_ads_service.dart';
 import 'location_detail_screen.dart';
+import 'post_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   @override
@@ -90,7 +91,9 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/post'),
+            onTap: () => Navigator.of(context, rootNavigator: true).push(
+              MaterialPageRoute<void>(builder: (_) => const PostScreen()),
+            ),
             child: Column(children: [
               Container(width: 40, height: 40,
                 decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(8)),

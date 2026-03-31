@@ -88,7 +88,7 @@ class _MainShellState extends State<MainShell> {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         fullscreenDialog: true,
-        builder: (_) => PostScreen(),
+        builder: (_) => const PostScreen(),
       ),
     );
   }
