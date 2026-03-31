@@ -26,6 +26,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>GIDClientID</key>
+	<string>placeholder</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -72,5 +74,7 @@
 	<string>Peepl needs microphone access when you record video for a post.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Peepl needs photo library access to attach photos and videos to your posts.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Peepl needs permission to save photos to your library.</string>
 </dict>
 </plist>
