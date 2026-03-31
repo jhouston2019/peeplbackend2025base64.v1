@@ -227,4 +227,13 @@ PeeplMobile/android/fastlane/test_output
 yarn-error.log
 
 # Local Netlify folder
-.netlify
+.netlify*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.csr
+*.p8
+*.p12
+*.mobileprovision
+*.cer
+*.csr
