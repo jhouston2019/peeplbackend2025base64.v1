@@ -24,7 +24,26 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [resetLoading, setResetLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleForgotPassword = async () => {
+    setError(null);
+    setResetLoading(true);
+    try {
+      const result = await authService.sendPasswordResetEmail(email);
+      if (result.success) {
+        Alert.alert(
+          'Check your email',
+          'If an account exists for that address, we sent a link to reset your password.',
+        );
+      } else {
+        setError(result.error || 'Could not send reset email.');
+      }
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   const handleLogin = async () => {
     setError(null);
@@ -83,6 +102,17 @@ export default function LoginScreen({ onLogin, navigation }: LoginScreenProps) {
             autoCapitalize="none"
             autoCorrect={false}
           />
+
+          <TouchableOpacity
+            style={styles.forgotPassword}
+            onPress={handleForgotPassword}
+            disabled={isLoading || resetLoading}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.forgotPasswordText}>
+              {resetLoading ? 'Sending…' : 'Forgot password?'}
+            </Text>
+          </TouchableOpacity>
 
           <TouchableOpacity
             style={[styles.signInButton, isLoading && styles.signInButtonDisabled]}
@@ -169,6 +199,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#212121',
     marginBottom: 14,
+  },
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 8,
+    paddingVertical: 4,
+  },
+  forgotPasswordText: {
+    color: '#FFC107',
+    fontSize: 15,
+    fontWeight: '600',
   },
   signInButton: {
     backgroundColor: '#FFFFFF',

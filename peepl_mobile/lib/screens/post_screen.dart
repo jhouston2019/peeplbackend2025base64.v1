@@ -33,10 +33,19 @@ class _PostScreenState extends State<PostScreen> {
   final GlobalKey<FormFieldState<String>> _postTypeFieldKey =
       GlobalKey<FormFieldState<String>>();
   final TextEditingController _locationName = TextEditingController();
-  final TextEditingController _description = TextEditingController();
+  final TextEditingController _vibe = TextEditingController();
+  final TextEditingController _waitTime = TextEditingController();
+  final TextEditingController _demographics = TextEditingController();
+  final TextEditingController _dressCode = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   int _crowdingLevel = 5;
+  double _noiseLevel = 5;
+  double _staffAvailability = 5;
+  bool _hasMusic = false;
+  bool _wheelchairAccessible = false;
+  bool _strollerFriendly = false;
+  bool _hasDeals = false;
   bool _isLoading = false;
 
   XFile? _pickedFile;
@@ -47,7 +56,10 @@ class _PostScreenState extends State<PostScreen> {
   void dispose() {
     _videoController?.dispose();
     _locationName.dispose();
-    _description.dispose();
+    _vibe.dispose();
+    _waitTime.dispose();
+    _demographics.dispose();
+    _dressCode.dispose();
     super.dispose();
   }
 
@@ -201,13 +213,26 @@ class _PostScreenState extends State<PostScreen> {
         'longitude': 0.0,
         'crowdingLevel': _crowdingLevel,
         'imageUrl': imageUrl,
-        'description': _description.text.trim(),
         'post_type': _postTypeFieldKey.currentState?.value,
         'timestamp': FieldValue.serverTimestamp(),
         'likesCount': 0,
         'commentsCount': 0,
         'isVerified': false,
+        'hasMusic': _hasMusic,
+        'wheelchairAccessible': _wheelchairAccessible,
+        'strollerFriendly': _strollerFriendly,
+        'hasDeals': _hasDeals,
+        'noiseLevel': _noiseLevel.round(),
+        'staffAvailability': _staffAvailability.round(),
       };
+      final vibeText = _vibe.text.trim();
+      if (vibeText.isNotEmpty) data['vibe'] = vibeText;
+      final waitText = _waitTime.text.trim();
+      if (waitText.isNotEmpty) data['waitTime'] = waitText;
+      final demoText = _demographics.text.trim();
+      if (demoText.isNotEmpty) data['demographics'] = demoText;
+      final dressText = _dressCode.text.trim();
+      if (dressText.isNotEmpty) data['dressCode'] = dressText;
       if (videoUrl != null) {
         data['videoUrl'] = videoUrl;
       }
@@ -353,11 +378,78 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(height: 8),
                         _buildCrowdingSlider(),
                         const SizedBox(height: 24),
-                        _buildLabel('Description'),
+                        _buildLabel('Vibe'),
                         _buildTextField(
-                          controller: _description,
-                          hint: "What's happening here?",
-                          maxLines: 3,
+                          controller: _vibe,
+                          hint: 'e.g. Cozy, Trendy, Casual',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildLabel('Wait time'),
+                        _buildTextField(
+                          controller: _waitTime,
+                          hint: 'e.g. No wait, 5–10m, 30m+',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildLabel('Noise level'),
+                        const SizedBox(height: 8),
+                        _buildLevelSlider(
+                          value: _noiseLevel,
+                          onChanged: (v) => setState(() => _noiseLevel = v),
+                        ),
+                        const SizedBox(height: 24),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Music playing'),
+                          value: _hasMusic,
+                          onChanged: _isLoading
+                              ? null
+                              : (v) => setState(() => _hasMusic = v),
+                        ),
+                        const SizedBox(height: 8),
+                        _buildLabel('Crowd / demographics'),
+                        _buildTextField(
+                          controller: _demographics,
+                          hint: 'e.g. Locals, Tourists, Young',
+                        ),
+                        const SizedBox(height: 24),
+                        _buildLabel('Dress code'),
+                        _buildTextField(
+                          controller: _dressCode,
+                          hint: 'e.g. Casual, Smart casual',
+                        ),
+                        const SizedBox(height: 24),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Wheelchair accessible'),
+                          value: _wheelchairAccessible,
+                          onChanged: _isLoading
+                              ? null
+                              : (v) =>
+                                  setState(() => _wheelchairAccessible = v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Stroller friendly'),
+                          value: _strollerFriendly,
+                          onChanged: _isLoading
+                              ? null
+                              : (v) => setState(() => _strollerFriendly = v),
+                        ),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Has deals'),
+                          value: _hasDeals,
+                          onChanged: _isLoading
+                              ? null
+                              : (v) => setState(() => _hasDeals = v),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildLabel('Staff availability'),
+                        const SizedBox(height: 8),
+                        _buildLevelSlider(
+                          value: _staffAvailability,
+                          onChanged: (v) =>
+                              setState(() => _staffAvailability = v),
                         ),
                         const SizedBox(height: 24),
                         _buildLabel('Photo or video (optional)'),
@@ -554,6 +646,33 @@ class _PostScreenState extends State<PostScreen> {
               textAlign: TextAlign.center,
             ),
           ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLevelSlider({
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          '${value.round()}/10',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[800],
+          ),
+        ),
+        Slider(
+          value: value,
+          min: 1,
+          max: 10,
+          divisions: 9,
+          label: value.round().toString(),
+          onChanged: _isLoading ? null : onChanged,
         ),
       ],
     );

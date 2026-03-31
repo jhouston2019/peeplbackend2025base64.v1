@@ -27,13 +27,22 @@ class FeedService {
     required double longitude,
     required int crowdingLevel,
     required File imageFile,
-    String? description,
+    String? vibe,
+    String? waitTime,
+    int? noiseLevel,
+    bool hasMusic = false,
+    String? demographics,
+    String? dressCode,
+    bool wheelchairAccessible = false,
+    bool strollerFriendly = false,
+    bool hasDeals = false,
+    int? staffAvailability,
   }) async {
     try {
       await _validateImageFile(imageFile);
       final imageUrl = await _uploadImage(imageFile, userId);
 
-      await _firestore.collection('location_posts').add({
+      final doc = <String, dynamic>{
         'userId': userId,
         'username': username,
         'locationName': locationName,
@@ -41,12 +50,29 @@ class FeedService {
         'longitude': longitude,
         'crowdingLevel': crowdingLevel,
         'imageUrl': imageUrl,
-        'description': description?.trim() ?? '',
         'timestamp': FieldValue.serverTimestamp(),
         'likesCount': 0,
         'commentsCount': 0,
         'isVerified': false,
-      });
+        'hasMusic': hasMusic,
+        'wheelchairAccessible': wheelchairAccessible,
+        'strollerFriendly': strollerFriendly,
+        'hasDeals': hasDeals,
+      };
+      final v = vibe?.trim();
+      if (v != null && v.isNotEmpty) doc['vibe'] = v;
+      final w = waitTime?.trim();
+      if (w != null && w.isNotEmpty) doc['waitTime'] = w;
+      if (noiseLevel != null) doc['noiseLevel'] = noiseLevel;
+      final d = demographics?.trim();
+      if (d != null && d.isNotEmpty) doc['demographics'] = d;
+      final dress = dressCode?.trim();
+      if (dress != null && dress.isNotEmpty) doc['dressCode'] = dress;
+      if (staffAvailability != null) {
+        doc['staffAvailability'] = staffAvailability;
+      }
+
+      await _firestore.collection('location_posts').add(doc);
     } catch (e) {
       throw Exception('Failed to create location post: ${e.toString()}');
     }

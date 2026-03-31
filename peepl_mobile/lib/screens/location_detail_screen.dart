@@ -99,6 +99,34 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final crowdingLevel = (post['crowdingLevel'] ?? 0) as int;
     final postId = post['id'] as String?;
 
+    final Map<String, String> details = {};
+    if (post['vibe'] != null) details['Vibe'] = '${post['vibe']}';
+    if (post['waitTime'] != null) details['Wait'] = '${post['waitTime']}';
+    final noiseLevel = post['noiseLevel'];
+    if (noiseLevel != null) {
+      final n = noiseLevel is num
+          ? noiseLevel.toInt()
+          : int.tryParse('$noiseLevel');
+      if (n != null) details['Noise'] = '$n/10';
+    }
+    final staffAvailability = post['staffAvailability'];
+    if (staffAvailability != null) {
+      final s = staffAvailability is num
+          ? staffAvailability.toInt()
+          : int.tryParse('$staffAvailability');
+      if (s != null) details['Staff'] = '$s/10';
+    }
+    if (post['demographics'] != null) {
+      details['Crowd'] = '${post['demographics']}';
+    }
+    if (post['dressCode'] != null) details['Dress'] = '${post['dressCode']}';
+    if (post['hasMusic'] == true) details['Music'] = 'Yes';
+    if (post['wheelchairAccessible'] == true) {
+      details['Wheelchair'] = 'Accessible';
+    }
+    if (post['strollerFriendly'] == true) details['Stroller'] = 'Friendly';
+    if (post['hasDeals'] == true) details['Deals'] = 'Available';
+
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
       body: SafeArea(
@@ -114,12 +142,46 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: _buildContent(post, postId),
+                child: _buildContent(post, postId, details),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildDetailsGrid(Map<String, String> details) {
+    if (details.isEmpty) return const SizedBox.shrink();
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: details.entries
+          .map(
+            (e) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0).withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: const Color(0xFF1565C0).withOpacity(0.2),
+                ),
+              ),
+              child: RichText(
+                text: TextSpan(
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                  children: [
+                    TextSpan(
+                      text: '${e.key}: ',
+                      style: const TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    TextSpan(text: e.value),
+                  ],
+                ),
+              ),
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -183,7 +245,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  Widget _buildContent(Map<String, dynamic> post, String? postId) {
+  Widget _buildContent(
+    Map<String, dynamic> post,
+    String? postId,
+    Map<String, String> details,
+  ) {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
       child: Column(
@@ -202,14 +268,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
           ),
           const SizedBox(height: 16),
-          if (post['description'] != null &&
-              (post['description'] as String).isNotEmpty) ...[
-            Text(
-              post['description'] as String,
-              style: const TextStyle(fontSize: 16, color: Colors.black87),
-            ),
-            const SizedBox(height: 16),
-          ],
+          _buildDetailsGrid(details),
+          if (details.isNotEmpty) const SizedBox(height: 16),
           Row(
             children: [
               GestureDetector(

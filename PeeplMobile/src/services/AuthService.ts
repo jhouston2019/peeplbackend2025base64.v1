@@ -65,6 +65,31 @@ export class AuthService {
     }
   }
 
+  async sendPasswordResetEmail(
+    email: string,
+  ): Promise<{ success: boolean; error?: string }> {
+    const trimmed = email.trim();
+    if (!trimmed) {
+      return { success: false, error: 'Enter your email address first.' };
+    }
+    try {
+      await auth().sendPasswordResetEmail(trimmed);
+      return { success: true };
+    } catch (error: any) {
+      const code = error?.code as string | undefined;
+      if (code === 'auth/invalid-email') {
+        return { success: false, error: 'Please enter a valid email address.' };
+      }
+      if (code === 'auth/user-not-found') {
+        return { success: false, error: 'No account found with this email.' };
+      }
+      return {
+        success: false,
+        error: error?.message || 'Could not send reset email.',
+      };
+    }
+  }
+
   async register(userData: RegisterData): Promise<AuthResponse> {
     try {
       const { email, password, username, firstName, lastName } = userData;

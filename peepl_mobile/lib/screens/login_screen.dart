@@ -23,6 +23,51 @@ class _LoginScreenState extends State<LoginScreen> {
     return 'An error occurred. Please try again.';
   }
 
+  String _passwordResetErrorMessage(String code) {
+    switch (code) {
+      case 'invalid-email':
+        return 'Please enter a valid email address.';
+      case 'user-not-found':
+        return 'No account found with this email.';
+      default:
+        return 'Could not send reset email. Try again.';
+    }
+  }
+
+  Future<void> _sendPasswordReset() async {
+    final email = _email.text.trim();
+    if (email.isEmpty || !email.contains('@')) {
+      setState(() => _error = 'Enter your email address, then tap Forgot password again.');
+      return;
+    }
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('If an account exists, we sent a reset link to your email.'),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = _passwordResetErrorMessage(e.code);
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not send reset email. Try again.';
+      });
+    }
+  }
+
   Future<void> _authenticate() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _loading = true; _error = null; });
@@ -94,7 +139,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         validator: (v) => v == null || v.isEmpty ? 'Please enter your password' : v.length < 6 ? 'Password must be at least 6 characters' : null,
                       ),
                     ),
-                    SizedBox(height: 40),
+                    if (_isLoginMode) ...[
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: _loading ? null : _sendPasswordReset,
+                          child: Text('Forgot password?', style: TextStyle(color: Color(0xFF1565C0), fontSize: 14, fontWeight: FontWeight.w600)),
+                        ),
+                      ),
+                    ] else
+                      SizedBox(height: 8),
+                    SizedBox(height: 24),
                     if (_error != null)
                       Container(
                         width: double.infinity,
