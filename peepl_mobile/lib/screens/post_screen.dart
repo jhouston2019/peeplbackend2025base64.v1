@@ -5,7 +5,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:video_player/video_player.dart';
 
 class PostScreen extends StatefulWidget {
@@ -66,62 +65,6 @@ class _PostScreenState extends State<PostScreen> {
     _videoController = null;
   }
 
-  void _showPermissionMessage(String feature) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature permission is required.'),
-        action: SnackBarAction(
-          label: 'Settings',
-          onPressed: openAppSettings,
-        ),
-      ),
-    );
-  }
-
-  Future<bool> _ensureCameraAccess() async {
-    final status = await Permission.camera.request();
-    if (status.isGranted) return true;
-    if (status.isPermanentlyDenied) {
-      _showPermissionMessage('Camera');
-    }
-    return false;
-  }
-
-  Future<bool> _ensureMicrophoneAccess() async {
-    final status = await Permission.microphone.request();
-    if (status.isGranted) return true;
-    if (status.isPermanentlyDenied) {
-      _showPermissionMessage('Microphone');
-    }
-    return false;
-  }
-
-  Future<bool> _ensurePhotoLibraryAccess({required bool forVideo}) async {
-    if (Platform.isIOS) {
-      final photos = await Permission.photos.request();
-      if (photos.isGranted || photos.isLimited) return true;
-      if (photos.isPermanentlyDenied) {
-        _showPermissionMessage('Photo library');
-      }
-      return false;
-    }
-    if (Platform.isAndroid) {
-      if (forVideo) {
-        final v = await Permission.videos.request();
-        if (v.isGranted) return true;
-      } else {
-        final p = await Permission.photos.request();
-        if (p.isGranted) return true;
-      }
-      final storage = await Permission.storage.request();
-      if (storage.isGranted) return true;
-      _showPermissionMessage('Photo library');
-      return false;
-    }
-    return true;
-  }
-
   Future<void> _initVideoPreview(String path) async {
     await _disposeVideoOnly();
     final controller = VideoPlayerController.file(File(path));
@@ -136,11 +79,6 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _pickImage(ImageSource source) async {
-    if (source == ImageSource.camera) {
-      if (!await _ensureCameraAccess()) return;
-    } else {
-      if (!await _ensurePhotoLibraryAccess(forVideo: false)) return;
-    }
     final XFile? file = await _picker.pickImage(
       source: source,
       imageQuality: 85,
@@ -154,12 +92,6 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
-    if (source == ImageSource.camera) {
-      if (!await _ensureCameraAccess()) return;
-      if (!await _ensureMicrophoneAccess()) return;
-    } else {
-      if (!await _ensurePhotoLibraryAccess(forVideo: true)) return;
-    }
     final XFile? file = await _picker.pickVideo(source: source);
     if (file == null || !mounted) return;
     setState(() {
