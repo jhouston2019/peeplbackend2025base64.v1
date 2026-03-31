@@ -18,7 +18,7 @@ workflows:
     name: iOS Build
     max_build_duration: 60
     integrations:
-      app_store_connect: Codemagic
+      app_store_connect: codemagic
     environment:
       flutter: stable
       groups:
