@@ -1,12 +1,13 @@
 import 'dart:io';
 
+import '../services/feed_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
 class PostScreen extends StatefulWidget {
@@ -167,7 +168,8 @@ class _PostScreenState extends State<PostScreen> {
   final TextEditingController _waitTime = TextEditingController();
   final TextEditingController _demographics = TextEditingController();
   final TextEditingController _dressCode = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
+  final ImagePicker _imagePicker = ImagePicker();
+  final FeedService _feedService = FeedService();
 
   int _crowdingLevel = 5;
   double _noiseLevel = 5;
@@ -188,7 +190,7 @@ class _PostScreenState extends State<PostScreen> {
   double? _longitude;
   bool _isGeolocating = false;
 
-  XFile? _photoFile;
+  File? _selectedImage;
   XFile? _videoFile;
   VideoPlayerController? _videoController;
 
@@ -295,14 +297,18 @@ class _PostScreenState extends State<PostScreen> {
         _longitude = pos.longitude;
       });
 
-      final placemarks =
-          await placemarkFromCoordinates(pos.latitude, pos.longitude);
-      if (!mounted) return;
-      if (placemarks.isNotEmpty) {
-        final label = _formatPlacemark(placemarks.first);
-        if (label.isNotEmpty) {
-          _locationController.text = label;
+      try {
+        final placemarks =
+            await placemarkFromCoordinates(pos.latitude, pos.longitude);
+        if (!mounted) return;
+        if (placemarks.isNotEmpty) {
+          final label = _formatPlacemark(placemarks.first);
+          if (label.isNotEmpty) {
+            _locationController.text = label;
+          }
         }
+      } catch (e) {
+        // geocoding not supported on web, ignore
       }
     } catch (e, st) {
       debugPrint('Geolocation/geocoding failed: $e\n$st');
@@ -328,7 +334,7 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   void _clearPhoto() {
-    setState(() => _photoFile = null);
+    setState(() => _selectedImage = null);
   }
 
   Future<void> _clearVideo() async {
@@ -355,48 +361,64 @@ class _PostScreenState extends State<PostScreen> {
     setState(() => _videoController = controller);
   }
 
-  Future<void> _pickImage(ImageSource source) async {
-    final XFile? file = await _picker.pickImage(
-      source: source,
-      imageQuality: 85,
-    );
-    if (file == null || !mounted) return;
-    setState(() => _photoFile = file);
-  }
-
-  Future<void> _pickVideo(ImageSource source) async {
-    final XFile? file = await _picker.pickVideo(source: source);
-    if (file == null || !mounted) return;
-    setState(() => _videoFile = file);
-    await _initVideoPreview(file.path);
-  }
-
-  void _showPhotoPickerSheet() {
-    showModalBottomSheet<void>(
+  Future<void> _selectImage() async {
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => SafeArea(
-        child: Wrap(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: const Icon(Icons.photo_camera_outlined),
-              title: const Text('Take photo'),
+              leading: Icon(Icons.camera_alt, color: Color(0xFF1565C0)),
+              title: Text('Take a Photo'),
               onTap: () {
-                Navigator.pop(ctx);
+                Navigator.pop(context);
                 _pickImage(ImageSource.camera);
               },
             ),
             ListTile(
-              leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Choose photo from gallery'),
+              leading: Icon(Icons.photo_library, color: Color(0xFF1565C0)),
+              title: Text('Choose from Gallery'),
               onTap: () {
-                Navigator.pop(ctx);
+                Navigator.pop(context);
                 _pickImage(ImageSource.gallery);
               },
             ),
+            SizedBox(height: 8),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _pickImage(ImageSource source) async {
+    try {
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1920,
+        maxHeight: 1080,
+        imageQuality: 85,
+      );
+      if (pickedFile != null) {
+        setState(() {
+          _selectedImage = File(pickedFile.path);
+        });
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not access image: $e')),
+      );
+    }
+  }
+
+  Future<void> _pickVideo(ImageSource source) async {
+    final XFile? file = await _imagePicker.pickVideo(source: source);
+    if (file == null || !mounted) return;
+    setState(() => _videoFile = file);
+    await _initVideoPreview(file.path);
   }
 
   void _showVideoPickerSheet() {
@@ -441,105 +463,51 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _submitPost() async {
-    if (!_formKey.currentState!.validate()) return;
-    if (_photoFile == null) {
-      if (!mounted) return;
+    if (_locationController.text.trim().isEmpty || _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please add a photo before posting')),
+        SnackBar(content: Text('Please add a location and photo')),
       );
       return;
     }
+
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      Navigator.pushReplacementNamed(context, '/login');
-      return;
-    }
+    if (user == null) return;
+
     setState(() => _isLoading = true);
+
     try {
-      String imageUrl = _defaultImageUrl;
-      String? videoUrl;
+      await _feedService.addLocationPost(
+        userId: user.uid,
+        username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
+        locationName: _locationController.text.trim(),
+        latitude: 40.7829,
+        longitude: -73.9654,
+        crowdingLevel: _crowdingLevel.round(),
+        imageFile: _selectedImage!,
+        description: _buildDescription(),
+      );
 
-      final photoPath = _photoFile!.path;
-      final photoDisk = File(photoPath);
-      if (!await photoDisk.exists()) {
-        throw Exception('Selected photo is no longer available.');
-      }
-      final tsBase = DateTime.now().millisecondsSinceEpoch;
-      final photoExt = _extensionForPath(photoPath, isVideo: false);
-      final photoRef = FirebaseStorage.instance
-          .ref('posts/${user.uid}/${tsBase}_photo$photoExt');
-      await photoRef.putFile(photoDisk);
-      imageUrl = await photoRef.getDownloadURL();
-
-      if (_videoFile != null) {
-        final videoPath = _videoFile!.path;
-        final videoDisk = File(videoPath);
-        if (!await videoDisk.exists()) {
-          throw Exception('Selected video is no longer available.');
-        }
-        final videoExt = _extensionForPath(videoPath, isVideo: true);
-        final videoRef = FirebaseStorage.instance
-            .ref('posts/${user.uid}/${tsBase}_video$videoExt');
-        await videoRef.putFile(videoDisk);
-        videoUrl = await videoRef.getDownloadURL();
-      }
-
-      final Map<String, dynamic> data = {
-        'userId': user.uid,
-        'username': user.displayName ??
-            user.email?.split('@').first ??
-            'Anonymous',
-        'locationName': _locationController.text.trim(),
-        'latitude': _latitude ?? 0.0,
-        'longitude': _longitude ?? 0.0,
-        'crowdingLevel': _crowdingLevel,
-        'imageUrl': imageUrl,
-        'post_type': _postTypeFieldKey.currentState?.value,
-        'timestamp': FieldValue.serverTimestamp(),
-        'likesCount': 0,
-        'commentsCount': 0,
-        'isVerified': false,
-        'hasMusic': _hasMusic,
-        'wheelchairAccessible': _wheelchairAccessible,
-        'strollerFriendly': _strollerFriendly,
-        'hasDeals': _hasDeals,
-        'noiseLevel': _noiseLevel.round(),
-        'staffAvailability': _staffAvailability.round(),
-        'maleFemaleRatio': _malePercent.round().clamp(0, 100),
-        'adultKidRatio': _adultPercent.round().clamp(0, 100),
-        'hasPets': _hasPets,
-        'venueType': _venueType,
-      };
-      final ar = _ageRange?.trim();
-      if (ar != null && ar.isNotEmpty) {
-        data['ageRange'] = ar;
-      }
-      final vibeText = _vibe.text.trim();
-      if (vibeText.isNotEmpty) data['vibe'] = vibeText;
-      final waitText = _waitTime.text.trim();
-      if (waitText.isNotEmpty) data['waitTime'] = waitText;
-      final demoText = _demographics.text.trim();
-      if (demoText.isNotEmpty) data['demographics'] = demoText;
-      final dressText = _dressCode.text.trim();
-      if (dressText.isNotEmpty) data['dressCode'] = dressText;
-      if (videoUrl != null) {
-        data['videoUrl'] = videoUrl;
-      }
-
-      await FirebaseFirestore.instance.collection('location_posts').add(data);
-      if (mounted) Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Post submitted successfully!')),
+      );
+      Navigator.pop(context);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to post: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit post: $e')),
+      );
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      setState(() => _isLoading = false);
     }
+  }
+
+  String _buildDescription() {
+    final parts = <String>[];
+    final postType = _postTypeFieldKey.currentState?.value?.trim();
+    if (postType != null && postType.isNotEmpty) parts.add(postType);
+    if (_venueType != null && _venueType!.isNotEmpty) parts.add(_venueType!);
+    final vibe = _vibe.text.trim();
+    if (vibe.isNotEmpty) parts.add(vibe);
+    return parts.join(' · ');
   }
 
   Color _getCrowdingColor(int level) {
@@ -556,14 +524,18 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Widget _buildPhotoPreview() {
-    if (_photoFile == null) return const SizedBox.shrink();
+    if (_selectedImage == null) return const SizedBox.shrink();
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Image.file(
-        File(_photoFile!.path),
-        fit: BoxFit.cover,
+      child: Container(
         height: 220,
         width: double.infinity,
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: FileImage(_selectedImage!),
+            fit: BoxFit.cover,
+          ),
+        ),
       ),
     );
   }
@@ -849,7 +821,7 @@ class _PostScreenState extends State<PostScreen> {
                               child: OutlinedButton.icon(
                                 onPressed: _isLoading
                                     ? null
-                                    : _showPhotoPickerSheet,
+                                    : _selectImage,
                                 icon: const Icon(Icons.add_a_photo_outlined),
                                 label: const Text('Add photo'),
                                 style: OutlinedButton.styleFrom(
@@ -860,7 +832,7 @@ class _PostScreenState extends State<PostScreen> {
                                 ),
                               ),
                             ),
-                            if (_photoFile != null) ...[
+                            if (_selectedImage != null) ...[
                               const SizedBox(width: 12),
                               IconButton.filledTonal(
                                 onPressed: _isLoading ? null : _clearPhoto,
@@ -870,7 +842,7 @@ class _PostScreenState extends State<PostScreen> {
                             ],
                           ],
                         ),
-                        if (_photoFile != null) ...[
+                        if (_selectedImage != null) ...[
                           const SizedBox(height: 16),
                           _buildPhotoPreview(),
                         ],

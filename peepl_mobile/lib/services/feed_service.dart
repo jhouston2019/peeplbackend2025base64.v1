@@ -27,6 +27,7 @@ class FeedService {
     required double longitude,
     required int crowdingLevel,
     required File imageFile,
+    String? description,
     String? vibe,
     String? waitTime,
     int? noiseLevel,
@@ -67,6 +68,8 @@ class FeedService {
         'adultKidRatio': adultKidRatio.clamp(0, 100),
         'hasPets': hasPets,
       };
+      final desc = description?.trim();
+      if (desc != null && desc.isNotEmpty) doc['description'] = desc;
       final vt = venueType?.trim();
       if (vt != null && vt.isNotEmpty) doc['venueType'] = vt;
       final ar = ageRange?.trim();

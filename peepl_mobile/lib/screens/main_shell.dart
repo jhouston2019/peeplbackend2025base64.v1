@@ -98,6 +98,13 @@ class _MainShellState extends State<MainShell> {
       key: _navigatorKeys[index],
       initialRoute: '/',
       onGenerateRoute: (RouteSettings settings) {
+        final name = settings.name;
+        if (name == '/' || name == null) {
+          return MaterialPageRoute<void>(
+            settings: const RouteSettings(name: '/'),
+            builder: (_) => _tabRoots[index],
+          );
+        }
         return MaterialPageRoute<void>(
           settings: settings,
           builder: (_) => _tabRoots[index],
