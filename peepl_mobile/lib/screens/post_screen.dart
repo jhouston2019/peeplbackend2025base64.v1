@@ -29,8 +29,35 @@ class _PostScreenState extends State<PostScreen> {
     'Vibe Check',
   ];
 
+  static const List<String> _venueTypes = <String>[
+    'Restaurant',
+    'Bar',
+    'Coffee Shop',
+    'Park',
+    'Event',
+    'Retail',
+    'Transit',
+    'Beach',
+    'Hotel',
+    'Other',
+  ];
+
+  static const List<String> _ageRangeOptions = <String>[
+    'Teens',
+    '20s',
+    '30s',
+    '40s',
+    '50+',
+    '20s-30s',
+    '30s-40s',
+    'Mixed',
+    'All ages',
+  ];
+
   final _formKey = GlobalKey<FormState>();
   final GlobalKey<FormFieldState<String>> _postTypeFieldKey =
+      GlobalKey<FormFieldState<String>>();
+  final GlobalKey<FormFieldState<String>> _venueFieldKey =
       GlobalKey<FormFieldState<String>>();
   final TextEditingController _locationName = TextEditingController();
   final TextEditingController _vibe = TextEditingController();
@@ -48,9 +75,52 @@ class _PostScreenState extends State<PostScreen> {
   bool _hasDeals = false;
   bool _isLoading = false;
 
+  String? _venueType;
+  double _malePercent = 50;
+  double _adultPercent = 50;
+  String? _ageRange;
+  bool _hasPets = false;
+
   XFile? _pickedFile;
   bool _pickedIsVideo = false;
   VideoPlayerController? _videoController;
+
+  bool get _hasVenue => _venueType != null && _venueType!.isNotEmpty;
+
+  bool get _showWaitTime =>
+      _hasVenue && !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+
+  bool get _showDressCode =>
+      _hasVenue &&
+      !const {'Transit', 'Park', 'Beach', 'Retail'}.contains(_venueType);
+
+  bool get _showStaffAvailability =>
+      _hasVenue && !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+
+  bool get _showDemographics =>
+      _hasVenue && _venueType != 'Transit';
+
+  bool get _showAgeRange => _hasVenue && _venueType != 'Transit';
+
+  bool get _showHasPets =>
+      _hasVenue &&
+      const {
+        'Park',
+        'Beach',
+        'Restaurant',
+        'Bar',
+        'Coffee Shop',
+        'Event',
+        'Hotel',
+        'Other',
+      }.contains(_venueType);
+
+  bool get _showDeals =>
+      _hasVenue &&
+      !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+
+  bool get _showStrollerFriendly =>
+      _hasVenue && _venueType != 'Transit';
 
   @override
   void dispose() {
@@ -224,7 +294,15 @@ class _PostScreenState extends State<PostScreen> {
         'hasDeals': _hasDeals,
         'noiseLevel': _noiseLevel.round(),
         'staffAvailability': _staffAvailability.round(),
+        'maleFemaleRatio': _malePercent.round().clamp(0, 100),
+        'adultKidRatio': _adultPercent.round().clamp(0, 100),
+        'hasPets': _hasPets,
+        'venueType': _venueType,
       };
+      final ar = _ageRange?.trim();
+      if (ar != null && ar.isNotEmpty) {
+        data['ageRange'] = ar;
+      }
       final vibeText = _vibe.text.trim();
       if (vibeText.isNotEmpty) data['vibe'] = vibeText;
       final waitText = _waitTime.text.trim();
@@ -325,6 +403,55 @@ class _PostScreenState extends State<PostScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
+                        FormField<String>(
+                          key: _venueFieldKey,
+                          validator: (_) => !_hasVenue
+                              ? 'Please select a venue type'
+                              : null,
+                          builder: (field) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildLabel('Venue type *'),
+                                const SizedBox(height: 8),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: _venueTypes.map((t) {
+                                    final sel = _venueType == t;
+                                    return FilterChip(
+                                      label: Text(t),
+                                      selected: sel,
+                                      selectedColor:
+                                          const Color(0xFF1565C0).withValues(alpha: 0.25),
+                                      checkmarkColor: const Color(0xFF1565C0),
+                                      onSelected: _isLoading
+                                          ? null
+                                          : (on) {
+                                              setState(() {
+                                                _venueType = on ? t : null;
+                                              });
+                                              field.didChange(_venueType);
+                                            },
+                                    );
+                                  }).toList(),
+                                ),
+                                if (field.errorText != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      field.errorText!,
+                                      style: const TextStyle(
+                                        color: Colors.red,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+                        const SizedBox(height: 24),
                         _buildLabel('Post type *'),
                         const SizedBox(height: 8),
                         FormField<String>(
@@ -377,80 +504,114 @@ class _PostScreenState extends State<PostScreen> {
                         _buildLabel('How Crowded Is It?'),
                         const SizedBox(height: 8),
                         _buildCrowdingSlider(),
-                        const SizedBox(height: 24),
-                        _buildLabel('Vibe'),
-                        _buildTextField(
-                          controller: _vibe,
-                          hint: 'e.g. Cozy, Trendy, Casual',
-                        ),
-                        const SizedBox(height: 24),
-                        _buildLabel('Wait time'),
-                        _buildTextField(
-                          controller: _waitTime,
-                          hint: 'e.g. No wait, 5–10m, 30m+',
-                        ),
-                        const SizedBox(height: 24),
-                        _buildLabel('Noise level'),
-                        const SizedBox(height: 8),
-                        _buildLevelSlider(
-                          value: _noiseLevel,
-                          onChanged: (v) => setState(() => _noiseLevel = v),
-                        ),
-                        const SizedBox(height: 24),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Music playing'),
-                          value: _hasMusic,
-                          onChanged: _isLoading
-                              ? null
-                              : (v) => setState(() => _hasMusic = v),
-                        ),
-                        const SizedBox(height: 8),
-                        _buildLabel('Crowd / demographics'),
-                        _buildTextField(
-                          controller: _demographics,
-                          hint: 'e.g. Locals, Tourists, Young',
-                        ),
-                        const SizedBox(height: 24),
-                        _buildLabel('Dress code'),
-                        _buildTextField(
-                          controller: _dressCode,
-                          hint: 'e.g. Casual, Smart casual',
-                        ),
-                        const SizedBox(height: 24),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Wheelchair accessible'),
-                          value: _wheelchairAccessible,
-                          onChanged: _isLoading
-                              ? null
-                              : (v) =>
-                                  setState(() => _wheelchairAccessible = v),
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Stroller friendly'),
-                          value: _strollerFriendly,
-                          onChanged: _isLoading
-                              ? null
-                              : (v) => setState(() => _strollerFriendly = v),
-                        ),
-                        SwitchListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: const Text('Has deals'),
-                          value: _hasDeals,
-                          onChanged: _isLoading
-                              ? null
-                              : (v) => setState(() => _hasDeals = v),
-                        ),
-                        const SizedBox(height: 16),
-                        _buildLabel('Staff availability'),
-                        const SizedBox(height: 8),
-                        _buildLevelSlider(
-                          value: _staffAvailability,
-                          onChanged: (v) =>
-                              setState(() => _staffAvailability = v),
-                        ),
+                        if (_hasVenue) ...[
+                          const SizedBox(height: 24),
+                          _buildMaleFemaleRatioSlider(),
+                          const SizedBox(height: 20),
+                          _buildAdultKidRatioSlider(),
+                          if (_showAgeRange) ...[
+                            const SizedBox(height: 20),
+                            _buildLabel('Age range (optional)'),
+                            const SizedBox(height: 8),
+                            _buildAgeRangeDropdown(),
+                          ],
+                          if (_showHasPets) ...[
+                            const SizedBox(height: 8),
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Pets present'),
+                              value: _hasPets,
+                              onChanged: _isLoading
+                                  ? null
+                                  : (v) => setState(() => _hasPets = v),
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _buildLabel('Vibe'),
+                          _buildTextField(
+                            controller: _vibe,
+                            hint: 'e.g. Cozy, Trendy, Casual',
+                          ),
+                          if (_showWaitTime) ...[
+                            const SizedBox(height: 24),
+                            _buildLabel('Wait time'),
+                            _buildTextField(
+                              controller: _waitTime,
+                              hint: 'e.g. No wait, 5–10m, 30m+',
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          _buildLabel('Noise level'),
+                          const SizedBox(height: 8),
+                          _buildLevelSlider(
+                            value: _noiseLevel,
+                            onChanged: (v) => setState(() => _noiseLevel = v),
+                          ),
+                          const SizedBox(height: 24),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Music playing'),
+                            value: _hasMusic,
+                            onChanged: _isLoading
+                                ? null
+                                : (v) => setState(() => _hasMusic = v),
+                          ),
+                          if (_showDemographics) ...[
+                            const SizedBox(height: 8),
+                            _buildLabel('Crowd / demographics'),
+                            _buildTextField(
+                              controller: _demographics,
+                              hint: 'e.g. Locals, Tourists, Young',
+                            ),
+                          ],
+                          if (_showDressCode) ...[
+                            const SizedBox(height: 24),
+                            _buildLabel('Dress code'),
+                            _buildTextField(
+                              controller: _dressCode,
+                              hint: 'e.g. Casual, Smart casual',
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                          SwitchListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: const Text('Wheelchair accessible'),
+                            value: _wheelchairAccessible,
+                            onChanged: _isLoading
+                                ? null
+                                : (v) =>
+                                    setState(() => _wheelchairAccessible = v),
+                          ),
+                          if (_showStrollerFriendly)
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Stroller friendly'),
+                              value: _strollerFriendly,
+                              onChanged: _isLoading
+                                  ? null
+                                  : (v) =>
+                                      setState(() => _strollerFriendly = v),
+                            ),
+                          if (_showDeals)
+                            SwitchListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: const Text('Has deals'),
+                              value: _hasDeals,
+                              onChanged: _isLoading
+                                  ? null
+                                  : (v) => setState(() => _hasDeals = v),
+                            ),
+                          if (_showStaffAvailability) ...[
+                            const SizedBox(height: 16),
+                            _buildLabel('Staff availability'),
+                            const SizedBox(height: 8),
+                            _buildLevelSlider(
+                              value: _staffAvailability,
+                              onChanged: (v) =>
+                                  setState(() => _staffAvailability = v),
+                            ),
+                          ],
+                        ],
                         const SizedBox(height: 24),
                         _buildLabel('Photo or video (optional)'),
                         const SizedBox(height: 8),
@@ -584,6 +745,127 @@ class _PostScreenState extends State<PostScreen> {
             horizontal: 16,
             vertical: 14,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMaleFemaleRatioSlider() {
+    final m = _malePercent.round().clamp(0, 100);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildLabel('Male / female mix'),
+            Text(
+              'M/F: $m/${100 - m}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: _malePercent.clamp(0, 100),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          label: 'M/F: $m/${100 - m}',
+          onChanged: _isLoading
+              ? null
+              : (v) => setState(() => _malePercent = v),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'More female',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            Text(
+              'More male',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAdultKidRatioSlider() {
+    final a = _adultPercent.round().clamp(0, 100);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _buildLabel('Adults / kids mix'),
+            Text(
+              'A/K: $a/${100 - a}',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: _adultPercent.clamp(0, 100),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          label: 'A/K: $a/${100 - a}',
+          onChanged: _isLoading
+              ? null
+              : (v) => setState(() => _adultPercent = v),
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'More kids',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+            Text(
+              'More adults',
+              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAgeRangeDropdown() {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String?>(
+          isExpanded: true,
+          hint: const Text('Optional'),
+          value: _ageRange,
+          items: [
+            const DropdownMenuItem<String?>(
+              value: null,
+              child: Text('— None —'),
+            ),
+            ..._ageRangeOptions.map(
+              (e) => DropdownMenuItem<String?>(value: e, child: Text(e)),
+            ),
+          ],
+          onChanged: _isLoading
+              ? null
+              : (v) => setState(() => _ageRange = v),
         ),
       ),
     );

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../services/feed_service.dart';
+import '../utils/post_crowd_format.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> postData;
@@ -96,10 +97,22 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final post = widget.postData;
-    final crowdingLevel = (post['crowdingLevel'] ?? 0) as int;
+    final crowdingLevel =
+        (post['crowdingLevel'] as num?)?.toInt() ?? 0;
     final postId = post['id'] as String?;
 
     final Map<String, String> details = {};
+    final venue = post['venueType']?.toString().trim();
+    if (venue != null && venue.isNotEmpty) {
+      details['Venue type'] = venue;
+    }
+    final mfShort = PostCrowdFormat.maleFemaleShort(post['maleFemaleRatio']);
+    if (mfShort != null) details['M/F'] = mfShort;
+    final akShort = PostCrowdFormat.adultKidShort(post['adultKidRatio']);
+    if (akShort != null) details['A/K'] = akShort;
+    final ageR = post['ageRange']?.toString().trim();
+    if (ageR != null && ageR.isNotEmpty) details['Age range'] = ageR;
+    if (post['hasPets'] == true) details['Pets'] = 'Yes';
     if (post['vibe'] != null) details['Vibe'] = '${post['vibe']}';
     if (post['waitTime'] != null) details['Wait'] = '${post['waitTime']}';
     final noiseLevel = post['noiseLevel'];

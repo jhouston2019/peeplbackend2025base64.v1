@@ -50,6 +50,11 @@ final Map<String, dynamic> kLocationDetailDemoPostData = <String, dynamic>{
   'crowdingLevel': 5,
   'imageUrl': 'https://images.unsplash.com/photo-1501854140801-50d01698950b?w=800',
   'description': 'Preview from Admin Screens catalog.',
+  'venueType': 'Coffee Shop',
+  'maleFemaleRatio': 55,
+  'adultKidRatio': 80,
+  'ageRange': '20s-30s',
+  'hasPets': false,
 };
 
 Map<String, WidgetBuilder> appRoutes = {

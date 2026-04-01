@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../services/feed_service.dart';
 import '../services/native_ads_service.dart';
+import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
 import 'location_detail_screen.dart';
 import 'post_screen.dart';
@@ -255,6 +256,17 @@ class _FeedScreenState extends State<FeedScreen> {
     return '${mi.round()} mi';
   }
 
+  String _overlayCrowdDetailLine(Map<String, dynamic> post) {
+    final parts = <String>[];
+    final mf = PostCrowdFormat.maleFemaleLine(post['maleFemaleRatio']);
+    if (mf != null) parts.add(mf);
+    final ak = PostCrowdFormat.adultKidLine(post['adultKidRatio']);
+    if (ak != null) parts.add(ak);
+    final age = post['ageRange']?.toString().trim();
+    if (age != null && age.isNotEmpty) parts.add(age);
+    return parts.join(' · ');
+  }
+
   String _formatDate(dynamic ts) {
     if (ts is Timestamp) {
       final d = ts.toDate();
@@ -479,6 +491,17 @@ class _FeedScreenState extends State<FeedScreen> {
                               '${_formatDate(post['timestamp'])} · ${_formatDistance(post)}',
                               style: _overlayShadow.copyWith(fontSize: 13, color: Colors.white.withValues(alpha: 0.95)),
                             ),
+                            if (_overlayCrowdDetailLine(post).isNotEmpty) ...[
+                              const SizedBox(height: 6),
+                              Text(
+                                _overlayCrowdDetailLine(post),
+                                style: _overlayShadow.copyWith(
+                                  fontSize: 12,
+                                  color: Colors.white.withValues(alpha: 0.92),
+                                  height: 1.25,
+                                ),
+                              ),
+                            ],
                           ],
                         ),
                       ),

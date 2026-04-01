@@ -37,6 +37,11 @@ class FeedService {
     bool strollerFriendly = false,
     bool hasDeals = false,
     int? staffAvailability,
+    int maleFemaleRatio = 50,
+    int adultKidRatio = 50,
+    String? ageRange,
+    bool hasPets = false,
+    String? venueType,
   }) async {
     try {
       await _validateImageFile(imageFile);
@@ -58,7 +63,14 @@ class FeedService {
         'wheelchairAccessible': wheelchairAccessible,
         'strollerFriendly': strollerFriendly,
         'hasDeals': hasDeals,
+        'maleFemaleRatio': maleFemaleRatio.clamp(0, 100),
+        'adultKidRatio': adultKidRatio.clamp(0, 100),
+        'hasPets': hasPets,
       };
+      final vt = venueType?.trim();
+      if (vt != null && vt.isNotEmpty) doc['venueType'] = vt;
+      final ar = ageRange?.trim();
+      if (ar != null && ar.isNotEmpty) doc['ageRange'] = ar;
       final v = vibe?.trim();
       if (v != null && v.isNotEmpty) doc['vibe'] = v;
       final w = waitTime?.trim();
