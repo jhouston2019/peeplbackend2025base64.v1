@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+
 import '../services/feed_service.dart';
 import '../utils/post_crowd_format.dart';
 
@@ -92,6 +95,83 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     if (level <= 4) return const Color(0xFF4CAF50);
     if (level <= 6) return const Color(0xFFFFA726);
     return const Color(0xFFFF5722);
+  }
+
+  /// True when post has usable GPS (not missing and not placeholder 0,0).
+  static bool _hasValidMapCoords(Map<String, dynamic> post) {
+    final lat = (post['latitude'] as num?)?.toDouble();
+    final lng = (post['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return false;
+    if (lat == 0 && lng == 0) return false;
+    if (lat.abs() > 90 || lng.abs() > 180) return false;
+    return true;
+  }
+
+  Future<void> _openGeoInMaps(double lat, double lng) async {
+    final uri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
+    try {
+      final launched =
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+      if (!launched && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open maps app.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open maps: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildLocationMapSection(Map<String, dynamic> post) {
+    final lat = (post['latitude'] as num).toDouble();
+    final lng = (post['longitude'] as num).toDouble();
+    final target = LatLng(lat, lng);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 200,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: GoogleMap(
+              key: ValueKey<String>('map_${lat}_$lng'),
+              initialCameraPosition: CameraPosition(
+                target: target,
+                zoom: 15,
+              ),
+              markers: {
+                Marker(
+                  markerId: const MarkerId('post_location'),
+                  position: target,
+                ),
+              },
+              zoomControlsEnabled: false,
+              mapToolbarEnabled: false,
+              myLocationButtonEnabled: false,
+              compassEnabled: false,
+              scrollGesturesEnabled: false,
+              zoomGesturesEnabled: false,
+              rotateGesturesEnabled: false,
+              tiltGesturesEnabled: false,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          onPressed: () => _openGeoInMaps(lat, lng),
+          icon: const Icon(Icons.map_outlined),
+          label: const Text('Open in Maps'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF1565C0),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -316,6 +396,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               ),
             ],
           ),
+          if (_hasValidMapCoords(post)) ...[
+            const SizedBox(height: 20),
+            _buildLocationMapSection(post),
+          ],
           const Divider(height: 32),
           const Text('Comments',
               style:

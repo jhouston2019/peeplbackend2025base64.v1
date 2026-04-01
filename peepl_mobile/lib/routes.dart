@@ -55,6 +55,8 @@ final Map<String, dynamic> kLocationDetailDemoPostData = <String, dynamic>{
   'adultKidRatio': 80,
   'ageRange': '20s-30s',
   'hasPets': false,
+  'latitude': 40.758,
+  'longitude': -73.9855,
 };
 
 Map<String, WidgetBuilder> appRoutes = {
