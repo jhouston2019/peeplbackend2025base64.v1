@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+
+import '../constants/app_share_links.dart';
 import '../services/auth_service.dart';
 import 'location_detail_screen.dart';
 
@@ -154,9 +157,45 @@ class ProfileScreen extends StatelessWidget {
               ),
             ],
           ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _shareThisApp(context),
+              icon: const Icon(Icons.share_outlined, color: Color(0xFF1565C0)),
+              label: const Text(
+                'Share this app',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF1565C0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _shareThisApp(BuildContext context) async {
+    const msg =
+        "I'm using Peepl to see crowd levels before I go anywhere. Check it out: $kPeeplAppStoreLinkPlaceholder";
+    try {
+      await Share.share(msg);
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildPostsCount() {

@@ -2,10 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../constants/app_share_links.dart';
 import '../services/feed_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../widgets/crowd_dot_ring_meter.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> postData;
@@ -105,6 +108,24 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     if (lat == 0 && lng == 0) return false;
     if (lat.abs() > 90 || lng.abs() > 180) return false;
     return true;
+  }
+
+  Future<void> _shareLocationPost(Map<String, dynamic> post, int crowdingLevel) async {
+    final name = post['locationName']?.toString().trim().isNotEmpty == true
+        ? post['locationName'].toString().trim()
+        : 'this spot';
+    final status = CrowdDotRingMeter.statusWord(crowdingLevel);
+    final text =
+        'Check out $name on Peepl — it\'s $status right now! Download Peepl to know before you go: $kPeeplAppStoreLinkPlaceholder';
+    try {
+      await Share.share(text);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _openGeoInMaps(double lat, double lng) async {
@@ -225,7 +246,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildImageHeader(post, crowdingLevel),
+            _buildImageHeader(context, post, crowdingLevel),
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
@@ -278,7 +299,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  Widget _buildImageHeader(Map<String, dynamic> post, int crowdingLevel) {
+  Widget _buildImageHeader(
+    BuildContext context,
+    Map<String, dynamic> post,
+    int crowdingLevel,
+  ) {
     return Stack(
       children: [
         SizedBox(
@@ -314,24 +339,39 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           ),
         ),
         Positioned(
-          top: 16,
-          right: 16,
-          child: Container(
-            width: 56,
-            height: 56,
-            decoration: BoxDecoration(
-              color: _getCrowdingColor(crowdingLevel),
-              shape: BoxShape.circle,
-            ),
-            child: Center(
-              child: Text(
-                crowdingLevel.toString(),
-                style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold),
+          top: 8,
+          right: 8,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Material(
+                color: Colors.black.withOpacity(0.4),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'Share',
+                  icon: const Icon(Icons.share, color: Colors.white),
+                  onPressed: () => _shareLocationPost(post, crowdingLevel),
+                ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: _getCrowdingColor(crowdingLevel),
+                  shape: BoxShape.circle,
+                ),
+                child: Center(
+                  child: Text(
+                    crowdingLevel.toString(),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 28,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
