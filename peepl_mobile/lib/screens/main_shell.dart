@@ -27,7 +27,7 @@ class _MainShellState extends State<MainShell> {
       List<GlobalKey<NavigatorState>>.generate(4, (_) => GlobalKey());
 
   static final List<Widget> _tabRoots = <Widget>[
-    FeedScreen(),
+    const FeedScreen(),
     DiscoverScreen(),
     ChatScreen(),
     ProfileScreen(),
