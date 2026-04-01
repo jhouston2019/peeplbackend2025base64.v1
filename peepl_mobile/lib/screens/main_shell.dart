@@ -151,7 +151,7 @@ class _MainShellState extends State<MainShell> {
         ),
       ),
       bottomNavigationBar: SizedBox(
-        height: 40,
+        height: 56,
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           backgroundColor: _kBarBlue,
@@ -160,9 +160,9 @@ class _MainShellState extends State<MainShell> {
           currentIndex: barIndex,
           onTap: (i) => _onBarTap(i, isAdmin),
           items: _barItems(isAdmin),
-          iconSize: 12,
-          selectedFontSize: 8,
-          unselectedFontSize: 7,
+          iconSize: 20,
+          selectedFontSize: 11,
+          unselectedFontSize: 10,
           selectedLabelStyle: const TextStyle(height: 1.0),
           unselectedLabelStyle: const TextStyle(height: 1.0),
         ),

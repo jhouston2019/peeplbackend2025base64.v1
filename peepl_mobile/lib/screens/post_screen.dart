@@ -188,8 +188,8 @@ class _PostScreenState extends State<PostScreen> {
   double? _longitude;
   bool _isGeolocating = false;
 
-  XFile? _pickedFile;
-  bool _pickedIsVideo = false;
+  XFile? _photoFile;
+  XFile? _videoFile;
   VideoPlayerController? _videoController;
 
   bool get _hasVenue => _venueType != null && _venueType!.isNotEmpty;
@@ -327,13 +327,14 @@ class _PostScreenState extends State<PostScreen> {
     super.dispose();
   }
 
-  void _clearPickedMedia() {
-    _videoController?.dispose();
+  void _clearPhoto() {
+    setState(() => _photoFile = null);
+  }
+
+  Future<void> _clearVideo() async {
+    await _videoController?.dispose();
     _videoController = null;
-    setState(() {
-      _pickedFile = null;
-      _pickedIsVideo = false;
-    });
+    if (mounted) setState(() => _videoFile = null);
   }
 
   Future<void> _disposeVideoOnly() async {
@@ -360,24 +361,17 @@ class _PostScreenState extends State<PostScreen> {
       imageQuality: 85,
     );
     if (file == null || !mounted) return;
-    await _disposeVideoOnly();
-    setState(() {
-      _pickedFile = file;
-      _pickedIsVideo = false;
-    });
+    setState(() => _photoFile = file);
   }
 
   Future<void> _pickVideo(ImageSource source) async {
     final XFile? file = await _picker.pickVideo(source: source);
     if (file == null || !mounted) return;
-    setState(() {
-      _pickedFile = file;
-      _pickedIsVideo = true;
-    });
+    setState(() => _videoFile = file);
     await _initVideoPreview(file.path);
   }
 
-  void _showMediaPickerSheet() {
+  void _showPhotoPickerSheet() {
     showModalBottomSheet<void>(
       context: context,
       builder: (ctx) => SafeArea(
@@ -399,6 +393,18 @@ class _PostScreenState extends State<PostScreen> {
                 _pickImage(ImageSource.gallery);
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVideoPickerSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
             ListTile(
               leading: const Icon(Icons.videocam_outlined),
               title: const Text('Record video'),
@@ -421,11 +427,9 @@ class _PostScreenState extends State<PostScreen> {
     );
   }
 
-  String _extensionForUpload() {
-    if (_pickedFile == null) return '.jpg';
-    final path = _pickedFile!.path;
+  String _extensionForPath(String path, {required bool isVideo}) {
     final lower = path.toLowerCase();
-    if (_pickedIsVideo) {
+    if (isVideo) {
       if (lower.endsWith('.mov')) return '.mov';
       if (lower.endsWith('.webm')) return '.webm';
       return '.mp4';
@@ -438,6 +442,13 @@ class _PostScreenState extends State<PostScreen> {
 
   Future<void> _submitPost() async {
     if (!_formKey.currentState!.validate()) return;
+    if (_photoFile == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add a photo before posting')),
+      );
+      return;
+    }
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       Navigator.pushReplacementNamed(context, '/login');
@@ -448,23 +459,29 @@ class _PostScreenState extends State<PostScreen> {
       String imageUrl = _defaultImageUrl;
       String? videoUrl;
 
-      if (_pickedFile != null) {
-        final file = File(_pickedFile!.path);
-        if (!await file.exists()) {
-          throw Exception('Selected file is no longer available.');
+      final photoPath = _photoFile!.path;
+      final photoDisk = File(photoPath);
+      if (!await photoDisk.exists()) {
+        throw Exception('Selected photo is no longer available.');
+      }
+      final tsBase = DateTime.now().millisecondsSinceEpoch;
+      final photoExt = _extensionForPath(photoPath, isVideo: false);
+      final photoRef = FirebaseStorage.instance
+          .ref('posts/${user.uid}/${tsBase}_photo$photoExt');
+      await photoRef.putFile(photoDisk);
+      imageUrl = await photoRef.getDownloadURL();
+
+      if (_videoFile != null) {
+        final videoPath = _videoFile!.path;
+        final videoDisk = File(videoPath);
+        if (!await videoDisk.exists()) {
+          throw Exception('Selected video is no longer available.');
         }
-        final ts = DateTime.now().millisecondsSinceEpoch;
-        final ext = _extensionForUpload();
-        final ref = FirebaseStorage.instance
-            .ref('posts/${user.uid}/$ts$ext');
-        await ref.putFile(file);
-        final url = await ref.getDownloadURL();
-        if (_pickedIsVideo) {
-          videoUrl = url;
-          imageUrl = _defaultImageUrl;
-        } else {
-          imageUrl = url;
-        }
+        final videoExt = _extensionForPath(videoPath, isVideo: true);
+        final videoRef = FirebaseStorage.instance
+            .ref('posts/${user.uid}/${tsBase}_video$videoExt');
+        await videoRef.putFile(videoDisk);
+        videoUrl = await videoRef.getDownloadURL();
       }
 
       final Map<String, dynamic> data = {
@@ -538,36 +555,38 @@ class _PostScreenState extends State<PostScreen> {
     return 'Very Crowded';
   }
 
-  Widget _buildMediaPreview() {
-    if (_pickedFile == null) return const SizedBox.shrink();
-    if (_pickedIsVideo) {
-      final controller = _videoController;
-      if (controller == null || !controller.value.isInitialized) {
-        return Container(
-          height: 200,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: Colors.grey[200],
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: const CircularProgressIndicator(),
-        );
-      }
-      return ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: AspectRatio(
-          aspectRatio: controller.value.aspectRatio,
-          child: VideoPlayer(controller),
+  Widget _buildPhotoPreview() {
+    if (_photoFile == null) return const SizedBox.shrink();
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.file(
+        File(_photoFile!.path),
+        fit: BoxFit.cover,
+        height: 220,
+        width: double.infinity,
+      ),
+    );
+  }
+
+  Widget _buildVideoPreview() {
+    if (_videoFile == null) return const SizedBox.shrink();
+    final controller = _videoController;
+    if (controller == null || !controller.value.isInitialized) {
+      return Container(
+        height: 200,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.grey[200],
+          borderRadius: BorderRadius.circular(12),
         ),
+        child: const CircularProgressIndicator(),
       );
     }
     return ClipRRect(
       borderRadius: BorderRadius.circular(12),
-      child: Image.file(
-        File(_pickedFile!.path),
-        fit: BoxFit.cover,
-        height: 220,
-        width: double.infinity,
+      child: AspectRatio(
+        aspectRatio: controller.value.aspectRatio,
+        child: VideoPlayer(controller),
       ),
     );
   }
@@ -822,7 +841,7 @@ class _PostScreenState extends State<PostScreen> {
                           ],
                         ],
                         const SizedBox(height: 24),
-                        _buildLabel('Photo or video (optional)'),
+                        _buildLabel('Photo (required)'),
                         const SizedBox(height: 8),
                         Row(
                           children: [
@@ -830,9 +849,9 @@ class _PostScreenState extends State<PostScreen> {
                               child: OutlinedButton.icon(
                                 onPressed: _isLoading
                                     ? null
-                                    : _showMediaPickerSheet,
+                                    : _showPhotoPickerSheet,
                                 icon: const Icon(Icons.add_a_photo_outlined),
-                                label: const Text('Add media'),
+                                label: const Text('Add photo'),
                                 style: OutlinedButton.styleFrom(
                                   foregroundColor: const Color(0xFF1565C0),
                                   padding: const EdgeInsets.symmetric(
@@ -841,20 +860,53 @@ class _PostScreenState extends State<PostScreen> {
                                 ),
                               ),
                             ),
-                            if (_pickedFile != null) ...[
+                            if (_photoFile != null) ...[
                               const SizedBox(width: 12),
                               IconButton.filledTonal(
-                                onPressed:
-                                    _isLoading ? null : _clearPickedMedia,
+                                onPressed: _isLoading ? null : _clearPhoto,
                                 icon: const Icon(Icons.close),
-                                tooltip: 'Remove media',
+                                tooltip: 'Remove photo',
                               ),
                             ],
                           ],
                         ),
-                        if (_pickedFile != null) ...[
+                        if (_photoFile != null) ...[
                           const SizedBox(height: 16),
-                          _buildMediaPreview(),
+                          _buildPhotoPreview(),
+                        ],
+                        const SizedBox(height: 20),
+                        _buildLabel('Video (optional)'),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: OutlinedButton.icon(
+                                onPressed: _isLoading
+                                    ? null
+                                    : _showVideoPickerSheet,
+                                icon: const Icon(Icons.videocam_outlined),
+                                label: const Text('Add video'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF1565C0),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_videoFile != null) ...[
+                              const SizedBox(width: 12),
+                              IconButton.filledTonal(
+                                onPressed: _isLoading ? null : _clearVideo,
+                                icon: const Icon(Icons.close),
+                                tooltip: 'Remove video',
+                              ),
+                            ],
+                          ],
+                        ),
+                        if (_videoFile != null) ...[
+                          const SizedBox(height: 16),
+                          _buildVideoPreview(),
                         ],
                         const SizedBox(height: 32),
                         SizedBox(

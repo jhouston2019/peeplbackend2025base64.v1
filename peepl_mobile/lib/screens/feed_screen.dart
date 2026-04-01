@@ -46,6 +46,8 @@ class _FeedScreenState extends State<FeedScreen> {
     ],
   );
 
+  static const Color _kPostCtaTeal = Color(0xFF00897B);
+
   @override
   void initState() {
     super.initState();
@@ -305,55 +307,95 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.of(context, rootNavigator: true).push(
-              MaterialPageRoute<void>(builder: (_) => const PostScreen()),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.of(context, rootNavigator: true).push(
+                MaterialPageRoute<void>(builder: (_) => const PostScreen()),
+              ),
+              borderRadius: BorderRadius.circular(12),
+              child: Ink(
+                decoration: BoxDecoration(
+                  color: _kPostCtaTeal,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.28),
+                      offset: const Offset(0, 2),
+                      blurRadius: 6,
+                      spreadRadius: 0,
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.add_rounded,
+                        color: Colors.white,
+                        size: 26,
+                        weight: 700,
+                        fill: 1,
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'POST',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          height: 1.0,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 13),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  'POST',
-                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600, height: 1.0),
-                ),
-              ],
+              ),
             ),
           ),
           const Text(
             'Peepl',
-            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.0),
+            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, height: 1.0),
           ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/settings'),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 22,
-                  height: 22,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: const Icon(Icons.help_outline, color: Colors.white, size: 13),
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => Navigator.pushNamed(context, '/settings'),
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.white, width: 2),
                 ),
-                const SizedBox(height: 2),
-                const Text(
-                  "WHAT'S\nCROWDED?",
-                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600, height: 1.05),
-                  textAlign: TextAlign.center,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.help_outline_rounded,
+                      color: Colors.white,
+                      size: 24,
+                      weight: 600,
+                      fill: 1,
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      "WHAT'S\nCROWDED?",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                        height: 1.08,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ],
@@ -365,25 +407,27 @@ class _FeedScreenState extends State<FeedScreen> {
     Widget pill(String label, _SortMode mode) {
       final selected = _sortMode == mode;
       return Padding(
-        padding: const EdgeInsets.only(right: 8),
+        padding: const EdgeInsets.only(right: 6),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: () => _onSortChanged(mode),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: Colors.white.withValues(alpha: selected ? 0 : 0.35)),
               ),
               child: Text(
                 label,
+                maxLines: 1,
+                overflow: TextOverflow.clip,
                 style: TextStyle(
                   color: selected ? const Color(0xFF1565C0) : Colors.white,
                   fontWeight: FontWeight.w600,
-                  fontSize: 13,
+                  fontSize: 11,
                 ),
               ),
             ),
@@ -393,10 +437,10 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     return SizedBox(
-      height: 44,
+      height: 36,
       child: ListView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(0, 0, 16, 8),
+        padding: const EdgeInsets.fromLTRB(0, 0, 12, 6),
         children: [
           pill('Rating', _SortMode.rating),
           pill('Date', _SortMode.date),
