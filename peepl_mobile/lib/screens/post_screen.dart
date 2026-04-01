@@ -4,6 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:video_player/video_player.dart';
 
@@ -59,7 +61,7 @@ class _PostScreenState extends State<PostScreen> {
       GlobalKey<FormFieldState<String>>();
   final GlobalKey<FormFieldState<String>> _venueFieldKey =
       GlobalKey<FormFieldState<String>>();
-  final TextEditingController _locationName = TextEditingController();
+  final TextEditingController _locationController = TextEditingController();
   final TextEditingController _vibe = TextEditingController();
   final TextEditingController _waitTime = TextEditingController();
   final TextEditingController _demographics = TextEditingController();
@@ -80,6 +82,10 @@ class _PostScreenState extends State<PostScreen> {
   double _adultPercent = 50;
   String? _ageRange;
   bool _hasPets = false;
+
+  double? _latitude;
+  double? _longitude;
+  bool _isGeolocating = false;
 
   XFile? _pickedFile;
   bool _pickedIsVideo = false;
@@ -123,9 +129,101 @@ class _PostScreenState extends State<PostScreen> {
       _hasVenue && _venueType != 'Transit';
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _resolveLocationAndGeocode();
+    });
+  }
+
+  /// Reverse-geocode [placemark] into a short place label for the location field.
+  static String _formatPlacemark(Placemark p) {
+    final street = p.street?.trim();
+    final subLocal = p.subLocality?.trim();
+    final line1 = <String>[
+      if (street != null && street.isNotEmpty) street,
+      if (subLocal != null && subLocal.isNotEmpty) subLocal,
+    ].join(', ');
+    final locality = p.locality?.trim();
+    final admin = p.administrativeArea?.trim();
+    final line2 = <String>[
+      if (locality != null && locality.isNotEmpty) locality,
+      if (admin != null && admin.isNotEmpty) admin,
+    ].join(', ');
+    if (line1.isNotEmpty && line2.isNotEmpty) return '$line1, $line2';
+    if (line1.isNotEmpty) return line1;
+    if (line2.isNotEmpty) return line2;
+    final name = p.name?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return '';
+  }
+
+  Future<void> _resolveLocationAndGeocode() async {
+    if (!mounted) return;
+    setState(() => _isGeolocating = true);
+    try {
+      final serviceOn = await Geolocator.isLocationServiceEnabled();
+      if (!serviceOn) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Turn on location services to detect your place.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Location permission is needed to fill your place.'),
+            ),
+          );
+        }
+        return;
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.medium,
+      );
+      if (!mounted) return;
+      setState(() {
+        _latitude = pos.latitude;
+        _longitude = pos.longitude;
+      });
+
+      final placemarks =
+          await placemarkFromCoordinates(pos.latitude, pos.longitude);
+      if (!mounted) return;
+      if (placemarks.isNotEmpty) {
+        final label = _formatPlacemark(placemarks.first);
+        if (label.isNotEmpty) {
+          _locationController.text = label;
+        }
+      }
+    } catch (e, st) {
+      debugPrint('Geolocation/geocoding failed: $e\n$st');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not detect location: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGeolocating = false);
+    }
+  }
+
+  @override
   void dispose() {
     _videoController?.dispose();
-    _locationName.dispose();
+    _locationController.dispose();
     _vibe.dispose();
     _waitTime.dispose();
     _demographics.dispose();
@@ -278,9 +376,9 @@ class _PostScreenState extends State<PostScreen> {
         'username': user.displayName ??
             user.email?.split('@').first ??
             'Anonymous',
-        'locationName': _locationName.text.trim(),
-        'latitude': 0.0,
-        'longitude': 0.0,
+        'locationName': _locationController.text.trim(),
+        'latitude': _latitude ?? 0.0,
+        'longitude': _longitude ?? 0.0,
         'crowdingLevel': _crowdingLevel,
         'imageUrl': imageUrl,
         'post_type': _postTypeFieldKey.currentState?.value,
@@ -493,13 +591,7 @@ class _PostScreenState extends State<PostScreen> {
                         ),
                         const SizedBox(height: 24),
                         _buildLabel('Location Name *'),
-                        _buildTextField(
-                          controller: _locationName,
-                          hint: 'e.g. Central Park, Hyde Park',
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Please enter a location name'
-                              : null,
-                        ),
+                        _buildLocationField(),
                         const SizedBox(height: 24),
                         _buildLabel('How Crowded Is It?'),
                         const SizedBox(height: 8),
@@ -744,6 +836,58 @@ class _PostScreenState extends State<PostScreen> {
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationField() {
+    return Container(
+      margin: const EdgeInsets.only(top: 8),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: TextFormField(
+        controller: _locationController,
+        validator: (v) => v == null || v.trim().isEmpty
+            ? 'Please enter a location name'
+            : null,
+        decoration: InputDecoration(
+          hintText: 'e.g. Central Park, Hyde Park',
+          border: InputBorder.none,
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 16,
+            vertical: 14,
+          ),
+          suffixIconConstraints: const BoxConstraints(
+            minHeight: 48,
+            minWidth: 88,
+          ),
+          suffixIcon: Padding(
+            padding: const EdgeInsetsDirectional.only(end: 4),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_isGeolocating)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 4),
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  ),
+                IconButton(
+                  tooltip: 'Use current location',
+                  icon: const Icon(Icons.location_pin),
+                  onPressed: (_isGeolocating || _isLoading)
+                      ? null
+                      : _resolveLocationAndGeocode,
+                ),
+              ],
+            ),
           ),
         ),
       ),

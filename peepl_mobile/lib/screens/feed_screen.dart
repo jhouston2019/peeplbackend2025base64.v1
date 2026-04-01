@@ -70,7 +70,7 @@ class _FeedScreenState extends State<FeedScreen> {
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(accuracy: LocationAccuracy.medium),
+        desiredAccuracy: LocationAccuracy.medium,
       );
       if (!mounted) return;
       _userLat = pos.latitude;
