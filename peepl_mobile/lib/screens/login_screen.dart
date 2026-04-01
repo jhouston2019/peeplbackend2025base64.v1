@@ -168,7 +168,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     SizedBox(height: 80),
                     Text('Peepl', style: TextStyle(color: Color(0xFF1565C0), fontSize: 64, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 100),
+                    SizedBox(height: 48),
                     Align(alignment: Alignment.centerLeft,
                       child: Text('Email Address', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w600))),
                     SizedBox(height: 8),
@@ -195,16 +195,40 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     if (_isLoginMode) ...[
+                      const SizedBox(height: 4),
                       Align(
-                        alignment: Alignment.centerLeft,
+                        alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _loading ? null : _showForgotPasswordDialog,
+                          onPressed:
+                              _loading ? null : _showForgotPasswordDialog,
+                          style: TextButton.styleFrom(
+                            foregroundColor: const Color(0xFF1565C0),
+                            disabledForegroundColor: const Color(0x801565C0),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 10,
+                            ),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
                           child: const Text(
                             'Forgot Password?',
                             style: TextStyle(
-                              color: Color(0xFF1565C0),
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              decoration: TextDecoration.underline,
+                              decorationColor: Color(0xFF1565C0),
+                              shadows: [
+                                Shadow(
+                                  color: Color(0xE6FFFFFF),
+                                  blurRadius: 6,
+                                ),
+                                Shadow(
+                                  color: Color(0xB3FFFFFF),
+                                  blurRadius: 2,
+                                  offset: Offset(0, 0),
+                                ),
+                              ],
                             ),
                           ),
                         ),
