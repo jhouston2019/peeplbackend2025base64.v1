@@ -40,7 +40,9 @@ function tryInitFirebaseAdmin() {
 tryInitFirebaseAdmin();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = Number(process.env.PORT) || 3000;
+// Bind on all interfaces so platforms like Railway can route traffic to the process.
+const HOST = process.env.HOST || '0.0.0.0';
 
 app.use(cors());
 
@@ -68,6 +70,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Peepl Backend listening on port ${PORT}`);
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught exception:', err);
+});
+
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled rejection:', err);
+});
+
+console.log(`Starting server on port ${PORT}...`);
+
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on port ${PORT}`);
 });
