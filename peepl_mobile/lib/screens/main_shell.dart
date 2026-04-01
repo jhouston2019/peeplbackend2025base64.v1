@@ -150,14 +150,22 @@ class _MainShellState extends State<MainShell> {
           (i) => _tabNavigator(i),
         ),
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: _kBarBlue,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.5),
-        currentIndex: barIndex,
-        onTap: (i) => _onBarTap(i, isAdmin),
-        items: _barItems(isAdmin),
+      bottomNavigationBar: SizedBox(
+        height: 40,
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: _kBarBlue,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white.withValues(alpha: 0.5),
+          currentIndex: barIndex,
+          onTap: (i) => _onBarTap(i, isAdmin),
+          items: _barItems(isAdmin),
+          iconSize: 12,
+          selectedFontSize: 8,
+          unselectedFontSize: 7,
+          selectedLabelStyle: const TextStyle(height: 1.0),
+          unselectedLabelStyle: const TextStyle(height: 1.0),
+        ),
       ),
     );
   }

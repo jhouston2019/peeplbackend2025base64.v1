@@ -25,15 +25,17 @@ class CrowdDotRingMeter extends StatelessWidget {
     return 'PACKED';
   }
 
-  /// Filled-dot color: red busy/packed, blue moderate, white/grey light/empty.
+  /// Filled dots: fully opaque, strong color.
   static Color filledDotColor(int l) {
     final v = clampLevel(l);
-    if (v <= 4) return const Color(0xFFE0E0E0);
-    if (v <= 6) return const Color(0xFF42A5F5);
-    return const Color(0xFFE53935);
+    if (v <= 4) return const Color(0xFFECEFF1);
+    if (v <= 6) return const Color(0xFF1565C0);
+    return const Color(0xFFC62828);
   }
 
-  static Color emptyDotColor() => Colors.white.withValues(alpha: 0.28);
+  /// Empty dots: ~15% opacity white.
+  static Color emptyDotColor() =>
+      Colors.white.withValues(alpha: 0.15);
 
   @override
   Widget build(BuildContext context) {
@@ -61,11 +63,15 @@ class CrowdDotRingMeter extends StatelessWidget {
             textAlign: TextAlign.center,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 9,
+              fontSize: 11,
               fontWeight: FontWeight.bold,
               height: 1.05,
               shadows: [
-                Shadow(offset: Offset(0, 1), blurRadius: 4, color: Colors.black87),
+                Shadow(
+                  offset: Offset(0, 1),
+                  blurRadius: 5,
+                  color: Colors.black87,
+                ),
               ],
             ),
           ),
@@ -87,12 +93,15 @@ class _DotRingPainter extends CustomPainter {
   final Color emptyColor;
 
   static const int _totalDots = 10;
-  static const double _dotRadius = 3.2;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
     final center = Offset(size.width / 2, size.height / 2);
-    final ringR = math.min(size.width, size.height) / 2 - _dotRadius - 3;
+    // Larger dots, tighter ring (smaller ring radius) vs legacy constants.
+    final dotR = (s * 0.0684).clamp(4.0, 6.2);
+    final inset = (s * 0.0855).clamp(2.0, 7.0);
+    final ringR = s / 2 - dotR - inset;
 
     for (var i = 0; i < _totalDots; i++) {
       final angle = -math.pi / 2 + (2 * math.pi * i / _totalDots);
@@ -100,8 +109,9 @@ class _DotRingPainter extends CustomPainter {
       final cy = center.dy + ringR * math.sin(angle);
       final paint = Paint()
         ..color = i < filledCount ? filledColor : emptyColor
-        ..isAntiAlias = true;
-      canvas.drawCircle(Offset(cx, cy), _dotRadius, paint);
+        ..isAntiAlias = true
+        ..style = PaintingStyle.fill;
+      canvas.drawCircle(Offset(cx, cy), dotR, paint);
     }
   }
 

@@ -31,18 +31,119 @@ class _PostScreenState extends State<PostScreen> {
     'Vibe Check',
   ];
 
-  static const List<String> _venueTypes = <String>[
+  /// Grouped venue chips; flat list used for validation and visibility logic.
+  static const List<(String label, List<String> types)> _venueTypeGroups =
+      <(String, List<String>)>[
+    (
+      'Food & Drink',
+      <String>[
+        'Restaurant',
+        'Bar',
+        'Cafe',
+        'Food Truck',
+        'Brewery',
+      ],
+    ),
+    (
+      'Retail',
+      <String>[
+        'Grocery Store',
+        'Mall',
+        'Pharmacy',
+        'Convenience Store',
+      ],
+    ),
+    (
+      'Health',
+      <String>[
+        'Hospital',
+        'Clinic',
+        'Gym',
+        'Spa',
+        'Urgent Care',
+      ],
+    ),
+    (
+      'Transport',
+      <String>[
+        'Airport',
+        'Train Station',
+        'Bus Terminal',
+        'Gas Station',
+      ],
+    ),
+    (
+      'Services',
+      <String>[
+        'Bank',
+        'DMV',
+        'Courthouse',
+        'Post Office',
+        'Auto Shop',
+      ],
+    ),
+    (
+      'Entertainment',
+      <String>[
+        'Movie Theater',
+        'Concert Venue',
+        'Stadium',
+        'Museum',
+        'Park',
+      ],
+    ),
+    (
+      'Community',
+      <String>[
+        'Church',
+        'Library',
+        'Community Center',
+        'School',
+      ],
+    ),
+    (
+      'Other',
+      <String>[
+        'Hotel',
+        'Beach',
+        'Event Space',
+        'Other',
+      ],
+    ),
+  ];
+
+  static final Set<String> _transportVenueTypes = {
+    for (final g in _venueTypeGroups)
+      if (g.$1 == 'Transport') ...g.$2,
+  };
+
+  static final Set<String> _retailVenueTypes = {
+    for (final g in _venueTypeGroups)
+      if (g.$1 == 'Retail') ...g.$2,
+  };
+
+  /// Venues where “pets present” is shown (outdoor, hospitality, social).
+  static const Set<String> _petsRelevantVenueTypes = {
     'Restaurant',
     'Bar',
-    'Coffee Shop',
+    'Cafe',
+    'Food Truck',
+    'Brewery',
     'Park',
-    'Event',
-    'Retail',
-    'Transit',
     'Beach',
     'Hotel',
+    'Event Space',
     'Other',
-  ];
+    'Movie Theater',
+    'Concert Venue',
+    'Stadium',
+    'Museum',
+    'Church',
+    'Library',
+    'Community Center',
+    'School',
+    'Mall',
+  };
 
   static const List<String> _ageRangeOptions = <String>[
     'Teens',
@@ -93,40 +194,35 @@ class _PostScreenState extends State<PostScreen> {
 
   bool get _hasVenue => _venueType != null && _venueType!.isNotEmpty;
 
-  bool get _showWaitTime =>
-      _hasVenue && !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+  bool get _noWaitDressStaffContext =>
+      _hasVenue &&
+      (_transportVenueTypes.contains(_venueType) ||
+          _venueType == 'Park' ||
+          _venueType == 'Beach');
+
+  bool get _showWaitTime => _hasVenue && !_noWaitDressStaffContext;
 
   bool get _showDressCode =>
       _hasVenue &&
-      !const {'Transit', 'Park', 'Beach', 'Retail'}.contains(_venueType);
+      !_noWaitDressStaffContext &&
+      !(_retailVenueTypes.contains(_venueType));
 
-  bool get _showStaffAvailability =>
-      _hasVenue && !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+  bool get _showStaffAvailability => _hasVenue && !_noWaitDressStaffContext;
 
   bool get _showDemographics =>
-      _hasVenue && _venueType != 'Transit';
+      _hasVenue && !_transportVenueTypes.contains(_venueType);
 
-  bool get _showAgeRange => _hasVenue && _venueType != 'Transit';
+  bool get _showAgeRange =>
+      _hasVenue && !_transportVenueTypes.contains(_venueType);
 
   bool get _showHasPets =>
       _hasVenue &&
-      const {
-        'Park',
-        'Beach',
-        'Restaurant',
-        'Bar',
-        'Coffee Shop',
-        'Event',
-        'Hotel',
-        'Other',
-      }.contains(_venueType);
+      _petsRelevantVenueTypes.contains(_venueType);
 
-  bool get _showDeals =>
-      _hasVenue &&
-      !const {'Transit', 'Park', 'Beach'}.contains(_venueType);
+  bool get _showDeals => _hasVenue && !_noWaitDressStaffContext;
 
   bool get _showStrollerFriendly =>
-      _hasVenue && _venueType != 'Transit';
+      _hasVenue && !_transportVenueTypes.contains(_venueType);
 
   @override
   void initState() {
@@ -512,27 +608,48 @@ class _PostScreenState extends State<PostScreen> {
                               children: [
                                 _buildLabel('Venue type *'),
                                 const SizedBox(height: 8),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: _venueTypes.map((t) {
-                                    final sel = _venueType == t;
-                                    return FilterChip(
-                                      label: Text(t),
-                                      selected: sel,
-                                      selectedColor:
-                                          const Color(0xFF1565C0).withValues(alpha: 0.25),
-                                      checkmarkColor: const Color(0xFF1565C0),
-                                      onSelected: _isLoading
-                                          ? null
-                                          : (on) {
-                                              setState(() {
-                                                _venueType = on ? t : null;
-                                              });
-                                              field.didChange(_venueType);
-                                            },
-                                    );
-                                  }).toList(),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (var i = 0;
+                                        i < _venueTypeGroups.length;
+                                        i++) ...[
+                                      if (i > 0) const SizedBox(height: 12),
+                                      Text(
+                                        _venueTypeGroups[i].$1,
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600,
+                                          color: Colors.grey[600],
+                                          letterSpacing: 0.2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 6),
+                                      Wrap(
+                                        spacing: 8,
+                                        runSpacing: 8,
+                                        children: _venueTypeGroups[i].$2.map((t) {
+                                          final sel = _venueType == t;
+                                          return FilterChip(
+                                            label: Text(t),
+                                            selected: sel,
+                                            selectedColor: const Color(0xFF1565C0)
+                                                .withValues(alpha: 0.25),
+                                            checkmarkColor:
+                                                const Color(0xFF1565C0),
+                                            onSelected: _isLoading
+                                                ? null
+                                                : (on) {
+                                                    setState(() {
+                                                      _venueType = on ? t : null;
+                                                    });
+                                                    field.didChange(_venueType);
+                                                  },
+                                          );
+                                        }).toList(),
+                                      ),
+                                    ],
+                                  ],
                                 ),
                                 if (field.errorText != null)
                                   Padding(

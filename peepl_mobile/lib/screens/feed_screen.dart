@@ -300,48 +300,57 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildAppBar() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           GestureDetector(
             onTap: () => Navigator.of(context, rootNavigator: true).push(
               MaterialPageRoute<void>(builder: (_) => const PostScreen()),
             ),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Icon(Icons.add, color: Colors.white),
+                  child: const Icon(Icons.add, color: Colors.white, size: 13),
                 ),
-                const SizedBox(height: 4),
-                const Text('POST', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                const Text(
+                  'POST',
+                  style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600, height: 1.0),
+                ),
               ],
             ),
           ),
-          const Text('Peepl', style: TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
+          const Text(
+            'Peepl',
+            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold, height: 1.0),
+          ),
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/settings'),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
-                  width: 40,
-                  height: 40,
+                  width: 22,
+                  height: 22,
                   decoration: BoxDecoration(
                     color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Icon(Icons.help_outline, color: Colors.white),
+                  child: const Icon(Icons.help_outline, color: Colors.white, size: 13),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 2),
                 const Text(
                   "WHAT'S\nCROWDED?",
-                  style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600, height: 1.1),
+                  style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.w600, height: 1.05),
                   textAlign: TextAlign.center,
                 ),
               ],
@@ -425,7 +434,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _buildLocationCard(Map<String, dynamic> post) {
     final crowdingLevel = _crowdLevel(post);
     final w = MediaQuery.sizeOf(context).width;
-    final cardHeight = w * 0.72;
+    final cardHeight = w * 0.38;
 
     return GestureDetector(
       onTap: () => Navigator.push(
@@ -446,7 +455,7 @@ class _FeedScreenState extends State<FeedScreen> {
               errorBuilder: (context, error, stackTrace) => Container(
                 color: Colors.black26,
                 alignment: Alignment.center,
-                child: const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 48),
+                child: const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 26),
               ),
             ),
             DecoratedBox(
@@ -464,7 +473,7 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 12, 16),
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -477,35 +486,35 @@ class _FeedScreenState extends State<FeedScreen> {
                           children: [
                             Text(
                               post['locationName']?.toString() ?? 'Unknown',
-                              style: _overlayShadow.copyWith(fontSize: 22, fontWeight: FontWeight.bold),
+                              style: _overlayShadow.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               post['username']?.toString() ?? 'Unknown',
-                              style: _overlayShadow.copyWith(fontSize: 15, fontWeight: FontWeight.w500),
+                              style: _overlayShadow.copyWith(fontSize: 9, fontWeight: FontWeight.w500),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
                               '${_formatDate(post['timestamp'])} · ${_formatDistance(post)}',
-                              style: _overlayShadow.copyWith(fontSize: 13, color: Colors.white.withValues(alpha: 0.95)),
+                              style: _overlayShadow.copyWith(fontSize: 8, color: Colors.white.withValues(alpha: 0.95)),
                             ),
                             if (_overlayCrowdDetailLine(post).isNotEmpty) ...[
-                              const SizedBox(height: 6),
+                              const SizedBox(height: 3),
                               Text(
                                 _overlayCrowdDetailLine(post),
                                 style: _overlayShadow.copyWith(
-                                  fontSize: 12,
+                                  fontSize: 7,
                                   color: Colors.white.withValues(alpha: 0.92),
-                                  height: 1.25,
+                                  height: 1.2,
                                 ),
                               ),
                             ],
                           ],
                         ),
                       ),
-                      CrowdDotRingMeter(level: crowdingLevel, size: 78),
+                      CrowdDotRingMeter(level: crowdingLevel, size: 44),
                     ],
                   ),
                 ],
