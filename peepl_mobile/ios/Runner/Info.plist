@@ -76,6 +76,8 @@
 	<string>Peepl needs photo library access to attach photos and videos to your posts.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Peepl needs permission to save photos to your library.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Peepl uses your location to show nearby places and calculate distances.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Peepl uses your location to sort posts by distance and show how far each place is.</string>
 	<key>GMSApiKey</key>
