@@ -148,6 +148,16 @@ class _FeedScreenState extends State<FeedScreen> {
   void _processFeedData(List<QueryDocumentSnapshot> postDocs) {
     final posts = postDocs
         .map((doc) => <String, dynamic>{'id': doc.id, 'type': 'post', ...doc.data() as Map<String, dynamic>})
+        .where((post) {
+          final raw = post['imageUrl'];
+          if (raw == null) return false;
+          final s = raw.toString().trim();
+          if (s.isEmpty) return false;
+          final lower = s.toLowerCase();
+          if (lower.contains('mock_image_path')) return false;
+          if (lower.contains('placeholder')) return false;
+          return true;
+        })
         .toList();
     _sortLocationPosts(posts);
     final feedItems = _mergeAdsIntoFeed(posts);
