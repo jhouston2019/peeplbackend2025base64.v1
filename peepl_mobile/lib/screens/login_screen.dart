@@ -23,49 +23,104 @@ class _LoginScreenState extends State<LoginScreen> {
     return 'An error occurred. Please try again.';
   }
 
-  String _passwordResetErrorMessage(String code) {
-    switch (code) {
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      case 'user-not-found':
-        return 'No account found with this email.';
-      default:
-        return 'Could not send reset email. Try again.';
-    }
-  }
+  Future<void> _showForgotPasswordDialog() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final emailCtrl = TextEditingController(text: _email.text.trim());
+    String? fieldError;
+    var sending = false;
 
-  Future<void> _sendPasswordReset() async {
-    final email = _email.text.trim();
-    if (email.isEmpty || !email.contains('@')) {
-      setState(() => _error = 'Enter your email address, then tap Forgot password again.');
-      return;
-    }
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
-    try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
-      if (!mounted) return;
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('If an account exists, we sent a reset link to your email.'),
-        ),
-      );
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = _passwordResetErrorMessage(e.code);
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = 'Could not send reset email. Try again.';
-      });
-    }
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            Future<void> submit() async {
+              final trimmed = emailCtrl.text.trim();
+              if (trimmed.isEmpty) {
+                setDialogState(() => fieldError = 'Please enter your email.');
+                return;
+              }
+              if (!trimmed.contains('@')) {
+                setDialogState(
+                  () => fieldError = 'Please enter a valid email address.',
+                );
+                return;
+              }
+              setDialogState(() {
+                sending = true;
+                fieldError = null;
+              });
+              try {
+                await FirebaseAuth.instance.sendPasswordResetEmail(
+                  email: trimmed,
+                );
+                if (!dialogContext.mounted) return;
+                Navigator.of(dialogContext).pop();
+                if (!mounted) return;
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Check your email for a reset link.'),
+                  ),
+                );
+              } on FirebaseAuthException catch (e) {
+                setDialogState(() {
+                  sending = false;
+                  if (e.code == 'invalid-email') {
+                    fieldError = 'Please enter a valid email address.';
+                  } else if (e.code == 'user-not-found') {
+                    fieldError = 'No account found with this email.';
+                  } else {
+                    fieldError = 'Could not send reset email. Try again.';
+                  }
+                });
+              } catch (_) {
+                setDialogState(() {
+                  sending = false;
+                  fieldError = 'Could not send reset email. Try again.';
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Reset password'),
+              content: SingleChildScrollView(
+                child: TextField(
+                  controller: emailCtrl,
+                  keyboardType: TextInputType.emailAddress,
+                  autofillHints: const [AutofillHints.email],
+                  decoration: InputDecoration(
+                    labelText: 'Email',
+                    hintText: 'Enter your email',
+                    errorText: fieldError,
+                  ),
+                  onChanged: (_) =>
+                      setDialogState(() => fieldError = null),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: sending
+                      ? null
+                      : () => Navigator.of(dialogContext).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: sending ? null : submit,
+                  child: sending
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Send Reset Link'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+    emailCtrl.dispose();
   }
 
   Future<void> _authenticate() async {
@@ -141,10 +196,17 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     if (_isLoginMode) ...[
                       Align(
-                        alignment: Alignment.centerRight,
+                        alignment: Alignment.centerLeft,
                         child: TextButton(
-                          onPressed: _loading ? null : _sendPasswordReset,
-                          child: Text('Forgot password?', style: TextStyle(color: Color(0xFF1565C0), fontSize: 14, fontWeight: FontWeight.w600)),
+                          onPressed: _loading ? null : _showForgotPasswordDialog,
+                          child: const Text(
+                            'Forgot Password?',
+                            style: TextStyle(
+                              color: Color(0xFF1565C0),
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                         ),
                       ),
                     ] else
