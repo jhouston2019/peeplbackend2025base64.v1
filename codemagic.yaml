@@ -34,18 +34,19 @@ workflows:
         script: |
           cd peepl_mobile
           flutter build ios --release --no-codesign
-      - name: Code signing
-        script: |
-          cd peepl_mobile
-          xcode-project use-profiles
       - name: Build IPA
         script: |
           cd peepl_mobile
+          xcode-project use-profiles
+
           xcodebuild -workspace ios/Runner.xcworkspace \
-                     -scheme Runner \
-                     -configuration Release \
-                     -archivePath build/ios/archive/Runner.xcarchive \
-                     archive
+            -scheme Runner \
+            -configuration Release \
+            -archivePath build/ios/archive/Runner.xcarchive \
+            DEVELOPMENT_TEAM=MJZ3VHZ23U \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Distribution" \
+            archive
           xcodebuild -exportArchive \
                      -archivePath build/ios/archive/Runner.xcarchive \
                      -exportOptionsPlist ios/ExportOptions.plist \
