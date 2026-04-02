@@ -11,7 +11,7 @@
     <key>provisioningProfiles</key>
     <dict>
         <key>com.peepl.app</key>
-        <string>Peepl_App_Store</string>
+        <string>Peepl App Store</string>
     </dict>
 </dict>
 </plist>
