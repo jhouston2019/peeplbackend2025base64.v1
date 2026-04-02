@@ -30,11 +30,6 @@ workflows:
       - name: Get Flutter packages
         script: flutter packages pub get
         working_directory: peepl_mobile
-      - name: Build iOS
-        script: |
-          cd peepl_mobile
-          flutter build ipa --release \
-            --export-options-plist=/tmp/export_options.plist
       - name: Create ExportOptions
         script: |
           cat > /tmp/export_options.plist << EOF
@@ -51,6 +46,11 @@ workflows:
           </dict>
           </plist>
           EOF
+      - name: Build iOS
+        script: |
+          cd peepl_mobile
+          flutter build ipa --release \
+            --export-options-plist=/tmp/export_options.plist
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
