@@ -506,11 +506,16 @@ class _FeedScreenState extends State<FeedScreen> {
               fit: BoxFit.cover,
               width: double.infinity,
               height: cardHeight,
-              errorBuilder: (context, error, stackTrace) => Container(
-                color: Colors.black26,
-                alignment: Alignment.center,
-                child: const Icon(Icons.broken_image_outlined, color: Colors.white54, size: 26),
-              ),
+              errorBuilder: (context, error, stackTrace) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (mounted) {
+                    setState(() {
+                      _feedItems.removeWhere((item) => item['imageUrl'] == post['imageUrl']);
+                    });
+                  }
+                });
+                return const SizedBox();
+              },
             ),
             DecoratedBox(
               decoration: BoxDecoration(
