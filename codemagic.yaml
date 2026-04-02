@@ -34,9 +34,29 @@ workflows:
         script: |
           cd peepl_mobile
           flutter build ios --release --no-codesign
-      - name: Build IPA
+      - name: Debug signing resolution
+        working_directory: peepl_mobile
         script: |
-          cd peepl_mobile
+          set -e
+
+          xcode-project use-profiles
+
+          echo "---- INSTALLED PROFILES ----"
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
+
+          echo "---- SIGNING IDENTITIES ----"
+          security find-identity -v -p codesigning || true
+
+          echo "---- BUILD SETTINGS ----"
+          xcodebuild -workspace ios/Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -showBuildSettings | grep -E "CODE_SIGN|PROVISIONING_PROFILE|DEVELOPMENT_TEAM" || true
+      - name: Build IPA (signed)
+        working_directory: peepl_mobile
+        script: |
+          set -e
+
           xcode-project use-profiles
 
           xcodebuild -workspace ios/Runner.xcworkspace \
@@ -46,11 +66,12 @@ workflows:
             DEVELOPMENT_TEAM=MJZ3VHZ23U \
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
-            archive
+            clean archive
+
           xcodebuild -exportArchive \
-                     -archivePath build/ios/archive/Runner.xcarchive \
-                     -exportOptionsPlist ios/ExportOptions.plist \
-                     -exportPath build/ios/ipa
+            -archivePath build/ios/archive/Runner.xcarchive \
+            -exportOptionsPlist ios/ExportOptions.plist \
+            -exportPath build/ios/ipa
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
