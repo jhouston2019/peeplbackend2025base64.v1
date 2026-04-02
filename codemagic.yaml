@@ -21,56 +21,19 @@ workflows:
       app_store_connect: codemagic
     environment:
       flutter: stable
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.peepl.app
       groups:
         - a
     scripts:
       - name: Get Flutter packages
         script: flutter packages pub get
         working_directory: peepl_mobile
-      - name: Install certificate and profile
-        script: |
-          echo $CM_CERTIFICATE | base64 --decode > /tmp/distribution.p12
-          security create-keychain -p "peepl" build.keychain
-          security set-keychain-settings -lut 21600 build.keychain
-          security unlock-keychain -p "peepl" build.keychain
-          security import /tmp/distribution.p12 -k build.keychain -P peepl123 -T /usr/bin/codesign -T /usr/bin/xcodebuild -T /usr/bin/security
-          security list-keychain -d user -s build.keychain login.keychain
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "peepl" build.keychain
-          echo "=== ALL SIGNING IDENTITIES ==="
-          security find-identity -v -p codesigning
-          echo $CM_PROVISIONING_PROFILE | base64 --decode > /tmp/profile.mobileprovision
-          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
-          UUID=$(grep -a 'UUID' -A1 /tmp/profile.mobileprovision | grep -o '[-A-Za-z0-9]\{36\}')
-          echo "Profile UUID: $UUID"
-          cp /tmp/profile.mobileprovision ~/Library/MobileDevice/Provisioning\ Profiles/$UUID.mobileprovision
-      - name: Create ExportOptions
-        script: |
-          cat > /tmp/ExportOptions.plist << EOF
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key>
-            <string>app-store</string>
-            <key>teamID</key>
-            <string>MJZ3VHZ23U</string>
-            <key>signingStyle</key>
-            <string>manual</string>
-            <key>signingCertificate</key>
-            <string>Apple Distribution: James Houston (MJZ3VHZ23U)</string>
-            <key>provisioningProfiles</key>
-            <dict>
-              <key>com.peepl.app</key>
-              <string>Peepl App Store</string>
-            </dict>
-          </dict>
-          </plist>
-          EOF
       - name: Build iOS
         script: |
           cd peepl_mobile
-          flutter build ipa --release \
-            --export-options-plist=/tmp/ExportOptions.plist
+          flutter build ipa --release
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
