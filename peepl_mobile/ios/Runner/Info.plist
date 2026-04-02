@@ -88,5 +88,12 @@
 		<string>maps</string>
 		<string>comgooglemaps</string>
 	</array>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	<key>NSUserNotificationsUsageDescription</key>
+	<string>Peepl sends you alerts when nearby venues get crowded and when people like your posts.</string>
 </dict>
 </plist>

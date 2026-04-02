@@ -7,17 +7,24 @@ import 'routes.dart';
 import 'services/auth_service.dart';
 import 'theme_notifier.dart';
 import 'screens/login_screen.dart';
-import 'screens/main_shell.dart';
+import 'services/push_notification_service.dart';
+import 'screens/feed_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  runApp(PeeplApp());
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  await PushNotificationService.instance.init(navKey: navigatorKey);
+  runApp(PeeplApp(navigatorKey: navigatorKey));
 }
 
 class PeeplApp extends StatelessWidget {
+  final GlobalKey<NavigatorState> navigatorKey;
+
+  const PeeplApp({super.key, required this.navigatorKey});
+
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider<ThemeNotifier>(
@@ -34,16 +41,27 @@ class PeeplApp extends StatelessWidget {
                 scaffoldBackgroundColor: Color(0xFF1565C0),
               ),
               routes: appRoutes,
-              home: Consumer<User?>(
-                builder: (context, user, _) {
-                  return user == null ? LoginScreen() : const MainShell();
-                },
-              ),
+              navigatorKey: navigatorKey,
+              home: _AuthGate(),
               debugShowCheckedModeBanner: false,
             );
           },
         ),
       ),
     );
+  }
+}
+
+class _AuthGate extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final user = Provider.of<User?>(context);
+    if (user != null) {
+      Future.microtask(
+        () => PushNotificationService.instance.onUserSignedIn(),
+      );
+      return FeedScreen();
+    }
+    return LoginScreen();
   }
 }

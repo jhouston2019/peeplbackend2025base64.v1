@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -25,10 +27,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   final TextEditingController _commentController = TextEditingController();
   bool _isLiked = false;
   bool _isSubmittingComment = false;
+  late int _likesCount;
 
   @override
   void initState() {
     super.initState();
+    _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
   }
 
@@ -44,21 +48,57 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   Future<void> _toggleLike() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-    final postId = widget.postData['id'] as String?;
-    if (postId == null) return;
+
     try {
       if (_isLiked) {
-        await _feedService.unlikeLocationPost(postId, user.uid);
+        await _feedService.unlikeLocationPost(widget.postData['id'], user.uid);
+        setState(() {
+          _isLiked = false;
+          _likesCount--;
+        });
       } else {
-        await _feedService.likeLocationPost(postId, user.uid);
+        await _feedService.likeLocationPost(widget.postData['id'], user.uid);
+        setState(() {
+          _isLiked = true;
+          _likesCount++;
+        });
+
+        final postOwnerUid = widget.postData['userId'] as String?;
+        if (postOwnerUid != null && postOwnerUid != user.uid) {
+          _sendLikeNotification(
+            postOwnerUid: postOwnerUid,
+            likerUsername: user.displayName ?? user.email?.split('@')[0] ?? 'Someone',
+            postId: widget.postData['id'],
+            locationName: widget.postData['locationName'] ?? '',
+          );
+        }
       }
-      setState(() => _isLiked = !_isLiked);
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to update like: $e')),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to update like: $e')),
+      );
+    }
+  }
+
+  void _sendLikeNotification({
+    required String postOwnerUid,
+    required String likerUsername,
+    required String postId,
+    required String locationName,
+  }) async {
+    try {
+      await http.post(
+        Uri.parse('https://peepl2025v1-production.up.railway.app/notifications/like'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'postOwnerUid': postOwnerUid,
+          'likerUsername': likerUsername,
+          'postId': postId,
+          'locationName': locationName,
+        }),
+      );
+    } catch (e) {
+      debugPrint('[Like notification] Failed: $e');
     }
   }
 
@@ -416,7 +456,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      '${post['likesCount'] ?? 0}',
+                      '$_likesCount',
                       style: TextStyle(color: Colors.grey[700]),
                     ),
                   ],
