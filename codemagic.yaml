@@ -27,13 +27,28 @@ workflows:
       groups:
         - a
     scripts:
-      - name: Get Flutter packages
-        script: flutter packages pub get
-        working_directory: peepl_mobile
-      - name: Flutter build iOS no codesign
+      - name: Install CocoaPods
         script: |
-          cd peepl_mobile
+          sudo gem install cocoapods
+      - name: Flutter clean and pub get
+        script: |
+          set -e
+          flutter clean
+          flutter pub get
+        working_directory: peepl_mobile
+      - name: Install iOS dependencies
+        script: |
+          set -e
+          cd ios
+          pod repo update
+          pod install
+          test -d Pods
+        working_directory: peepl_mobile
+      - name: Flutter build iOS (release, no codesign)
+        script: |
+          set -e
           flutter build ios --release --no-codesign
+        working_directory: peepl_mobile
       - name: Debug signing resolution
         working_directory: peepl_mobile
         script: |

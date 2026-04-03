@@ -1,46 +1,115 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'firebase_options.dart';
 import 'routes.dart';
 import 'services/auth_service.dart';
 import 'theme_notifier.dart';
 import 'screens/login_screen.dart';
-import 'services/push_notification_service.dart';
 import 'screens/feed_screen.dart';
+import 'services/push_notification_service.dart';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  FlutterError.onError = (FlutterErrorDetails details) {
-    FlutterError.presentError(details);
-  };
-  try {
-    await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
-    );
-    final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-    await PushNotificationService.instance.init(navKey: navigatorKey);
-    runApp(PeeplApp(navigatorKey: navigatorKey));
-  } catch (e, stack) {
-    debugPrint('STARTUP ERROR: $e');
-    debugPrint('$stack');
-    // ignore: avoid_print
-    print('STARTUP ERROR: $e');
-    // ignore: avoid_print
-    print(stack);
-    runApp(
-      MaterialApp(
+  runApp(const BootDebugApp());
+}
+
+class BootDebugApp extends StatefulWidget {
+  const BootDebugApp({super.key});
+
+  @override
+  State<BootDebugApp> createState() => _BootDebugAppState();
+}
+
+class _BootDebugAppState extends State<BootDebugApp> {
+  String status = "Starting...";
+  String? error;
+
+  @override
+  void initState() {
+    super.initState();
+    _boot();
+  }
+
+  Future<void> _boot() async {
+    try {
+      setState(() => status = "Initializing Firebase...");
+
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      );
+
+      setState(() => status = "Firebase OK");
+
+      await Future.delayed(const Duration(seconds: 1));
+
+      runApp(const MyApp());
+    } catch (e, stack) {
+      setState(() {
+        error = "$e\n\n$stack";
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (error != null) {
+      return MaterialApp(
         home: Scaffold(
-          body: SafeArea(
+          backgroundColor: Colors.black,
+          body: Padding(
+            padding: const EdgeInsets.all(16),
             child: SingleChildScrollView(
-              padding: const EdgeInsets.all(16),
-              child: SelectableText('STARTUP ERROR:\n$e\n\n$stack'),
+              child: Text(
+                error!,
+                style: const TextStyle(color: Colors.red, fontSize: 14),
+              ),
             ),
           ),
         ),
+      );
+    }
+
+    return MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text(status),
+        ),
       ),
     );
+  }
+}
+
+class MyApp extends StatefulWidget {
+  const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    PushNotificationService.instance.init(navKey: navigatorKey).then((_) {
+      if (mounted) setState(() => _ready = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready) {
+      return const MaterialApp(
+        home: Scaffold(
+          body: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    return PeeplApp(navigatorKey: navigatorKey);
   }
 }
 
