@@ -12,12 +12,36 @@ import 'screens/feed_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-  final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-  await PushNotificationService.instance.init(navKey: navigatorKey);
-  runApp(PeeplApp(navigatorKey: navigatorKey));
+  FlutterError.onError = (FlutterErrorDetails details) {
+    FlutterError.presentError(details);
+  };
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+    await PushNotificationService.instance.init(navKey: navigatorKey);
+    runApp(PeeplApp(navigatorKey: navigatorKey));
+  } catch (e, stack) {
+    debugPrint('STARTUP ERROR: $e');
+    debugPrint('$stack');
+    // ignore: avoid_print
+    print('STARTUP ERROR: $e');
+    // ignore: avoid_print
+    print(stack);
+    runApp(
+      MaterialApp(
+        home: Scaffold(
+          body: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(16),
+              child: SelectableText('STARTUP ERROR:\n$e\n\n$stack'),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class PeeplApp extends StatelessWidget {
