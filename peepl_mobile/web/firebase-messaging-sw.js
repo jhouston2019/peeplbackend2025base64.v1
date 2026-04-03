@@ -1,5 +1,6 @@
-importScripts("https://www.gstatic.com/firebasejs/10.0.0/firebase-app-compat.js");
-importScripts("https://www.gstatic.com/firebasejs/10.0.0/firebase-messaging-compat.js");
+/* eslint-disable no-undef */
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js');
+importScripts('https://www.gstatic.com/firebasejs/9.0.0/firebase-messaging-compat.js');
 
 firebase.initializeApp({
   apiKey: "AIzaSyD1cbXZCQS_Bcu7kmJOcHlUZm4TxLKucJA",
