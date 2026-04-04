@@ -366,9 +366,10 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
           ),
-          const Text(
-            'Peepl',
-            style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, height: 1.0),
+          Image.asset(
+            'assets/icon/icon.png',
+            height: 40,
+            semanticLabel: 'Peepl',
           ),
           Material(
             color: Colors.transparent,

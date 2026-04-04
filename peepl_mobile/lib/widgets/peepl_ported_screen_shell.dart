@@ -32,6 +32,12 @@ class PeeplPortedScreenShell extends StatelessWidget {
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
+                  Image.asset(
+                    'assets/icon/icon.png',
+                    height: 32,
+                    semanticLabel: 'Peepl',
+                  ),
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Text(
                       title,

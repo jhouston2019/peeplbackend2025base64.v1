@@ -167,7 +167,11 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   children: [
                     SizedBox(height: 80),
-                    Text('Peepl', style: TextStyle(color: Color(0xFF1565C0), fontSize: 64, fontWeight: FontWeight.bold)),
+                    Image.asset(
+                      'assets/icon/icon.png',
+                      height: 140,
+                      semanticLabel: 'Peepl',
+                    ),
                     SizedBox(height: 48),
                     Align(alignment: Alignment.centerLeft,
                       child: Text('Email Address', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w600))),
