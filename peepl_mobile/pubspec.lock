@@ -313,11 +313,51 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.1.1"
+  fl_location:
+    dependency: transitive
+    description:
+      name: fl_location
+      sha256: "011d99a483bdb0e8fcef673d8991dce871ee91d37f5bdbadbe86ab06a38000fd"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.1.1"
+  fl_location_platform_interface:
+    dependency: transitive
+    description:
+      name: fl_location_platform_interface
+      sha256: "2e51523d4ebbee57212891f1d9674a179a2af3500b67e64d4af2ba040b952614"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
+  fl_location_web:
+    dependency: transitive
+    description:
+      name: fl_location_web
+      sha256: "576e64609517c524fbc6b0f221e0170a9020244cccc40e5b612612a3fb5edded"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
   flutter:
     dependency: "direct main"
     description: flutter
     source: sdk
     version: "0.0.0"
+  flutter_activity_recognition:
+    dependency: transitive
+    description:
+      name: flutter_activity_recognition
+      sha256: "8e41cecde64042a847dfdea1b209fa6f518a98fe20edbb60a9e4f65183cbb8aa"
+      url: "https://pub.dev"
+    source: hosted
+    version: "2.0.0"
+  flutter_foreground_task:
+    dependency: transitive
+    description:
+      name: flutter_foreground_task
+      sha256: "702bf8750b4276c2744a9fd3ff70f1a0bc1f4775cccd0627e0085945e017f370"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.2.0"
   flutter_launcher_icons:
     dependency: "direct dev"
     description:
@@ -408,14 +448,22 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "3.2.0"
+  geofence_service:
+    dependency: "direct main"
+    description:
+      name: geofence_service
+      sha256: "82e38175635c819d4bb64126925f09918b7c8b438bbcd7e593a8f76812a59644"
+      url: "https://pub.dev"
+    source: hosted
+    version: "4.0.0"
   geolocator:
     dependency: "direct main"
     description:
       name: geolocator
-      sha256: f4efb8d3c4cdcad2e226af9661eb1a0dd38c71a9494b22526f9da80ab79520e5
+      sha256: "6cb9fb6e5928b58b9a84bdf85012d757fd07aab8215c5205337021c4999bad27"
       url: "https://pub.dev"
     source: hosted
-    version: "10.1.1"
+    version: "11.1.0"
   geolocator_android:
     dependency: transitive
     description:
@@ -444,10 +492,10 @@ packages:
     dependency: transitive
     description:
       name: geolocator_web
-      sha256: "102e7da05b48ca6bf0a5bda0010f886b171d1a08059f01bfe02addd0175ebece"
+      sha256: "49d8f846ebeb5e2b6641fe477a7e97e5dd73f03cbfef3fd5c42177b7300fb0ed"
       url: "https://pub.dev"
     source: hosted
-    version: "2.2.1"
+    version: "3.0.0"
   geolocator_windows:
     dependency: transitive
     description:

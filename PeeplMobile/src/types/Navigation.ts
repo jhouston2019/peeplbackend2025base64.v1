@@ -44,8 +44,10 @@ export type MerchantSetupStep1Data = {
 };
 
 export type MainTabsParamList = {
-  Map: undefined;
-  Venues: undefined;
+  Feed: undefined;
+  Deals: undefined;
+  GetPeeps: undefined;
+  Leaders: undefined;
   Profile: undefined;
 };
 

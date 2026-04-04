@@ -9,6 +9,7 @@ import 'theme_notifier.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/push_notification_service.dart';
+import 'services/geofence_service.dart' as geofence_svc;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,7 +33,13 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    PushNotificationService.instance.init(navKey: navigatorKey).then((_) {
+    PushNotificationService.instance.init(navKey: navigatorKey).then((_) async {
+      final geofenceService = geofence_svc.PeeplGeofenceService.instance;
+      geofenceService.onLocationEntered = (name, lat, lng) {
+        debugPrint('GEOFENCE ENTERED: $name at $lat, $lng');
+      };
+      await geofenceService.initialize();
+      await geofenceService.loadGeofencesFromFirestore();
       if (mounted) setState(() => _ready = true);
     });
   }

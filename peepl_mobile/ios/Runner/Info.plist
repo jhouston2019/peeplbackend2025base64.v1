@@ -54,9 +54,11 @@
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>Peepl needs permission to save photos to your library.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Peepl uses your location to show nearby places and calculate distances.</string>
+	<string>Peepl uses your location in the background to detect when you arrive at a venue and ask about crowd levels.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Peepl uses your location to sort posts by distance and show how far each place is.</string>
+	<string>Peepl uses your location to detect when you arrive at a venue so you can report crowd levels.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Peepl uses your location in the background to detect when you arrive at a venue and ask about crowd levels.</string>
 	<key>GMSApiKey</key>
 	<string>AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8</string>
 	<key>LSApplicationQueriesSchemes</key>
@@ -68,6 +70,7 @@
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>fetch</string>
+		<string>location</string>
 		<string>remote-notification</string>
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>

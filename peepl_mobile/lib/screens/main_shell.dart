@@ -9,6 +9,8 @@ import 'post_screen.dart';
 import 'profile_screen.dart';
 
 const Color _kBarBlue = Color(0xFF1565C0);
+const Color _kBarSelected = Color(0xFF1565C0);
+const Color _kBarUnselected = Color(0xFF9E9E9E);
 const int _postBarIndex = 2;
 
 class MainShell extends StatefulWidget {
@@ -159,15 +161,16 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
-        backgroundColor: _kBarBlue,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.5),
+        backgroundColor: Colors.white,
+        selectedItemColor: _kBarSelected,
+        unselectedItemColor: _kBarUnselected,
         currentIndex: barIndex,
         onTap: (i) => _onBarTap(i, isAdmin),
         items: _barItems(isAdmin),
         iconSize: 26,
         selectedFontSize: 12,
         unselectedFontSize: 11,
+        elevation: 8,
       ),
     );
   }

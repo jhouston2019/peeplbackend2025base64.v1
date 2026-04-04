@@ -104,13 +104,17 @@ function MainTabs() {
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
-        tabBarIcon: ({ focused, color, size }) => {
+        tabBarIcon: ({ color, size }) => {
           let iconName: string;
 
-          if (route.name === 'Map') {
+          if (route.name === 'Feed') {
             iconName = 'map';
-          } else if (route.name === 'Venues') {
-            iconName = 'place';
+          } else if (route.name === 'Deals') {
+            iconName = 'local-offer';
+          } else if (route.name === 'GetPeeps') {
+            iconName = 'search';
+          } else if (route.name === 'Leaders') {
+            iconName = 'bar-chart';
           } else if (route.name === 'Profile') {
             iconName = 'person';
           } else {
@@ -124,13 +128,33 @@ function MainTabs() {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="Map" component={MapScreen} />
+      <Tab.Screen name="Feed" component={MapScreen} />
       <Tab.Screen
-        name="Venues"
-        component={VenueListScreen}
+        name="Deals"
+        component={DealsScreen}
         options={{
           headerShown: true,
-          title: 'Venues',
+          title: 'Deals',
+          ...headerBlue,
+          headerLeft: () => <MenuHamburger />,
+        }}
+      />
+      <Tab.Screen
+        name="GetPeeps"
+        component={GetPeepsScreen}
+        options={{
+          headerShown: true,
+          title: 'Get Peeps',
+          ...headerBlue,
+          headerLeft: () => <MenuHamburger />,
+        }}
+      />
+      <Tab.Screen
+        name="Leaders"
+        component={LeaderboardScreen}
+        options={{
+          headerShown: true,
+          title: 'Leaders',
           ...headerBlue,
           headerLeft: () => <MenuHamburger />,
         }}
