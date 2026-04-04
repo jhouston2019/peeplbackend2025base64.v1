@@ -7,7 +7,7 @@ import 'routes.dart';
 import 'services/auth_service.dart';
 import 'theme_notifier.dart';
 import 'screens/login_screen.dart';
-import 'screens/feed_screen.dart';
+import 'screens/main_shell.dart';
 import 'services/push_notification_service.dart';
 
 void main() async {
@@ -90,7 +90,7 @@ class _AuthGate extends StatelessWidget {
       Future.microtask(
         () => PushNotificationService.instance.onUserSignedIn(),
       );
-      return FeedScreen();
+      return const MainShell(initialBodyIndex: 0);
     }
     return LoginScreen();
   }
