@@ -10,75 +10,12 @@ import 'screens/login_screen.dart';
 import 'screens/feed_screen.dart';
 import 'services/push_notification_service.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  runApp(const BootDebugApp());
-}
-
-class BootDebugApp extends StatefulWidget {
-  const BootDebugApp({super.key});
-
-  @override
-  State<BootDebugApp> createState() => _BootDebugAppState();
-}
-
-class _BootDebugAppState extends State<BootDebugApp> {
-  String status = "Starting...";
-  String? error;
-
-  @override
-  void initState() {
-    super.initState();
-    _boot();
-  }
-
-  Future<void> _boot() async {
-    try {
-      setState(() => status = "Initializing Firebase...");
-
-      await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      );
-
-      setState(() => status = "Firebase OK");
-
-      await Future.delayed(const Duration(seconds: 1));
-
-      runApp(const MyApp());
-    } catch (e, stack) {
-      setState(() {
-        error = "$e\n\n$stack";
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (error != null) {
-      return MaterialApp(
-        home: Scaffold(
-          backgroundColor: Colors.black,
-          body: Padding(
-            padding: const EdgeInsets.all(16),
-            child: SingleChildScrollView(
-              child: Text(
-                error!,
-                style: const TextStyle(color: Colors.red, fontSize: 14),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return MaterialApp(
-      home: Scaffold(
-        body: Center(
-          child: Text(status),
-        ),
-      ),
-    );
-  }
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+  runApp(const MyApp());
 }
 
 class MyApp extends StatefulWidget {
