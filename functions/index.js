@@ -162,7 +162,7 @@ exports.onLikeCreated = functions.firestore
       'Someone liked your Peepl',
       `Your crowd report at ${locationName} got a like!`,
       {
-        type: 'like',
+        type: 'post_liked',
         postId,
         locationName,
       }

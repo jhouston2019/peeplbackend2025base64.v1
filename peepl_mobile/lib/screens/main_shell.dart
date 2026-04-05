@@ -9,12 +9,11 @@ import 'post_screen.dart';
 import 'profile_screen.dart';
 
 const Color _kBarBlue = Color(0xFF1565C0);
-const int _postBarIndex = 2;
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialBodyIndex = 0});
 
-  /// 0 Feed, 1 Discover, 2 Chat, 3 Profile
+  /// 0 Feed, 1 Discover, 2 Post, 3 Chat, 4 Profile
   final int initialBodyIndex;
 
   @override
@@ -22,13 +21,12 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  late int _bodyIndex;
-  final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List<GlobalKey<NavigatorState>>.generate(4, (_) => GlobalKey());
+  late int _currentIndex;
 
-  static final List<Widget> _tabRoots = <Widget>[
+  static final List<Widget> _screens = [
     const FeedScreen(),
-    DiscoverScreen(),
+    const DiscoverScreen(),
+    const PostScreen(),
     ChatScreen(),
     ProfileScreen(),
   ];
@@ -36,7 +34,7 @@ class _MainShellState extends State<MainShell> {
   @override
   void initState() {
     super.initState();
-    _bodyIndex = widget.initialBodyIndex.clamp(0, _tabRoots.length - 1);
+    _currentIndex = widget.initialBodyIndex.clamp(0, _screens.length - 1);
     ShellTabBus.pendingBodyIndex.addListener(_onShellTabBus);
   }
 
@@ -46,7 +44,7 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       setState(() {
-        _bodyIndex = v.clamp(0, _tabRoots.length - 1);
+        _currentIndex = v.clamp(0, _screens.length - 1);
       });
       ShellTabBus.pendingBodyIndex.value = null;
     });
@@ -58,59 +56,12 @@ class _MainShellState extends State<MainShell> {
     super.dispose();
   }
 
-  int _bodyIndexToBarIndex(bool isAdmin) {
-    if (_bodyIndex <= 1) return _bodyIndex;
-    return _bodyIndex + 1;
-  }
-
-  void _onBarTap(int barIndex, bool isAdmin) {
-    final adminBarIndex = isAdmin ? 5 : -1;
-
-    if (barIndex == _postBarIndex) {
-      _openPostModal();
-      return;
-    }
-    if (isAdmin && barIndex == adminBarIndex) {
+  void _onBarTap(int index, bool isAdmin) {
+    if (isAdmin && index == _screens.length) {
       Navigator.of(context).pushNamed('/admin');
       return;
     }
-
-    int body;
-    if (barIndex < _postBarIndex) {
-      body = barIndex;
-    } else {
-      body = barIndex - 1;
-    }
-    setState(() => _bodyIndex = body);
-  }
-
-  void _openPostModal() {
-    Navigator.of(context, rootNavigator: true).push(
-      MaterialPageRoute<void>(
-        fullscreenDialog: true,
-        builder: (_) => const PostScreen(),
-      ),
-    );
-  }
-
-  Widget _tabNavigator(int index) {
-    return Navigator(
-      key: _navigatorKeys[index],
-      initialRoute: '/',
-      onGenerateRoute: (RouteSettings settings) {
-        final name = settings.name;
-        if (name == '/' || name == null) {
-          return MaterialPageRoute<void>(
-            settings: const RouteSettings(name: '/'),
-            builder: (_) => _tabRoots[index],
-          );
-        }
-        return MaterialPageRoute<void>(
-          settings: settings,
-          builder: (_) => _tabRoots[index],
-        );
-      },
-    );
+    setState(() => _currentIndex = index);
   }
 
   List<BottomNavigationBarItem> _barItems(bool isAdmin) {
@@ -148,21 +99,17 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _scaffoldForAdmin(bool isAdmin) {
-    final barIndex = _bodyIndexToBarIndex(isAdmin);
     return Scaffold(
       body: IndexedStack(
-        index: _bodyIndex,
-        children: List<Widget>.generate(
-          _tabRoots.length,
-          (i) => _tabNavigator(i),
-        ),
+        index: _currentIndex,
+        children: _screens,
       ),
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: _kBarBlue,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white.withValues(alpha: 0.5),
-        currentIndex: barIndex,
+        currentIndex: _currentIndex,
         onTap: (i) => _onBarTap(i, isAdmin),
         items: _barItems(isAdmin),
         iconSize: 26,
