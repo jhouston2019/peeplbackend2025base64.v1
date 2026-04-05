@@ -113,6 +113,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.19.1"
+  confetti:
+    dependency: "direct main"
+    description:
+      name: confetti
+      sha256: "79376a99648efbc3f23582f5784ced0fe239922bd1a0fb41f582051eba750751"
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.0"
   cross_file:
     dependency: transitive
     description:
@@ -406,6 +414,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.0.34"
+  flutter_stripe:
+    dependency: "direct main"
+    description:
+      name: flutter_stripe
+      sha256: "7cbb56d41811f03bc5541ee330917db0bda0e8e98aabe9812faa977be550a621"
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.5.0"
   flutter_test:
     dependency: "direct dev"
     description: flutter
@@ -416,6 +432,14 @@ packages:
     description: flutter
     source: sdk
     version: "0.0.0"
+  freezed_annotation:
+    dependency: transitive
+    description:
+      name: freezed_annotation
+      sha256: "7294967ff0a6d98638e7acb774aac3af2550777accd8149c90af5b014e6d44d8"
+      url: "https://pub.dev"
+    source: hosted
+    version: "3.1.0"
   geocoding:
     dependency: "direct main"
     description:
@@ -997,6 +1021,30 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "1.4.1"
+  stripe_android:
+    dependency: transitive
+    description:
+      name: stripe_android
+      sha256: c29e7a362445c24d8932bca06a4ef7ec5521006ccd2150329a930d46eeada54b
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.5.0"
+  stripe_ios:
+    dependency: transitive
+    description:
+      name: stripe_ios
+      sha256: e3eb98c3083b66973d2cd129fe3efd821a3a3ea5e10008ea7b09865e6445f21f
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.5.0"
+  stripe_platform_interface:
+    dependency: transitive
+    description:
+      name: stripe_platform_interface
+      sha256: "40dd9d6cc45db33d368f6c93ef9dc35ea1d40fe4b9e6d3ffc1fbc97d569ec85d"
+      url: "https://pub.dev"
+    source: hosted
+    version: "12.5.0"
   term_glyph:
     dependency: transitive
     description:
@@ -1149,6 +1197,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "2.4.0"
+  visibility_detector:
+    dependency: "direct main"
+    description:
+      name: visibility_detector
+      sha256: dd5cc11e13494f432d15939c3aa8ae76844c42b723398643ce9addb88a5ed420
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.4.0+2"
   vm_service:
     dependency: transitive
     description:

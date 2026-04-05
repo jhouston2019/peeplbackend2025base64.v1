@@ -1,5 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../services/ad_cadence_service.dart';
 import '../services/feed_service.dart';
+import '../services/location_service.dart';
+import '../services/native_ads_service.dart';
+import '../widgets/ad_card.dart';
 import 'location_detail_screen.dart';
 
 class DiscoverScreen extends StatefulWidget {
@@ -11,20 +17,132 @@ class DiscoverScreen extends StatefulWidget {
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
   final FeedService _feedService = FeedService();
+  final NativeAdsService _adsService = NativeAdsService();
+  final AdCadenceService _cadence = AdCadenceService();
+
+  List<Map<String, dynamic>> _posts = [];
+  List<Map<String, dynamic>> _availableAds = [];
   List<Map<String, dynamic>> _feedItems = [];
   bool _isLoading = true;
+
+  double? _userLat;
+  double? _userLng;
+  String _adContext = 'discover';
 
   @override
   void initState() {
     super.initState();
+    _initAds();
     _feedService.getLocationFeedStream().listen((snapshot) {
-      final posts = snapshot.docs.map((doc) => {
-            'id': doc.id,
-            'type': 'post',
-            ...doc.data() as Map<String, dynamic>,
-          }).toList();
-      if (mounted) setState(() { _feedItems = posts; _isLoading = false; });
+      final posts = snapshot.docs
+          .map((doc) => <String, dynamic>{
+                'id': doc.id,
+                'type': 'post',
+                ...doc.data() as Map<String, dynamic>,
+              })
+          .toList();
+      if (!mounted) return;
+
+      final newContext = _computeAdContext(posts);
+      if (newContext != _adContext) {
+        _adContext = newContext;
+        _reloadAds();
+      }
+
+      setState(() {
+        _posts = posts;
+        _feedItems = _mergeAdsIntoFeed(posts);
+        _isLoading = false;
+      });
     });
+  }
+
+  Future<void> _initAds() async {
+    await _cadence.init();
+    final pos = await LocationService.getCurrentLocation();
+    if (pos != null) {
+      _userLat = pos.latitude;
+      _userLng = pos.longitude;
+    }
+    await _reloadAds();
+  }
+
+  Future<void> _reloadAds() async {
+    try {
+      final ads = await _adsService.getAdsForFeed(
+        context: _adContext,
+        userLat: _userLat,
+        userLng: _userLng,
+        limit: 10,
+      );
+      if (mounted) {
+        setState(() {
+          _availableAds = ads;
+          if (_posts.isNotEmpty) {
+            _feedItems = _mergeAdsIntoFeed(_posts);
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Discover: failed to load ads: $e');
+    }
+  }
+
+  String _computeAdContext(List<Map<String, dynamic>> posts) {
+    if (_userLat == null || _userLng == null) return 'discover';
+    for (final post in posts) {
+      final lat = (post['latitude'] as num?)?.toDouble();
+      final lng = (post['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) continue;
+      return NativeAdsService.detectVicariousPeepling(
+        userLat: _userLat!,
+        userLng: _userLng!,
+        venueLat: lat,
+        venueLng: lng,
+      )
+          ? 'travel'
+          : 'discover';
+    }
+    return 'discover';
+  }
+
+  List<Map<String, dynamic>> _mergeAdsIntoFeed(List<Map<String, dynamic>> posts) {
+    _cadence.reset();
+    final items = <Map<String, dynamic>>[];
+    var adIndex = 0;
+
+    for (final post in posts) {
+      if (_availableAds.isNotEmpty) {
+        bool adAdded = false;
+        for (var i = 0; i < _availableAds.length; i++) {
+          final candidate = _availableAds[(adIndex + i) % _availableAds.length];
+          if (_cadence.shouldShowAd(candidateAdId: candidate['id'] as String?)) {
+            items.add({'type': 'ad', ...candidate});
+            adIndex += i + 1;
+            adAdded = true;
+            break;
+          }
+          if (!_cadence.isSlotPending) break;
+        }
+        if (!adAdded && _cadence.isSlotPending) _cadence.skipSlot();
+      }
+
+      items.add(post);
+    }
+    return items;
+  }
+
+  Widget _buildAdCard(Map<String, dynamic> ad) {
+    final adId = ad['id'] as String? ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AdCard(
+        ad: ad,
+        onImpression: () => _adsService.recordAdImpression(adId, uid),
+        onTap: () => _adsService.recordAdClick(adId, uid),
+      ),
+    );
   }
 
   Color _getCrowdingColor(int level) {
@@ -146,6 +264,16 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _cadence.refreshVIPeepsStatus().then((_) {
+      if (mounted && _posts.isNotEmpty) {
+        setState(() => _feedItems = _mergeAdsIntoFeed(_posts));
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
@@ -186,8 +314,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       : ListView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemCount: _feedItems.length,
-                          itemBuilder: (context, index) =>
-                              _buildLocationCard(_feedItems[index]),
+                          itemBuilder: (context, index) {
+                            final item = _feedItems[index];
+                            return item['type'] == 'ad'
+                                ? _buildAdCard(item)
+                                : _buildLocationCard(item);
+                          },
                         ),
             ),
           ],

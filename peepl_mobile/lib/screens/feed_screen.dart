@@ -3,12 +3,16 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+
+import '../services/ad_cadence_service.dart';
 import '../services/feed_service.dart';
+import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../widgets/ad_card.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
 import 'location_detail_screen.dart';
 import 'post_screen.dart';
@@ -25,6 +29,7 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final FeedService _feedService = FeedService();
   final NativeAdsService _adsService = NativeAdsService();
+  final AdCadenceService _cadence = AdCadenceService();
   final ScrollController _scrollController = ScrollController();
 
   StreamSubscription<QuerySnapshot>? _feedSub;
@@ -40,6 +45,10 @@ class _FeedScreenState extends State<FeedScreen> {
   double? _userLat;
   double? _userLng;
 
+  /// Current ad context — updated to 'travel' when vicarious peepling is
+  /// detected. Changes trigger a targeted ad reload via [_reloadAds].
+  String _adContext = 'feed';
+
   static const TextStyle _overlayShadow = TextStyle(
     color: Colors.white,
     shadows: [
@@ -53,47 +62,46 @@ class _FeedScreenState extends State<FeedScreen> {
   void initState() {
     super.initState();
     _loadFeedData();
-    _loadAds();
+    _initAds();
     _initUserLocation();
   }
 
   Future<void> _initUserLocation() async {
-    try {
-      final enabled = await Geolocator.isLocationServiceEnabled();
-      if (!enabled || !mounted) return;
+    final pos = await LocationService.getCurrentLocation();
+    if (pos == null || !mounted) return;
 
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever ||
-          !mounted) {
-        return;
-      }
+    _userLat = pos.latitude;
+    _userLng = pos.longitude;
 
-      final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
-      );
-      if (!mounted) return;
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-      final resort = _locationPosts.isNotEmpty &&
-          (_sortMode == _SortMode.distance || _sortMode == _SortMode.local);
-      if (resort) {
-        final copy = List<Map<String, dynamic>>.from(_locationPosts);
-        _sortLocationPosts(copy);
-        final items = _mergeAdsIntoFeed(copy);
+    // Detect vicarious peepling now that we have the user's position.
+    // If the feed content is far away (>80 km), switch to travel ads.
+    final newContext = _computeAdContext(_locationPosts);
+    if (newContext != _adContext) {
+      _adContext = newContext;
+      _reloadAds();
+    }
+
+    // Re-sort distance-based modes and rebuild the distance display.
+    final resort = _locationPosts.isNotEmpty &&
+        (_sortMode == _SortMode.distance || _sortMode == _SortMode.local);
+    if (resort) {
+      final copy = List<Map<String, dynamic>>.from(_locationPosts);
+      _sortLocationPosts(copy);
+      final items = _mergeAdsIntoFeed(copy);
+      if (mounted) {
         setState(() {
           _locationPosts = copy;
           _feedItems = items;
         });
-      } else {
-        setState(() {});
       }
-    } catch (_) {
-      // Distance shows "—" when unavailable
+    } else if (mounted) {
+      setState(() {}); // refresh distance labels
     }
+  }
+
+  bool _isNetworkError(Object error) {
+    final msg = error.toString().toLowerCase();
+    return msg.contains('network') || msg.contains('unavailable');
   }
 
   Future<void> _loadFeedData() async {
@@ -106,16 +114,26 @@ class _FeedScreenState extends State<FeedScreen> {
       _feedSub = _feedService.getLocationFeedStream().listen(
         (snapshot) => _processFeedData(snapshot.docs),
         onError: (error) {
-          if (mounted) {
-            setState(() {
-              _hasError = true;
-              _errorMessage = 'Failed to load feed: $error';
-              _isLoading = false;
-            });
+          if (!mounted) return;
+          if (_isNetworkError(error)) {
+            Navigator.pushNamed(context, '/no_connection')
+                .then((_) { if (mounted) _loadFeedData(); });
+            return;
           }
+          setState(() {
+            _hasError = true;
+            _errorMessage = 'Failed to load feed: $error';
+            _isLoading = false;
+          });
         },
       );
     } catch (e) {
+      if (!mounted) return;
+      if (_isNetworkError(e)) {
+        Navigator.pushNamed(context, '/no_connection')
+            .then((_) { if (mounted) _loadFeedData(); });
+        return;
+      }
       setState(() {
         _hasError = true;
         _errorMessage = 'Failed to load feed: $e';
@@ -124,26 +142,93 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  Future<void> _loadAds() async {
+  Future<void> _initAds() async {
+    await _cadence.init();
+    // Pre-warm the location cache alongside cadence init. LocationService
+    // deduplicates the Geolocator call if _initUserLocation already fired it.
+    final pos = await LocationService.getCurrentLocation();
+    if (pos != null) {
+      _userLat = pos.latitude;
+      _userLng = pos.longitude;
+    }
+    await _reloadAds();
+  }
+
+  /// Fetches ads for the current [_adContext] + user coordinates and rebuilds
+  /// the feed. Safe to call any time context or location changes.
+  Future<void> _reloadAds() async {
     try {
-      final ads = await _adsService.getAdsForFeed(limit: 10);
-      if (mounted) setState(() => _availableAds = ads);
+      final ads = await _adsService.getAdsForFeed(
+        context: _adContext,
+        userLat: _userLat,
+        userLng: _userLng,
+        limit: 10,
+      );
+      if (mounted) {
+        setState(() {
+          _availableAds = ads;
+          if (_locationPosts.isNotEmpty) {
+            _feedItems = _mergeAdsIntoFeed(_locationPosts);
+          }
+        });
+      }
     } catch (e) {
       debugPrint('Failed to load ads: $e');
     }
   }
 
-  List<Map<String, dynamic>> _mergeAdsIntoFeed(List<Map<String, dynamic>> posts) {
-    final feedItems = <Map<String, dynamic>>[];
-    var adIndex = 0;
-    for (var i = 0; i < posts.length; i++) {
-      feedItems.add(posts[i]);
-      if ((i + 1) % 2 == 0 && adIndex < _availableAds.length) {
-        feedItems.add({'type': 'ad', ..._availableAds[adIndex]});
-        adIndex++;
-      }
+  /// Inspects the first geotagged post to decide if the user is vicariously
+  /// peepling (browsing venues >80 km away). Returns 'travel' or 'feed'.
+  String _computeAdContext(List<Map<String, dynamic>> posts) {
+    if (_userLat == null || _userLng == null) return 'feed';
+    for (final post in posts) {
+      final lat = (post['latitude'] as num?)?.toDouble();
+      final lng = (post['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null || (lat == 0 && lng == 0)) continue;
+      return NativeAdsService.detectVicariousPeepling(
+        userLat: _userLat!,
+        userLng: _userLng!,
+        venueLat: lat,
+        venueLng: lng,
+      )
+          ? 'travel'
+          : 'feed';
     }
-    return feedItems;
+    return 'feed';
+  }
+
+  List<Map<String, dynamic>> _mergeAdsIntoFeed(List<Map<String, dynamic>> posts) {
+    _cadence.reset();
+    final items = <Map<String, dynamic>>[];
+    var adIndex = 0;
+
+    for (final post in posts) {
+      if (_availableAds.isNotEmpty) {
+        bool adAdded = false;
+        // Cycle through candidates to find the first unseen one the cadence
+        // approves. shouldShowAd advances counters when the slot is not yet
+        // due; it skips counter advancement when a slot IS due but the
+        // candidate was already seen, keeping the slot open for the next try.
+        for (var i = 0; i < _availableAds.length; i++) {
+          final candidate = _availableAds[(adIndex + i) % _availableAds.length];
+          if (_cadence.shouldShowAd(candidateAdId: candidate['id'] as String?)) {
+            items.add({'type': 'ad', ...candidate});
+            adIndex += i + 1;
+            adAdded = true;
+            break;
+          }
+          // If the slot is no longer pending (cap / floor / pattern declined),
+          // no point trying further candidates for this post position.
+          if (!_cadence.isSlotPending) break;
+        }
+        // Slot was due but every candidate had already been seen — advance
+        // the pattern cleanly without counting an impression.
+        if (!adAdded && _cadence.isSlotPending) _cadence.skipSlot();
+      }
+
+      items.add(post);
+    }
+    return items;
   }
 
   void _processFeedData(List<QueryDocumentSnapshot> postDocs) {
@@ -161,6 +246,14 @@ class _FeedScreenState extends State<FeedScreen> {
         })
         .toList();
     _sortLocationPosts(posts);
+
+    // Recompute ad context whenever the post list changes.
+    final newContext = _computeAdContext(posts);
+    if (newContext != _adContext) {
+      _adContext = newContext;
+      _reloadAds(); // async — will rebuild feed when ads arrive
+    }
+
     final feedItems = _mergeAdsIntoFeed(posts);
     if (mounted) {
       setState(() {
@@ -621,7 +714,7 @@ class _FeedScreenState extends State<FeedScreen> {
       separatorBuilder: (context, index) => const Divider(height: 1, thickness: 1, color: Color(0x33FFFFFF)),
       itemBuilder: (context, index) {
         final item = _feedItems[index];
-        return item['type'] == 'ad' ? _buildAdRow() : _buildLocationCard(item);
+        return item['type'] == 'ad' ? _buildAdCard(item) : _buildLocationCard(item);
       },
     );
   }
@@ -808,17 +901,26 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  Widget _buildAdRow() {
-    return Container(
-      width: double.infinity,
-      height: 72,
-      color: const Color(0xFFE3F2FD),
-      alignment: Alignment.center,
-      child: const Text(
-        'ADVERTISEMENT',
-        style: TextStyle(color: Color(0xFF1976D2), fontSize: 16, fontWeight: FontWeight.bold),
-      ),
+  Widget _buildAdCard(Map<String, dynamic> ad) {
+    final adId = ad['id'] as String? ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return AdCard(
+      ad: ad,
+      onImpression: () => _adsService.recordAdImpression(adId, uid),
+      onTap: () => _adsService.recordAdClick(adId, uid),
     );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Re-check VIPeeps status whenever the screen regains focus so a user who
+    // just subscribed stops seeing ads without needing to restart the app.
+    _cadence.refreshVIPeepsStatus().then((_) {
+      if (mounted && _locationPosts.isNotEmpty) {
+        setState(() => _feedItems = _mergeAdsIntoFeed(_locationPosts));
+      }
+    });
   }
 
   @override

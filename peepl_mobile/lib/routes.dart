@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'screens/splash_screen.dart';
+import 'screens/location_permission_screen.dart';
+import 'screens/push_permission_screen.dart';
+import 'screens/peep_submitted_screen.dart';
+import 'screens/no_connection_screen.dart';
 import 'screens/post_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
@@ -60,6 +65,14 @@ final Map<String, dynamic> kLocationDetailDemoPostData = <String, dynamic>{
 };
 
 Map<String, WidgetBuilder> appRoutes = {
+  '/splash': (_) => const SplashScreen(),
+  '/onboarding/1': (_) => const OnboardingScreen(step: 1),
+  '/onboarding/2': (_) => const OnboardingScreen(step: 2),
+  '/onboarding/3': (_) => const OnboardingScreen(step: 3),
+  '/permissions/location': (_) => const LocationPermissionScreen(),
+  '/permissions/push': (_) => const PushPermissionScreen(),
+  '/peep_submitted': (_) => const PeepSubmittedScreen(),
+  '/no_connection': (_) => const NoConnectionScreen(),
   '/home': (_) => const MainShell(),
   '/feed': (_) => const MainShell(initialBodyIndex: 0),
   '/discover': (_) => const MainShell(initialBodyIndex: 1),
@@ -87,7 +100,7 @@ Map<String, WidgetBuilder> appRoutes = {
   '/menu': (_) => const MenuScreen(),
   '/my_peeps': (_) => const MyPeepsScreen(),
   '/notifications': (_) => const NotificationsScreen(),
-  '/onboarding': (_) => const OnboardingScreen(),
+  '/onboarding': (_) => const OnboardingScreen(step: 1),
   '/peep_detail': (_) => const PeepDetailScreen(),
   '/permissions': (_) => const PermissionsScreen(),
   '/pioneer_congrat': (_) => const PioneerCongratScreen(),

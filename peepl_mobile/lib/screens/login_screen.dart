@@ -130,9 +130,11 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isLoginMode) {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _email.text.trim(), password: _pass.text.trim());
+        if (mounted) Navigator.pushReplacementNamed(context, '/home');
       } else {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _email.text.trim(), password: _pass.text.trim());
+        if (mounted) Navigator.pushReplacementNamed(context, '/sign_up_confirmed');
       }
     } catch (e) {
       setState(() { _error = _getErrorMessage(e.toString()); _loading = false; });

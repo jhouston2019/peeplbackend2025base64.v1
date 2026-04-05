@@ -489,10 +489,11 @@ class _PostScreenState extends State<PostScreen> {
     setState(() => _isLoading = true);
 
     try {
+      final locationName = _locationController.text.trim();
       await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: _locationController.text.trim(),
+        locationName: locationName,
         latitude: 40.7829,
         longitude: -73.9654,
         crowdingLevel: _crowdingLevel.round(),
@@ -500,10 +501,13 @@ class _PostScreenState extends State<PostScreen> {
         description: _buildDescription(),
       );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Post submitted successfully!')),
-      );
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pushReplacementNamed(
+          context,
+          '/peep_submitted',
+          arguments: locationName,
+        );
+      }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to submit post: $e')),

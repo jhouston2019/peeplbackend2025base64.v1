@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_stripe/flutter_stripe.dart';
 import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'config/constants.dart';
 import 'routes.dart';
 import 'services/auth_service.dart';
 import 'theme_notifier.dart';
-import 'screens/login_screen.dart';
-import 'screens/main_shell.dart';
 import 'services/push_notification_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
 import 'services/presence_service.dart';
@@ -15,6 +16,11 @@ import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Stripe must be configured before Firebase and before runApp.
+  Stripe.publishableKey = kStripePublishableKey;
+  await Stripe.instance.applySettings();
+
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -95,16 +101,43 @@ class PeeplApp extends StatelessWidget {
   }
 }
 
-class _AuthGate extends StatelessWidget {
+class _AuthGate extends StatefulWidget {
   @override
-  Widget build(BuildContext context) {
-    final user = Provider.of<User?>(context);
-    if (user != null) {
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  @override
+  void initState() {
+    super.initState();
+    _redirect();
+  }
+
+  Future<void> _redirect() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasCompleted = prefs.getBool('hasCompletedOnboarding') ?? false;
+    if (!mounted) return;
+
+    if (!hasCompleted) {
+      Navigator.pushReplacementNamed(context, '/splash');
+      return;
+    }
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      Navigator.pushReplacementNamed(context, '/login');
+    } else {
       Future.microtask(
         () => PushNotificationService.instance.onUserSignedIn(),
       );
-      return const MainShell(initialBodyIndex: 0);
+      Navigator.pushReplacementNamed(context, '/home');
     }
-    return LoginScreen();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(child: CircularProgressIndicator()),
+    );
   }
 }

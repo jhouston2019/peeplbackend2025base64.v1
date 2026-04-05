@@ -8,9 +8,14 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_share_links.dart';
+import '../services/ad_cadence_service.dart';
+import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
+import '../services/location_service.dart';
+import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../widgets/ad_card.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
 
 class LocationDetailScreen extends StatefulWidget {
@@ -25,16 +30,107 @@ class LocationDetailScreen extends StatefulWidget {
 
 class _LocationDetailScreenState extends State<LocationDetailScreen> {
   final FeedService _feedService = FeedService();
+  final NativeAdsService _adsService = NativeAdsService();
+  final AdCadenceService _cadence = AdCadenceService();
   final TextEditingController _commentController = TextEditingController();
+
   bool _isLiked = false;
   bool _isSubmittingComment = false;
   late int _likesCount;
+  List<Map<String, dynamic>> _availableAds = [];
 
   @override
   void initState() {
     super.initState();
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
+    _initAds();
+  }
+
+  Future<void> _initAds() async {
+    // Uniform every-3rd-slot spacing; overrides the irregular feed pattern.
+    await _cadence.init(pattern: [3, 3, 3, 3]);
+
+    // Get cached user location (no new permission request — already resolved
+    // by FeedScreen or DiscoverScreen earlier in the session).
+    final pos = await LocationService.getCurrentLocation();
+    final userLat = pos?.latitude;
+    final userLng = pos?.longitude;
+
+    // Detect vicarious peepling for this specific venue.
+    // If the user is >80 km from the venue, serve travel ads instead.
+    final venueLat = (widget.postData['latitude'] as num?)?.toDouble();
+    final venueLng = (widget.postData['longitude'] as num?)?.toDouble();
+    String context = 'venue';
+    if (userLat != null &&
+        userLng != null &&
+        venueLat != null &&
+        venueLng != null &&
+        venueLat != 0 &&
+        venueLng != 0) {
+      if (NativeAdsService.detectVicariousPeepling(
+        userLat: userLat,
+        userLng: userLng,
+        venueLat: venueLat,
+        venueLng: venueLng,
+      )) {
+        context = 'travel';
+      }
+    }
+
+    try {
+      final ads = await _adsService.getAdsForFeed(
+        context: context,
+        userLocation: widget.postData['locationName'] as String?,
+        userLat: userLat,
+        userLng: userLng,
+        limit: 5,
+      );
+      if (mounted) setState(() => _availableAds = ads);
+    } catch (e) {
+      debugPrint('LocationDetail: failed to load ads: $e');
+    }
+  }
+
+  /// Interleaves [_availableAds] into a comment doc list using the cadence.
+  /// Returns a mixed list of [QueryDocumentSnapshot] and ad [Map] entries.
+  List<dynamic> _interleaveAdsIntoComments(List<QueryDocumentSnapshot> docs) {
+    _cadence.reset();
+    final items = <dynamic>[];
+    var adIndex = 0;
+
+    for (final doc in docs) {
+      if (_availableAds.isNotEmpty) {
+        bool adAdded = false;
+        for (var i = 0; i < _availableAds.length; i++) {
+          final candidate = _availableAds[(adIndex + i) % _availableAds.length];
+          if (_cadence.shouldShowAd(candidateAdId: candidate['id'] as String?)) {
+            items.add({'_isAd': true, ...candidate});
+            adIndex += i + 1;
+            adAdded = true;
+            break;
+          }
+          if (!_cadence.isSlotPending) break;
+        }
+        if (!adAdded && _cadence.isSlotPending) _cadence.skipSlot();
+      }
+
+      items.add(doc);
+    }
+    return items;
+  }
+
+  Widget _buildAdCard(Map<String, dynamic> ad) {
+    final adId = ad['id'] as String? ?? '';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: AdCard(
+        ad: ad,
+        onImpression: () => _adsService.recordAdImpression(adId, uid),
+        onTap: () => _adsService.recordAdClick(adId, uid),
+      ),
+    );
   }
 
   Future<void> _checkIfLiked() async {
@@ -519,6 +615,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             const SizedBox(height: 20),
             _buildLocationMapSection(post),
           ],
+          _buildOtherPeepsSection(post),
           const Divider(height: 32),
           const Text('Comments',
               style:
@@ -570,6 +667,34 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
+  /// Shows [NoPeepsEmptyState] when no other users have posted about this
+  /// location — encouraging the viewer to be the first (or add another Peep).
+  Widget _buildOtherPeepsSection(Map<String, dynamic> post) {
+    final locationName = post['locationName'] as String? ?? '';
+    final currentPostId = post['id'] as String?;
+    if (locationName.isEmpty) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .limit(10)
+          .snapshots(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          return const SizedBox.shrink();
+        }
+        final othersExist = (snap.data?.docs ?? [])
+            .any((d) => d.id != currentPostId);
+        if (othersExist) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 16),
+          child: NoPeepsEmptyState(locationName: locationName),
+        );
+      },
+    );
+  }
+
   Widget _buildCommentsStream(String postId) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
@@ -586,9 +711,19 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           return Text('No comments yet. Be the first!',
               style: TextStyle(color: Colors.grey[500]));
         }
+
+        final items = _interleaveAdsIntoComments(snapshot.data!.docs);
+
         return Column(
-          children: snapshot.data!.docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
+          children: items.map((item) {
+            // Ad slot
+            if (item is Map<String, dynamic> && item['_isAd'] == true) {
+              return _buildAdCard(item);
+            }
+
+            // Comment row
+            final data =
+                (item as QueryDocumentSnapshot).data() as Map<String, dynamic>;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
