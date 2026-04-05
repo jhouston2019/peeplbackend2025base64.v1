@@ -369,7 +369,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           Image.asset(
             'assets/icon/icon.png',
-            height: 40,
+            height: 80,
             semanticLabel: 'Peepl',
           ),
           Material(
