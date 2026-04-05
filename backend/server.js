@@ -28,11 +28,22 @@ if (!admin.apps.length) {
 }
 
 async function getFcmToken(uid) {
-  const doc = await admin.firestore().collection(uid).doc('profile').get();
-  if (!doc.exists) throw new Error(`No profile document for uid ${uid}`);
-  const token = doc.data().fcmToken;
-  if (!token) throw new Error(`No FCM token stored for uid ${uid}`);
-  return token;
+  try {
+    const doc = await admin.firestore().collection(uid).doc('profile').get();
+    if (!doc.exists) {
+      console.warn('[FCM] No profile document for uid', uid);
+      return null;
+    }
+    const token = doc.data().fcmToken;
+    if (!token) {
+      console.warn('[FCM] No FCM token stored for uid', uid);
+      return null;
+    }
+    return token;
+  } catch (err) {
+    console.warn('[FCM] getFcmToken error for', uid, ':', err.message);
+    return null;
+  }
 }
 
 const app = express();
@@ -139,6 +150,7 @@ app.post('/notifications/send', async (req, res) => {
   if (!uid || !title || !body) return res.status(400).json({ error: 'uid, title, and body are required' });
   try {
     const token = await getFcmToken(uid);
+    if (!token) return res.json({ success: false, reason: 'no_token' });
     const messageId = await admin.messaging().send({
       token,
       notification: { title, body },
@@ -149,8 +161,8 @@ app.post('/notifications/send', async (req, res) => {
     console.log(`[FCM] Sent to ${uid}: ${messageId}`);
     res.json({ success: true, messageId });
   } catch (err) {
-    console.error(`[FCM] Send error for ${uid}:`, err.message);
-    res.status(500).json({ error: err.message });
+    console.warn('[FCM] Send error for', uid, ':', err.message);
+    res.json({ success: false, reason: 'send_error' });
   }
 });
 
@@ -162,6 +174,7 @@ app.post('/notifications/like', async (req, res) => {
   if (!postOwnerUid || !likerUsername || !postId) return res.status(400).json({ error: 'postOwnerUid, likerUsername, and postId are required' });
   try {
     const token = await getFcmToken(postOwnerUid);
+    if (!token) return res.json({ success: false, reason: 'no_token' });
     const messageId = await admin.messaging().send({
       token,
       notification: {
@@ -175,9 +188,8 @@ app.post('/notifications/like', async (req, res) => {
     console.log(`[FCM] Like notification sent to ${postOwnerUid}: ${messageId}`);
     res.json({ success: true, messageId });
   } catch (err) {
-    if (err.message.includes('No FCM token')) return res.json({ success: false, reason: 'no_token' });
-    console.error('[FCM] Like notification error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.warn('[FCM] Send error for', postOwnerUid, ':', err.message);
+    res.json({ success: false, reason: 'send_error' });
   }
 });
 
@@ -189,6 +201,7 @@ app.post('/notifications/proximity', async (req, res) => {
   if (!targetUid || !locationName || !postId) return res.status(400).json({ error: 'targetUid, locationName, and postId are required' });
   try {
     const token = await getFcmToken(targetUid);
+    if (!token) return res.json({ success: false, reason: 'no_token' });
     const messageId = await admin.messaging().send({
       token,
       notification: {
@@ -201,9 +214,8 @@ app.post('/notifications/proximity', async (req, res) => {
     });
     res.json({ success: true, messageId });
   } catch (err) {
-    if (err.message.includes('No FCM token')) return res.json({ success: false, reason: 'no_token' });
-    console.error('[FCM] Proximity notification error:', err.message);
-    res.status(500).json({ error: err.message });
+    console.warn('[FCM] Send error for', targetUid, ':', err.message);
+    res.json({ success: false, reason: 'send_error' });
   }
 });
 
