@@ -59,6 +59,8 @@
 	<string>Peepl uses your location to detect when you arrive at a venue so you can report crowd levels.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Peepl uses your location in the background to detect when you arrive at a venue and ask about crowd levels.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>Peepl uses motion data to detect when you arrive at a venue so you can report crowd levels.</string>
 	<key>GMSApiKey</key>
 	<string>AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8</string>
 	<key>LSApplicationQueriesSchemes</key>
