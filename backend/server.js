@@ -291,63 +291,63 @@ app.post('/notifications/proximity', async (req, res) => {
 // Trigger this endpoint via Railway's cron scheduler (Settings → Cron Jobs)
 // using an Authorization header: Bearer <CRON_SECRET>.
 // Recommended schedule: every hour — "0 * * * *"
-app.post('/merchant/run-billing-cron', async (req, res) => {
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
-
-  try {
-    const db = admin.firestore();
-    const now = admin.firestore.Timestamp.now();
-
-    const expiredSnap = await db.collection('native_ads')
-      .where('isActive', '==', true)
-      .where('endDate', '<=', now)
-      .get();
-
-    let invoiced = 0;
-    for (const doc of expiredSnap.docs) {
-      const ad = doc.data();
-      try {
-        if (ad.billing_model === 'cpm' && ad.stripeCustomerId) {
-          const impressions = ad.impressions ?? 0;
-          const rate = CPM_RATE[ad.tier] ?? 5.0;
-          const finalCharge = Math.max(50, Math.round((impressions / 1000) * rate * 100));
-          await stripe.paymentIntents.create({
-            amount: finalCharge,
-            currency: 'usd',
-            customer: ad.stripeCustomerId,
-            confirm: true,
-            off_session: true,
-            metadata: { adId: doc.id, merchantId: ad.advertiserId, type: 'cpm_final' },
-          });
-          await db.collection('merchant_payments').add({
-            adId: doc.id,
-            merchantId: ad.advertiserId,
-            amount: finalCharge,
-            currency: 'usd',
-            billing_model: 'cpm',
-            impressions,
-            status: 'invoiced',
-            timestamp: now,
-          });
-        }
-        await doc.ref.update({ isActive: false, billing_status: 'invoiced' });
-        invoiced++;
-      } catch (err) {
-        console.error(`[Cron] Failed to process ad ${doc.id}:`, err.message);
-      }
-    }
-
-    console.log(`[Cron] Billing run complete — ${invoiced} ads invoiced`);
-    res.json({ invoiced });
-  } catch (err) {
-    console.error('[Cron] Error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// app.post('/merchant/run-billing-cron', async (req, res) => {
+//   const cronSecret = process.env.CRON_SECRET;
+//   if (cronSecret && req.headers['authorization'] !== `Bearer ${cronSecret}`) {
+//     return res.status(401).json({ error: 'Unauthorized' });
+//   }
+//   if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
+//
+//   try {
+//     const db = admin.firestore();
+//     const now = admin.firestore.Timestamp.now();
+//
+//     const expiredSnap = await db.collection('native_ads')
+//       .where('isActive', '==', true)
+//       .where('endDate', '<=', now)
+//       .get();
+//
+//     let invoiced = 0;
+//     for (const doc of expiredSnap.docs) {
+//       const ad = doc.data();
+//       try {
+//         if (ad.billing_model === 'cpm' && ad.stripeCustomerId) {
+//           const impressions = ad.impressions ?? 0;
+//           const rate = CPM_RATE[ad.tier] ?? 5.0;
+//           const finalCharge = Math.max(50, Math.round((impressions / 1000) * rate * 100));
+//           await stripe.paymentIntents.create({
+//             amount: finalCharge,
+//             currency: 'usd',
+//             customer: ad.stripeCustomerId,
+//             confirm: true,
+//             off_session: true,
+//             metadata: { adId: doc.id, merchantId: ad.advertiserId, type: 'cpm_final' },
+//           });
+//           await db.collection('merchant_payments').add({
+//             adId: doc.id,
+//             merchantId: ad.advertiserId,
+//             amount: finalCharge,
+//             currency: 'usd',
+//             billing_model: 'cpm',
+//             impressions,
+//             status: 'invoiced',
+//             timestamp: now,
+//           });
+//         }
+//         await doc.ref.update({ isActive: false, billing_status: 'invoiced' });
+//         invoiced++;
+//       } catch (err) {
+//         console.error(`[Cron] Failed to process ad ${doc.id}:`, err.message);
+//       }
+//     }
+//
+//     console.log(`[Cron] Billing run complete — ${invoiced} ads invoiced`);
+//     res.json({ invoiced });
+//   } catch (err) {
+//     console.error('[Cron] Error:', err.message);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
