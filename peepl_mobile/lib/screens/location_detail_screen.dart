@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../constants/app_share_links.dart';
 import '../services/feed_service.dart';
+import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
 
@@ -443,34 +444,72 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           const SizedBox(height: 16),
           _buildDetailsGrid(details),
           if (details.isNotEmpty) const SizedBox(height: 16),
-          Row(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              GestureDetector(
-                onTap: _toggleLike,
-                child: Row(
-                  children: [
-                    Icon(
-                      _isLiked ? Icons.favorite : Icons.favorite_border,
-                      color: _isLiked ? Colors.red : Colors.grey,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_likesCount',
-                      style: TextStyle(color: Colors.grey[700]),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 24),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  const Icon(Icons.comment_outlined,
-                      color: Colors.grey, size: 24),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${post['commentsCount'] ?? 0}',
-                    style: TextStyle(color: Colors.grey[700]),
+                  GestureDetector(
+                    onTap: _toggleLike,
+                    child: Row(
+                      children: [
+                        Icon(
+                          _isLiked ? Icons.favorite : Icons.favorite_border,
+                          color: _isLiked ? Colors.red : Colors.grey,
+                          size: 24,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$_likesCount',
+                          style: TextStyle(color: Colors.grey[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      const Icon(Icons.comment_outlined,
+                          color: Colors.grey, size: 24),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${post['commentsCount'] ?? 0}',
+                        style: TextStyle(color: Colors.grey[700]),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  GestureDetector(
+                    onTap: _sendAskRequest,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1565C0),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.campaign_outlined,
+                              color: Colors.white, size: 16),
+                          SizedBox(width: 6),
+                          Text(
+                            'Ask Here Now',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -492,6 +531,43 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         ],
       ),
     );
+  }
+
+  Future<void> _sendAskRequest() async {
+    final locationName =
+        widget.postData['locationName'] as String? ?? '';
+    final lat =
+        (widget.postData['latitude'] as num?)?.toDouble() ?? 0.0;
+    final lng =
+        (widget.postData['longitude'] as num?)?.toDouble() ?? 0.0;
+
+    if (locationName.isEmpty) return;
+
+    try {
+      await PresenceService.instance.sendCrowdsourceRequest(
+        locationName: locationName,
+        latitude: lat,
+        longitude: lng,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Asked everyone at $locationName to report crowd levels!',
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: const Color(0xFF1565C0),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Failed to send request. Try again.')),
+        );
+      }
+    }
   }
 
   Widget _buildCommentsStream(String postId) {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../theme_notifier.dart';
 import '../services/auth_service.dart';
+import '../services/presence_service.dart';
 import '../shell_tab_bus.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -247,6 +248,7 @@ class SettingsScreen extends StatelessWidget {
       height: 52,
       child: OutlinedButton.icon(
         onPressed: () async {
+          await PresenceService.instance.clearPresence();
           await AuthService().signOut();
           Navigator.pushNamedAndRemoveUntil(
               context, '/login', (_) => false);

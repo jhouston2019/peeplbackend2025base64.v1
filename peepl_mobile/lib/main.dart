@@ -10,6 +10,8 @@ import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 import 'services/push_notification_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
+import 'services/presence_service.dart';
+import 'services/local_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -35,8 +37,12 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     PushNotificationService.instance.init(navKey: navigatorKey).then((_) async {
       final geofenceService = geofence_svc.PeeplGeofenceService.instance;
-      geofenceService.onLocationEntered = (name, lat, lng) {
+      await LocalNotificationService.instance
+          .initialize(navigatorKey: navigatorKey);
+      geofenceService.onLocationEntered = (name, lat, lng) async {
         debugPrint('GEOFENCE ENTERED: $name at $lat, $lng');
+        await PresenceService.instance.recordArrival(name, lat, lng);
+        await LocalNotificationService.instance.showArrivalNotification(name);
       };
       await geofenceService.initialize();
       await geofenceService.loadGeofencesFromFirestore();

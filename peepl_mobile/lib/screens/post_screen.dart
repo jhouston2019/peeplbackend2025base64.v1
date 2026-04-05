@@ -189,6 +189,7 @@ class _PostScreenState extends State<PostScreen> {
   double? _latitude;
   double? _longitude;
   bool _isGeolocating = false;
+  bool _locationPreFilled = false;
 
   File? _selectedImage;
   XFile? _videoFile;
@@ -232,6 +233,18 @@ class _PostScreenState extends State<PostScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _resolveLocationAndGeocode();
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_locationPreFilled) {
+      _locationPreFilled = true;
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map && args['locationName'] != null) {
+        _locationController.text = args['locationName'] as String;
+      }
+    }
   }
 
   /// Reverse-geocode [placemark] into a short place label for the location field.

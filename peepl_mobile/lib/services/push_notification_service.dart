@@ -179,6 +179,13 @@ class PushNotificationService {
       case 'post_liked':
         nav.pushNamed('/feed');
         break;
+      case 'crowdsource_request':
+        final locationName = data['locationName'] as String? ?? '';
+        nav.pushNamed(
+          '/post',
+          arguments: {'locationName': locationName},
+        );
+        break;
       default:
         nav.pushNamed('/feed');
     }

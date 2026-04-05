@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 
 import '../services/feed_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
 import 'location_detail_screen.dart';
@@ -580,10 +581,92 @@ class _FeedScreenState extends State<FeedScreen> {
                 ],
               ),
             ),
+            Positioned(
+              right: 16,
+              bottom: 16,
+              child: _buildAskButton(post),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _buildAskButton(Map<String, dynamic> post) {
+    final locationName = post['locationName'] as String? ?? '';
+    final lat = (post['latitude'] as num?)?.toDouble() ?? 0.0;
+    final lng = (post['longitude'] as num?)?.toDouble() ?? 0.0;
+
+    return GestureDetector(
+      onTap: () => _sendAskRequest(
+        context: context,
+        locationName: locationName,
+        latitude: lat,
+        longitude: lng,
+      ),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1565C0).withValues(alpha: 0.85),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.25),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.campaign_outlined, color: Colors.white, size: 14),
+            SizedBox(width: 4),
+            Text(
+              'Ask',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendAskRequest({
+    required BuildContext context,
+    required String locationName,
+    required double latitude,
+    required double longitude,
+  }) async {
+    if (locationName.isEmpty) return;
+    try {
+      await PresenceService.instance.sendCrowdsourceRequest(
+        locationName: locationName,
+        latitude: latitude,
+        longitude: longitude,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Asked everyone at $locationName to report crowd levels!',
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: const Color(0xFF1565C0),
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send request. Try again.')),
+        );
+      }
+    }
   }
 
   Widget _buildAdRow() {
