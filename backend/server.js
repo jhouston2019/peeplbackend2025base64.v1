@@ -3,7 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+// const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 
 // ── Billing constants ────────────────────────────────────────────────────────
 // Flat hourly rates in USD (charged upfront at booking time).
@@ -55,78 +55,78 @@ app.use(cors());
 // Stripe signature verification requires the raw (unparsed) request body.
 // Using express.json() first would parse + re-stringify the body, breaking
 // the HMAC check.
-app.post(
-  '/merchant/payment-confirmed',
-  express.raw({ type: 'application/json' }),
-  async (req, res) => {
-    const sig = req.headers['stripe-signature'];
-    if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
-      return res.status(400).json({ error: 'Missing Stripe signature or secret' });
-    }
-
-    let event;
-    try {
-      event = stripe.webhooks.constructEvent(
-        req.body,
-        sig,
-        process.env.STRIPE_WEBHOOK_SECRET,
-      );
-    } catch (err) {
-      console.error('[Stripe] Webhook signature verification failed:', err.message);
-      return res.status(400).json({ error: `Webhook Error: ${err.message}` });
-    }
-
-    if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
-    const db = admin.firestore();
-
-    if (event.type === 'payment_intent.succeeded') {
-      const intent = event.data.object;
-      const { adId, merchantId, tier, durationHours } = intent.metadata;
-      try {
-        const now = admin.firestore.Timestamp.now();
-        const endDate = new Date();
-        endDate.setHours(endDate.getHours() + parseInt(durationHours, 10));
-
-        await db.collection('native_ads').doc(adId).update({
-          isActive: true,
-          startDate: now,
-          endDate: admin.firestore.Timestamp.fromDate(endDate),
-          billing_status: 'paid',
-          stripePaymentIntentId: intent.id,
-        });
-
-        await db.collection('merchant_payments').add({
-          adId,
-          merchantId,
-          amount: intent.amount,
-          currency: intent.currency,
-          stripePaymentIntentId: intent.id,
-          status: 'paid',
-          tier,
-          durationHours: parseInt(durationHours, 10),
-          timestamp: now,
-        });
-
-        console.log(`[Stripe] Ad ${adId} activated for merchant ${merchantId}`);
-      } catch (err) {
-        console.error('[Stripe] Post-payment Firestore error:', err.message);
-        // Still return 200 so Stripe doesn't retry — log the error separately.
-      }
-    } else if (event.type === 'payment_intent.payment_failed') {
-      const intent = event.data.object;
-      const { adId } = intent.metadata;
-      try {
-        await db.collection('native_ads').doc(adId).update({
-          billing_status: 'payment_failed',
-        });
-      } catch (err) {
-        console.error('[Stripe] Failed-payment update error:', err.message);
-      }
-    }
-
-    res.json({ received: true });
-  },
-);
+// app.post(
+//   '/merchant/payment-confirmed',
+//   express.raw({ type: 'application/json' }),
+//   async (req, res) => {
+//     const sig = req.headers['stripe-signature'];
+//     if (!sig || !process.env.STRIPE_WEBHOOK_SECRET) {
+//       return res.status(400).json({ error: 'Missing Stripe signature or secret' });
+//     }
+//
+//     let event;
+//     try {
+//       event = stripe.webhooks.constructEvent(
+//         req.body,
+//         sig,
+//         process.env.STRIPE_WEBHOOK_SECRET,
+//       );
+//     } catch (err) {
+//       console.error('[Stripe] Webhook signature verification failed:', err.message);
+//       return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+//     }
+//
+//     if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
+//     const db = admin.firestore();
+//
+//     if (event.type === 'payment_intent.succeeded') {
+//       const intent = event.data.object;
+//       const { adId, merchantId, tier, durationHours } = intent.metadata;
+//       try {
+//         const now = admin.firestore.Timestamp.now();
+//         const endDate = new Date();
+//         endDate.setHours(endDate.getHours() + parseInt(durationHours, 10));
+//
+//         await db.collection('native_ads').doc(adId).update({
+//           isActive: true,
+//           startDate: now,
+//           endDate: admin.firestore.Timestamp.fromDate(endDate),
+//           billing_status: 'paid',
+//           stripePaymentIntentId: intent.id,
+//         });
+//
+//         await db.collection('merchant_payments').add({
+//           adId,
+//           merchantId,
+//           amount: intent.amount,
+//           currency: intent.currency,
+//           stripePaymentIntentId: intent.id,
+//           status: 'paid',
+//           tier,
+//           durationHours: parseInt(durationHours, 10),
+//           timestamp: now,
+//         });
+//
+//         console.log(`[Stripe] Ad ${adId} activated for merchant ${merchantId}`);
+//       } catch (err) {
+//         console.error('[Stripe] Post-payment Firestore error:', err.message);
+//         // Still return 200 so Stripe doesn't retry — log the error separately.
+//       }
+//     } else if (event.type === 'payment_intent.payment_failed') {
+//       const intent = event.data.object;
+//       const { adId } = intent.metadata;
+//       try {
+//         await db.collection('native_ads').doc(adId).update({
+//           billing_status: 'payment_failed',
+//         });
+//       } catch (err) {
+//         console.error('[Stripe] Failed-payment update error:', err.message);
+//       }
+//     }
+//
+//     res.json({ received: true });
+//   },
+// );
 
 app.use(express.json());
 
@@ -224,67 +224,67 @@ app.post('/notifications/proximity', async (req, res) => {
 // POST /merchant/create-payment-intent
 // Body: { adId, merchantId, durationHours, tier, billing_model? }
 // Returns: { clientSecret, amountCents }
-app.post('/merchant/create-payment-intent', async (req, res) => {
-  const { adId, merchantId, durationHours, tier, billing_model = 'flat_rate' } = req.body;
-  if (!adId || !merchantId || !durationHours || !tier) {
-    return res.status(400).json({ error: 'adId, merchantId, durationHours, and tier are required' });
-  }
-
-  if (!process.env.STRIPE_SECRET_KEY) {
-    return res.status(503).json({ error: 'Stripe not configured on this server' });
-  }
-
-  try {
-    let amountCents;
-    if (billing_model === 'cpm') {
-      const estimatedImpressions = (CPM_EST_HOURLY[tier] ?? 200) * durationHours;
-      const rate = CPM_RATE[tier] ?? 5.0;
-      amountCents = Math.max(50, Math.round((estimatedImpressions / 1000) * rate * 100));
-    } else {
-      const hourlyRate = FLAT_RATE_HOURLY[tier] ?? 9.99;
-      amountCents = Math.round(hourlyRate * durationHours * 100);
-    }
-
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountCents,
-      currency: 'usd',
-      automatic_payment_methods: { enabled: true },
-      metadata: {
-        adId,
-        merchantId,
-        tier,
-        durationHours: String(durationHours),
-        billing_model,
-      },
-    });
-
-    console.log(`[Stripe] PaymentIntent created for ad ${adId}: $${(amountCents / 100).toFixed(2)}`);
-    res.json({ clientSecret: paymentIntent.client_secret, amountCents });
-  } catch (err) {
-    console.error('[Stripe] create-payment-intent error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// app.post('/merchant/create-payment-intent', async (req, res) => {
+//   const { adId, merchantId, durationHours, tier, billing_model = 'flat_rate' } = req.body;
+//   if (!adId || !merchantId || !durationHours || !tier) {
+//     return res.status(400).json({ error: 'adId, merchantId, durationHours, and tier are required' });
+//   }
+//
+//   if (!process.env.STRIPE_SECRET_KEY) {
+//     return res.status(503).json({ error: 'Stripe not configured on this server' });
+//   }
+//
+//   try {
+//     let amountCents;
+//     if (billing_model === 'cpm') {
+//       const estimatedImpressions = (CPM_EST_HOURLY[tier] ?? 200) * durationHours;
+//       const rate = CPM_RATE[tier] ?? 5.0;
+//       amountCents = Math.max(50, Math.round((estimatedImpressions / 1000) * rate * 100));
+//     } else {
+//       const hourlyRate = FLAT_RATE_HOURLY[tier] ?? 9.99;
+//       amountCents = Math.round(hourlyRate * durationHours * 100);
+//     }
+//
+//     const paymentIntent = await stripe.paymentIntents.create({
+//       amount: amountCents,
+//       currency: 'usd',
+//       automatic_payment_methods: { enabled: true },
+//       metadata: {
+//         adId,
+//         merchantId,
+//         tier,
+//         durationHours: String(durationHours),
+//         billing_model,
+//       },
+//     });
+//
+//     console.log(`[Stripe] PaymentIntent created for ad ${adId}: $${(amountCents / 100).toFixed(2)}`);
+//     res.json({ clientSecret: paymentIntent.client_secret, amountCents });
+//   } catch (err) {
+//     console.error('[Stripe] create-payment-intent error:', err.message);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // GET /merchant/billing-history/:merchantId
 // Returns the 50 most recent payment records for a merchant.
-app.get('/merchant/billing-history/:merchantId', async (req, res) => {
-  if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
-  const { merchantId } = req.params;
-  try {
-    const snapshot = await admin.firestore()
-      .collection('merchant_payments')
-      .where('merchantId', '==', merchantId)
-      .orderBy('timestamp', 'desc')
-      .limit(50)
-      .get();
-    const payments = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    res.json({ payments });
-  } catch (err) {
-    console.error('[Billing history] Error:', err.message);
-    res.status(500).json({ error: err.message });
-  }
-});
+// app.get('/merchant/billing-history/:merchantId', async (req, res) => {
+//   if (!admin.apps.length) return res.status(503).json({ error: 'Firebase Admin not initialised' });
+//   const { merchantId } = req.params;
+//   try {
+//     const snapshot = await admin.firestore()
+//       .collection('merchant_payments')
+//       .where('merchantId', '==', merchantId)
+//       .orderBy('timestamp', 'desc')
+//       .limit(50)
+//       .get();
+//     const payments = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+//     res.json({ payments });
+//   } catch (err) {
+//     console.error('[Billing history] Error:', err.message);
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 
 // POST /merchant/run-billing-cron
 // Deactivates expired ads and invoices CPM campaigns against actual impressions.
