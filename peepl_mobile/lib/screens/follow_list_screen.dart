@@ -26,6 +26,16 @@ class _FollowListScreenState extends State<FollowListScreen> {
   final Map<String, String> _usernameCache = {};
   final Map<String, bool> _statusCache = {};
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.userId.isEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Navigator.of(context).pop();
+      });
+    }
+  }
+
   // ── helpers ──────────────────────────────────────────────────────────────
 
   Future<String> _username(String uid) async {

@@ -24,6 +24,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   final AdCadenceService _cadence = AdCadenceService();
 
   // ── Default feed state ────────────────────────────────────────────────────────
+  StreamSubscription<QuerySnapshot>? _feedSub;
+  bool _didInitDeps = false;
+
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _availableAds = [];
   List<Map<String, dynamic>> _feedItems = [];
@@ -47,7 +50,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _initAds();
     });
-    _feedService.getLocationFeedStream().listen((snapshot) {
+    _feedSub = _feedService.getLocationFeedStream().listen((snapshot) {
       final posts = snapshot.docs
           .map((doc) => <String, dynamic>{
                 'id': doc.id,
@@ -74,6 +77,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (_didInitDeps) return;
+    _didInitDeps = true;
     _cadence.refreshVIPeepsStatus().then((_) {
       if (mounted && _posts.isNotEmpty) {
         setState(() => _feedItems = _mergeAdsIntoFeed(_posts));
@@ -83,6 +88,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
 
   @override
   void dispose() {
+    _feedSub?.cancel();
     _debounce?.cancel();
     _searchCtrl.dispose();
     _searchFocus.dispose();

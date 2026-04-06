@@ -132,6 +132,7 @@ class _MainShellState extends State<MainShell> {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) return _scaffoldForAdmin(false);
         final isAdmin = snap.data?.data()?['isAdmin'] == true;
         return _scaffoldForAdmin(isAdmin);
       },

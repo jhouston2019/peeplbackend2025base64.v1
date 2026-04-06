@@ -149,12 +149,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     try {
       if (_isLiked) {
         await _feedService.unlikeLocationPost(widget.postData['id'], user.uid);
+        if (!mounted) return;
         setState(() {
           _isLiked = false;
           _likesCount--;
         });
       } else {
         await _feedService.likeLocationPost(widget.postData['id'], user.uid);
+        if (!mounted) return;
         setState(() {
           _isLiked = true;
           _likesCount++;
@@ -171,9 +173,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to update like: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to update like: $e')),
+        );
+      }
     }
   }
 
@@ -716,6 +720,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           .limit(10)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) return const SizedBox.shrink();
         if (snap.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
@@ -739,6 +744,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           .orderBy('timestamp', descending: false)
           .snapshots(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(
+            child: Text('Could not load comments',
+                style: TextStyle(color: Colors.grey[500])));
+        }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }

@@ -34,6 +34,7 @@ class _FeedScreenState extends State<FeedScreen> {
   final ScrollController _scrollController = ScrollController();
 
   StreamSubscription<QuerySnapshot>? _feedSub;
+  bool _didInitDeps = false;
 
   List<Map<String, dynamic>> _locationPosts = [];
   List<Map<String, dynamic>> _feedItems = [];
@@ -922,8 +923,10 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Re-check VIPeeps status whenever the screen regains focus so a user who
-    // just subscribed stops seeing ads without needing to restart the app.
+    if (_didInitDeps) return;
+    _didInitDeps = true;
+    // Re-check VIPeeps status once after the first dependency resolution so a
+    // user who just subscribed stops seeing ads without needing to restart.
     _cadence.refreshVIPeepsStatus().then((_) {
       if (mounted && _locationPosts.isNotEmpty) {
         setState(() => _feedItems = _mergeAdsIntoFeed(_locationPosts));
