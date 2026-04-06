@@ -77,5 +77,7 @@
 	</array>
 	<key>NSUserNotificationsUsageDescription</key>
 	<string>Peepl sends you alerts when nearby venues get crowded and when people like your posts.</string>
+	<key>NSContactsUsageDescription</key>
+	<string>Peepl uses your contacts to help you find and invite friends.</string>
 </dict>
 </plist>
