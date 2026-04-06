@@ -1,19 +1,15 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../shell_tab_bus.dart';
-import 'chat_screen.dart';
 import 'discover_screen.dart';
 import 'feed_screen.dart';
-import 'post_screen.dart';
-import 'profile_screen.dart';
+import 'notifications_screen.dart';
 
-const Color _kBarBlue = Color(0xFF1565C0);
+const Color _kSelectedBlue = Color(0xFF1565C0);
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialBodyIndex = 0});
 
-  /// 0 Feed, 1 Discover, 2 Post, 3 Chat, 4 Profile
+  /// Legacy indices: 0 Feed, 1 Discover, 2 Post (opens /post), 3 Notifications, 4 Profile (home).
   final int initialBodyIndex;
 
   @override
@@ -21,20 +17,42 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  late int _currentIndex;
+  /// Bottom bar indices: 0 Home, 1 Discover, 3 Notifications (2 and 4 are push-only).
+  late int _currentBarIndex;
 
-  static final List<Widget> _screens = [
-    const FeedScreen(),
-    const DiscoverScreen(),
-    const PostScreen(),
-    ChatScreen(),
-    ProfileScreen(),
+  static const List<Widget> _tabBodies = [
+    FeedScreen(),
+    DiscoverScreen(),
+    NotificationsScreen(),
   ];
+
+  int get _stackIndex {
+    switch (_currentBarIndex) {
+      case 0:
+        return 0;
+      case 1:
+        return 1;
+      case 3:
+        return 2;
+      default:
+        return 0;
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    _currentIndex = widget.initialBodyIndex.clamp(0, _screens.length - 1);
+    final i = widget.initialBodyIndex;
+    if (i == 0 || i == 1 || i == 3) {
+      _currentBarIndex = i;
+    } else {
+      _currentBarIndex = 0;
+      if (i == 2) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) Navigator.of(context).pushNamed('/post');
+        });
+      }
+    }
     ShellTabBus.pendingBodyIndex.addListener(_onShellTabBus);
   }
 
@@ -43,9 +61,13 @@ class _MainShellState extends State<MainShell> {
     if (v == null || !mounted) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      setState(() {
-        _currentIndex = v.clamp(0, _screens.length - 1);
-      });
+      if (v == 2) {
+        Navigator.of(context).pushNamed('/post');
+      } else if (v == 4) {
+        Navigator.of(context).pushNamed('/menu');
+      } else if (v == 0 || v == 1 || v == 3) {
+        setState(() => _currentBarIndex = v);
+      }
       ShellTabBus.pendingBodyIndex.value = null;
     });
   }
@@ -56,86 +78,58 @@ class _MainShellState extends State<MainShell> {
     super.dispose();
   }
 
-  void _onBarTap(int index, bool isAdmin) {
-    if (isAdmin && index == _screens.length) {
-      Navigator.of(context).pushNamed('/admin');
+  void _onBarTap(int index) {
+    if (index == 2) {
+      Navigator.of(context).pushNamed('/post');
       return;
     }
-    setState(() => _currentIndex = index);
-  }
-
-  List<BottomNavigationBarItem> _barItems(bool isAdmin) {
-    final items = <BottomNavigationBarItem>[
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.home_outlined),
-        label: 'Feed',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.explore_outlined),
-        label: 'Discover',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.add_circle),
-        label: 'Post',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.chat_bubble_outline),
-        label: 'Chat',
-      ),
-      const BottomNavigationBarItem(
-        icon: Icon(Icons.person_outline),
-        label: 'Profile',
-      ),
-    ];
-    if (isAdmin) {
-      items.add(
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.shield_outlined),
-          label: 'Admin',
-        ),
-      );
+    if (index == 4) {
+      Navigator.of(context).pushNamed('/menu');
+      return;
     }
-    return items;
-  }
-
-  Widget _scaffoldForAdmin(bool isAdmin) {
-    return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: _kBarBlue,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.5),
-        currentIndex: _currentIndex,
-        onTap: (i) => _onBarTap(i, isAdmin),
-        items: _barItems(isAdmin),
-        iconSize: 26,
-        selectedFontSize: 12,
-        unselectedFontSize: 11,
-      ),
-    );
+    setState(() => _currentBarIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
-      return _scaffoldForAdmin(false);
-    }
-
-    return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance
-          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
-          .doc(user.uid)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.hasError) return _scaffoldForAdmin(false);
-        final isAdmin = snap.data?.data()?['isAdmin'] == true;
-        return _scaffoldForAdmin(isAdmin);
-      },
+    return Scaffold(
+      body: IndexedStack(
+        index: _stackIndex,
+        children: _tabBodies,
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: _kSelectedBlue,
+        unselectedItemColor: Colors.grey,
+        currentIndex: _currentBarIndex,
+        onTap: _onBarTap,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.explore),
+            label: 'Discover',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add_circle_outline),
+            label: 'Post',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.notifications_outlined),
+            label: 'Notifications',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.menu),
+            label: 'Menu',
+          ),
+        ],
+        iconSize: 26,
+        selectedFontSize: 12,
+        unselectedFontSize: 11,
+      ),
     );
   }
 }

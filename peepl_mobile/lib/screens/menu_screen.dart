@@ -182,6 +182,14 @@ class MenuScreen extends StatelessWidget {
           onTap: () => Navigator.pushNamed(context, '/deals'),
         ),
         const _Divider(),
+        ListTile(
+          leading: const Icon(Icons.store, color: Color(0xFF1565C0)),
+          title: const Text('Merchant Portal'),
+          subtitle: const Text('Manage your ads and deals'),
+          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
+          onTap: () => Navigator.pushNamed(context, '/merchant_sign_in'),
+        ),
+        const _Divider(),
         _NavRow(
           emoji: '🗺️',
           label: 'Map',

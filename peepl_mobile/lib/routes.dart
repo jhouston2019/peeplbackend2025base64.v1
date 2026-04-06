@@ -9,6 +9,8 @@ import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_screen.dart';
 import 'screens/main_shell.dart';
+import 'screens/chat_screen.dart';
+import 'screens/profile_screen.dart';
 import 'screens/location_detail_screen.dart';
 import 'screens/account_info_screen.dart';
 import 'screens/create_peep_screen.dart';
@@ -82,8 +84,8 @@ Map<String, WidgetBuilder> appRoutes = {
   '/feed': (_) => const MainShell(initialBodyIndex: 0),
   '/discover': (_) => const MainShell(initialBodyIndex: 1),
   '/post': (_) => const PostScreen(),
-  '/chat': (_) => const MainShell(initialBodyIndex: 3),
-  '/profile': (_) => const MainShell(initialBodyIndex: 4),
+  '/chat': (_) => ChatScreen(),
+  '/profile': (_) => const ProfileScreen(),
   '/settings': (_) => SettingsScreen(),
   '/login': (_) => LoginScreen(),
   '/admin': (_) => const AdminScreen(),

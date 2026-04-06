@@ -587,6 +587,12 @@ class _FeedScreenState extends State<FeedScreen> {
                 label: 'SEARCH',
                 onTap: _showLocationSearchSheet,
               ),
+              const SizedBox(width: 10),
+              _buildHeaderButton(
+                icon: Icons.map,
+                label: 'MAP',
+                onTap: () => Navigator.pushNamed(context, '/map'),
+              ),
             ],
           ),
           // Right side: DEALS + MENU
@@ -660,14 +666,14 @@ class _FeedScreenState extends State<FeedScreen> {
     Widget pill(String label, _SortMode mode) {
       final selected = _sortMode == mode;
       return Padding(
-        padding: const EdgeInsets.only(right: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 2),
         child: Material(
           color: Colors.transparent,
           child: InkWell(
             onTap: () => _onSortChanged(mode),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
               decoration: BoxDecoration(
                 color: selected ? Colors.white : Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(16),
@@ -676,7 +682,8 @@ class _FeedScreenState extends State<FeedScreen> {
               child: Text(
                 label,
                 maxLines: 1,
-                overflow: TextOverflow.clip,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
                 style: TextStyle(
                   color: selected ? const Color(0xFF1565C0) : Colors.white,
                   fontWeight: FontWeight.w600,
@@ -689,17 +696,16 @@ class _FeedScreenState extends State<FeedScreen> {
       );
     }
 
-    return SizedBox(
-      height: 36,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(0, 0, 12, 6),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          pill('Rating', _SortMode.rating),
-          pill('Date', _SortMode.date),
-          pill('Distance', _SortMode.distance),
-          pill('Local', _SortMode.local),
-          pill('Region', _SortMode.region),
+          Expanded(child: pill('Rating', _SortMode.rating)),
+          Expanded(child: pill('Date', _SortMode.date)),
+          Expanded(child: pill('Distance', _SortMode.distance)),
+          Expanded(child: pill('Local', _SortMode.local)),
+          Expanded(child: pill('Region', _SortMode.region)),
         ],
       ),
     );

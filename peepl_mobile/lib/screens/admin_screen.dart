@@ -25,37 +25,26 @@ class _AdminScreenState extends State<AdminScreen>
   }
 
   Future<void> _checkAdminGate() async {
+    const String adminUid = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (!mounted) return;
       Navigator.of(context).pushNamedAndRemoveUntil('/login', (_) => false);
       return;
     }
-    try {
-      final doc = await FirebaseFirestore.instance
-          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
-          .doc(user.uid)
-          .get();
-      final ok = doc.data()?['isAdmin'] == true;
+    if (user.uid != adminUid) {
       if (!mounted) return;
-      if (!ok) {
-        Navigator.of(context).pushNamedAndRemoveUntil('/feed', (_) => false);
-        return;
-      }
-      setState(() {
-        _allowed = true;
-        _gateResolved = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        Navigator.of(context).pushReplacementNamed('/home');
       });
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Could not verify admin access: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
-      Navigator.of(context).pushNamedAndRemoveUntil('/feed', (_) => false);
+      return;
     }
+    if (!mounted) return;
+    setState(() {
+      _allowed = true;
+      _gateResolved = true;
+    });
   }
 
   @override
