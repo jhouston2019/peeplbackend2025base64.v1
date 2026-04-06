@@ -99,7 +99,8 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
       // 4. Group events by hour bucket.
       final Map<String, _SlotData> buckets = {};
       for (final doc in allEventDocs) {
-        final data = doc.data();
+        final data = doc.data() as Map<String, dynamic>?;
+        if (data == null) continue;
         final ts = data['timestamp'];
         if (ts == null) continue;
         final dt = ts is Timestamp ? ts.toDate() : null;

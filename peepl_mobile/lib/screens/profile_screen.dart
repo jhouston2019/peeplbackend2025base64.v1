@@ -3,6 +3,10 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../constants/app_share_links.dart';
+import '../services/auth_service.dart';
+import 'location_detail_screen.dart';
+
 // ── VIPeeps helpers (used inline in ProfileScreen) ────────────────────────────
 
 String _vipRenewsLabel(dynamic renewsAt) {
@@ -15,11 +19,14 @@ String _vipRenewsLabel(dynamic renewsAt) {
   return 'Renews ${months[dt.month - 1]} ${dt.day}';
 }
 
-import '../constants/app_share_links.dart';
-import '../services/auth_service.dart';
-import 'location_detail_screen.dart';
+class ProfileScreen extends StatefulWidget {
+  const ProfileScreen({super.key});
 
-class ProfileScreen extends StatelessWidget {
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
   User? get _user => FirebaseAuth.instance.currentUser;
 
   Color _getCrowdingColor(int level) {
