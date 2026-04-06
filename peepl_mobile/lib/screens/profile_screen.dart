@@ -3,6 +3,18 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 
+// ── VIPeeps helpers (used inline in ProfileScreen) ────────────────────────────
+
+String _vipRenewsLabel(dynamic renewsAt) {
+  if (renewsAt is! Timestamp) return 'Active';
+  final dt = renewsAt.toDate();
+  const months = [
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  ];
+  return 'Renews ${months[dt.month - 1]} ${dt.day}';
+}
+
 import '../constants/app_share_links.dart';
 import '../services/auth_service.dart';
 import 'location_detail_screen.dart';
@@ -37,6 +49,7 @@ class ProfileScreen extends StatelessWidget {
                   child: Column(
                     children: [
                       _buildProfileHeader(context),
+                      _buildVIPeepsSection(context),
                       const Divider(height: 1),
                       _buildPostsSection(context),
                     ],
@@ -426,6 +439,119 @@ class ProfileScreen extends StatelessWidget {
       height: 80,
       color: Colors.grey[200],
       child: Icon(Icons.image, color: Colors.grey[400], size: 28),
+    );
+  }
+
+  // ── VIPeeps section ────────────────────────────────────────────────────────
+
+  Widget _buildVIPeepsSection(BuildContext context) {
+    final uid = _user?.uid;
+    if (uid == null) return const SizedBox.shrink();
+
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .snapshots(),
+      builder: (context, snap) {
+        final data =
+            snap.data?.data() as Map<String, dynamic>? ?? {};
+        final isVIP = data['isVIPeeps'] as bool? ?? false;
+
+        return isVIP
+            ? _buildVIPActiveBanner(
+                context, data['vipeepsRenewsAt'])
+            : _buildVIPUpgradeRow(context);
+      },
+    );
+  }
+
+  Widget _buildVIPActiveBanner(
+      BuildContext context, dynamic renewsAt) {
+    final label = _vipRenewsLabel(renewsAt);
+    return Container(
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFFD4AC0D), Color(0xFFFFD700)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.35),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const Text('⭐', style: TextStyle(fontSize: 24)),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'VIPeeps Active',
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: () =>
+                Navigator.pushNamed(context, '/vip_peeps'),
+            child: Text(
+              '$label · Manage',
+              style: const TextStyle(
+                color: Colors.black87,
+                fontSize: 12,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVIPUpgradeRow(BuildContext context) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/vip_peeps'),
+      child: Container(
+        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+        padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF9E6),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: const Color(0xFFFFD700).withValues(alpha: 0.55),
+          ),
+        ),
+        child: Row(
+          children: [
+            const Text('⭐', style: TextStyle(fontSize: 22)),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text(
+                'Upgrade to VIPeeps ⭐',
+                style: TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                  color: Color(0xFF1A1200),
+                ),
+              ),
+            ),
+            const Icon(Icons.chevron_right,
+                color: Color(0xFFD4AC0D), size: 20),
+          ],
+        ),
+      ),
     );
   }
 }

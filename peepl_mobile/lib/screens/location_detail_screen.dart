@@ -487,7 +487,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 child: IconButton(
                   tooltip: 'Share',
                   icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () => _shareLocationPost(post, crowdingLevel),
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/share',
+                    arguments: post,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -546,22 +550,39 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  GestureDetector(
-                    onTap: _toggleLike,
-                    child: Row(
-                      children: [
-                        Icon(
+                  Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _toggleLike,
+                        child: Icon(
                           _isLiked ? Icons.favorite : Icons.favorite_border,
                           color: _isLiked ? Colors.red : Colors.grey,
                           size: 24,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
+                      ),
+                      const SizedBox(width: 4),
+                      GestureDetector(
+                        onTap: () {
+                          final postId =
+                              widget.postData['id'] as String?;
+                          if (postId != null && postId.isNotEmpty) {
+                            Navigator.pushNamed(
+                              context,
+                              '/likers',
+                              arguments: postId,
+                            );
+                          }
+                        },
+                        child: Text(
                           '$_likesCount',
-                          style: TextStyle(color: Colors.grey[700]),
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            decoration: TextDecoration.underline,
+                            decorationColor: Colors.grey[400],
+                          ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                   Row(
                     children: [

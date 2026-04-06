@@ -154,7 +154,11 @@ class PushNotificationService {
   }
 
   void _handleNotificationTap(RemoteMessage message) {
-    _routeFromData(message.data);
+    // Background/terminated tap → open the notifications screen so the user
+    // can see all pending items in one place. The main.dart onMessageOpenedApp
+    // listener also fires for this case; the duplicate push is a no-op because
+    // the navigator deduplicates identical named routes.
+    navigatorKey?.currentState?.pushNamed('/notifications');
   }
 
   void _onLocalNotificationTap(NotificationResponse response) {

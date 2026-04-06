@@ -147,15 +147,11 @@ class _PostScreenState extends State<PostScreen> {
   };
 
   static const List<String> _ageRangeOptions = <String>[
-    'Teens',
-    '20s',
-    '30s',
-    '40s',
+    '18–24',
+    '25–35',
+    '35–50',
     '50+',
-    '20s-30s',
-    '30s-40s',
     'Mixed',
-    'All ages',
   ];
 
   final _formKey = GlobalKey<FormState>();
@@ -494,11 +490,31 @@ class _PostScreenState extends State<PostScreen> {
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: locationName,
-        latitude: 40.7829,
-        longitude: -73.9654,
+        latitude: _latitude ?? 40.7829,
+        longitude: _longitude ?? -73.9654,
         crowdingLevel: _crowdingLevel.round(),
         imageFile: _selectedImage!,
         description: _buildDescription(),
+        vibe: _vibe.text.trim().isNotEmpty ? _vibe.text.trim() : null,
+        waitTime:
+            _waitTime.text.trim().isNotEmpty ? _waitTime.text.trim() : null,
+        noiseLevel: _noiseLevel.round(),
+        hasMusic: _hasMusic,
+        demographics: _demographics.text.trim().isNotEmpty
+            ? _demographics.text.trim()
+            : null,
+        dressCode: _dressCode.text.trim().isNotEmpty
+            ? _dressCode.text.trim()
+            : null,
+        wheelchairAccessible: _wheelchairAccessible,
+        strollerFriendly: _strollerFriendly,
+        hasDeals: _hasDeals,
+        staffAvailability: _staffAvailability.round(),
+        maleFemaleRatio: _malePercent.round(),
+        adultKidRatio: _adultPercent.round(),
+        ageRange: _ageRange,
+        hasPets: _hasPets,
+        venueType: _venueType,
       );
 
       if (mounted) {
@@ -540,20 +556,105 @@ class _PostScreenState extends State<PostScreen> {
     return 'Very Crowded';
   }
 
-  Widget _buildPhotoPreview() {
-    if (_selectedImage == null) return const SizedBox.shrink();
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 220,
+  /// Photo row: shows "Add photo" button when empty; 80 px inline preview
+  /// with overlay, "✓ Photo selected" label, "✎ Change" and "✕" badges
+  /// when a file is selected.
+  Widget _buildPhotoRow() {
+    if (_selectedImage == null) {
+      return SizedBox(
         width: double.infinity,
-        decoration: BoxDecoration(
-          image: DecorationImage(
-            image: FileImage(_selectedImage!),
-            fit: BoxFit.cover,
+        child: OutlinedButton.icon(
+          onPressed: _isLoading ? null : _selectImage,
+          icon: const Icon(Icons.add_a_photo_outlined),
+          label: const Text('Add photo'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF1565C0),
+            padding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
-      ),
+      );
+    }
+
+    return Stack(
+      children: [
+        // 80 px full-width image
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            height: 80,
+            width: double.infinity,
+            child: Image.file(_selectedImage!, fit: BoxFit.cover),
+          ),
+        ),
+        // Dark overlay
+        Positioned.fill(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: const ColoredBox(color: Color(0x66000000)),
+          ),
+        ),
+        // Centre label
+        const Positioned.fill(
+          child: Center(
+            child: Text(
+              '✓ Photo selected',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+                shadows: [Shadow(blurRadius: 4, color: Colors.black87)],
+              ),
+            ),
+          ),
+        ),
+        // "✎ Change" badge — bottom right
+        Positioned(
+          bottom: 7,
+          right: 7,
+          child: GestureDetector(
+            onTap: _isLoading ? null : _selectImage,
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.92),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.edit, size: 11, color: Color(0xFF1565C0)),
+                  SizedBox(width: 3),
+                  Text(
+                    'Change',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1565C0),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        // "✕" remove badge — top right
+        Positioned(
+          top: 6,
+          right: 7,
+          child: GestureDetector(
+            onTap: _isLoading ? null : _clearPhoto,
+            child: Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.55),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(Icons.close, color: Colors.white, size: 13),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -728,9 +829,9 @@ class _PostScreenState extends State<PostScreen> {
                           _buildAdultKidRatioSlider(),
                           if (_showAgeRange) ...[
                             const SizedBox(height: 20),
-                            _buildLabel('Age range (optional)'),
+                            _buildLabel('👤 Age Range'),
                             const SizedBox(height: 8),
-                            _buildAgeRangeDropdown(),
+                            _buildAgeRangeChips(),
                           ],
                           if (_showHasPets) ...[
                             const SizedBox(height: 8),
@@ -832,37 +933,7 @@ class _PostScreenState extends State<PostScreen> {
                         const SizedBox(height: 24),
                         _buildLabel('Photo (required)'),
                         const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton.icon(
-                                onPressed: _isLoading
-                                    ? null
-                                    : _selectImage,
-                                icon: const Icon(Icons.add_a_photo_outlined),
-                                label: const Text('Add photo'),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF1565C0),
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 14,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            if (_selectedImage != null) ...[
-                              const SizedBox(width: 12),
-                              IconButton.filledTonal(
-                                onPressed: _isLoading ? null : _clearPhoto,
-                                icon: const Icon(Icons.close),
-                                tooltip: 'Remove photo',
-                              ),
-                            ],
-                          ],
-                        ),
-                        if (_selectedImage != null) ...[
-                          const SizedBox(height: 16),
-                          _buildPhotoPreview(),
-                        ],
+                        _buildPhotoRow(),
                         const SizedBox(height: 20),
                         _buildLabel('Video (optional)'),
                         const SizedBox(height: 8),
@@ -1144,32 +1215,49 @@ class _PostScreenState extends State<PostScreen> {
     );
   }
 
-  Widget _buildAgeRangeDropdown() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String?>(
-          isExpanded: true,
-          hint: const Text('Optional'),
-          value: _ageRange,
-          items: [
-            const DropdownMenuItem<String?>(
-              value: null,
-              child: Text('— None —'),
-            ),
-            ..._ageRangeOptions.map(
-              (e) => DropdownMenuItem<String?>(value: e, child: Text(e)),
-            ),
-          ],
-          onChanged: _isLoading
+  /// Radio-style chip row for age range. Tapping a selected chip deselects it.
+  Widget _buildAgeRangeChips() {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _ageRangeOptions.map((option) {
+        final selected = _ageRange == option;
+        return GestureDetector(
+          onTap: _isLoading
               ? null
-              : (v) => setState(() => _ageRange = v),
-        ),
-      ),
+              : () => setState(
+                    () => _ageRange = selected ? null : option,
+                  ),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: selected
+                  ? const Color(0xFF1565C0)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: selected
+                    ? const Color(0xFF1565C0)
+                    : Colors.grey.shade300,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              option,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight:
+                    selected ? FontWeight.w700 : FontWeight.normal,
+                color: selected
+                    ? Colors.white
+                    : Colors.grey.shade700,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

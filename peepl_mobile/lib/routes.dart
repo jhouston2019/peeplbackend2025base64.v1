@@ -32,11 +32,13 @@ import 'screens/pioneer_congrat_screen.dart';
 import 'screens/pioneers_screen.dart';
 import 'screens/report_screen.dart';
 import 'screens/search_screen.dart';
+import 'screens/search_results_screen.dart';
 import 'screens/share_screen.dart';
 import 'screens/sign_up_confirmed_screen.dart';
 import 'screens/user_profile_screen.dart';
 import 'screens/venue_list_screen.dart';
 import 'screens/venue_screen.dart';
+import 'screens/trending_screen.dart';
 import 'screens/vip_peeps_screen.dart';
 import 'screens/merchant/how_to_advertise_screen.dart';
 import 'screens/merchant/merchant_account_info_screen.dart';
@@ -45,7 +47,9 @@ import 'screens/merchant/merchant_activity_screen.dart';
 import 'screens/merchant/merchant_portal_screen.dart';
 import 'screens/merchant/merchant_setup_step1_screen.dart';
 import 'screens/merchant/merchant_setup_step2_screen.dart';
+import 'screens/merchant/merchant_setup_step3_screen.dart';
 import 'screens/merchant/merchant_sign_in_screen.dart';
+import 'screens/scoreboard_screen.dart';
 
 /// Demo post for catalog navigation (does not require Firestore).
 final Map<String, dynamic> kLocationDetailDemoPostData = <String, dynamic>{
@@ -87,31 +91,70 @@ Map<String, WidgetBuilder> appRoutes = {
       ),
   '/account_info': (_) => const AccountInfoScreen(),
   '/create_peep': (_) => const CreatePeepScreen(),
-  '/deal_claimed': (_) => const DealClaimedScreen(),
+  '/deal_claimed': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final adData =
+        args is Map<String, dynamic> ? args : <String, dynamic>{};
+    return DealClaimedScreen(adData: adData);
+  },
   '/deals': (_) => const DealsScreen(),
   '/favorites': (_) => const FavoritesScreen(),
-  '/follow_list': (_) => const FollowListScreen(),
+  '/follow_list': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final map =
+        args is Map<String, dynamic> ? args : <String, dynamic>{};
+    return FollowListScreen(
+      userId: map['userId'] as String? ?? '',
+      mode: map['mode'] as String? ?? 'followers',
+    );
+  },
   '/get_peeps': (_) => const GetPeepsScreen(),
   '/groups': (_) => const GroupsScreen(),
   '/invite': (_) => const InviteScreen(),
   '/leaderboard': (_) => const LeaderboardScreen(),
+  '/scoreboard': (_) => const ScoreboardScreen(),
   '/likers': (_) => const LikersScreen(),
   '/map': (_) => const MapScreen(),
   '/menu': (_) => const MenuScreen(),
-  '/my_peeps': (_) => const MyPeepsScreen(),
+  '/my_peeps': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final userId = args is String ? args : null;
+    return MyPeepsScreen(userId: userId);
+  },
   '/notifications': (_) => const NotificationsScreen(),
   '/onboarding': (_) => const OnboardingScreen(step: 1),
-  '/peep_detail': (_) => const PeepDetailScreen(),
+  '/peep_detail': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final postData = args is Map<String, dynamic>
+        ? args
+        : <String, dynamic>{};
+    return LocationDetailScreen(postData: postData);
+  },
   '/permissions': (_) => const PermissionsScreen(),
   '/pioneer_congrat': (_) => const PioneerCongratScreen(),
   '/pioneers': (_) => const PioneersScreen(),
-  '/report': (_) => const ReportScreen(),
+  '/report': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final postId = args is String ? args : '';
+    return ReportScreen(postId: postId);
+  },
   '/search': (_) => const SearchScreen(),
-  '/share': (_) => const ShareScreen(),
+  '/search_results': (_) => const SearchResultsScreen(),
+  '/share': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final postData =
+        args is Map<String, dynamic> ? args : <String, dynamic>{};
+    return ShareScreen(postData: postData);
+  },
   '/sign_up_confirmed': (_) => const SignUpConfirmedScreen(),
-  '/user_profile': (_) => const UserProfileScreen(),
+  '/user_profile': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final userId = args is String ? args : '';
+    return UserProfileScreen(userId: userId);
+  },
   '/venue_list': (_) => const VenueListScreen(),
   '/venue': (_) => const VenueScreen(),
+  '/trending': (_) => const TrendingScreen(),
   '/vip_peeps': (_) => const VIPeepsScreen(),
   '/how_to_advertise': (_) => const HowToAdvertiseScreen(),
   '/merchant_account_info': (_) => const MerchantAccountInfoScreen(),
@@ -120,5 +163,6 @@ Map<String, WidgetBuilder> appRoutes = {
   '/merchant_portal': (_) => const MerchantPortalScreen(),
   '/merchant_setup_step1': (_) => const MerchantSetupStep1Screen(),
   '/merchant_setup_step2': (_) => const MerchantSetupStep2Screen(),
+  '/merchant_setup_step3': (_) => const MerchantSetupStep3Screen(),
   '/merchant_sign_in': (_) => const MerchantSignInScreen(),
 };

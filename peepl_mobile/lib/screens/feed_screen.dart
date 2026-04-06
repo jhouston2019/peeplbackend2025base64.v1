@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -510,94 +511,92 @@ class _FeedScreenState extends State<FeedScreen> {
     ).whenComplete(searchController.dispose);
   }
 
+  Widget _buildHeaderButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+    Color? bgColor,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: bgColor ?? Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: Colors.white, size: 18),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCustomAppBar() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/post'),
-            child: Column(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.add, color: Colors.white, size: 18),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'POST',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _showLocationSearchSheet,
-            child: Column(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.search, color: Colors.white, size: 18),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'SEARCH',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const Text(
-            'Peepl',
-            style: TextStyle(
+          // Centered logo — Syne 800 to match updated brand font
+          Text(
+            'peepl',
+            style: GoogleFonts.syne(
               color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+              fontSize: 24,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.5,
             ),
           ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/deals'),
-            child: Column(
-              children: [
-                Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2E7D32),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(Icons.local_offer, color: Colors.white, size: 18),
-                ),
-                const SizedBox(height: 2),
-                const Text(
-                  'DEALS',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
+          // Left side: POST + SEARCH flush together
+          Row(
+            mainAxisAlignment: MainAxisAlignment.start,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              _buildHeaderButton(
+                icon: Icons.add,
+                label: 'POST',
+                onTap: () => Navigator.pushNamed(context, '/post'),
+              ),
+              const SizedBox(width: 10),
+              _buildHeaderButton(
+                icon: Icons.search,
+                label: 'SEARCH',
+                onTap: _showLocationSearchSheet,
+              ),
+            ],
+          ),
+          // Right side: DEALS + MENU
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              _buildHeaderButton(
+                icon: Icons.local_offer,
+                label: 'DEALS',
+                onTap: () => Navigator.pushNamed(context, '/deals'),
+                bgColor: const Color(0xFF2E7D32),
+              ),
+              const SizedBox(width: 10),
+              _buildHeaderButton(
+                icon: Icons.menu,
+                label: 'MENU',
+                onTap: () => Navigator.pushNamed(context, '/menu'),
+              ),
+            ],
           ),
         ],
       ),
