@@ -343,7 +343,9 @@ class _MapScreenState extends State<MapScreen> {
     final markers = <Marker>{};
 
     for (final pin in _venuePins) {
-      final lvl = pin.crowdLevel.clamp(1, 10);
+      final lvl = pin.crowdLevel == 0
+          ? 0
+          : pin.crowdLevel.clamp(1, 10) as int;
       final icon = _levelBitmaps[lvl] ?? BitmapDescriptor.defaultMarker;
       markers.add(Marker(
         markerId: MarkerId('v_${pin.locationName}'),
@@ -631,7 +633,8 @@ class _MapScreenState extends State<MapScreen> {
   // ── Search bar ────────────────────────────────────────────────────────────────
   Widget _buildSearchBar() {
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/search'),
+      onTap: () => Navigator.pushNamed(
+          context, '/search_results', arguments: ''),
       child: Container(
         height: 44,
         decoration: BoxDecoration(

@@ -22,10 +22,24 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
   late final Timer _ticker;
   bool _claimWritten = false;
 
+  /// Normalise the adData map so it always has 'headline', 'subline', 'id'
+  /// regardless of whether it came from the native-ads shape or the map-pin shape.
+  Map<String, dynamic> get _normalisedAd {
+    final d = widget.adData;
+    if (d.containsKey('headline')) return d;
+    return {
+      ...d,
+      'headline': d['venueName'] as String? ?? '',
+      'subline': d['offerText'] as String? ?? '',
+      'id': d['dealId'] as String? ?? '',
+    };
+  }
+
   @override
   void initState() {
     super.initState();
-    final venueName = (widget.adData['headline'] as String?) ?? 'VEN';
+    final ad = _normalisedAd;
+    final venueName = (ad['headline'] as String?) ?? 'VEN';
     _code = _generateCode(venueName);
     _expiresAt = DateTime.now().add(const Duration(minutes: 45));
 
@@ -51,7 +65,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
         ? letters.substring(0, 3)
         : letters.padRight(3, 'X');
     final digits = (1000 + math.Random().nextInt(9000)).toString();
-    return '$prefix-$digits';
+    return '$prefix$digits';
   }
 
   String _expiryCountdown() {
@@ -66,12 +80,13 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
 
   Future<void> _writeClaim() async {
     if (_claimWritten) return;
-    _claimWritten = true;
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final adId = (widget.adData['id'] as String?) ?? '';
+    _claimWritten = true;
+    final ad = _normalisedAd;
+    final adId = (ad['id'] as String?) ?? '';
 
     try {
       await _db.collection('deal_claims').add({
@@ -90,8 +105,9 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final venueName = (widget.adData['headline'] as String?) ?? 'Venue';
-    final offerText = (widget.adData['subline'] as String?) ?? '';
+    final ad = _normalisedAd;
+    final venueName = (ad['headline'] as String?) ?? 'Venue';
+    final offerText = (ad['subline'] as String?) ?? '';
 
     return PopScope(
       canPop: false,

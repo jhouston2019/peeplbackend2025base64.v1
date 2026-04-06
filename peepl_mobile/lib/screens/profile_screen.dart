@@ -132,7 +132,8 @@ class ProfileScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: () {},
+                  onPressed: () =>
+                      Navigator.pushNamed(context, '/account_info'),
                   style: OutlinedButton.styleFrom(
                     side: const BorderSide(color: Color(0xFF1565C0)),
                     shape: RoundedRectangleBorder(
@@ -268,6 +269,18 @@ class ProfileScreen extends StatelessWidget {
               .orderBy('timestamp', descending: true)
               .snapshots(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: TextButton(
+                    onPressed: () => setState(() {}),
+                    child: const Text('Failed to load posts — tap to retry'),
+                  ),
+                ),
+              );
+            }
+
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(
                 child: Padding(
@@ -326,7 +339,7 @@ class ProfileScreen extends StatelessWidget {
 
   Widget _buildPostCard(
       BuildContext context, Map<String, dynamic> post) {
-    final crowdingLevel = (post['crowdingLevel'] ?? 0) as int;
+    final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
     return GestureDetector(
       onTap: () => Navigator.push(
         context,

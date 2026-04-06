@@ -73,7 +73,7 @@ class _MerchantSetupStep3ScreenState
 
     try {
       final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-      await FirebaseFirestore.instance.collection('native_ads').add({
+      final adRef = await FirebaseFirestore.instance.collection('native_ads').add({
         'advertiserId': uid,
         'headline': widget.venueName,
         'subline': widget.offerText,
@@ -88,6 +88,22 @@ class _MerchantSetupStep3ScreenState
         'clicks': 0,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // Resolve venue coordinates from location_posts.
+      try {
+        final venueSnap = await FirebaseFirestore.instance
+            .collection('location_posts')
+            .where('locationName', isEqualTo: widget.venueName)
+            .limit(1)
+            .get();
+        if (venueSnap.docs.isNotEmpty) {
+          final d = venueSnap.docs.first.data();
+          await adRef.update({
+            'venueLat': d['latitude'] ?? 0.0,
+            'venueLng': d['longitude'] ?? 0.0,
+          });
+        }
+      } catch (_) {}
 
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(

@@ -2,8 +2,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class NotificationsScreen extends StatelessWidget {
+class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
+
+  @override
+  State<NotificationsScreen> createState() => _NotificationsScreenState();
+}
+
+class _NotificationsScreenState extends State<NotificationsScreen> {
 
   // ── Icon config ───────────────────────────────────────────────────────────────
   static String _emoji(String? type) {
@@ -79,13 +85,17 @@ class NotificationsScreen extends StatelessWidget {
     await batch.commit();
   }
 
-  static void _onTap(
+  static Future<void> _onTap(
     BuildContext context,
     String uid,
     String docId,
     Map<String, dynamic> data,
-  ) {
-    _markOneRead(uid, docId);
+  ) async {
+    try {
+      await _markOneRead(uid, docId);
+    } catch (e) {
+      debugPrint('NotificationsScreen._markOneRead error: $e');
+    }
 
     final type = data['type'] as String? ?? '';
     final relatedId = data['relatedId'] as String? ?? '';
@@ -103,7 +113,7 @@ class NotificationsScreen extends StatelessWidget {
         Navigator.pushNamed(
           context,
           '/user_profile',
-          arguments: <String, dynamic>{'userId': relatedId},
+          arguments: relatedId,
         );
       case 'like':
         Navigator.pushNamed(context, '/feed');
@@ -199,6 +209,21 @@ class NotificationsScreen extends StatelessWidget {
           .limit(50)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Failed to load notifications'),
+                TextButton(
+                  onPressed: () => setState(() {}),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          );
+        }
+
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }

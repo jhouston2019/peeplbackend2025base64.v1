@@ -593,7 +593,13 @@ class _PodiumPlace extends StatelessWidget {
     final stepColor = _stepColor(rank);
     final nameWidth = rank == 1 ? 88.0 : 72.0;
 
-    return Column(
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(
+        context,
+        '/user_profile',
+        arguments: leader.userId,
+      ),
+      child: Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(emoji,
@@ -674,6 +680,7 @@ class _PodiumPlace extends StatelessWidget {
           ),
         ),
       ],
+    ),
     );
   }
 }

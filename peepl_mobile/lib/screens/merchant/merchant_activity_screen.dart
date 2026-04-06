@@ -18,6 +18,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
   // Holds fully-loaded data after _load() resolves.
   _PerformanceData? _data;
   bool _loading = true;
+  String? _error;
 
   @override
   void initState() {
@@ -57,26 +58,47 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
 
       final adIds = ads.map((a) => a['id'] as String).toList();
 
-      // 2. Fetch ad events for up to the first 10 ads (Firestore whereIn limit).
-      final chunk = adIds.take(10).toList();
-      final eventsSnap = await FirebaseFirestore.instance
-          .collection('ad_events')
-          .where('adId', whereIn: chunk)
-          .orderBy('timestamp', descending: false)
-          .get();
+      // 2. Fetch ad events in chunks of 10 (Firestore whereIn limit).
+      final allEventDocs = <QueryDocumentSnapshot>[];
+      for (var i = 0; i < adIds.length; i += 10) {
+        final chunk = adIds.skip(i).take(10).toList();
+        final snap = await FirebaseFirestore.instance
+            .collection('ad_events')
+            .where('adId', whereIn: chunk)
+            .orderBy('timestamp', descending: false)
+            .get();
+        allEventDocs.addAll(snap.docs);
+      }
 
-      // 3. Aggregate totals from ad docs.
+      // 3. Aggregate totals from ad docs and compute cost from tier × duration.
       int totalImpressions = 0;
       int totalClicks = 0;
       double totalCost = 0;
       for (final ad in ads) {
         totalImpressions += (ad['impressions'] as num?)?.toInt() ?? 0;
         totalClicks += (ad['clicks'] as num?)?.toInt() ?? 0;
+        // Compute cost: tier hourly rate × duration in hours.
+        final tier = (ad['tier'] as String? ?? '').toLowerCase();
+        final double ratePerHour = tier.contains('premium')
+            ? 39.99
+            : tier.contains('standard')
+                ? 19.99
+                : 9.99;
+        final start = ad['startDate'] is Timestamp
+            ? (ad['startDate'] as Timestamp).toDate()
+            : null;
+        final end = ad['endDate'] is Timestamp
+            ? (ad['endDate'] as Timestamp).toDate()
+            : null;
+        if (start != null && end != null) {
+          final hours = end.difference(start).inMinutes / 60.0;
+          totalCost += ratePerHour * hours;
+        }
       }
 
       // 4. Group events by hour bucket.
       final Map<String, _SlotData> buckets = {};
-      for (final doc in eventsSnap.docs) {
+      for (final doc in allEventDocs) {
         final data = doc.data();
         final ts = data['timestamp'];
         if (ts == null) continue;
@@ -102,8 +124,14 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
           _loading = false;
         });
       }
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Failed to load performance data';
+        });
+      }
+      debugPrint('MerchantActivity._load error: $e');
     }
   }
 
@@ -130,7 +158,23 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _buildBody(context),
+                  : _error != null
+                      ? Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_error!,
+                                  style:
+                                      const TextStyle(color: Colors.black54)),
+                              const SizedBox(height: 12),
+                              TextButton(
+                                onPressed: _load,
+                                child: const Text('Retry'),
+                              ),
+                            ],
+                          ),
+                        )
+                      : _buildBody(context),
             ),
           ],
         ),

@@ -51,11 +51,13 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
   bool _cityLoading = false;
   String _cityQueried = '';
   bool _citySearched = false;
+  String? _cityError;
 
   // ── Mode 3 — Specific Venue ───────────────────────────────────────────────────
   List<Map<String, dynamic>> _venueResults = [];
   bool _venueLoading = false;
   String _venueTerm = '';
+  String? _venueError;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────────
   @override
@@ -159,11 +161,13 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
       if (mounted) setState(() {
         _cityVenues = _groupByVenue(snap.docs);
         _cityLoading = false;
+        _cityError = null;
       });
     } catch (e) {
       if (mounted) setState(() {
         _cityVenues = [];
         _cityLoading = false;
+        _cityError = 'Could not load results';
       });
       debugPrint('GetPeepsScreen city search: $e');
     }
@@ -195,11 +199,13 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
       if (mounted) setState(() {
         _venueResults = _groupByVenue(snap.docs);
         _venueLoading = false;
+        _venueError = null;
       });
     } catch (e) {
       if (mounted) setState(() {
         _venueResults = [];
         _venueLoading = false;
+        _venueError = 'Could not load results';
       });
       debugPrint('GetPeepsScreen venue search: $e');
     }
@@ -416,6 +422,21 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             height: 200,
             child: Center(child: CircularProgressIndicator()),
           )
+        else if (_cityError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              children: [
+                Text(_cityError!,
+                    style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => _searchCity(_cityQueried),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
+          )
         else if (_citySearched) ...[
           _buildSectionHeader(
             _cityVenues.isEmpty
@@ -456,6 +477,21 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           const SizedBox(
             height: 200,
             child: Center(child: CircularProgressIndicator()),
+          )
+        else if (_venueError != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            child: Column(
+              children: [
+                Text(_venueError!,
+                    style: const TextStyle(color: Colors.red)),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: () => _searchVenues(_venueTerm),
+                  child: const Text('Retry'),
+                ),
+              ],
+            ),
           )
         else if (_venueTerm.isNotEmpty) ...[
           _buildSectionHeader(

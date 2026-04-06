@@ -41,6 +41,7 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
+  bool _cadenceReady = false;
 
   _SortMode _sortMode = _SortMode.date;
   double? _userLat;
@@ -102,7 +103,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   bool _isNetworkError(Object error) {
     final msg = error.toString().toLowerCase();
-    return msg.contains('network') || msg.contains('unavailable');
+    return msg.contains('network') ||
+        msg.contains('unavailable') ||
+        msg.contains('failed-precondition');
   }
 
   Future<void> _loadFeedData() async {
@@ -145,6 +148,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _initAds() async {
     await _cadence.init();
+    if (mounted) setState(() => _cadenceReady = true);
     // Pre-warm the location cache alongside cadence init. LocationService
     // deduplicates the Geolocator call if _initUserLocation already fired it.
     final pos = await LocationService.getCurrentLocation();
@@ -255,7 +259,7 @@ class _FeedScreenState extends State<FeedScreen> {
       _reloadAds(); // async — will rebuild feed when ads arrive
     }
 
-    final feedItems = _mergeAdsIntoFeed(posts);
+    final feedItems = _cadenceReady ? _mergeAdsIntoFeed(posts) : posts;
     if (mounted) {
       setState(() {
         _locationPosts = posts;
@@ -289,10 +293,13 @@ class _FeedScreenState extends State<FeedScreen> {
           final c = lb.compareTo(la);
           return c != 0 ? c : compareDateDescending(a, b);
         });
+        break;
       case _SortMode.date:
         posts.sort(compareDateDescending);
+        break;
       case _SortMode.distance:
         posts.sort(compareDistance);
+        break;
       case _SortMode.local:
         posts.sort((a, b) {
           final c = compareDistance(a, b);
@@ -302,6 +309,7 @@ class _FeedScreenState extends State<FeedScreen> {
           final cc = cb.compareTo(ca);
           return cc != 0 ? cc : compareDateDescending(a, b);
         });
+        break;
       case _SortMode.region:
         posts.sort((a, b) {
           final na = (a['locationName'] ?? '').toString().toLowerCase();
@@ -309,6 +317,7 @@ class _FeedScreenState extends State<FeedScreen> {
           final c = na.compareTo(nb);
           return c != 0 ? c : compareDateDescending(a, b);
         });
+        break;
     }
   }
 

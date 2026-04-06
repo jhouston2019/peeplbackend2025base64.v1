@@ -17,6 +17,7 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   late final Timer _ticker;
+  int _streamKey = 0;
 
   @override
   void initState() {
@@ -172,7 +173,7 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
             ads.where((a) => a['status'] == 'pending_payment').toList();
 
         return RefreshIndicator(
-          onRefresh: () async {},
+          onRefresh: () async => setState(() => _streamKey++),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -225,7 +226,9 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
                     badgeColor: Colors.red,
                     footer:
                         'Ends in ${_countdown(ad['endDate'])}',
-                    onEdit: () {},
+                    onEdit: () => Navigator.pushNamed(
+                        context, '/merchant_setup_step1',
+                        arguments: ad),
                   ),
                 ),
 
@@ -243,7 +246,9 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
                     badgeColor: Colors.teal,
                     footer:
                         'Starts in ${_countdown(ad['startDate'])}',
-                    onEdit: () {},
+                    onEdit: () => Navigator.pushNamed(
+                        context, '/merchant_setup_step1',
+                        arguments: ad),
                   ),
                 ),
 

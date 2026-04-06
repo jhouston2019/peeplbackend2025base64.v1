@@ -28,6 +28,13 @@ class _ReportScreenState extends State<ReportScreen> {
 
   Future<void> _submit() async {
     if (_selected == null || _submitting) return;
+    if (widget.postId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Unable to report — post ID missing')),
+      );
+      return;
+    }
     setState(() => _submitting = true);
 
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';

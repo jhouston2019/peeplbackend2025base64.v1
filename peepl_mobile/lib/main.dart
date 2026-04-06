@@ -45,6 +45,15 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     PushNotificationService.instance.init(navKey: navigatorKey).then((_) async {
+      // Cold-start: if the app was launched by tapping a notification, open
+      // the notifications screen once the navigator is ready.
+      final initialMessage =
+          await FirebaseMessaging.instance.getInitialMessage();
+      if (initialMessage != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          navigatorKey.currentState?.pushNamed('/notifications');
+        });
+      }
       final geofenceService = geofence_svc.PeeplGeofenceService.instance;
       await LocalNotificationService.instance
           .initialize(navigatorKey: navigatorKey);

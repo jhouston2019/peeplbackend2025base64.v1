@@ -127,7 +127,9 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         updates['phone'] = _phoneCtrl.text.trim();
       }
       if (updates.isNotEmpty) {
-        await _db.collection('users').doc(_uid).update(updates);
+        final batch = _db.batch();
+        batch.update(_db.collection('users').doc(_uid), updates);
+        await batch.commit();
       }
 
       // Email change: send verification to the new address first.

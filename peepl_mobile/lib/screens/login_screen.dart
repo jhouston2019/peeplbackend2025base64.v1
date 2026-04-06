@@ -137,7 +137,9 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) Navigator.pushReplacementNamed(context, '/sign_up_confirmed');
       }
     } catch (e) {
-      setState(() { _error = _getErrorMessage(e.toString()); _loading = false; });
+      if (mounted) setState(() => _error = _getErrorMessage(e.toString()));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 

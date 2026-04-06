@@ -18,6 +18,7 @@ class _DealsScreenState extends State<DealsScreen> {
 
   List<Map<String, dynamic>> _deals = [];
   bool _loading = true;
+  String? _error;
   double? _userLat;
   double? _userLng;
   late final Timer _ticker;
@@ -41,7 +42,7 @@ class _DealsScreenState extends State<DealsScreen> {
   // ── Data loading ──────────────────────────────────────────────────────────
 
   Future<void> _loadDeals() async {
-    setState(() => _loading = true);
+    setState(() { _loading = true; _error = null; });
 
     final pos = await LocationService.getCurrentLocation();
     _userLat = pos?.latitude;
@@ -58,6 +59,13 @@ class _DealsScreenState extends State<DealsScreen> {
 
       var deals = snap.docs.map((doc) {
         return <String, dynamic>{'id': doc.id, ...doc.data()};
+      }).toList();
+
+      // Client-side: remove ads whose startDate is still in the future.
+      final now = DateTime.now();
+      deals = deals.where((ad) {
+        final start = ad['startDate'] as Timestamp?;
+        return start == null || start.toDate().isBefore(now);
       }).toList();
 
       // Client-side: priority desc, then distance asc.
@@ -77,8 +85,13 @@ class _DealsScreenState extends State<DealsScreen> {
         _deals = deals;
         _loading = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not load deals. Tap to retry.';
+        });
+      }
     }
   }
 
@@ -200,7 +213,30 @@ class _DealsScreenState extends State<DealsScreen> {
                 clipBehavior: Clip.antiAlias,
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
-                    : _buildBody(context),
+                    : _error != null
+                        ? Center(
+                            child: Padding(
+                              padding: const EdgeInsets.all(24),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  const Text('⚠️', style: TextStyle(fontSize: 40)),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    _error!,
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(fontSize: 14),
+                                  ),
+                                  const SizedBox(height: 16),
+                                  ElevatedButton(
+                                    onPressed: _loadDeals,
+                                    child: const Text('Retry'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          )
+                        : _buildBody(context),
               ),
             ),
           ],

@@ -78,7 +78,8 @@ class PushPermissionScreen extends StatelessWidget {
                         _PermissionRowData(
                           label: "Don't Allow",
                           color: Colors.red,
-                          onTap: () => _requestAndContinue(context),
+                          onTap: () => Navigator.pushReplacementNamed(
+                              context, '/home'),
                         ),
                       ],
                     ),

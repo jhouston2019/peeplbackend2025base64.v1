@@ -1,5 +1,6 @@
 // contacts_service (pre-null-safety) is incompatible with Dart >=3.0.
 // flutter_contacts is the actively maintained null-safe successor.
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -22,15 +23,9 @@ class _InviteScreenState extends State<InviteScreen> {
   bool _loading = false;
   final TextEditingController _searchCtrl = TextEditingController();
 
-  // ── derived ─────────────────────────────────────────────────────────────
+  String _username = '';
 
-  String get _username {
-    final user = FirebaseAuth.instance.currentUser;
-    return user?.displayName ??
-        user?.email?.split('@').first ??
-        user?.uid ??
-        'friend';
-  }
+  // ── derived ─────────────────────────────────────────────────────────────
 
   String get _inviteLink => 'peepl.app/invite/$_username';
 
@@ -43,7 +38,37 @@ class _InviteScreenState extends State<InviteScreen> {
   void initState() {
     super.initState();
     _searchCtrl.addListener(_filterContacts);
+    _loadUsername();
     _tryLoadContacts();
+  }
+
+  Future<void> _loadUsername() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final name = doc.data()?['username'] as String?;
+      if (mounted) {
+        setState(() {
+          _username = name?.isNotEmpty == true
+              ? name!
+              : user.displayName ??
+                  user.email?.split('@').first ??
+                  user.uid;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _username = user.displayName ??
+              user.email?.split('@').first ??
+              user.uid;
+        });
+      }
+    }
   }
 
   @override
@@ -174,7 +199,7 @@ class _InviteScreenState extends State<InviteScreen> {
         children: [
           _buildInviteLinkSection(context),
           const SizedBox(height: 28),
-          if (_permState == _PermState.unknown && _loading)
+          if (_permState == _PermState.unknown)
             const Center(
               child: Padding(
                 padding: EdgeInsets.all(32),

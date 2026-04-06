@@ -68,7 +68,8 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
 
   static String _timeAgo(dynamic ts) {
     if (ts == null) return '';
-    final dt = ts is Timestamp ? ts.toDate() : DateTime.now();
+    if (ts is! Timestamp) return '';
+    final dt = ts.toDate();
     final d = DateTime.now().difference(dt);
     if (d.inMinutes < 1) return 'just now';
     if (d.inMinutes < 60) return '${d.inMinutes}m ago';
@@ -220,7 +221,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
         }
 
         return RefreshIndicator(
-          onRefresh: () async {},
+          onRefresh: () async => setState(() {}),
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.zero,

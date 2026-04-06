@@ -494,6 +494,20 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                   ),
                 ),
               ),
+              const SizedBox(width: 4),
+              Material(
+                color: Colors.black.withOpacity(0.4),
+                shape: const CircleBorder(),
+                child: IconButton(
+                  tooltip: 'Report',
+                  icon: const Icon(Icons.flag_outlined, color: Colors.white),
+                  onPressed: () => Navigator.pushNamed(
+                    context,
+                    '/report',
+                    arguments: post['id'] as String? ?? '',
+                  ),
+                ),
+              ),
               const SizedBox(width: 8),
               Container(
                 width: 56,

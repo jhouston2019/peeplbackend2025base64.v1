@@ -38,6 +38,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
       _resolvedName = widget.locationName ??
           (ModalRoute.of(context)?.settings.arguments as String?) ??
           '';
+      _claimBadge();
     }
   }
 
@@ -73,13 +74,21 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
       });
 
       await batch.commit();
+
+      _confettiController.play();
+      await Future.delayed(const Duration(milliseconds: 1500));
+      if (mounted) Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       debugPrint('Pioneer claim error: $e');
+      if (mounted) {
+        setState(() => _claiming = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to save Pioneer badge — tap to retry'),
+          ),
+        );
+      }
     }
-
-    _confettiController.play();
-    await Future.delayed(const Duration(milliseconds: 1500));
-    if (mounted) Navigator.pushReplacementNamed(context, '/home');
   }
 
   @override

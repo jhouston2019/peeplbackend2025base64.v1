@@ -291,11 +291,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: 'About Peepl',
                       onTap: () => _showAboutDialog(context),
                     ),
-                    _tile(
-                      icon: Icons.help_outline,
-                      title: 'Help & Support',
-                      onTap: () {},
-                    ),
                     const SizedBox(height: 32),
 
                     // ── FOOTER ───────────────────────────────────────────────

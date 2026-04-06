@@ -182,6 +182,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           .orderBy('lastVisited', descending: true)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) {
+          return Center(
+            child: TextButton(
+              onPressed: () => setState(() {}),
+              child: const Text('Failed to load — tap to retry'),
+            ),
+          );
+        }
+
         if (snap.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }

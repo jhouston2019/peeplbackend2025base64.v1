@@ -44,7 +44,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   @override
   void initState() {
     super.initState();
-    _initAds();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await _initAds();
+    });
     _feedService.getLocationFeedStream().listen((snapshot) {
       final posts = snapshot.docs
           .map((doc) => <String, dynamic>{
@@ -278,6 +280,17 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               controller: _searchCtrl,
               focusNode: _searchFocus,
               onChanged: _onSearchChanged,
+              textInputAction: TextInputAction.search,
+              onSubmitted: (q) {
+                final trimmed = q.trim();
+                if (trimmed.isNotEmpty) {
+                  Navigator.pushNamed(
+                    context,
+                    '/search_results',
+                    arguments: trimmed,
+                  );
+                }
+              },
               style:
                   const TextStyle(color: Colors.white, fontSize: 14),
               cursorColor: Colors.white,

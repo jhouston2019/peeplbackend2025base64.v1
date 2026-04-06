@@ -234,8 +234,8 @@ class _VenueScreenState extends State<VenueScreen> {
 
   void _openMap() {
     Navigator.pushNamed(context, '/map', arguments: {
-      'latitude': (_venue['latitude'] as num?)?.toDouble(),
-      'longitude': (_venue['longitude'] as num?)?.toDouble(),
+      'lat': (_venue['latitude'] as num?)?.toDouble(),
+      'lng': (_venue['longitude'] as num?)?.toDouble(),
       'locationName': _venueName,
     });
   }

@@ -24,12 +24,17 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
       final name = widget.locationName ??
           (ModalRoute.of(context)?.settings.arguments as String?) ??
           '';
-      Future.delayed(const Duration(seconds: 2), () => _checkPioneer(name));
+      _checkPioneer(name);
     }
   }
 
   Future<void> _checkPioneer(String locationName) async {
     if (!mounted) return;
+
+    if (locationName.isEmpty) {
+      Navigator.pushReplacementNamed(context, '/home');
+      return;
+    }
 
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -38,30 +43,25 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
     }
 
     try {
-      // Fetch a small page of posts for this location and filter out the
-      // current user client-side — avoids the composite index that
-      // isNotEqualTo + isEqualTo on different fields would require.
-      final snapshot = await FirebaseFirestore.instance
+      final snap = await FirebaseFirestore.instance
           .collection('location_posts')
           .where('locationName', isEqualTo: locationName)
-          .limit(20)
+          .where('userId', isNotEqualTo: user.uid)
+          .limit(1)
           .get();
 
-      final othersExist = snapshot.docs.any((doc) {
-        final data = doc.data();
-        return data['userId'] != user.uid;
-      });
+      final isPioneer = snap.docs.isEmpty;
 
       if (!mounted) return;
 
-      if (othersExist) {
-        Navigator.pushReplacementNamed(context, '/home');
-      } else {
+      if (isPioneer) {
         Navigator.pushReplacementNamed(
           context,
           '/pioneer_congrat',
           arguments: locationName,
         );
+      } else {
+        Navigator.pushReplacementNamed(context, '/home');
       }
     } catch (_) {
       if (mounted) Navigator.pushReplacementNamed(context, '/home');

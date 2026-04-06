@@ -253,7 +253,6 @@ class _GroupsScreenState extends State<GroupsScreen> {
           .collection('users')
           .doc(_uid)
           .collection('groups')
-          .orderBy('joinedAt', descending: true)
           .snapshots(),
       builder: (ctx, snap) {
         if (snap.connectionState == ConnectionState.waiting) {

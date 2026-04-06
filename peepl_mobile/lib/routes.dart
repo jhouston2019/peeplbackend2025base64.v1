@@ -49,6 +49,7 @@ import 'screens/merchant/merchant_setup_step1_screen.dart';
 import 'screens/merchant/merchant_setup_step2_screen.dart';
 import 'screens/merchant/merchant_setup_step3_screen.dart';
 import 'screens/merchant/merchant_sign_in_screen.dart';
+import 'screens/gallery_screen.dart';
 import 'screens/scoreboard_screen.dart';
 
 /// Demo post for catalog navigation (does not require Firestore).
@@ -81,8 +82,8 @@ Map<String, WidgetBuilder> appRoutes = {
   '/feed': (_) => const MainShell(initialBodyIndex: 0),
   '/discover': (_) => const MainShell(initialBodyIndex: 1),
   '/post': (_) => const PostScreen(),
-  '/chat': (_) => const MainShell(initialBodyIndex: 2),
-  '/profile': (_) => const MainShell(initialBodyIndex: 3),
+  '/chat': (_) => const MainShell(initialBodyIndex: 3),
+  '/profile': (_) => const MainShell(initialBodyIndex: 4),
   '/settings': (_) => SettingsScreen(),
   '/login': (_) => LoginScreen(),
   '/admin': (_) => const AdminScreen(),
@@ -149,7 +150,9 @@ Map<String, WidgetBuilder> appRoutes = {
   '/sign_up_confirmed': (_) => const SignUpConfirmedScreen(),
   '/user_profile': (ctx) {
     final args = ModalRoute.of(ctx)?.settings.arguments;
-    final userId = args is String ? args : '';
+    final userId = args is String
+        ? args
+        : (args as Map?)?['userId'] as String? ?? '';
     return UserProfileScreen(userId: userId);
   },
   '/venue_list': (_) => const VenueListScreen(),
@@ -165,4 +168,5 @@ Map<String, WidgetBuilder> appRoutes = {
   '/merchant_setup_step2': (_) => const MerchantSetupStep2Screen(),
   '/merchant_setup_step3': (_) => const MerchantSetupStep3Screen(),
   '/merchant_sign_in': (_) => const MerchantSignInScreen(),
+  '/gallery': (_) => const GalleryScreen(),
 };

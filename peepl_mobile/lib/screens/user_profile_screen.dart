@@ -30,6 +30,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   List<QueryDocumentSnapshot> _recentPeeps = [];
   bool _dataLoaded = false;
+  bool _error = false;
 
   // ── lifecycle ────────────────────────────────────────────────────────────
 
@@ -40,73 +41,89 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   }
 
   Future<void> _loadAll() async {
+    if (mounted) setState(() { _error = false; _dataLoaded = false; });
     await Future.wait([_loadUserAndFollow(), _loadStats(), _loadRecentPeeps()]);
     if (mounted) setState(() => _dataLoaded = true);
   }
 
   Future<void> _loadUserAndFollow() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    _isCurrentUser = currentUser?.uid == widget.userId;
+    try {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      _isCurrentUser = currentUser?.uid == widget.userId;
 
-    final doc = await _db.collection('users').doc(widget.userId).get();
-    if (!mounted) return;
-    setState(() => _userData = doc.data() ?? {});
+      final doc = await _db.collection('users').doc(widget.userId).get();
+      if (!mounted) return;
+      setState(() => _userData = doc.data() ?? {});
 
-    if (currentUser != null && !_isCurrentUser) {
-      final followDoc = await _db
-          .collection('users')
-          .doc(currentUser.uid)
-          .collection('following')
-          .doc(widget.userId)
-          .get();
-      if (mounted) setState(() => _isFollowing = followDoc.exists);
+      if (currentUser != null && !_isCurrentUser) {
+        final followDoc = await _db
+            .collection('users')
+            .doc(currentUser.uid)
+            .collection('following')
+            .doc(widget.userId)
+            .get();
+        if (mounted) setState(() => _isFollowing = followDoc.exists);
+      }
+    } catch (e) {
+      debugPrint('UserProfile._loadUserAndFollow: $e');
+      if (mounted) setState(() => _error = true);
     }
   }
 
   Future<void> _loadStats() async {
-    final uid = widget.userId;
-    final results = await Future.wait([
-      _db
-          .collection('location_posts')
-          .where('userId', isEqualTo: uid)
-          .count()
-          .get(),
-      _db
-          .collection('pioneers')
-          .where('userId', isEqualTo: uid)
-          .count()
-          .get(),
-      _db
-          .collection('users')
-          .doc(uid)
-          .collection('followers')
-          .count()
-          .get(),
-      _db
-          .collection('users')
-          .doc(uid)
-          .collection('following')
-          .count()
-          .get(),
-    ]);
-    if (!mounted) return;
-    setState(() {
-      _peepsCount = results[0].count ?? 0;
-      _pioneersCount = results[1].count ?? 0;
-      _followersCount = results[2].count ?? 0;
-      _followingCount = results[3].count ?? 0;
-    });
+    try {
+      final uid = widget.userId;
+      final results = await Future.wait([
+        _db
+            .collection('location_posts')
+            .where('userId', isEqualTo: uid)
+            .count()
+            .get(),
+        _db
+            .collection('pioneers')
+            .where('userId', isEqualTo: uid)
+            .count()
+            .get(),
+        _db
+            .collection('users')
+            .doc(uid)
+            .collection('followers')
+            .count()
+            .get(),
+        _db
+            .collection('users')
+            .doc(uid)
+            .collection('following')
+            .count()
+            .get(),
+      ]);
+      if (!mounted) return;
+      setState(() {
+        _peepsCount = results[0].count ?? 0;
+        _pioneersCount = results[1].count ?? 0;
+        _followersCount = results[2].count ?? 0;
+        _followingCount = results[3].count ?? 0;
+      });
+    } catch (e) {
+      debugPrint('UserProfile._loadStats: $e');
+      if (mounted) setState(() => _error = true);
+    }
   }
 
   Future<void> _loadRecentPeeps() async {
-    final snap = await _db
-        .collection('location_posts')
-        .where('userId', isEqualTo: widget.userId)
-        .orderBy('timestamp', descending: true)
-        .limit(3)
-        .get();
-    if (!mounted) return;
-    setState(() => _recentPeeps = snap.docs);
+    try {
+      final snap = await _db
+          .collection('location_posts')
+          .where('userId', isEqualTo: widget.userId)
+          .orderBy('timestamp', descending: true)
+          .limit(3)
+          .get();
+      if (!mounted) return;
+      setState(() => _recentPeeps = snap.docs);
+    } catch (e) {
+      debugPrint('UserProfile._loadRecentPeeps: $e');
+      if (mounted) setState(() => _error = true);
+    }
   }
 
   // ── follow / unfollow ────────────────────────────────────────────────────
@@ -195,7 +212,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: !_dataLoaded
+                child: _error
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Something went wrong',
+                              style: TextStyle(fontSize: 15, color: Colors.black54),
+                            ),
+                            TextButton(
+                              onPressed: _loadAll,
+                              child: const Text('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : !_dataLoaded
                     ? const Center(child: CircularProgressIndicator())
                     : SingleChildScrollView(
                         padding: const EdgeInsets.all(20),

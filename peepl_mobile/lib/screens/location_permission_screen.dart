@@ -5,7 +5,9 @@ class LocationPermissionScreen extends StatelessWidget {
   const LocationPermissionScreen({super.key});
 
   Future<void> _requestAndContinue(BuildContext context) async {
-    await Geolocator.requestPermission();
+    try {
+      await Geolocator.requestPermission();
+    } catch (_) {}
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/permissions/push');
     }

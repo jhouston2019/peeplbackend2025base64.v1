@@ -48,7 +48,11 @@ class MenuScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildTopBar(context),
-            _buildBanner(),
+            GestureDetector(
+              onTap: () => Navigator.pushNamed(
+                  context, '/user_profile', arguments: _uid),
+              child: _buildBanner(),
+            ),
             Expanded(
               child: Container(
                 decoration: const BoxDecoration(
@@ -198,6 +202,18 @@ class MenuScreen extends StatelessWidget {
           emoji: '📸',
           label: 'Photo Gallery',
           onTap: () => Navigator.pushNamed(context, '/gallery'),
+        ),
+        const _Divider(),
+        _NavRow(
+          emoji: '❤️',
+          label: 'Favorites',
+          onTap: () => Navigator.pushNamed(context, '/favorites'),
+        ),
+        const _Divider(),
+        _NavRow(
+          emoji: '🔥',
+          label: 'Trending',
+          onTap: () => Navigator.pushNamed(context, '/trending'),
         ),
         const _Divider(),
         _NavRow(
