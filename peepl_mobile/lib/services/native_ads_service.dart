@@ -53,11 +53,13 @@ class NativeAdsService {
     double? userLng,
   }) async {
     try {
+      // Single inequality on endDate — Firestore requires the first orderBy()
+      // to match the inequality field. The startDate filter is omitted here;
+      // isActive:true is set by the backend when an ad's start time is reached.
       Query query = _firestore
           .collection('native_ads')
           .where('isActive', isEqualTo: true)
-          .where('endDate', isGreaterThan: Timestamp.now())
-          .where('startDate', isLessThanOrEqualTo: Timestamp.now());
+          .where('endDate', isGreaterThan: Timestamp.now());
 
       // Context targeting — 'feed' is unfiltered for maximum inventory fill.
       switch (context) {
@@ -78,7 +80,6 @@ class NativeAdsService {
       // Fetch a generous pool so client-side filtering doesn't leave us short.
       final fetchLimit = userLat != null ? (limit * 3).clamp(10, 30) : limit;
       final snapshot = await query
-          .orderBy('startDate')
           .orderBy('endDate')
           .orderBy('priority', descending: true)
           .limit(fetchLimit)
