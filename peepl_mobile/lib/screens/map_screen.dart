@@ -577,9 +577,22 @@ class _MapScreenState extends State<MapScreen> {
   // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
     return Scaffold(
       resizeToAvoidBottomInset: false,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1565C0),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Map',
+          style: TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
       body: Stack(
         children: [
           // ── Full-screen map ────────────────────────────────────────────────
@@ -596,7 +609,7 @@ class _MapScreenState extends State<MapScreen> {
 
           // ── Search bar (top) ───────────────────────────────────────────────
           Positioned(
-            top: topPad + 10,
+            top: 10,
             left: 12,
             right: 60,
             child: _buildSearchBar(),
@@ -604,7 +617,7 @@ class _MapScreenState extends State<MapScreen> {
 
           // ── My Location button ─────────────────────────────────────────────
           Positioned(
-            top: topPad + 10,
+            top: 10,
             right: 10,
             child: _buildLocationFAB(),
           ),
