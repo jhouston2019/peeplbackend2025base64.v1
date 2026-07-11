@@ -51,8 +51,7 @@ workflows:
       - name: Debug signing resolution
         working_directory: peepl_mobile
         script: |
-          set -e
-          xcode-project use-profiles --exclude-path build/ios/SourcePackages
+          xcode-project use-profiles || true
           echo "---- INSTALLED PROFILES ----"
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
           echo "---- SIGNING IDENTITIES ----"
@@ -66,7 +65,7 @@ workflows:
         working_directory: peepl_mobile
         script: |
           set -e
-          xcode-project use-profiles --exclude-path build/ios/SourcePackages
+          xcode-project use-profiles || true
           xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
