@@ -13,7 +13,6 @@ workflows:
         working_directory: peepl_mobile
     artifacts:
       - peepl_mobile/build/**/outputs/**/*.apk
-
   ios-workflow:
     name: iOS Build
     max_build_duration: 60
@@ -53,15 +52,11 @@ workflows:
         working_directory: peepl_mobile
         script: |
           set -e
-
-          xcode-project use-profiles
-
+          xcode-project use-profiles --exclude-path build/ios/SourcePackages
           echo "---- INSTALLED PROFILES ----"
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ || true
-
           echo "---- SIGNING IDENTITIES ----"
           security find-identity -v -p codesigning || true
-
           echo "---- BUILD SETTINGS ----"
           xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
@@ -71,9 +66,7 @@ workflows:
         working_directory: peepl_mobile
         script: |
           set -e
-
-          xcode-project use-profiles
-
+          xcode-project use-profiles --exclude-path build/ios/SourcePackages
           xcodebuild -workspace ios/Runner.xcworkspace \
             -scheme Runner \
             -configuration Release \
@@ -82,7 +75,6 @@ workflows:
             CODE_SIGN_STYLE=Manual \
             CODE_SIGN_IDENTITY="Apple Distribution" \
             clean archive
-
           xcodebuild -exportArchive \
             -archivePath build/ios/archive/Runner.xcarchive \
             -exportOptionsPlist ios/ExportOptions.plist \
