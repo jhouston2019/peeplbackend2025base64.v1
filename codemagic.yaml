@@ -16,9 +16,9 @@ workflows:
   ios-workflow:
     name: iOS Build
     max_build_duration: 60
-    integrations:
-      app_store_connect: codemagic
+    instance_type: mac_mini_m2
     environment:
+      xcode: 15.4
       flutter: stable
       ios_signing:
         distribution_type: app_store
