@@ -28,7 +28,7 @@ workflows:
       groups:
         - a
     scripts:
-     - name: Install CocoaPods
+      - name: Install CocoaPods
         script: |
           gem install cocoapods -v 1.14.3
       - name: Flutter clean and pub get
