@@ -80,6 +80,6 @@ workflows:
             -exportPath build/ios/ipa
     artifacts:
       - peepl_mobile/build/ios/ipa/*.ipa
- publishing:
+    publishing:
       app_store_connect:
         submit_to_testflight: true
