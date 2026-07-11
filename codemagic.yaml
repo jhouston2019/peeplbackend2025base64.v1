@@ -17,6 +17,8 @@ workflows:
     name: iOS Build
     max_build_duration: 60
     instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: codemagic
     environment:
       xcode: 15.4
       flutter: stable
@@ -82,5 +84,4 @@ workflows:
       - peepl_mobile/build/ios/ipa/*.ipa
     publishing:
       app_store_connect:
-        auth: integration
         submit_to_testflight: true
