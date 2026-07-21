@@ -1,7 +1,5 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
@@ -45,15 +43,6 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     PushNotificationService.instance.init(navKey: navigatorKey).then((_) async {
-      // Cold-start: if the app was launched by tapping a notification, open
-      // the notifications screen once the navigator is ready.
-      final initialMessage =
-          await FirebaseMessaging.instance.getInitialMessage();
-      if (initialMessage != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          navigatorKey.currentState?.pushNamed('/notifications');
-        });
-      }
       final geofenceService = geofence_svc.PeeplGeofenceService.instance;
       await LocalNotificationService.instance
           .initialize(navigatorKey: navigatorKey);
@@ -65,63 +54,8 @@ class _MyAppState extends State<MyApp> {
       await geofenceService.initialize();
       await geofenceService.loadGeofencesFromFirestore();
 
-      // ── FCM foreground: persist to Firestore + show snackbar ──────────────
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-
-      // ── FCM background tap: open notifications screen ─────────────────────
-      FirebaseMessaging.onMessageOpenedApp.listen((_) {
-        navigatorKey.currentState?.pushNamed('/notifications');
-      });
-
       if (mounted) setState(() => _ready = true);
     });
-  }
-
-  /// Writes the incoming FCM message to `notifications/{uid}/items` and
-  /// shows a snackbar with the notification title.
-  Future<void> _handleForegroundMessage(RemoteMessage message) async {
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
-
-    final title = message.notification?.title ?? '';
-    final body = message.notification?.body ?? '';
-
-    // Persist to Firestore so the notifications screen can display it.
-    try {
-      await FirebaseFirestore.instance
-          .collection('notifications')
-          .doc(uid)
-          .collection('items')
-          .add({
-        'type': message.data['type'] ?? 'push',
-        'title': title,
-        'body': body,
-        'isRead': false,
-        'timestamp': FieldValue.serverTimestamp(),
-        'relatedId': message.data['relatedId'] ?? '',
-        'iconType': message.data['iconType'] ?? 'push',
-      });
-    } catch (e) {
-      debugPrint('[FCM] Firestore write error: $e');
-    }
-
-    // Show an in-app snackbar.
-    if (title.isEmpty) return;
-    final ctx = navigatorKey.currentContext;
-    if (ctx != null) {
-      ScaffoldMessenger.of(ctx).showSnackBar(
-        SnackBar(
-          content: Text(title),
-          action: SnackBarAction(
-            label: 'View',
-            onPressed: () =>
-                navigatorKey.currentState?.pushNamed('/notifications'),
-          ),
-          duration: const Duration(seconds: 4),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
   }
 
   @override
@@ -195,10 +129,16 @@ class _AuthGateState extends State<_AuthGate> {
     if (user == null) {
       Navigator.pushReplacementNamed(context, '/login');
     } else {
+      final route =
+          await PushNotificationService.instance.routeAfterLogin();
       Future.microtask(
         () => PushNotificationService.instance.onUserSignedIn(),
       );
-      Navigator.pushReplacementNamed(context, '/home');
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, route);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        PushNotificationService.instance.processPendingNotification();
+      });
     }
   }
 

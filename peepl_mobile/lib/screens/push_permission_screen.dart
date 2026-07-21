@@ -1,13 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
+
+import '../services/push_notification_service.dart';
 
 class PushPermissionScreen extends StatelessWidget {
   const PushPermissionScreen({super.key});
 
   Future<void> _requestAndContinue(BuildContext context) async {
-    await FirebaseMessaging.instance.requestPermission();
+    await PushNotificationService.instance.requestPermissions();
+    await PushNotificationService.instance.onUserSignedIn();
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        PushNotificationService.instance.processPendingNotification();
+      });
+    }
+  }
+
+  Future<void> _skipAndContinue(BuildContext context) async {
+    await PushNotificationService.instance.markPermissionPromptShown();
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/home');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        PushNotificationService.instance.processPendingNotification();
+      });
     }
   }
 
@@ -78,8 +93,7 @@ class PushPermissionScreen extends StatelessWidget {
                         _PermissionRowData(
                           label: "Don't Allow",
                           color: Colors.red,
-                          onTap: () => Navigator.pushReplacementNamed(
-                              context, '/home'),
+                          onTap: () => _skipAndContinue(context),
                         ),
                       ],
                     ),

@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+
+import '../services/push_notification_service.dart';
 
 class LoginScreen extends StatefulWidget {
   @override
@@ -130,7 +132,16 @@ class _LoginScreenState extends State<LoginScreen> {
       if (_isLoginMode) {
         await FirebaseAuth.instance.signInWithEmailAndPassword(
           email: _email.text.trim(), password: _pass.text.trim());
-        if (mounted) Navigator.pushReplacementNamed(context, '/home');
+        if (mounted) {
+          final route =
+              await PushNotificationService.instance.routeAfterLogin();
+          await PushNotificationService.instance.onUserSignedIn();
+          if (!mounted) return;
+          Navigator.pushReplacementNamed(context, route);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            PushNotificationService.instance.processPendingNotification();
+          });
+        }
       } else {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _email.text.trim(), password: _pass.text.trim());
