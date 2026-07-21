@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'push_notification_service.dart';
+import 'notification_service.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -9,7 +9,7 @@ class AuthService {
   Stream<User?> get userStream => _auth.authStateChanges();
 
   Future<void> signOut() async {
-    await PushNotificationService.instance.onUserSignedOut();
+    await NotificationService.instance.onUserSignedOut();
     await _auth.signOut();
   }
 }

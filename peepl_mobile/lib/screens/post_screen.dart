@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import '../services/feed_service.dart';
+import '../services/notification_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -239,6 +240,10 @@ class _PostScreenState extends State<PostScreen> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map && args['locationName'] != null) {
         _locationController.text = args['locationName'] as String;
+        final lat = args['latitude'];
+        final lng = args['longitude'];
+        if (lat is num) _latitude = lat.toDouble();
+        if (lng is num) _longitude = lng.toDouble();
       }
     }
   }
@@ -515,6 +520,15 @@ class _PostScreenState extends State<PostScreen> {
         ageRange: _ageRange,
         hasPets: _hasPets,
         venueType: _venueType,
+      );
+
+      await NotificationService.instance.onPostSubmitted(
+        userId: user.uid,
+        username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
+        locationName: locationName,
+        latitude: _latitude ?? 40.7829,
+        longitude: _longitude ?? -73.9654,
+        crowdingLevel: _crowdingLevel.round(),
       );
 
       if (mounted) {

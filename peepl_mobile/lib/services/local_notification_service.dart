@@ -1,9 +1,9 @@
 // NOTE on navigatorKey:
 // main.dart's _MyAppState declares a single GlobalKey<NavigatorState> that is
-// shared between PeeplApp (MaterialApp.navigatorKey) and PushNotificationService
+// shared between PeeplApp (MaterialApp.navigatorKey) and NotificationService
 // via .init(navKey: navigatorKey). It is an instance variable, not a static,
 // so it cannot be imported directly. We follow the same pattern used by
-// PushNotificationService: accept the key at initialize() time and store it
+// NotificationService: accept the key at initialize() time and store it
 // as an instance field. The caller (main.dart) passes its existing key so
 // only ONE key is ever created across the whole app.
 
@@ -19,7 +19,7 @@ class LocalNotificationService {
   final FlutterLocalNotificationsPlugin _plugin =
       FlutterLocalNotificationsPlugin();
 
-  /// Stored from initialize() — same key as MaterialApp and PushNotificationService.
+  /// Stored from initialize() — same key as MaterialApp and NotificationService.
   GlobalKey<NavigatorState>? _navigatorKey;
 
   Future<void> initialize({required GlobalKey<NavigatorState> navigatorKey}) async {

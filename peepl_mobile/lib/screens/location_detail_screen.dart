@@ -10,10 +10,10 @@ import 'package:url_launcher/url_launcher.dart';
 import '../constants/app_share_links.dart';
 import '../services/ad_cadence_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
+import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
@@ -672,6 +672,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   Future<void> _sendAskRequest() async {
     final locationName =
         widget.postData['locationName'] as String? ?? '';
+    final locationId =
+        widget.postData['id'] as String? ?? locationName;
     final lat =
         (widget.postData['latitude'] as num?)?.toDouble() ?? 0.0;
     final lng =
@@ -680,12 +682,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     if (locationName.isEmpty) return;
 
     try {
-      await PresenceService.instance.sendCrowdsourceRequest(
+      final requestId = await CrowdsourceService.instance.createRequest(
+        locationId: locationId,
         locationName: locationName,
         latitude: lat,
         longitude: lng,
       );
-      if (mounted) {
+      if (mounted && requestId != null) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(

@@ -4,15 +4,16 @@ admin.initializeApp();
 
 const db = admin.firestore();
 const messaging = admin.messaging();
+const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 // ─── HELPER: get FCM token for a uid ───────────────────────────────────────
-// FCM tokens are stored at /{uid}/profile.fcmToken by PushNotificationService.
 async function getFcmToken(uid) {
   try {
-    const snap = await db
-      .collection(uid)
-      .doc('profile')
-      .get();
+    const userSnap = await db.collection(USERS_COLLECTION).doc(uid).get();
+    if (userSnap.exists && userSnap.data()?.fcmToken) {
+      return userSnap.data().fcmToken;
+    }
+    const snap = await db.collection(uid).doc('profile').get();
     return snap.exists ? (snap.data()?.fcmToken ?? null) : null;
   } catch (e) {
     console.error(`getFcmToken error for ${uid}:`, e);
@@ -168,5 +169,87 @@ exports.onLikeCreated = functions.firestore
       }
     );
 
+    return null;
+  });
+
+// ─── FUNCTION 3: onNewPost ─────────────────────────────────────────────────
+// Fires when a client writes notification_triggers/{postId} after submitting a post.
+// Notifies users within 1 km (excluding the poster).
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+exports.onNewPost = functions.firestore
+  .document('notification_triggers/{postId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const { latitude, longitude, locationName, posterId } = data;
+    const postId = context.params.postId;
+
+    if (latitude == null || longitude == null || !locationName || !posterId) {
+      console.log('onNewPost: missing required fields, skipping.');
+      return null;
+    }
+
+    const KM_DELTA = 0.009; // ~1 km latitude band
+
+    let usersSnap;
+    try {
+      usersSnap = await db
+        .collection(USERS_COLLECTION)
+        .where('lastLocation.latitude', '>=', latitude - KM_DELTA)
+        .where('lastLocation.latitude', '<=', latitude + KM_DELTA)
+        .limit(200)
+        .get();
+    } catch (e) {
+      console.error('onNewPost user query error:', e);
+      return null;
+    }
+
+    const sends = [];
+    for (const doc of usersSnap.docs) {
+      if (doc.id === posterId) continue;
+
+      const lastLoc = doc.data().lastLocation;
+      if (!lastLoc || lastLoc.latitude == null || lastLoc.longitude == null) {
+        continue;
+      }
+
+      const dist = haversineKm(
+        latitude,
+        longitude,
+        lastLoc.latitude,
+        lastLoc.longitude,
+      );
+      if (dist > 1) continue;
+
+      const token = doc.data().fcmToken || (await getFcmToken(doc.id));
+      if (!token) continue;
+
+      sends.push(
+        sendFcm(
+          token,
+          'New post nearby',
+          `Someone just posted about ${locationName} near you — check it out!`,
+          {
+            type: 'new_post_nearby',
+            postId,
+            locationName,
+          },
+        ),
+      );
+    }
+
+    await Promise.all(sends);
+    console.log(`onNewPost: sent ${sends.length} notifications for ${locationName}`);
     return null;
   });

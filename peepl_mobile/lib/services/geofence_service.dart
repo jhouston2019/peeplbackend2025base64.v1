@@ -3,6 +3,8 @@ import 'package:flutter/foundation.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
+import 'notification_service.dart';
+
 class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
@@ -18,7 +20,10 @@ class PeeplGeofenceService {
     geofenceRadiusSortType: GeofenceRadiusSortType.DESC,
   );
 
-  Function(String locationName, double latitude, double longitude)?
+  /// locationId → display name (for callbacks that still need the name).
+  final Map<String, String> _locationNames = {};
+
+  Function(String locationId, String locationName, double latitude, double longitude)?
       onLocationEntered;
 
   Future<void> initialize() async {
@@ -45,13 +50,24 @@ class PeeplGeofenceService {
     GeofenceStatus geofenceStatus,
     Location location,
   ) async {
-    if (geofenceStatus == GeofenceStatus.ENTER) {
-      onLocationEntered?.call(
-        geofence.id,
-        geofence.latitude,
-        geofence.longitude,
-      );
-    }
+    if (geofenceStatus != GeofenceStatus.ENTER) return;
+
+    final locationId = geofence.id;
+    final locationName = _locationNames[locationId] ?? locationId;
+
+    await NotificationService.instance.handleGeofenceWalkIn(
+      locationId: locationId,
+      locationName: locationName,
+      latitude: geofence.latitude,
+      longitude: geofence.longitude,
+    );
+
+    onLocationEntered?.call(
+      locationId,
+      locationName,
+      geofence.latitude,
+      geofence.longitude,
+    );
   }
 
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}
@@ -68,6 +84,7 @@ class PeeplGeofenceService {
           .limit(100)
           .get();
 
+      _locationNames.clear();
       final geofences = <Geofence>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
@@ -77,9 +94,10 @@ class PeeplGeofenceService {
 
         if (name == null || lat == null || lng == null) continue;
 
+        _locationNames[doc.id] = name;
         geofences.add(
           Geofence(
-            id: name,
+            id: doc.id,
             latitude: lat,
             longitude: lng,
             radius: [
@@ -98,11 +116,16 @@ class PeeplGeofenceService {
   }
 
   Future<void> addGeofence(
-      String locationName, double lat, double lng) async {
+    String locationId,
+    String locationName,
+    double lat,
+    double lng,
+  ) async {
     try {
+      _locationNames[locationId] = locationName;
       _geofenceService.addGeofence(
         Geofence(
-          id: locationName,
+          id: locationId,
           latitude: lat,
           longitude: lng,
           radius: [

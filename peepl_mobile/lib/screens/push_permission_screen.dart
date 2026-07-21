@@ -1,27 +1,27 @@
 import 'package:flutter/material.dart';
 
-import '../services/push_notification_service.dart';
+import '../services/notification_service.dart';
 
 class PushPermissionScreen extends StatelessWidget {
   const PushPermissionScreen({super.key});
 
   Future<void> _requestAndContinue(BuildContext context) async {
-    await PushNotificationService.instance.requestPermissions();
-    await PushNotificationService.instance.onUserSignedIn();
+    await NotificationService.instance.requestPermissions();
+    await NotificationService.instance.onUserSignedIn();
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        PushNotificationService.instance.processPendingNotification();
+        NotificationService.instance.processPendingNotification();
       });
     }
   }
 
   Future<void> _skipAndContinue(BuildContext context) async {
-    await PushNotificationService.instance.markPermissionPromptShown();
+    await NotificationService.instance.markPermissionPromptShown();
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        PushNotificationService.instance.processPendingNotification();
+        NotificationService.instance.processPendingNotification();
       });
     }
   }

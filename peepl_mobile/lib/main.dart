@@ -11,8 +11,8 @@ import 'routes.dart';
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
 import 'services/local_notification_service.dart';
+import 'services/notification_service.dart';
 import 'services/presence_service.dart';
-import 'services/push_notification_service.dart';
 import 'theme_notifier.dart';
 
 void main() async {
@@ -25,6 +25,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await NotificationService.instance.initialize();
   runApp(const MyApp());
 }
 
@@ -42,14 +43,13 @@ class _MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
-    PushNotificationService.instance.init(navKey: navigatorKey).then((_) async {
+    NotificationService.instance.attachNavigator(navigatorKey).then((_) async {
       final geofenceService = geofence_svc.PeeplGeofenceService.instance;
       await LocalNotificationService.instance
           .initialize(navigatorKey: navigatorKey);
-      geofenceService.onLocationEntered = (name, lat, lng) async {
-        debugPrint('GEOFENCE ENTERED: $name at $lat, $lng');
+      geofenceService.onLocationEntered = (locationId, name, lat, lng) async {
+        debugPrint('GEOFENCE ENTERED: $name ($locationId) at $lat, $lng');
         await PresenceService.instance.recordArrival(name, lat, lng);
-        await LocalNotificationService.instance.showArrivalNotification(name);
       };
       await geofenceService.initialize();
       await geofenceService.loadGeofencesFromFirestore();
@@ -129,15 +129,14 @@ class _AuthGateState extends State<_AuthGate> {
     if (user == null) {
       Navigator.pushReplacementNamed(context, '/login');
     } else {
-      final route =
-          await PushNotificationService.instance.routeAfterLogin();
+      final route = await NotificationService.instance.routeAfterLogin();
       Future.microtask(
-        () => PushNotificationService.instance.onUserSignedIn(),
+        () => NotificationService.instance.onUserSignedIn(),
       );
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, route);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        PushNotificationService.instance.processPendingNotification();
+        NotificationService.instance.processPendingNotification();
       });
     }
   }
