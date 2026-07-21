@@ -187,6 +187,68 @@ class _PostScreenState extends State<PostScreen> {
   double? _longitude;
   bool _isGeolocating = false;
   bool _locationPreFilled = false;
+  bool _hasNotificationLocation = false;
+  bool _locationPermissionDenied = false;
+
+  double _kidsPercentage = 0;
+  double _femalePercentage = 50;
+  String? _criteriaVenueType;
+  String? _parking;
+  String? _queueTime;
+  String? _safetyFeel;
+  String? _weather;
+
+  static const List<String> _criteriaVenueTypeOptions = <String>[
+    'Restaurant',
+    'Bar',
+    'Café',
+    'Park',
+    'Beach',
+    'Mall',
+    'Museum',
+    'Concert/Event',
+    'Sports Event',
+    'Airport',
+    'Gym',
+    'Grocery Store',
+    'Hotel',
+    'Hospital',
+    'Club',
+    'Other',
+  ];
+
+  static const List<String> _parkingOptions = <String>[
+    'Easy',
+    'Limited',
+    'None',
+  ];
+
+  static const List<String> _queueOptions = <String>[
+    'No Queue',
+    'Under 5 min',
+    '5-15 min',
+    '15-30 min',
+    '30+ min',
+  ];
+
+  static const List<String> _safetyOptions = <String>[
+    'Safe',
+    'Neutral',
+    'Uncomfortable',
+  ];
+
+  static const List<String> _weatherOptions = <String>[
+    'Hot',
+    'Warm',
+    'Cool',
+    'Cold',
+    'Rainy',
+  ];
+
+  bool get _showWeatherChips {
+    const outdoor = {'Park', 'Beach', 'Concert/Event', 'Sports Event'};
+    return _criteriaVenueType != null && outdoor.contains(_criteriaVenueType);
+  }
 
   File? _selectedImage;
   XFile? _videoFile;
@@ -239,6 +301,7 @@ class _PostScreenState extends State<PostScreen> {
       _locationPreFilled = true;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map && args['locationName'] != null) {
+        _hasNotificationLocation = true;
         _locationController.text = args['locationName'] as String;
         final lat = args['latitude'];
         final lng = args['longitude'];
@@ -248,40 +311,27 @@ class _PostScreenState extends State<PostScreen> {
     }
   }
 
-  /// Reverse-geocode [placemark] into a short place label for the location field.
+  /// Reverse-geocode [placemark] into "street name, city" (e.g. Pike Place Market, Seattle).
   static String _formatPlacemark(Placemark p) {
     final street = p.street?.trim();
-    final subLocal = p.subLocality?.trim();
-    final line1 = <String>[
-      if (street != null && street.isNotEmpty) street,
-      if (subLocal != null && subLocal.isNotEmpty) subLocal,
-    ].join(', ');
-    final locality = p.locality?.trim();
-    final admin = p.administrativeArea?.trim();
-    final line2 = <String>[
-      if (locality != null && locality.isNotEmpty) locality,
-      if (admin != null && admin.isNotEmpty) admin,
-    ].join(', ');
-    if (line1.isNotEmpty && line2.isNotEmpty) return '$line1, $line2';
-    if (line1.isNotEmpty) return line1;
-    if (line2.isNotEmpty) return line2;
     final name = p.name?.trim();
-    if (name != null && name.isNotEmpty) return name;
-    return '';
+    final placeName = (street != null && street.isNotEmpty)
+        ? street
+        : (name != null && name.isNotEmpty ? name : '');
+    final city = p.locality?.trim() ?? p.subAdministrativeArea?.trim() ?? '';
+    if (placeName.isNotEmpty && city.isNotEmpty) return '$placeName, $city';
+    if (placeName.isNotEmpty) return placeName;
+    return city;
   }
 
   Future<void> _resolveLocationAndGeocode() async {
-    if (!mounted) return;
+    if (!mounted || _hasNotificationLocation) return;
     setState(() => _isGeolocating = true);
     try {
       final serviceOn = await Geolocator.isLocationServiceEnabled();
       if (!serviceOn) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Turn on location services to detect your place.'),
-            ),
-          );
+          setState(() => _locationPermissionDenied = true);
         }
         return;
       }
@@ -293,22 +343,21 @@ class _PostScreenState extends State<PostScreen> {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Location permission is needed to fill your place.'),
-            ),
-          );
+          setState(() => _locationPermissionDenied = true);
         }
         return;
       }
 
       final pos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
       );
       if (!mounted) return;
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
+        _locationPermissionDenied = false;
       });
 
       try {
@@ -322,15 +371,10 @@ class _PostScreenState extends State<PostScreen> {
           }
         }
       } catch (e) {
-        // geocoding not supported on web, ignore
+        debugPrint('Reverse geocoding failed: $e');
       }
     } catch (e, st) {
       debugPrint('Geolocation/geocoding failed: $e\n$st');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not detect location: $e')),
-        );
-      }
     } finally {
       if (mounted) setState(() => _isGeolocating = false);
     }
@@ -554,6 +598,15 @@ class _PostScreenState extends State<PostScreen> {
     if (_venueType != null && _venueType!.isNotEmpty) parts.add(_venueType!);
     final vibe = _vibe.text.trim();
     if (vibe.isNotEmpty) parts.add(vibe);
+    parts.add('👶 ${_kidsPercentage.round()}% kids');
+    parts.add('👩 ${_femalePercentage.round()}% female');
+    if (_criteriaVenueType != null && _criteriaVenueType!.isNotEmpty) {
+      parts.add(_criteriaVenueType!);
+    }
+    if (_parking != null) parts.add('Parking: $_parking');
+    if (_queueTime != null) parts.add('Queue: $_queueTime');
+    if (_safetyFeel != null) parts.add('Safety: $_safetyFeel');
+    if (_weather != null) parts.add('Weather: $_weather');
     return parts.join(' · ');
   }
 
@@ -982,6 +1035,10 @@ class _PostScreenState extends State<PostScreen> {
                           const SizedBox(height: 16),
                           _buildVideoPreview(),
                         ],
+                        const SizedBox(height: 24),
+                        _buildCrowdCompositionCard(),
+                        _buildVenueDetailsCard(),
+                        _buildConditionsCard(),
                         const SizedBox(height: 32),
                         SizedBox(
                           width: double.infinity,
@@ -1098,39 +1155,34 @@ class _PostScreenState extends State<PostScreen> {
             ? 'Please enter a location name'
             : null,
         decoration: InputDecoration(
-          hintText: 'e.g. Central Park, Hyde Park',
+          hintText: _locationPermissionDenied
+              ? 'Enter location name'
+              : 'e.g. Central Park, Hyde Park',
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
             vertical: 14,
           ),
+          prefixIcon: _isGeolocating
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : null,
           suffixIconConstraints: const BoxConstraints(
             minHeight: 48,
-            minWidth: 88,
+            minWidth: 48,
           ),
-          suffixIcon: Padding(
-            padding: const EdgeInsetsDirectional.only(end: 4),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_isGeolocating)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 4),
-                    child: SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  ),
-                IconButton(
-                  tooltip: 'Use current location',
-                  icon: const Icon(Icons.location_pin),
-                  onPressed: (_isGeolocating || _isLoading)
-                      ? null
-                      : _resolveLocationAndGeocode,
-                ),
-              ],
-            ),
+          suffixIcon: IconButton(
+            tooltip: 'Use current location',
+            icon: const Icon(Icons.location_pin),
+            onPressed: (_isGeolocating || _isLoading || _hasNotificationLocation)
+                ? null
+                : _resolveLocationAndGeocode,
           ),
         ),
       ),
@@ -1360,6 +1412,250 @@ class _PostScreenState extends State<PostScreen> {
           label: value.round().toString(),
           onChanged: _isLoading ? null : onChanged,
         ),
+      ],
+    );
+  }
+
+  Widget _buildCompactCard({
+    required String emoji,
+    required String title,
+    required List<Widget> children,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey[300]!),
+        borderRadius: BorderRadius.circular(12),
+        color: Colors.grey[50],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$emoji $title',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF1565C0),
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSingleSelectChips({
+    required List<String> options,
+    required String? selected,
+    required ValueChanged<String?> onSelected,
+  }) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: options.map((option) {
+        final isSelected = selected == option;
+        return GestureDetector(
+          onTap: _isLoading
+              ? null
+              : () => onSelected(isSelected ? null : option),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 160),
+            padding:
+                const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: isSelected
+                  ? const Color(0xFF1565C0)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isSelected
+                    ? const Color(0xFF1565C0)
+                    : Colors.grey.shade300,
+                width: 1.5,
+              ),
+            ),
+            child: Text(
+              option,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight:
+                    isSelected ? FontWeight.w700 : FontWeight.normal,
+                color: isSelected ? Colors.white : Colors.grey.shade700,
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildPercentageSlider({
+    required String emoji,
+    required String label,
+    required double value,
+    required ValueChanged<double> onChanged,
+  }) {
+    final pct = value.round().clamp(0, 100);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              '$emoji $label',
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF1565C0),
+              ),
+            ),
+            Text(
+              '$pct%',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[800],
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.clamp(0, 100),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          label: '$pct%',
+          onChanged: _isLoading ? null : onChanged,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCrowdCompositionCard() {
+    return _buildCompactCard(
+      emoji: '👥',
+      title: 'Crowd Composition',
+      children: [
+        _buildPercentageSlider(
+          emoji: '👶',
+          label: '% Kids',
+          value: _kidsPercentage,
+          onChanged: (v) => setState(() => _kidsPercentage = v),
+        ),
+        const SizedBox(height: 8),
+        _buildPercentageSlider(
+          emoji: '👩',
+          label: '% Female',
+          value: _femalePercentage,
+          onChanged: (v) => setState(() => _femalePercentage = v),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildVenueDetailsCard() {
+    return _buildCompactCard(
+      emoji: '📍',
+      title: 'Venue Details',
+      children: [
+        const Text(
+          'Venue type',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildSingleSelectChips(
+          options: _criteriaVenueTypeOptions,
+          selected: _criteriaVenueType,
+          onSelected: (v) => setState(() {
+            _criteriaVenueType = v;
+            const outdoor = {
+              'Park',
+              'Beach',
+              'Concert/Event',
+              'Sports Event',
+            };
+            if (v == null || !outdoor.contains(v)) _weather = null;
+          }),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '🅿️ Parking',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildSingleSelectChips(
+          options: _parkingOptions,
+          selected: _parking,
+          onSelected: (v) => setState(() => _parking = v),
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          '⏱️ Queue / Wait',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildSingleSelectChips(
+          options: _queueOptions,
+          selected: _queueTime,
+          onSelected: (v) => setState(() => _queueTime = v),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildConditionsCard() {
+    return _buildCompactCard(
+      emoji: '🌡️',
+      title: 'Conditions',
+      children: [
+        const Text(
+          '🛡️ Safety feel',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildSingleSelectChips(
+          options: _safetyOptions,
+          selected: _safetyFeel,
+          onSelected: (v) => setState(() => _safetyFeel = v),
+        ),
+        if (_showWeatherChips) ...[
+          const SizedBox(height: 16),
+          const Text(
+            '🌤️ Weather',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF1565C0),
+            ),
+          ),
+          const SizedBox(height: 8),
+          _buildSingleSelectChips(
+            options: _weatherOptions,
+            selected: _weather,
+            onSelected: (v) => setState(() => _weather = v),
+          ),
+        ],
       ],
     );
   }

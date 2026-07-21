@@ -56,7 +56,7 @@
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Peepl uses your location in the background to detect when you arrive at a venue and ask about crowd levels.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Peepl uses your location to detect when you arrive at a venue so you can report crowd levels.</string>
+	<string>Peepl uses your location to auto-fill the place you are posting about.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>Peepl uses your location in the background to detect when you arrive at a venue and ask about crowd levels.</string>
 	<key>NSMotionUsageDescription</key>

@@ -14,7 +14,7 @@ import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
-import '../widgets/crowd_dot_ring_meter.dart';
+import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 import 'post_screen.dart';
 
@@ -822,7 +822,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           ],
                         ),
                       ),
-                      CrowdDotRingMeter(level: crowdingLevel, size: 32),
+                      CrowdMeter(level: crowdingLevel, size: 60),
                     ],
                   ),
                 ],

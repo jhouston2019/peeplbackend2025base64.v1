@@ -17,6 +17,7 @@ import '../services/native_ads_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
+import '../widgets/crowd_meter.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> postData;
@@ -513,23 +514,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                width: 56,
-                height: 56,
-                decoration: BoxDecoration(
-                  color: _getCrowdingColor(crowdingLevel),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    crowdingLevel.toString(),
-                    style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
+              CrowdMeter(level: crowdingLevel, size: 56),
             ],
           ),
         ),

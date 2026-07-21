@@ -28,7 +28,6 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _showForgotPasswordDialog() async {
     final messenger = ScaffoldMessenger.of(context);
     final emailCtrl = TextEditingController(text: _email.text.trim());
-    String? fieldError;
     var sending = false;
 
     await showDialog<void>(
@@ -39,19 +38,12 @@ class _LoginScreenState extends State<LoginScreen> {
             Future<void> submit() async {
               final trimmed = emailCtrl.text.trim();
               if (trimmed.isEmpty) {
-                setDialogState(() => fieldError = 'Please enter your email.');
-                return;
-              }
-              if (!trimmed.contains('@')) {
-                setDialogState(
-                  () => fieldError = 'Please enter a valid email address.',
+                messenger.showSnackBar(
+                  const SnackBar(content: Text('Please enter your email.')),
                 );
                 return;
               }
-              setDialogState(() {
-                sending = true;
-                fieldError = null;
-              });
+              setDialogState(() => sending = true);
               try {
                 await FirebaseAuth.instance.sendPasswordResetEmail(
                   email: trimmed,
@@ -61,25 +53,25 @@ class _LoginScreenState extends State<LoginScreen> {
                 if (!mounted) return;
                 messenger.showSnackBar(
                   const SnackBar(
-                    content: Text('Check your email for a reset link.'),
+                    content: Text(
+                      'Password reset email sent. Check your inbox.',
+                    ),
                   ),
                 );
               } on FirebaseAuthException catch (e) {
-                setDialogState(() {
-                  sending = false;
-                  if (e.code == 'invalid-email') {
-                    fieldError = 'Please enter a valid email address.';
-                  } else if (e.code == 'user-not-found') {
-                    fieldError = 'No account found with this email.';
-                  } else {
-                    fieldError = 'Could not send reset email. Try again.';
-                  }
-                });
-              } catch (_) {
-                setDialogState(() {
-                  sending = false;
-                  fieldError = 'Could not send reset email. Try again.';
-                });
+                setDialogState(() => sending = false);
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      e.message ?? 'Could not send reset email. Try again.',
+                    ),
+                  ),
+                );
+              } catch (e) {
+                setDialogState(() => sending = false);
+                messenger.showSnackBar(
+                  SnackBar(content: Text(_getErrorMessage(e.toString()))),
+                );
               }
             }
 
@@ -90,13 +82,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   autofillHints: const [AutofillHints.email],
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     labelText: 'Email',
                     hintText: 'Enter your email',
-                    errorText: fieldError,
                   ),
-                  onChanged: (_) =>
-                      setDialogState(() => fieldError = null),
                 ),
               ),
               actions: [
@@ -114,7 +103,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text('Send Reset Link'),
+                      : const Text('Send Reset Email'),
                 ),
               ],
             );
