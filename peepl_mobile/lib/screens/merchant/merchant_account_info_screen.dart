@@ -1,6 +1,10 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 class MerchantAccountInfoScreen extends StatefulWidget {
   const MerchantAccountInfoScreen({super.key});
@@ -10,115 +14,206 @@ class MerchantAccountInfoScreen extends StatefulWidget {
       _MerchantAccountInfoScreenState();
 }
 
-class _MerchantAccountInfoScreenState
-    extends State<MerchantAccountInfoScreen> {
+class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
   static const Color _blue = Color(0xFF1565C0);
 
+  static const _businessTypes = [
+    'Restaurant',
+    'Bar',
+    'Café',
+    'Retail',
+    'Gym',
+    'Hotel',
+    'Entertainment',
+    'Services',
+    'Other',
+  ];
+
   final _db = FirebaseFirestore.instance;
-  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
+  final _auth = FirebaseAuth.instance;
+  final _storage = FirebaseStorage.instance;
+  final _imagePicker = ImagePicker();
+  final _formKey = GlobalKey<FormState>();
 
-  String get _accountNumber {
-    final suffix = _uid.length >= 5
-        ? _uid.substring(_uid.length - 5).toUpperCase()
-        : _uid.toUpperCase().padLeft(5, 'X');
-    return 'MRC-$suffix';
-  }
-
-  // Editable controllers
-  final _bizNameCtrl = TextEditingController();
-  final _contactCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
+  final _businessNameCtrl = TextEditingController();
+  final _streetCtrl = TextEditingController();
+  final _cityCtrl = TextEditingController();
+  final _stateCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
+  final _websiteCtrl = TextEditingController();
+  final _contactNameCtrl = TextEditingController();
+  final _contactEmailCtrl = TextEditingController();
+  final _contactPhoneCtrl = TextEditingController();
 
-  final Set<String> _editing = {};
-
-  String _origBizName = '';
-  String _origContact = '';
-  String _origEmail = '';
-  String _origPhone = '';
+  String? _logoUrl;
+  File? _pendingLogoFile;
+  String? _selectedBusinessType;
 
   bool _loading = true;
   bool _saving = false;
+  bool _uploadingLogo = false;
+  bool _deleting = false;
 
-  bool get _hasChanges =>
-      _bizNameCtrl.text != _origBizName ||
-      _contactCtrl.text != _origContact ||
-      _emailCtrl.text != _origEmail ||
-      _phoneCtrl.text != _origPhone;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  String get _uid => _auth.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
-    for (final c in [_bizNameCtrl, _contactCtrl, _emailCtrl, _phoneCtrl]) {
-      c.addListener(() => setState(() {}));
-    }
     _load();
   }
 
   @override
   void dispose() {
-    for (final c in [_bizNameCtrl, _contactCtrl, _emailCtrl, _phoneCtrl]) {
-      c.dispose();
-    }
+    _businessNameCtrl.dispose();
+    _streetCtrl.dispose();
+    _cityCtrl.dispose();
+    _stateCtrl.dispose();
+    _phoneCtrl.dispose();
+    _websiteCtrl.dispose();
+    _contactNameCtrl.dispose();
+    _contactEmailCtrl.dispose();
+    _contactPhoneCtrl.dispose();
     super.dispose();
   }
 
-  // ── Data ─────────────────────────────────────────────────────────────────
-
   Future<void> _load() async {
+    if (_uid.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
     setState(() => _loading = true);
     try {
-      final doc = await _db.collection('users').doc(_uid).get();
+      final doc = await _db.collection('merchants').doc(_uid).get();
       final data = doc.data() ?? {};
-      final user = FirebaseAuth.instance.currentUser;
+      final user = _auth.currentUser;
 
-      _origBizName = (data['businessName'] as String?) ?? '';
-      _origContact = (data['contactName'] as String?) ?? (user?.displayName ?? '');
-      _origEmail = (data['merchantEmail'] as String?) ?? (user?.email ?? '');
-      _origPhone = (data['phone'] as String?) ?? '';
+      _businessNameCtrl.text = (data['businessName'] as String?) ?? '';
+      _streetCtrl.text = (data['streetAddress'] as String?) ?? '';
+      _cityCtrl.text = (data['city'] as String?) ?? '';
+      _stateCtrl.text = (data['state'] as String?) ?? '';
+      _phoneCtrl.text = (data['phone'] as String?) ?? '';
+      _websiteCtrl.text = (data['websiteUrl'] as String?) ?? '';
+      _contactNameCtrl.text = (data['contactName'] as String?) ??
+          user?.displayName ??
+          '';
+      _contactEmailCtrl.text =
+          (data['contactEmail'] as String?) ?? user?.email ?? '';
+      _contactPhoneCtrl.text = (data['contactPhone'] as String?) ?? '';
 
-      _bizNameCtrl.text = _origBizName;
-      _contactCtrl.text = _origContact;
-      _emailCtrl.text = _origEmail;
-      _phoneCtrl.text = _origPhone;
-
-      if (mounted) setState(() => _loading = false);
-    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _selectedBusinessType = data['businessType'] as String?;
+          _logoUrl = data['logoUrl'] as String?;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('MerchantAccountInfo._load: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
 
+  Future<void> _pickLogo() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
+
+    try {
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked != null && mounted) {
+        setState(() => _pendingLogoFile = File(picked.path));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e')),
+        );
+      }
+    }
+  }
+
+  Future<String?> _uploadLogo() async {
+    if (_pendingLogoFile == null) return _logoUrl;
+
+    setState(() => _uploadingLogo = true);
+    try {
+      final ref = _storage.ref('merchant_logos/$_uid.jpg');
+      await ref.putFile(_pendingLogoFile!);
+      return ref.getDownloadURL();
+    } finally {
+      if (mounted) setState(() => _uploadingLogo = false);
+    }
+  }
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim());
+  }
+
   Future<void> _save() async {
-    if (!_hasChanges || _saving) return;
+    if (_uid.isEmpty || _saving) return;
+    if (_selectedBusinessType == null || _selectedBusinessType!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a business type.')),
+      );
+      return;
+    }
+    if (!_formKey.currentState!.validate()) return;
+
     setState(() => _saving = true);
     try {
-      final updates = <String, dynamic>{};
-      if (_bizNameCtrl.text.trim() != _origBizName) {
-        updates['businessName'] = _bizNameCtrl.text.trim();
-      }
-      if (_contactCtrl.text.trim() != _origContact) {
-        updates['contactName'] = _contactCtrl.text.trim();
-      }
-      if (_emailCtrl.text.trim() != _origEmail) {
-        updates['merchantEmail'] = _emailCtrl.text.trim();
-      }
-      if (_phoneCtrl.text.trim() != _origPhone) {
-        updates['phone'] = _phoneCtrl.text.trim();
-      }
-      if (updates.isNotEmpty) {
-        await _db.collection('users').doc(_uid).update(updates);
-      }
-      _origBizName = _bizNameCtrl.text;
-      _origContact = _contactCtrl.text;
-      _origEmail = _emailCtrl.text;
-      _origPhone = _phoneCtrl.text;
-      _editing.clear();
+      final logoUrl = await _uploadLogo();
+
+      await _db.collection('merchants').doc(_uid).set({
+        'businessName': _businessNameCtrl.text.trim(),
+        'businessType': _selectedBusinessType,
+        'streetAddress': _streetCtrl.text.trim(),
+        'city': _cityCtrl.text.trim(),
+        'state': _stateCtrl.text.trim(),
+        'phone': _phoneCtrl.text.trim(),
+        'websiteUrl': _websiteCtrl.text.trim(),
+        'contactName': _contactNameCtrl.text.trim(),
+        'contactEmail': _contactEmailCtrl.text.trim(),
+        'contactPhone': _contactPhoneCtrl.text.trim(),
+        'logoUrl': ?logoUrl,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
       if (mounted) {
-        setState(() => _saving = false);
+        setState(() {
+          _logoUrl = logoUrl ?? _logoUrl;
+          _pendingLogoFile = null;
+          _saving = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Changes saved.')),
+          const SnackBar(content: Text('Business info updated!')),
         );
       }
     } catch (e) {
@@ -131,46 +226,275 @@ class _MerchantAccountInfoScreenState
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  Future<void> _confirmDeleteAccount() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete Account'),
+        content: const Text(
+          'This will permanently delete your merchant account, business profile, '
+          'and sign you out. This action cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('Delete Account'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await _deleteAccount();
+    }
+  }
+
+  Future<void> _deleteAccount() async {
+    if (_uid.isEmpty || _deleting) return;
+
+    setState(() => _deleting = true);
+    try {
+      await _db.collection('merchants').doc(_uid).delete();
+
+      try {
+        await _storage.ref('merchant_logos/$_uid.jpg').delete();
+      } catch (_) {
+        // Logo may not exist.
+      }
+
+      final user = _auth.currentUser;
+      if (user != null) {
+        try {
+          await user.delete();
+        } catch (_) {
+          await _auth.signOut();
+        }
+      }
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _deleting = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not delete account: $e')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTopBar(context),
-            _buildStrip(),
-            Expanded(
-              child: _loading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _buildBody(),
-            ),
-          ],
+      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+        backgroundColor: _blue,
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Business Account',
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
+        actions: [
+          TextButton(
+            onPressed: (_saving || _uploadingLogo || _loading || _deleting)
+                ? null
+                : _save,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Save',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ],
       ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator(color: _blue))
+          : _uid.isEmpty
+              ? const Center(
+                  child: Text('Please sign in to edit your business profile.'),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Center(child: _buildLogoSection()),
+                        const SizedBox(height: 28),
+                        _sectionTitle('Business Details'),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Business name',
+                          controller: _businessNameCtrl,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Business name is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildBusinessTypeDropdown(),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Street address',
+                          controller: _streetCtrl,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Street address is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildTextField(
+                                label: 'City',
+                                controller: _cityCtrl,
+                                validator: (v) =>
+                                    v == null || v.trim().isEmpty
+                                        ? 'City is required'
+                                        : null,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'State',
+                                controller: _stateCtrl,
+                                validator: (v) =>
+                                    v == null || v.trim().isEmpty
+                                        ? 'State is required'
+                                        : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Phone',
+                          controller: _phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Phone is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Website URL',
+                          controller: _websiteCtrl,
+                          keyboardType: TextInputType.url,
+                        ),
+                        const SizedBox(height: 28),
+                        _sectionTitle('Contact Person'),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Contact name',
+                          controller: _contactNameCtrl,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Contact name is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Contact email',
+                          controller: _contactEmailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          validator: (v) {
+                            final text = v?.trim() ?? '';
+                            if (text.isEmpty) return 'Contact email is required';
+                            if (!_isValidEmail(text)) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Contact phone',
+                          controller: _contactPhoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          validator: (v) => v == null || v.trim().isEmpty
+                              ? 'Contact phone is required'
+                              : null,
+                        ),
+                        const SizedBox(height: 32),
+                        _buildDangerZone(),
+                      ],
+                    ),
+                  ),
+                ),
     );
   }
 
-  Widget _buildTopBar(BuildContext context) {
-    return Container(
-      color: _blue,
-      padding: const EdgeInsets.fromLTRB(4, 12, 16, 12),
-      child: Row(
+  Widget _buildLogoSection() {
+    final hasImage = _pendingLogoFile != null ||
+        (_logoUrl != null && _logoUrl!.isNotEmpty);
+
+    return GestureDetector(
+      onTap: _uploadingLogo || _deleting ? null : _pickLogo,
+      child: Stack(
+        alignment: Alignment.center,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: SizedBox(
+              width: 112,
+              height: 112,
+              child: _pendingLogoFile != null
+                  ? Image.file(_pendingLogoFile!, fit: BoxFit.cover)
+                  : hasImage
+                      ? Image.network(
+                          _logoUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              _logoPlaceholder(),
+                        )
+                      : _logoPlaceholder(),
+            ),
           ),
-          const Expanded(
-            child: Text(
-              'Account Info',
-              style: TextStyle(
+          if (_uploadingLogo)
+            Container(
+              width: 112,
+              height: 112,
+              decoration: BoxDecoration(
+                color: Colors.black.withValues(alpha: 0.4),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(color: Colors.white),
+              ),
+            ),
+          Positioned(
+            right: 0,
+            bottom: 0,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: _blue,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.camera_alt,
                 color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
+                size: 18,
               ),
             ),
           ),
@@ -179,247 +503,115 @@ class _MerchantAccountInfoScreenState
     );
   }
 
-  Widget _buildStrip() {
-    return Container(
-      color: const Color(0xFF0D47A1),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
-      child: const Text(
-        'Account Info',
-        style: TextStyle(color: Colors.white70, fontSize: 12),
-      ),
+  Widget _logoPlaceholder() {
+    return ColoredBox(
+      color: _blue.withValues(alpha: 0.12),
+      child: Icon(Icons.store, size: 48, color: _blue.withValues(alpha: 0.7)),
     );
   }
 
-  Widget _buildBody() {
+  Widget _buildBusinessTypeDropdown() {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              // Business Info card
-              _sectionLabel('BUSINESS INFO'),
-              const SizedBox(height: 8),
-              _infoCard(children: [
-                _editRow(label: 'Business', field: 'biz', ctrl: _bizNameCtrl),
-                _divider(),
-                _editRow(label: 'Contact', field: 'contact', ctrl: _contactCtrl),
-                _divider(),
-                _editRow(
-                  label: 'Email',
-                  field: 'email',
-                  ctrl: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                _divider(),
-                _editRow(
-                  label: 'Phone',
-                  field: 'phone',
-                  ctrl: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                ),
-                _divider(),
-                // Read-only account number
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 86,
-                        child: Text(
-                          'Acct No.',
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: Colors.grey[600],
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                      Expanded(
-                        child: Text(
-                          _accountNumber,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 14,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ]),
-
-              const SizedBox(height: 24),
-
-              // Billing section
-              _sectionLabel('BILLING'),
-              const SizedBox(height: 8),
-              _infoCard(children: [
-                _readRow(label: 'Payment method', value: 'Add payment method'),
-                _divider(),
-                _readRow(label: 'Billing cycle', value: 'Monthly'),
-                _divider(),
-                _readRow(label: 'Total spent', value: 'Tracked on payment'),
-              ]),
-
-              const SizedBox(height: 16),
-
-              OutlinedButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Payment method setup coming soon (Stripe — Phase 5)',
-                      ),
-                    ),
-                  );
-                },
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: _blue,
-                  side: const BorderSide(color: _blue),
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text('Update Payment Method'),
-              ),
-
-              const SizedBox(height: 16),
-            ],
+        Text(
+          'Business type',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
           ),
         ),
-
-        // Save button
-        AnimatedSize(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          child: _hasChanges
-              ? Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Save Changes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                    ),
-                  ),
-                )
-              : const SizedBox.shrink(),
+        const SizedBox(height: 8),
+        DropdownMenu<String>(
+          key: ValueKey(_selectedBusinessType ?? 'unset'),
+          enabled: !_deleting,
+          width: MediaQuery.sizeOf(context).width - 40,
+          initialSelection: _selectedBusinessType,
+          hintText: 'Select business type',
+          dropdownMenuEntries: _businessTypes
+              .map(
+                (type) => DropdownMenuEntry<String>(
+                  value: type,
+                  label: type,
+                ),
+              )
+              .toList(),
+          onSelected: (value) =>
+              setState(() => _selectedBusinessType = value),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: _blue, width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+          ),
         ),
       ],
     );
   }
 
-  // ── Row builders ──────────────────────────────────────────────────────────
-
-  Widget _infoCard({required List<Widget> children}) {
+  Widget _buildDangerZone() {
     return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        border: Border.all(color: Colors.red.shade200),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _editRow({
-    required String label,
-    required String field,
-    required TextEditingController ctrl,
-    TextInputType? keyboardType,
-  }) {
-    final isEditing = _editing.contains(field);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            width: 80,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
+          Text(
+            'Danger Zone',
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.bold,
+              color: Colors.red.shade700,
             ),
           ),
-          Expanded(
-            child: isEditing
-                ? TextField(
-                    controller: ctrl,
-                    keyboardType: keyboardType,
-                    autofocus: true,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      border: OutlineInputBorder(),
-                    ),
-                  )
-                : Text(
-                    ctrl.text.isEmpty ? '—' : ctrl.text,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
+          const SizedBox(height: 8),
+          Text(
+            'Permanently delete your merchant account and all associated data.',
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.grey.shade600,
+              height: 1.4,
+            ),
           ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: () => setState(() {
-              if (isEditing) {
-                _editing.remove(field);
-              } else {
-                _editing.add(field);
-              }
-            }),
-            child: Text(
-              isEditing ? 'Done' : '(edit)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color:
-                    isEditing ? Colors.green : _blue,
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _deleting ? null : _confirmDeleteAccount,
+              icon: _deleting
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_outline),
+              label: const Text('Delete Account'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red.shade700,
+                side: BorderSide(color: Colors.red.shade300),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
               ),
             ),
           ),
@@ -428,48 +620,66 @@ class _MerchantAccountInfoScreenState
     );
   }
 
-  Widget _readRow({required String label, required String value}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(fontSize: 13, color: Colors.grey[500]),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) {
+  Widget _sectionTitle(String text) {
     return Text(
       text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: Colors.grey[500],
-        letterSpacing: 1.2,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Colors.black87,
       ),
     );
   }
 
-  Widget _divider() => Divider(
-        height: 1,
-        thickness: 1,
-        color: Colors.grey.shade100,
-      );
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+    TextInputType? keyboardType,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          keyboardType: keyboardType,
+          enabled: !_deleting,
+          decoration: _inputDecoration(),
+        ),
+      ],
+    );
+  }
+
+  InputDecoration _inputDecoration() {
+    return InputDecoration(
+      filled: true,
+      fillColor: Colors.white,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: _blue, width: 2),
+      ),
+      contentPadding: const EdgeInsets.symmetric(
+        horizontal: 14,
+        vertical: 12,
+      ),
+    );
+  }
 }

@@ -9,52 +9,77 @@ class MerchantSignInScreen extends StatefulWidget {
   State<MerchantSignInScreen> createState() => _MerchantSignInScreenState();
 }
 
-class _MerchantSignInScreenState extends State<MerchantSignInScreen> {
-  final _emailCtrl = TextEditingController();
-  final _passCtrl = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+class _MerchantSignInScreenState extends State<MerchantSignInScreen>
+    with SingleTickerProviderStateMixin {
+  static const Color _blue = Color(0xFF1565C0);
+
+  late final TabController _tabController;
+
+  final _signInFormKey = GlobalKey<FormState>();
+  final _registerFormKey = GlobalKey<FormState>();
+
+  final _signInEmailCtrl = TextEditingController();
+  final _signInPassCtrl = TextEditingController();
+  final _businessNameCtrl = TextEditingController();
+  final _registerEmailCtrl = TextEditingController();
+  final _registerPassCtrl = TextEditingController();
+  final _confirmPassCtrl = TextEditingController();
 
   bool _loading = false;
-  bool _obscure = true;
-  bool _isRegister = false;
-  String? _error;
+  bool _obscureSignInPass = true;
+  bool _obscureRegisterPass = true;
+  bool _obscureConfirmPass = true;
+  bool _termsAccepted = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   @override
   void dispose() {
-    _emailCtrl.dispose();
-    _passCtrl.dispose();
+    _tabController.dispose();
+    _signInEmailCtrl.dispose();
+    _signInPassCtrl.dispose();
+    _businessNameCtrl.dispose();
+    _registerEmailCtrl.dispose();
+    _registerPassCtrl.dispose();
+    _confirmPassCtrl.dispose();
     super.dispose();
   }
 
-  // ── Auth ──────────────────────────────────────────────────────────────────
+  void _showSnackBar(String message, {bool isError = true}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red.shade700 : _blue,
+      ),
+    );
+  }
 
-  Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || _loading) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+  String _authErrorMessage(FirebaseAuthException e) {
+    return switch (e.code) {
+      'user-not-found' => 'No account found with this email.',
+      'wrong-password' || 'invalid-credential' =>
+        'Incorrect email or password.',
+      'email-already-in-use' => 'An account already exists with this email.',
+      'weak-password' => 'Password must be at least 8 characters.',
+      'invalid-email' => 'Please enter a valid email address.',
+      _ => e.message ?? 'Authentication failed.',
+    };
+  }
 
+  Future<void> _signIn() async {
+    if (!_signInFormKey.currentState!.validate() || _loading) return;
+
+    setState(() => _loading = true);
     try {
-      final UserCredential cred;
-      if (_isRegister) {
-        cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailCtrl.text.trim(),
-          password: _passCtrl.text,
-        );
-      } else {
-        cred = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailCtrl.text.trim(),
-          password: _passCtrl.text,
-        );
-      }
-
-      // Ensure merchant flag on the user document.
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(cred.user!.uid)
-          .set({'isMerchant': true}, SetOptions(merge: true));
-
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _signInEmailCtrl.text.trim(),
+        password: _signInPassCtrl.text,
+      );
       if (mounted) {
         Navigator.pushNamedAndRemoveUntil(
           context,
@@ -63,80 +88,109 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen> {
         );
       }
     } on FirebaseAuthException catch (e) {
-      final msg = switch (e.code) {
-        'user-not-found' => 'No account found with this email.',
-        'wrong-password' || 'invalid-credential' =>
-          'Incorrect email or password.',
-        'email-already-in-use' =>
-          'An account already exists with this email.',
-        'weak-password' => 'Password must be at least 6 characters.',
-        'invalid-email' => 'Please enter a valid email address.',
-        _ => e.message ?? 'Authentication failed.',
-      };
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = msg;
-        });
-      }
+      _showSnackBar(_authErrorMessage(e));
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _loading = false;
-          _error = 'An error occurred. Please try again.';
-        });
-      }
+      _showSnackBar('An error occurred. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  Future<void> _forgotPassword() async {
+    final email = _signInEmailCtrl.text.trim();
+    if (email.isEmpty) {
+      _showSnackBar('Enter your email address first.');
+      return;
+    }
+
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      _showSnackBar(
+        'Password reset email sent. Check your inbox.',
+        isError: false,
+      );
+    } on FirebaseAuthException catch (e) {
+      _showSnackBar(e.message ?? 'Could not send reset email.');
+    } catch (_) {
+      _showSnackBar('Could not send reset email. Please try again.');
+    }
+  }
+
+  Future<void> _createAccount() async {
+    if (!_registerFormKey.currentState!.validate() || _loading) return;
+
+    if (!_termsAccepted) {
+      _showSnackBar('Please agree to Peepl\'s advertising terms.');
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _registerEmailCtrl.text.trim(),
+        password: _registerPassCtrl.text,
+      );
+
+      await FirebaseFirestore.instance
+          .collection('merchants')
+          .doc(cred.user!.uid)
+          .set({
+        'businessName': _businessNameCtrl.text.trim(),
+        'email': _registerEmailCtrl.text.trim(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'isActive': false,
+        'tier': 'standard',
+      });
+
+      if (mounted) {
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          '/merchant_setup_step1',
+          (_) => false,
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnackBar(_authErrorMessage(e));
+    } catch (_) {
+      _showSnackBar('An error occurred. Please try again.');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF1B5E20), Color(0xFF2E7D32)],
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Dark overlay for depth.
-            Container(color: Colors.black.withValues(alpha: 0.32)),
-            SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(28, 48, 28, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildBranding(),
-                    const SizedBox(height: 40),
-                    _buildFormCard(),
-                    const SizedBox(height: 20),
-                    _buildToggleLink(),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: TextButton(
-                        onPressed: () =>
-                            Navigator.pushNamed(context, '/login'),
-                        child: const Text(
-                          'Back to Peepl user sign in',
-                          style: TextStyle(
-                            color: Colors.white54,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
+      backgroundColor: _blue,
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildBranding(),
+                const SizedBox(height: 28),
+                _buildFormCard(),
+                const SizedBox(height: 20),
+                TextButton(
+                  onPressed: () => Navigator.pushNamedAndRemoveUntil(
+                    context,
+                    '/home',
+                    (_) => false,
+                  ),
+                  child: const Text(
+                    'Back to Peepl',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -145,35 +199,32 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen> {
   Widget _buildBranding() {
     return Column(
       children: [
-        const Text(
-          'peepl',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 52,
-            fontWeight: FontWeight.w900,
-            fontStyle: FontStyle.italic,
-            letterSpacing: -1,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Image.asset(
+            'assets/icon/icon.png',
+            width: 80,
+            height: 80,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Icon(Icons.store, color: Colors.white, size: 40),
+            ),
           ),
         ),
-        const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFD700).withValues(alpha: 0.18),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFFFFD700).withValues(alpha: 0.6),
-            ),
-          ),
-          child: const Text(
-            'FOR MERCHANTS',
-            style: TextStyle(
-              color: Color(0xFFFFD700),
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.8,
-            ),
+        const SizedBox(height: 12),
+        const Text(
+          'Merchant Portal',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            letterSpacing: 0.3,
           ),
         ),
       ],
@@ -182,130 +233,262 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen> {
 
   Widget _buildFormCard() {
     return Container(
-      padding: const EdgeInsets.all(24),
+      constraints: const BoxConstraints(maxWidth: 420),
+      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.22),
+            color: Colors.black.withValues(alpha: 0.18),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
         ],
       ),
-      child: Form(
-        key: _formKey,
+      child: Column(
+        children: [
+          TabBar(
+            controller: _tabController,
+            labelColor: _blue,
+            unselectedLabelColor: Colors.grey.shade600,
+            indicatorColor: _blue,
+            indicatorWeight: 3,
+            labelStyle: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+            ),
+            tabs: const [
+              Tab(text: 'Sign In'),
+              Tab(text: 'Create Account'),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 420,
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _buildSignInTab(),
+                _buildCreateAccountTab(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSignInTab() {
+    return Form(
+      key: _signInFormKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextFormField(
+            controller: _signInEmailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            textInputAction: TextInputAction.next,
+            decoration: _field('Email', Icons.email_outlined),
+            validator: (v) {
+              if (v == null || v.trim().isEmpty) return 'Enter your email';
+              if (!v.contains('@')) return 'Enter a valid email';
+              return null;
+            },
+          ),
+          const SizedBox(height: 14),
+          TextFormField(
+            controller: _signInPassCtrl,
+            obscureText: _obscureSignInPass,
+            textInputAction: TextInputAction.done,
+            onFieldSubmitted: (_) => _signIn(),
+            decoration: _field('Password', Icons.lock_outlined).copyWith(
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _obscureSignInPass
+                      ? Icons.visibility_off
+                      : Icons.visibility,
+                  color: Colors.grey.shade600,
+                ),
+                onPressed: () =>
+                    setState(() => _obscureSignInPass = !_obscureSignInPass),
+              ),
+            ),
+            validator: (v) =>
+                v == null || v.isEmpty ? 'Enter your password' : null,
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton(
+              onPressed: _loading ? null : _forgotPassword,
+              child: const Text(
+                'Forgot Password?',
+                style: TextStyle(
+                  color: _blue,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          _primaryButton(label: 'Sign In', onPressed: _signIn),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreateAccountTab() {
+    return Form(
+      key: _registerFormKey,
+      child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              _isRegister ? 'Create Merchant Account' : 'Merchant Sign In',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1B5E20),
-              ),
-            ),
-            const SizedBox(height: 22),
-
             TextFormField(
-              controller: _emailCtrl,
-              keyboardType: TextInputType.emailAddress,
+              controller: _businessNameCtrl,
               textInputAction: TextInputAction.next,
-              decoration: _field('Email address', Icons.email_outlined),
-              validator: (v) =>
-                  v == null || v.trim().isEmpty ? 'Enter your email' : null,
+              textCapitalization: TextCapitalization.words,
+              decoration: _field('Business name', Icons.store_outlined),
+              validator: (v) => v == null || v.trim().isEmpty
+                  ? 'Enter your business name'
+                  : null,
             ),
             const SizedBox(height: 14),
-
             TextFormField(
-              controller: _passCtrl,
-              obscureText: _obscure,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _submit(),
+              controller: _registerEmailCtrl,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: _field('Email', Icons.email_outlined),
+              validator: (v) {
+                if (v == null || v.trim().isEmpty) return 'Enter your email';
+                if (!v.contains('@')) return 'Enter a valid email';
+                return null;
+              },
+            ),
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _registerPassCtrl,
+              obscureText: _obscureRegisterPass,
+              textInputAction: TextInputAction.next,
               decoration: _field('Password', Icons.lock_outlined).copyWith(
                 suffixIcon: IconButton(
                   icon: Icon(
-                    _obscure ? Icons.visibility_off : Icons.visibility,
-                    color: Colors.grey[600],
+                    _obscureRegisterPass
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.grey.shade600,
                   ),
-                  onPressed: () => setState(() => _obscure = !_obscure),
+                  onPressed: () => setState(
+                      () => _obscureRegisterPass = !_obscureRegisterPass),
                 ),
               ),
-              validator: (v) =>
-                  v == null || v.isEmpty ? 'Enter your password' : null,
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Enter a password';
+                if (v.length < 8) {
+                  return 'Password must be at least 8 characters';
+                }
+                return null;
+              },
             ),
-
-            if (_error != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Colors.red.shade50,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red.shade200),
-                ),
-                child: Text(
-                  _error!,
-                  style: TextStyle(
-                    color: Colors.red.shade700,
-                    fontSize: 13,
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirmPassCtrl,
+              obscureText: _obscureConfirmPass,
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _createAccount(),
+              decoration:
+                  _field('Confirm password', Icons.lock_outline).copyWith(
+                suffixIcon: IconButton(
+                  icon: Icon(
+                    _obscureConfirmPass
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Colors.grey.shade600,
                   ),
+                  onPressed: () => setState(
+                      () => _obscureConfirmPass = !_obscureConfirmPass),
                 ),
               ),
-            ],
-
-            const SizedBox(height: 20),
-
-            SizedBox(
-              height: 50,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2E7D32),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              validator: (v) {
+                if (v == null || v.isEmpty) return 'Confirm your password';
+                if (v != _registerPassCtrl.text) {
+                  return 'Passwords do not match';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _termsAccepted,
+                    activeColor: _blue,
+                    onChanged: (v) =>
+                        setState(() => _termsAccepted = v ?? false),
                   ),
-                  elevation: 0,
                 ),
-                onPressed: _loading ? null : _submit,
-                child: _loading
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : Text(
-                        _isRegister ? 'Create Account' : 'Sign In',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () =>
+                        setState(() => _termsAccepted = !_termsAccepted),
+                    child: Text(
+                      'I agree to Peepl\'s advertising terms',
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: Colors.grey.shade700,
+                        height: 1.4,
                       ),
-              ),
+                    ),
+                  ),
+                ),
+              ],
             ),
+            const SizedBox(height: 20),
+            _primaryButton(label: 'Create Account', onPressed: _createAccount),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildToggleLink() {
-    return TextButton(
-      onPressed: () => setState(() {
-        _isRegister = !_isRegister;
-        _error = null;
-      }),
-      child: Text(
-        _isRegister
-            ? 'Already have an account? Sign in'
-            : 'New merchant? Create account',
-        style: const TextStyle(color: Colors.white70, fontSize: 14),
+  Widget _primaryButton({
+    required String label,
+    required VoidCallback onPressed,
+  }) {
+    return SizedBox(
+      height: 50,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: _blue,
+          foregroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 0,
+        ),
+        onPressed: _loading ? null : onPressed,
+        child: _loading
+            ? const SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : Text(
+                label,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
       ),
     );
   }
@@ -313,13 +496,13 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen> {
   InputDecoration _field(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: Colors.grey[600]),
+      prefixIcon: Icon(icon, color: Colors.grey.shade600),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF2E7D32), width: 2),
+        borderSide: const BorderSide(color: _blue, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: 16,
