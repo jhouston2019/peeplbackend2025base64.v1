@@ -1,14 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../services/ad_cadence_service.dart';
-import '../services/feed_service.dart';
 import '../services/location_service.dart';
-import '../services/native_ads_service.dart';
-import '../widgets/ad_card.dart';
+import '../utils/post_crowd_format.dart';
+import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 
 class DiscoverScreen extends StatefulWidget {
@@ -19,23 +17,23 @@ class DiscoverScreen extends StatefulWidget {
 }
 
 class _DiscoverScreenState extends State<DiscoverScreen> {
-  final FeedService _feedService = FeedService();
-  final NativeAdsService _adsService = NativeAdsService();
-  final AdCadenceService _cadence = AdCadenceService();
+  static const _kNearRadiusM = 10000.0;
+  static const TextStyle _overlayShadow = TextStyle(
+    color: Colors.white,
+    shadows: [
+      Shadow(offset: Offset(0, 1), blurRadius: 6, color: Colors.black87),
+    ],
+  );
 
-  // ── Default feed state ────────────────────────────────────────────────────────
-  StreamSubscription<QuerySnapshot>? _feedSub;
-  bool _didInitDeps = false;
-
-  List<Map<String, dynamic>> _posts = [];
-  List<Map<String, dynamic>> _availableAds = [];
-  List<Map<String, dynamic>> _feedItems = [];
   bool _isLoading = true;
-  String _adContext = 'discover';
+  bool _hasLocation = false;
   double? _userLat;
   double? _userLng;
 
-  // ── Search state ──────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> _trending = [];
+  List<Map<String, dynamic>> _mostCrowded = [];
+  List<Map<String, dynamic>> _leastCrowded = [];
+
   final TextEditingController _searchCtrl = TextEditingController();
   final FocusNode _searchFocus = FocusNode();
   Timer? _debounce;
@@ -43,59 +41,122 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   List<Map<String, dynamic>> _searchResults = [];
   bool _searchLoading = false;
 
-  // ── Lifecycle ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await _initAds();
-    });
-    _feedSub = _feedService.getLocationFeedStream().listen((snapshot) {
-      final posts = snapshot.docs
-          .map((doc) => <String, dynamic>{
-                'id': doc.id,
-                'type': 'post',
-                ...doc.data() as Map<String, dynamic>,
-              })
-          .toList();
-      if (!mounted) return;
-
-      final newContext = _computeAdContext(posts);
-      if (newContext != _adContext) {
-        _adContext = newContext;
-        _reloadAds();
-      }
-
-      setState(() {
-        _posts = posts;
-        _feedItems = _mergeAdsIntoFeed(posts);
-        _isLoading = false;
-      });
-    });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (_didInitDeps) return;
-    _didInitDeps = true;
-    _cadence.refreshVIPeepsStatus().then((_) {
-      if (mounted && _posts.isNotEmpty) {
-        setState(() => _feedItems = _mergeAdsIntoFeed(_posts));
-      }
-    });
+    _loadDiscoverData();
   }
 
   @override
   void dispose() {
-    _feedSub?.cancel();
     _debounce?.cancel();
     _searchCtrl.dispose();
     _searchFocus.dispose();
     super.dispose();
   }
 
-  // ── Search logic ──────────────────────────────────────────────────────────────
+  Future<void> _loadDiscoverData() async {
+    setState(() => _isLoading = true);
+
+    final pos = await LocationService.getCurrentLocation();
+    if (pos != null) {
+      _userLat = pos.latitude;
+      _userLng = pos.longitude;
+      _hasLocation = true;
+    }
+
+    await _loadTrending();
+    if (_hasLocation) {
+      await _loadNearbyPosts();
+    }
+
+    if (mounted) setState(() => _isLoading = false);
+  }
+
+  Future<void> _loadTrending() async {
+    try {
+      final dayAgo = Timestamp.fromDate(
+        DateTime.now().subtract(const Duration(hours: 24)),
+      );
+      final snap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('timestamp', isGreaterThan: dayAgo)
+          .orderBy('timestamp', descending: true)
+          .limit(200)
+          .get();
+
+      final posts = snap.docs
+          .map(
+            (doc) => <String, dynamic>{
+              'id': doc.id,
+              ...doc.data(),
+            },
+          )
+          .toList();
+
+      posts.sort((a, b) {
+        final la = (a['likesCount'] as num?)?.toInt() ?? 0;
+        final lb = (b['likesCount'] as num?)?.toInt() ?? 0;
+        return lb.compareTo(la);
+      });
+
+      if (mounted) setState(() => _trending = posts.take(5).toList());
+    } catch (e) {
+      debugPrint('DiscoverScreen trending: $e');
+      if (mounted) setState(() => _trending = []);
+    }
+  }
+
+  Future<void> _loadNearbyPosts() async {
+    if (_userLat == null || _userLng == null) return;
+
+    try {
+      final dayAgo = Timestamp.fromDate(
+        DateTime.now().subtract(const Duration(hours: 24)),
+      );
+      final snap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('timestamp', isGreaterThan: dayAgo)
+          .orderBy('timestamp', descending: true)
+          .limit(300)
+          .get();
+
+      final nearby = <Map<String, dynamic>>[];
+      for (final doc in snap.docs) {
+        final data = <String, dynamic>{'id': doc.id, ...doc.data()};
+        final dist = _distanceMeters(data);
+        if (dist != null && dist <= _kNearRadiusM) {
+          nearby.add(data);
+        }
+      }
+
+      final most = List<Map<String, dynamic>>.from(nearby)
+        ..sort(
+          (a, b) => _crowdLevel(b).compareTo(_crowdLevel(a)),
+        );
+
+      final least = List<Map<String, dynamic>>.from(nearby)
+        ..sort(
+          (a, b) => _crowdLevel(a).compareTo(_crowdLevel(b)),
+        );
+
+      if (mounted) {
+        setState(() {
+          _mostCrowded = most.take(5).toList();
+          _leastCrowded = least.take(5).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('DiscoverScreen nearby: $e');
+      if (mounted) {
+        setState(() {
+          _mostCrowded = [];
+          _leastCrowded = [];
+        });
+      }
+    }
+  }
+
   void _onSearchChanged(String value) {
     _debounce?.cancel();
     final term = value.trim();
@@ -105,7 +166,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       return;
     }
     _debounce =
-        Timer(const Duration(milliseconds: 420), () => _doSearch(term));
+        Timer(const Duration(milliseconds: 350), () => _doSearch(term));
   }
 
   Future<void> _doSearch(String term) async {
@@ -119,26 +180,29 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           .limit(30)
           .get();
 
-      final seen = <String>{};
-      final results = <Map<String, dynamic>>[];
-      for (final doc in snap.docs) {
-        final data = {'id': doc.id, ...(doc.data() as Map<String, dynamic>)};
-        final name = data['locationName'] as String? ?? '';
-        if (name.isEmpty || seen.contains(name)) continue;
-        seen.add(name);
-        results.add(data);
-      }
+      final results = snap.docs
+          .map(
+            (doc) => <String, dynamic>{
+              'id': doc.id,
+              ...doc.data(),
+            },
+          )
+          .toList();
 
-      if (mounted) setState(() {
-        _searchResults = results;
-        _searchLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _searchResults = results;
+          _searchLoading = false;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() {
-        _searchResults = [];
-        _searchLoading = false;
-      });
       debugPrint('DiscoverScreen search: $e');
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _searchLoading = false;
+        });
+      }
     }
   }
 
@@ -153,81 +217,78 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     });
   }
 
-  // ── Ad / feed helpers ─────────────────────────────────────────────────────────
-  Future<void> _initAds() async {
-    await _cadence.init();
-    final pos = await LocationService.getCurrentLocation();
-    if (pos != null) {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-    }
-    await _reloadAds();
+  int _crowdLevel(Map<String, dynamic> post) {
+    return (post['crowdingLevel'] as num?)?.toInt() ?? 0;
   }
 
-  Future<void> _reloadAds() async {
-    try {
-      final ads = await _adsService.getAdsForFeed(
-        context: _adContext,
-        userLat: _userLat,
-        userLng: _userLng,
-        limit: 10,
-      );
-      if (mounted) setState(() {
-        _availableAds = ads;
-        if (_posts.isNotEmpty) _feedItems = _mergeAdsIntoFeed(_posts);
-      });
-    } catch (e) {
-      debugPrint('Discover: failed to load ads: $e');
-    }
+  double? _distanceMeters(Map<String, dynamic> post) {
+    if (_userLat == null || _userLng == null) return null;
+    final lat = (post['latitude'] as num?)?.toDouble();
+    final lng = (post['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null || (lat == 0 && lng == 0)) return null;
+    return _haversineMeters(_userLat!, _userLng!, lat, lng);
   }
 
-  String _computeAdContext(List<Map<String, dynamic>> posts) {
-    if (_userLat == null || _userLng == null) return 'discover';
-    for (final post in posts) {
-      final lat = (post['latitude'] as num?)?.toDouble();
-      final lng = (post['longitude'] as num?)?.toDouble();
-      if (lat == null || lng == null || (lat == 0 && lng == 0)) continue;
-      return NativeAdsService.detectVicariousPeepling(
-        userLat: _userLat!,
-        userLng: _userLng!,
-        venueLat: lat,
-        venueLng: lng,
-      )
-          ? 'travel'
-          : 'discover';
-    }
-    return 'discover';
+  static double _haversineMeters(
+    double lat1,
+    double lon1,
+    double lat2,
+    double lon2,
+  ) {
+    const r = 6371000.0;
+    final p1 = lat1 * math.pi / 180;
+    final p2 = lat2 * math.pi / 180;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLon = (lon2 - lon1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(p1) * math.cos(p2) * math.sin(dLon / 2) * math.sin(dLon / 2);
+    final c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+    return r * c;
   }
 
-  List<Map<String, dynamic>> _mergeAdsIntoFeed(
-      List<Map<String, dynamic>> posts) {
-    _cadence.reset();
-    final items = <Map<String, dynamic>>[];
-    var adIndex = 0;
-
-    for (final post in posts) {
-      if (_availableAds.isNotEmpty) {
-        bool adAdded = false;
-        for (var i = 0; i < _availableAds.length; i++) {
-          final candidate =
-              _availableAds[(adIndex + i) % _availableAds.length];
-          if (_cadence.shouldShowAd(
-              candidateAdId: candidate['id'] as String?)) {
-            items.add({'type': 'ad', ...candidate});
-            adIndex += i + 1;
-            adAdded = true;
-            break;
-          }
-          if (!_cadence.isSlotPending) break;
-        }
-        if (!adAdded && _cadence.isSlotPending) _cadence.skipSlot();
-      }
-      items.add(post);
+  String _formatDistance(Map<String, dynamic> post) {
+    final m = _distanceMeters(post);
+    if (m == null) return '—';
+    final mi = m * 0.000621371;
+    if (mi < 0.1) {
+      final ft = (m * 3.28084).round();
+      return '$ft ft';
     }
-    return items;
+    if (mi < 10) return '${mi.toStringAsFixed(1)} mi';
+    return '${mi.round()} mi';
   }
 
-  // ── Widget builders ───────────────────────────────────────────────────────────
+  String _overlayCrowdDetailLine(Map<String, dynamic> post) {
+    final parts = <String>[];
+    final mf = PostCrowdFormat.maleFemaleLine(post['maleFemaleRatio']);
+    if (mf != null) parts.add(mf);
+    final ak = PostCrowdFormat.adultKidLine(post['adultKidRatio']);
+    if (ak != null) parts.add(ak);
+    final age = post['ageRange']?.toString().trim();
+    if (age != null && age.isNotEmpty) parts.add(age);
+    return parts.join(' · ');
+  }
+
+  String _formatDate(dynamic ts) {
+    if (ts is Timestamp) {
+      final d = ts.toDate();
+      return '${d.month}/${d.day}/${d.year}';
+    }
+    if (ts is DateTime) {
+      return '${ts.month}/${ts.day}/${ts.year}';
+    }
+    return '—';
+  }
+
+  void _openDetail(Map<String, dynamic> post) {
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (context) => LocationDetailScreen(postData: post),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -271,68 +332,60 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   }
 
   Widget _buildSearchBar() {
-    return Row(
-      children: [
-        Expanded(
-          child: Container(
-            height: 42,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(21),
-              border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3), width: 1),
-            ),
-            child: TextField(
-              controller: _searchCtrl,
-              focusNode: _searchFocus,
-              onChanged: _onSearchChanged,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (q) {
-                final trimmed = q.trim();
-                if (trimmed.isNotEmpty) {
-                  Navigator.pushNamed(
-                    context,
-                    '/search_results',
-                    arguments: trimmed,
-                  );
-                }
-              },
-              style:
-                  const TextStyle(color: Colors.white, fontSize: 14),
-              cursorColor: Colors.white,
-              decoration: InputDecoration(
-                hintText: 'Search venues...',
-                hintStyle: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.6),
-                    fontSize: 14),
-                prefixIcon: Icon(Icons.search,
-                    color: Colors.white.withValues(alpha: 0.8), size: 18),
-                suffixIcon: _searchTerm.isNotEmpty
-                    ? GestureDetector(
-                        onTap: _clearSearch,
-                        child: Icon(Icons.close,
-                            color: Colors.white.withValues(alpha: 0.8),
-                            size: 18),
-                      )
-                    : null,
-                border: InputBorder.none,
-                contentPadding:
-                    const EdgeInsets.symmetric(vertical: 11),
-              ),
-            ),
+    return TextField(
+      controller: _searchCtrl,
+      focusNode: _searchFocus,
+      onChanged: _onSearchChanged,
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      cursorColor: Colors.white,
+      decoration: InputDecoration(
+        hintText: 'Search venues...',
+        hintStyle: TextStyle(
+          color: Colors.white.withValues(alpha: 0.6),
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(
+          Icons.search,
+          color: Colors.white.withValues(alpha: 0.8),
+          size: 18,
+        ),
+        suffixIcon: _searchTerm.isNotEmpty
+            ? IconButton(
+                icon: Icon(
+                  Icons.close,
+                  color: Colors.white.withValues(alpha: 0.8),
+                  size: 18,
+                ),
+                onPressed: _clearSearch,
+              )
+            : null,
+        filled: true,
+        fillColor: Colors.white.withValues(alpha: 0.15),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(21),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.3),
           ),
         ),
-      ],
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(21),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.3),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(21),
+          borderSide: BorderSide(
+            color: Colors.white.withValues(alpha: 0.6),
+          ),
+        ),
+        contentPadding: const EdgeInsets.symmetric(vertical: 11),
+      ),
     );
   }
 
   Widget _buildBody() {
     if (_searchTerm.isNotEmpty) return _buildSearchBody();
-    return _buildDefaultFeed();
-  }
-
-  // ── Default feed ──────────────────────────────────────────────────────────────
-  Widget _buildDefaultFeed() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -340,157 +393,157 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         ),
       );
     }
-    if (_feedItems.isEmpty) {
-      return const Center(
-        child: Text('No posts yet', style: TextStyle(color: Colors.white)),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      itemCount: _feedItems.length,
-      itemBuilder: (context, index) {
-        final item = _feedItems[index];
-        return item['type'] == 'ad'
-            ? _buildAdCard(item)
-            : _buildLocationCard(item);
-      },
+    return _buildDiscoverSections();
+  }
+
+  Widget _buildDiscoverSections() {
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 24),
+      children: [
+        _buildSection('Trending Now', _trending),
+        if (_hasLocation) ...[
+          _buildSection('Most Crowded Near You', _mostCrowded),
+          _buildSection('Least Crowded Near You', _leastCrowded),
+        ],
+      ],
     );
   }
 
-  Widget _buildAdCard(Map<String, dynamic> ad) {
-    final adId = ad['id'] as String? ?? '';
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: AdCard(
-        ad: ad,
-        onImpression: () => _adsService.recordAdImpression(adId, uid),
-        onTap: () => _adsService.recordAdClick(adId, uid),
-      ),
+  Widget _buildSection(String title, List<Map<String, dynamic>> posts) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+          child: Text(
+            title,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+        if (posts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Text(
+              'No posts in this section yet',
+              style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.75),
+                fontSize: 13,
+              ),
+            ),
+          )
+        else
+          ...posts.map(
+            (post) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: _buildLocationCard(post),
+            ),
+          ),
+      ],
     );
   }
 
   Widget _buildLocationCard(Map<String, dynamic> post) {
-    final crowdingLevel = (post['crowdingLevel'] ?? 0) as int;
-    final locationName =
-        post['locationName'] as String? ?? 'Unknown Location';
-    final username = post['username'] as String? ?? 'Unknown User';
+    final crowdingLevel = _crowdLevel(post);
+    final w = MediaQuery.sizeOf(context).width;
+    final cardHeight = w * 0.19;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          builder: (context) => LocationDetailScreen(postData: post),
-        ),
-      ),
+      onTap: () => _openDetail(post),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        height: 60,
+        height: cardHeight,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          image: DecorationImage(
-            image: NetworkImage(
-              post['imageUrl'] as String? ??
-                  'https://via.placeholder.com/400x120',
-            ),
-            fit: BoxFit.cover,
-          ),
+          borderRadius: BorderRadius.circular(12),
         ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Colors.black.withValues(alpha: 0.6),
-                Colors.transparent,
-              ],
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.network(
+              post['imageUrl']?.toString() ??
+                  'https://via.placeholder.com/400x400',
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => ColoredBox(
+                color: Colors.grey.shade800,
+                child: const Icon(Icons.image, color: Colors.white54, size: 40),
+              ),
             ),
-          ),
-          child: Stack(
-            children: [
-              Positioned(
-                left: 10,
-                bottom: 8,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      locationName,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(0, 1),
-                            blurRadius: 3,
-                            color: Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Text(
-                      username,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.9),
-                        fontSize: 11,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(0, 1),
-                            blurRadius: 3,
-                            color: Colors.black.withValues(alpha: 0.5),
-                          ),
-                        ],
-                      ),
-                    ),
+            DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.45),
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: 0.65),
                   ],
+                  stops: const [0, 0.35, 1],
                 ),
               ),
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: _crowdColor(crowdingLevel),
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-                  ),
-                  child: Center(
-                    child: Text(
-                      crowdingLevel.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                      ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          post['locationName']?.toString() ?? 'Unknown',
+                          style: _overlayShadow.copyWith(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          post['username']?.toString() ?? 'Unknown',
+                          style: _overlayShadow.copyWith(
+                            fontSize: 9,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_formatDate(post['timestamp'])} · ${_formatDistance(post)}',
+                          style: _overlayShadow.copyWith(
+                            fontSize: 8,
+                            color: Colors.white.withValues(alpha: 0.95),
+                          ),
+                        ),
+                        if (_overlayCrowdDetailLine(post).isNotEmpty) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            _overlayCrowdDetailLine(post),
+                            style: _overlayShadow.copyWith(
+                              fontSize: 7,
+                              color: Colors.white.withValues(alpha: 0.92),
+                              height: 1.2,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
-                ),
+                  CrowdMeter(level: crowdingLevel, size: 60),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 
-  static Color _crowdColor(int level) {
-    if (level <= 4) return const Color(0xFF4CAF50);
-    if (level <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
-  }
-
-  // ── Search results (inline) ───────────────────────────────────────────────────
   Widget _buildSearchBody() {
     if (_searchLoading) {
       return const Center(
@@ -512,8 +565,9 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 'No venues found for "$_searchTerm"',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.85),
-                    fontSize: 14),
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 14,
+                ),
               ),
             ],
           ),
@@ -521,92 +575,10 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       );
     }
     return ListView.builder(
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       itemCount: _searchResults.length,
       itemBuilder: (context, index) =>
-          _buildSearchResultCard(_searchResults[index]),
-    );
-  }
-
-  Widget _buildSearchResultCard(Map<String, dynamic> venue) {
-    final name = venue['locationName'] as String? ?? 'Unknown';
-    final imageUrl = venue['imageUrl'] as String? ?? '';
-    final crowdLevel = (venue['crowdingLevel'] as num?)?.toInt() ?? 0;
-
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/venue', arguments: venue),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        height: 60,
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(14)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(14),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (imageUrl.isNotEmpty)
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const ColoredBox(color: Color(0xFF0D47A1)),
-                )
-              else
-                const ColoredBox(color: Color(0xFF0D47A1)),
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xCC000000), Color(0x44000000)],
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 10, vertical: 8),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        name,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          shadows: [
-                            Shadow(blurRadius: 4, color: Colors.black54),
-                          ],
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      width: 28,
-                      height: 28,
-                      decoration: BoxDecoration(
-                        color: _crowdColor(crowdLevel),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Center(
-                        child: Text(
-                          crowdLevel.toString(),
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+          _buildLocationCard(_searchResults[index]),
     );
   }
 }

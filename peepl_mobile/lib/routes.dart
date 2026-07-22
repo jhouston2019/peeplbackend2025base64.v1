@@ -20,6 +20,7 @@ import 'screens/favorites_screen.dart';
 import 'screens/follow_list_screen.dart';
 import 'screens/get_peeps_screen.dart';
 import 'screens/groups_screen.dart';
+import 'screens/heat_map_screen.dart';
 import 'screens/invite_screen.dart';
 import 'screens/leaderboard_screen.dart';
 import 'screens/likers_screen.dart';
@@ -113,6 +114,7 @@ Map<String, WidgetBuilder> appRoutes = {
   },
   '/get_peeps': (_) => const GetPeepsScreen(),
   '/groups': (_) => const GroupsScreen(),
+  '/heat_map': (_) => const HeatMapScreen(),
   '/invite': (_) => const InviteScreen(),
   '/leaderboard': (_) => const LeaderboardScreen(),
   '/scoreboard': (_) => const ScoreboardScreen(),

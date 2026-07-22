@@ -7,7 +7,6 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../constants/app_share_links.dart';
 import '../services/ad_cadence_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
 import '../services/crowdsource_service.dart';
@@ -16,7 +15,6 @@ import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
-import '../widgets/crowd_dot_ring_meter.dart';
 import '../widgets/crowd_meter.dart';
 
 class LocationDetailScreen extends StatefulWidget {
@@ -256,9 +254,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final name = post['locationName']?.toString().trim().isNotEmpty == true
         ? post['locationName'].toString().trim()
         : 'this spot';
-    final status = CrowdDotRingMeter.statusWord(crowdingLevel);
+    final crowdingWord = CrowdMeter.wordLabel(crowdingLevel);
     final text =
-        'Check out $name on Peepl — it\'s $status right now! Download Peepl to know before you go: $kPeeplAppStoreLinkPlaceholder';
+        "I'm at $name right now — it's $crowdingWord! 📍 Know before you go with Peepl: https://peepl.app";
     try {
       await Share.share(text);
     } catch (e) {
@@ -492,11 +490,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 child: IconButton(
                   tooltip: 'Share',
                   icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    '/share',
-                    arguments: post,
-                  ),
+                  onPressed: () => _shareLocationPost(post, crowdingLevel),
                 ),
               ),
               const SizedBox(width: 4),

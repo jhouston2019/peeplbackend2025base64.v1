@@ -49,7 +49,7 @@ class AdCadenceService {
   int _postsSinceLastAd = 0;
 
   bool _isFirstSession = false;
-  bool _isVIPeeps = false;
+  bool _isVIPeep = false;
   List<int>? _overridePattern;
 
   // ── Frequency cap state ────────────────────────────────────────────────────
@@ -69,7 +69,7 @@ class AdCadenceService {
   /// Use this in the candidate loop to distinguish "slot open but candidate
   /// already seen" from "no slot due at all".
   bool get isSlotPending {
-    if (_isVIPeeps) return false;
+    if (_isVIPeep) return false;
     if (_adsShownThisSession >= maxAdsPerSession) return false;
     if (_postsSinceLastAd < minPostsBetweenAds) return false;
     return _postsSinceAd >= _activePattern[_patternIndex];
@@ -98,17 +98,17 @@ class AdCadenceService {
   Future<void> refreshVIPeepsStatus() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
-      _isVIPeeps = false;
+      _isVIPeep = false;
       return;
     }
     try {
       final doc = await FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(uid)
           .get();
-      _isVIPeeps = (doc.data()?['isVIPeeps'] as bool?) ?? false;
+      _isVIPeep = (doc.data()?['isVIPeep'] as bool?) ?? false;
     } catch (_) {
-      _isVIPeeps = false;
+      _isVIPeep = false;
     }
   }
 
@@ -140,7 +140,7 @@ class AdCadenceService {
   /// if (noAdAdded && cadence.isSlotPending) cadence.skipSlot();
   /// ```
   bool shouldShowAd({String? candidateAdId}) {
-    if (_isVIPeeps) return false;
+    if (_isVIPeep) return false;
 
     if (_adsShownThisSession >= maxAdsPerSession) {
       _postsSinceAd++;

@@ -33,6 +33,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   // Read-only data loaded from Firestore
   Map<String, dynamic> _userData = {};
   int _pioneersCount = 0;
+  bool _isVIPeep = false;
 
   bool _loading = true;
   bool _saving = false;
@@ -73,6 +74,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
     try {
       final results = await Future.wait<dynamic>([
         _db.collection('users').doc(_uid).get(),
+        _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).get(),
         _db
             .collection('pioneers')
             .where('userId', isEqualTo: _uid)
@@ -81,7 +83,8 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
       ]);
 
       final doc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final countSnap = results[1] as AggregateQuerySnapshot;
+      final vipDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
+      final countSnap = results[2] as AggregateQuerySnapshot;
       final data = doc.data() ?? {};
       final user = _auth.currentUser;
 
@@ -99,6 +102,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
       if (mounted) {
         setState(() {
           _userData = data;
+          _isVIPeep = (vipDoc.data()?['isVIPeep'] as bool?) ?? false;
           _pioneersCount = countSnap.count ?? 0;
           _loading = false;
         });
@@ -261,7 +265,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
     final memberSince = _formatDate(user?.metadata.creationTime);
     final rating =
         (_userData['rating'] as num?)?.toStringAsFixed(1) ?? '—';
-    final isVip = (_userData['isVIPeeps'] as bool?) == true;
+    final isVip = _isVIPeep;
     final pioneerLabel =
         '$_pioneersCount ${_pioneersCount == 1 ? 'pioneer venue' : 'pioneer venues'}';
 

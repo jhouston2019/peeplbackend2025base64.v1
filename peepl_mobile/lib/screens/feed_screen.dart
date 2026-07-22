@@ -7,13 +7,15 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+import 'package:visibility_detector/visibility_detector.dart';
+
 import '../services/ad_cadence_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
-import '../widgets/ad_card.dart';
 import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 import 'post_screen.dart';
@@ -521,6 +523,24 @@ class _FeedScreenState extends State<FeedScreen> {
     ).whenComplete(searchController.dispose);
   }
 
+  Widget _buildHeaderIconButton({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 32,
+        height: 32,
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.2),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Icon(icon, color: Colors.white, size: 18),
+      ),
+    );
+  }
+
   Widget _buildHeaderButton({
     required IconData icon,
     required String label,
@@ -587,10 +607,14 @@ class _FeedScreenState extends State<FeedScreen> {
                 label: 'SEARCH',
                 onTap: _showLocationSearchSheet,
               ),
-              const SizedBox(width: 10),
-              _buildHeaderButton(
+              const SizedBox(width: 8),
+              _buildHeaderIconButton(
+                icon: Icons.whatshot,
+                onTap: () => Navigator.pushNamed(context, '/heat_map'),
+              ),
+              const SizedBox(width: 6),
+              _buildHeaderIconButton(
                 icon: Icons.map,
-                label: 'MAP',
                 onTap: () => Navigator.pushNamed(context, '/map'),
               ),
             ],
@@ -918,11 +942,30 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildAdCard(Map<String, dynamic> ad) {
     final adId = ad['id'] as String? ?? '';
+    if (adId.isEmpty) return const SizedBox.shrink();
+
+    final headline = ad['headline'] as String? ?? '';
+    final bodyText =
+        ad['bodyText'] as String? ?? ad['subline'] as String? ?? '';
+    if (headline.isEmpty && bodyText.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return AdCard(
+    final cardHeight = MediaQuery.sizeOf(context).width * 0.19;
+
+    return _FeedNativeAdCard(
       ad: ad,
+      height: cardHeight,
       onImpression: () => _adsService.recordAdImpression(adId, uid),
-      onTap: () => _adsService.recordAdClick(adId, uid),
+      onCtaTap: () async {
+        await _adsService.recordAdClick(adId, uid);
+        final ctaUrl = ad['ctaUrl'] as String? ?? '';
+        if (ctaUrl.isEmpty) return;
+        final uri = Uri.tryParse(ctaUrl);
+        if (uri == null) return;
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      },
     );
   }
 
@@ -945,5 +988,174 @@ class _FeedScreenState extends State<FeedScreen> {
     _feedSub?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+}
+
+class _FeedNativeAdCard extends StatefulWidget {
+  const _FeedNativeAdCard({
+    required this.ad,
+    required this.height,
+    required this.onImpression,
+    required this.onCtaTap,
+  });
+
+  final Map<String, dynamic> ad;
+  final double height;
+  final VoidCallback onImpression;
+  final Future<void> Function() onCtaTap;
+
+  @override
+  State<_FeedNativeAdCard> createState() => _FeedNativeAdCardState();
+}
+
+class _FeedNativeAdCardState extends State<_FeedNativeAdCard> {
+  bool _impressionFired = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final imageUrl = widget.ad['imageUrl'] as String? ?? '';
+    final advertiserName = widget.ad['advertiserName'] as String? ?? '';
+    final headline = widget.ad['headline'] as String? ?? '';
+    final bodyText =
+        widget.ad['bodyText'] as String? ?? widget.ad['subline'] as String? ?? '';
+    final ctaText = widget.ad['ctaText'] as String? ?? 'Learn More';
+    final adId = widget.ad['id'] as String? ?? 'ad';
+    final imageSize = math.min(80.0, widget.height - 16);
+
+    return VisibilityDetector(
+      key: Key('feed_native_ad_$adId'),
+      onVisibilityChanged: (info) {
+        if (!_impressionFired && info.visibleFraction >= 0.5 && mounted) {
+          _impressionFired = true;
+          widget.onImpression();
+        }
+      },
+      child: SizedBox(
+        width: double.infinity,
+        height: widget.height,
+        child: Material(
+          color: Colors.white,
+          child: Stack(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: SizedBox(
+                        width: imageSize,
+                        height: imageSize,
+                        child: imageUrl.isNotEmpty
+                            ? Image.network(
+                                imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    ColoredBox(
+                                  color: Colors.grey.shade200,
+                                  child: const Icon(
+                                    Icons.campaign_outlined,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              )
+                            : ColoredBox(
+                                color: Colors.grey.shade200,
+                                child: const Icon(
+                                  Icons.campaign_outlined,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          if (advertiserName.isNotEmpty)
+                            Text(
+                              advertiserName,
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey.shade600,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          if (advertiserName.isNotEmpty) const SizedBox(height: 2),
+                          Text(
+                            headline,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (bodyText.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              bodyText,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Colors.grey.shade700,
+                                height: 1.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      onPressed: () => widget.onCtaTap(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1565C0),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        ctaText,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Positioned(
+                top: 6,
+                right: 8,
+                child: Text(
+                  'Sponsored',
+                  style: TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade500,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }

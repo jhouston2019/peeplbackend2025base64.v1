@@ -182,6 +182,51 @@ class _ProfileScreenState extends State<ProfileScreen> {
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/vip_peeps'),
+              icon: const Icon(Icons.star_outline, color: Color(0xFF1565C0)),
+              label: const Text(
+                'Go VIPeeps',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF1565C0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => Navigator.pushNamed(context, '/invite'),
+              icon: const Icon(Icons.person_add_outlined,
+                  color: Color(0xFF1565C0)),
+              label: const Text(
+                'Invite Friends',
+                style: TextStyle(
+                  color: Color(0xFF1565C0),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: const BorderSide(color: Color(0xFF1565C0)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
               onPressed: () => _shareThisApp(context),
               icon: const Icon(Icons.share_outlined, color: Color(0xFF1565C0)),
               label: const Text(
@@ -470,13 +515,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(uid)
           .snapshots(),
       builder: (context, snap) {
         final data =
             snap.data?.data() as Map<String, dynamic>? ?? {};
-        final isVIP = data['isVIPeeps'] as bool? ?? false;
+        final isVIP = data['isVIPeep'] as bool? ?? false;
 
         return isVIP
             ? _buildVIPActiveBanner(
