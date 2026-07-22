@@ -403,6 +403,8 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         _buildBrowseVenuesButton(),
         _buildDealsButton(),
         _buildLeaderboardButton(),
+        _buildGetPeepsButton(),
+        _buildTrendingButton(),
         _buildSection('Trending Now', _trending),
         if (_hasLocation) ...[
           _buildSection('Most Crowded Near You', _mostCrowded),
@@ -569,6 +571,122 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                       SizedBox(height: 2),
                       Text(
                         'See top Peepl contributors this week',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGetPeepsButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => Navigator.pushNamed(context, '/get_peeps'),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.groups_2_outlined,
+                    color: Color(0xFF1565C0),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Get Peeps',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1565C0),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'Ask people nearby for a live crowd update',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTrendingButton() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Material(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        child: InkWell(
+          onTap: () => Navigator.pushNamed(context, '/trending'),
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFF5722).withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.whatshot_outlined,
+                    color: Color(0xFFFF5722),
+                    size: 22,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Trending',
+                        style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF1565C0),
+                        ),
+                      ),
+                      SizedBox(height: 2),
+                      Text(
+                        'See the hottest spots right now',
                         style: TextStyle(
                           fontSize: 12,
                           color: Colors.black54,

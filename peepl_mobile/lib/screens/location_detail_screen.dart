@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
@@ -250,24 +249,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     return true;
   }
 
-  Future<void> _shareLocationPost(Map<String, dynamic> post, int crowdingLevel) async {
-    final name = post['locationName']?.toString().trim().isNotEmpty == true
-        ? post['locationName'].toString().trim()
-        : 'this spot';
-    final crowdingWord = CrowdMeter.wordLabel(crowdingLevel);
-    final text =
-        "I'm at $name right now — it's $crowdingWord! 📍 Know before you go with Peepl: https://peepl.app";
-    try {
-      await Share.share(text);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share: $e')),
-        );
-      }
-    }
-  }
-
   Future<void> _openGeoInMaps(double lat, double lng) async {
     final uri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
     try {
@@ -490,7 +471,18 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 child: IconButton(
                   tooltip: 'Share',
                   icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () => _shareLocationPost(post, crowdingLevel),
+                  onPressed: () {
+                    Navigator.pushNamed(
+                      context,
+                      '/share',
+                      arguments: {
+                        ...post,
+                        'postId': post['id'] as String? ?? post['postId'] as String?,
+                        'locationName': post['locationName'] as String?,
+                        'crowdingLevel': crowdingLevel,
+                      },
+                    );
+                  },
                 ),
               ),
               const SizedBox(width: 4),
@@ -503,7 +495,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                   onPressed: () => Navigator.pushNamed(
                     context,
                     '/report',
-                    arguments: post['id'] as String? ?? '',
+                    arguments: {
+                      'postId': post['id'] as String? ?? '',
+                      'reportedUserId': post['userId'] as String? ?? '',
+                    },
                   ),
                 ),
               ),

@@ -117,7 +117,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(OnboardingScreen.onboardingCompleteKey, true);
     if (!mounted) return;
-    Navigator.pushReplacementNamed(context, '/home');
+    Navigator.pushReplacementNamed(context, '/permissions');
   }
 
   @override

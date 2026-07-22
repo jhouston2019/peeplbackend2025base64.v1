@@ -133,6 +133,13 @@ Map<String, WidgetBuilder> appRoutes = {
     final postData = args is Map<String, dynamic>
         ? args
         : <String, dynamic>{};
+    return PeepDetailScreen(postData: postData);
+  },
+  '/location_detail': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final postData = args is Map<String, dynamic>
+        ? args
+        : <String, dynamic>{};
     return LocationDetailScreen(postData: postData);
   },
   '/permissions': (_) => const PermissionsScreen(),
@@ -140,11 +147,21 @@ Map<String, WidgetBuilder> appRoutes = {
   '/pioneers': (_) => const PioneersScreen(),
   '/report': (ctx) {
     final args = ModalRoute.of(ctx)?.settings.arguments;
+    if (args is Map<String, dynamic>) {
+      return ReportScreen(
+        postId: args['postId'] as String?,
+        reportedUserId: args['reportedUserId'] as String?,
+      );
+    }
     final postId = args is String ? args : '';
     return ReportScreen(postId: postId);
   },
+  '/search_results': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    final query = args is String ? args : '';
+    return SearchResultsScreen(query: query);
+  },
   '/search': (_) => const SearchScreen(),
-  '/search_results': (_) => const SearchResultsScreen(),
   '/share': (ctx) {
     final args = ModalRoute.of(ctx)?.settings.arguments;
     final postData =

@@ -17,8 +17,6 @@ import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
-import 'location_detail_screen.dart';
-import 'post_screen.dart';
 
 enum _SortMode { rating, date, distance, local, region }
 
@@ -418,111 +416,6 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  void _showLocationSearchSheet() {
-    final TextEditingController searchController = TextEditingController();
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => Container(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Check a Location',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Search any place to see its current crowd level, or get notified automatically when you arrive.',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: searchController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'e.g. Starbucks Perimeter, Target Hwy 20...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.people, size: 16),
-                      label: const Text('Check Crowd'),
-                      onPressed: () {
-                        final query = searchController.text;
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Checking crowd at "$query"...'),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1565C0),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      icon: const Icon(Icons.notifications_active, size: 16),
-                      label: const Text('Notify Me'),
-                      onPressed: () {
-                        final query = searchController.text;
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              "You'll be notified when you arrive at \"$query\"",
-                            ),
-                          ),
-                        );
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF2E7D32),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    ).whenComplete(searchController.dispose);
-  }
-
   Widget _buildHeaderIconButton({
     required IconData icon,
     required VoidCallback onTap,
@@ -605,7 +498,7 @@ class _FeedScreenState extends State<FeedScreen> {
               _buildHeaderButton(
                 icon: Icons.search,
                 label: 'SEARCH',
-                onTap: _showLocationSearchSheet,
+                onTap: () => Navigator.pushNamed(context, '/search'),
               ),
               const SizedBox(width: 8),
               _buildHeaderIconButton(
@@ -764,10 +657,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final cardHeight = w * 0.19;
 
     return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute<void>(builder: (context) => LocationDetailScreen(postData: post)),
-      ),
+      onTap: () => Navigator.pushNamed(context, '/peep_detail', arguments: post),
       child: SizedBox(
         width: double.infinity,
         height: cardHeight,

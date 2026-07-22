@@ -250,6 +250,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     _sectionTitle('ACCOUNT'),
                     _buildAdminPanelTile(context),
                     _tile(
+                      icon: Icons.storefront_outlined,
+                      title: 'Merchant Portal',
+                      onTap: () =>
+                          Navigator.pushNamed(context, '/how_to_advertise'),
+                    ),
+                    _tile(
                       icon: Icons.edit_outlined,
                       title: 'Edit Profile',
                       onTap: () =>

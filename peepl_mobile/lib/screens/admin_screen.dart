@@ -650,7 +650,22 @@ class _ScreensTab extends StatelessWidget {
     {'label': 'Settings', 'route': '/settings'},
     {'label': 'Login', 'route': '/login'},
     {'label': 'Admin', 'route': '/admin'},
+    {'label': 'Splash', 'route': '/splash'},
+    {'label': 'No Connection', 'route': '/no_connection'},
+    {'label': 'Peep Submitted', 'route': '/peep_submitted'},
     {'label': 'Location detail (demo)', 'route': '/location_detail_demo'},
+    {'label': 'Location detail', 'route': '/location_detail'},
+  ];
+
+  static final List<Map<String, String>> _onboardingRoutes = [
+    {'label': 'Onboarding', 'route': '/onboarding'},
+    {'label': 'Onboarding Step 1', 'route': '/onboarding/1'},
+    {'label': 'Onboarding Step 2', 'route': '/onboarding/2'},
+    {'label': 'Onboarding Step 3', 'route': '/onboarding/3'},
+    {'label': 'Permissions (combined)', 'route': '/permissions'},
+    {'label': 'Location Permission', 'route': '/permissions/location'},
+    {'label': 'Push Permission', 'route': '/permissions/push'},
+    {'label': 'Sign Up Confirmed', 'route': '/sign_up_confirmed'},
   ];
 
   static final List<Map<String, String>> _userRoutes = [
@@ -660,8 +675,10 @@ class _ScreensTab extends StatelessWidget {
     {'label': 'Deals', 'route': '/deals'},
     {'label': 'Favorites', 'route': '/favorites'},
     {'label': 'Follow List', 'route': '/follow_list'},
+    {'label': 'Gallery', 'route': '/gallery'},
     {'label': 'Get Peeps', 'route': '/get_peeps'},
     {'label': 'Groups', 'route': '/groups'},
+    {'label': 'Heat Map', 'route': '/heat_map'},
     {'label': 'Invite', 'route': '/invite'},
     {'label': 'Leaderboard', 'route': '/leaderboard'},
     {'label': 'Likers', 'route': '/likers'},
@@ -669,15 +686,15 @@ class _ScreensTab extends StatelessWidget {
     {'label': 'Menu', 'route': '/menu'},
     {'label': 'My Peeps', 'route': '/my_peeps'},
     {'label': 'Notifications', 'route': '/notifications'},
-    {'label': 'Onboarding', 'route': '/onboarding'},
     {'label': 'Peep Detail', 'route': '/peep_detail'},
-    {'label': 'Permissions', 'route': '/permissions'},
     {'label': 'Pioneer Congrat', 'route': '/pioneer_congrat'},
     {'label': 'Pioneers', 'route': '/pioneers'},
     {'label': 'Report', 'route': '/report'},
+    {'label': 'Scoreboard', 'route': '/scoreboard'},
     {'label': 'Search', 'route': '/search'},
+    {'label': 'Search Results', 'route': '/search_results'},
     {'label': 'Share', 'route': '/share'},
-    {'label': 'Sign Up Confirmed', 'route': '/sign_up_confirmed'},
+    {'label': 'Trending', 'route': '/trending'},
     {'label': 'User Profile', 'route': '/user_profile'},
     {'label': 'Venue List', 'route': '/venue_list'},
     {'label': 'Venue', 'route': '/venue'},
@@ -692,6 +709,7 @@ class _ScreensTab extends StatelessWidget {
     {'label': 'Merchant Portal', 'route': '/merchant_portal'},
     {'label': 'Merchant Setup Step 1', 'route': '/merchant_setup_step1'},
     {'label': 'Merchant Setup Step 2', 'route': '/merchant_setup_step2'},
+    {'label': 'Merchant Setup Step 3', 'route': '/merchant_setup_step3'},
     {'label': 'Merchant Sign In', 'route': '/merchant_sign_in'},
   ];
 
@@ -701,6 +719,7 @@ class _ScreensTab extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 12, 24),
       children: [
         _buildSection(context, 'Main', _mainRoutes),
+        _buildSection(context, 'Onboarding & Permissions', _onboardingRoutes),
         _buildSection(context, 'User', _userRoutes),
         _buildSection(context, 'Merchant', _merchantRoutes),
       ],

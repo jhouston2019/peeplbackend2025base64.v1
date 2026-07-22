@@ -158,6 +158,36 @@ class MenuScreen extends StatelessWidget {
       padding: EdgeInsets.zero,
       children: [
         _NavRow(
+          icon: Icons.radar_outlined,
+          label: 'Get Peeps',
+          onTap: () => Navigator.pushNamed(context, '/get_peeps'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.whatshot_outlined,
+          label: 'Trending',
+          onTap: () => Navigator.pushNamed(context, '/trending'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.emoji_events_outlined,
+          label: 'Pioneers',
+          onTap: () => Navigator.pushNamed(context, '/pioneers'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.photo_library_outlined,
+          label: 'Gallery',
+          onTap: () => Navigator.pushNamed(context, '/gallery'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.chat_bubble_outline,
+          label: 'Chat',
+          onTap: () => Navigator.pushNamed(context, '/chat'),
+        ),
+        const _Divider(),
+        _NavRow(
           icon: Icons.home_outlined,
           label: 'Feed',
           onTap: () => Navigator.pushNamedAndRemoveUntil(

@@ -553,13 +553,28 @@ class _SearchScreenState extends State<SearchScreen>
       return _buildEmptyState(trimmedQuery);
     }
 
-    return ListView.separated(
+    return ListView(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
-      itemCount: _placeResults.length,
-      separatorBuilder: (context, index) => const SizedBox(height: 8),
-      itemBuilder: (context, index) {
-        return _buildLocationCard(_placeResults[index]);
-      },
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            onPressed: () => Navigator.pushNamed(
+              context,
+              '/search_results',
+              arguments: trimmedQuery,
+            ),
+            icon: const Icon(Icons.open_in_new, size: 16),
+            label: const Text('View all venue results'),
+          ),
+        ),
+        ...List.generate(_placeResults.length, (index) {
+          return Padding(
+            padding: EdgeInsets.only(top: index == 0 ? 0 : 8),
+            child: _buildLocationCard(_placeResults[index]),
+          );
+        }),
+      ],
     );
   }
 

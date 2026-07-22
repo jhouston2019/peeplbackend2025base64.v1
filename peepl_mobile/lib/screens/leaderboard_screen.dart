@@ -251,6 +251,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
+          const Spacer(),
+          IconButton(
+            tooltip: 'Scoreboard',
+            onPressed: () => Navigator.pushNamed(context, '/scoreboard'),
+            icon: const Icon(Icons.scoreboard_outlined, color: Colors.white),
+          ),
         ],
       ),
     );
