@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../shell_tab_bus.dart';
 import 'discover_screen.dart';
@@ -90,8 +91,31 @@ class _MainShellState extends State<MainShell> {
     setState(() => _currentBarIndex = index);
   }
 
+  Widget _notificationNavIcon(String? uid) {
+    const icon = Icon(Icons.notifications_outlined);
+    if (uid == null) return icon;
+
+    return StreamBuilder<int>(
+      stream: NotificationsScreen.unreadCountStream(uid),
+      builder: (context, snap) {
+        final count = snap.data ?? 0;
+        if (count <= 0) return icon;
+        return Badge(
+          label: Text(
+            count > 99 ? '99+' : '$count',
+            style: const TextStyle(fontSize: 10),
+          ),
+          backgroundColor: Colors.red,
+          child: icon,
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+
     return Scaffold(
       body: IndexedStack(
         index: _stackIndex,
@@ -101,27 +125,27 @@ class _MainShellState extends State<MainShell> {
         type: BottomNavigationBarType.fixed,
         backgroundColor: _kSelectedBlue,
         selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withOpacity(0.6),
+        unselectedItemColor: Colors.white.withValues(alpha: 0.6),
         currentIndex: _currentBarIndex,
         onTap: _onBarTap,
-        items: const [
-          BottomNavigationBarItem(
+        items: [
+          const BottomNavigationBarItem(
             icon: Icon(Icons.home),
             label: 'Home',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.explore),
             label: 'Discover',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.add_circle_outline),
             label: 'Post',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.notifications_outlined),
+            icon: _notificationNavIcon(uid),
             label: 'Notifications',
           ),
-          BottomNavigationBarItem(
+          const BottomNavigationBarItem(
             icon: Icon(Icons.menu),
             label: 'Menu',
           ),

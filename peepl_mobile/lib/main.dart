@@ -117,15 +117,22 @@ class _AuthGateState extends State<_AuthGate> {
 
   Future<void> _redirect() async {
     final prefs = await SharedPreferences.getInstance();
-    final hasCompleted = prefs.getBool('hasCompletedOnboarding') ?? false;
+    final onboardingComplete =
+        prefs.getBool('onboarding_complete') ?? false;
     if (!mounted) return;
 
-    if (!hasCompleted) {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null && !onboardingComplete) {
+      Navigator.pushReplacementNamed(context, '/onboarding/1');
+      return;
+    }
+
+    if (!onboardingComplete) {
       Navigator.pushReplacementNamed(context, '/splash');
       return;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       Navigator.pushReplacementNamed(context, '/login');
     } else {

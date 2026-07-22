@@ -1,6 +1,11 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 class AccountInfoScreen extends StatefulWidget {
   const AccountInfoScreen({super.key});
@@ -10,555 +15,518 @@ class AccountInfoScreen extends StatefulWidget {
 }
 
 class _AccountInfoScreenState extends State<AccountInfoScreen> {
+  static const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
+  final _storage = FirebaseStorage.instance;
+  final _imagePicker = ImagePicker();
+  final _formKey = GlobalKey<FormState>();
 
-  String get _uid => _auth.currentUser?.uid ?? '';
-
-  // Editable field controllers
-  final _nameCtrl = TextEditingController();
+  final _displayNameCtrl = TextEditingController();
   final _usernameCtrl = TextEditingController();
+  final _bioCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
 
-  // Tracks which fields are currently open for editing
-  final Set<String> _editing = {};
-
-  // Original values — used to determine whether anything changed
-  String _origName = '';
-  String _origUsername = '';
-  String _origEmail = '';
-  String _origPhone = '';
-
-  // Read-only data loaded from Firestore
-  Map<String, dynamic> _userData = {};
-  int _pioneersCount = 0;
+  String? _photoUrl;
+  File? _pendingPhotoFile;
   bool _isVIPeep = false;
 
   bool _loading = true;
   bool _saving = false;
+  bool _uploadingPhoto = false;
 
-  bool get _hasChanges =>
-      _nameCtrl.text != _origName ||
-      _usernameCtrl.text != _origUsername ||
-      _emailCtrl.text != _origEmail ||
-      _phoneCtrl.text != _origPhone;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────
+  String get _uid => _auth.currentUser?.uid ?? '';
 
   @override
   void initState() {
     super.initState();
-    // Rebuild when any controller changes so _hasChanges is re-evaluated.
-    for (final ctrl in [_nameCtrl, _usernameCtrl, _emailCtrl, _phoneCtrl]) {
-      ctrl.addListener(_onFieldChange);
-    }
-    _load();
+    _bioCtrl.addListener(() => setState(() {}));
+    _loadProfile();
   }
 
   @override
   void dispose() {
-    for (final ctrl in [_nameCtrl, _usernameCtrl, _emailCtrl, _phoneCtrl]) {
-      ctrl.removeListener(_onFieldChange);
-      ctrl.dispose();
-    }
+    _displayNameCtrl.dispose();
+    _usernameCtrl.dispose();
+    _bioCtrl.dispose();
+    _emailCtrl.dispose();
     super.dispose();
   }
 
-  void _onFieldChange() => setState(() {});
+  Future<void> _loadProfile() async {
+    if (_uid.isEmpty) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
 
-  // ── Data ─────────────────────────────────────────────────────────────────
-
-  Future<void> _load() async {
     setState(() => _loading = true);
     try {
-      final results = await Future.wait<dynamic>([
-        _db.collection('users').doc(_uid).get(),
-        _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).get(),
-        _db
-            .collection('pioneers')
-            .where('userId', isEqualTo: _uid)
-            .count()
-            .get(),
-      ]);
-
-      final doc = results[0] as DocumentSnapshot<Map<String, dynamic>>;
-      final vipDoc = results[1] as DocumentSnapshot<Map<String, dynamic>>;
-      final countSnap = results[2] as AggregateQuerySnapshot;
+      final doc =
+          await _db.collection(_kUsersCollection).doc(_uid).get();
       final data = doc.data() ?? {};
       final user = _auth.currentUser;
 
-      _origName =
-          (data['name'] as String?) ?? (user?.displayName ?? '');
-      _origUsername = (data['username'] as String?) ?? '';
-      _origEmail = user?.email ?? '';
-      _origPhone = (data['phone'] as String?) ?? '';
-
-      _nameCtrl.text = _origName;
-      _usernameCtrl.text = _origUsername;
-      _emailCtrl.text = _origEmail;
-      _phoneCtrl.text = _origPhone;
+      _displayNameCtrl.text = (data['displayName'] as String?) ??
+          (data['name'] as String?) ??
+          user?.displayName ??
+          '';
+      _usernameCtrl.text = (data['username'] as String?) ?? '';
+      _bioCtrl.text = (data['bio'] as String?) ?? '';
+      _emailCtrl.text =
+          (data['email'] as String?) ?? user?.email ?? '';
 
       if (mounted) {
         setState(() {
-          _userData = data;
-          _isVIPeep = (vipDoc.data()?['isVIPeep'] as bool?) ?? false;
-          _pioneersCount = countSnap.count ?? 0;
+          _photoUrl = data['photoUrl'] as String?;
+          _isVIPeep = data['isVIPeep'] as bool? ?? false;
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('AccountInfoScreen._loadProfile: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _save() async {
-    if (!_hasChanges || _saving) return;
-    setState(() => _saving = true);
+  Future<void> _pickPhoto() async {
+    final source = await showModalBottomSheet<ImageSource>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.photo_camera_outlined),
+              title: const Text('Take photo'),
+              onTap: () => Navigator.pop(ctx, ImageSource.camera),
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from gallery'),
+              onTap: () => Navigator.pop(ctx, ImageSource.gallery),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (source == null || !mounted) return;
 
     try {
-      final user = _auth.currentUser!;
-      final updates = <String, dynamic>{};
+      final picked = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      if (picked == null || !mounted) return;
+      setState(() => _pendingPhotoFile = File(picked.path));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not pick image: $e')),
+        );
+      }
+    }
+  }
 
-      if (_nameCtrl.text.trim() != _origName) {
-        updates['name'] = _nameCtrl.text.trim();
-        await user.updateDisplayName(_nameCtrl.text.trim());
-      }
-      if (_usernameCtrl.text.trim() != _origUsername) {
-        updates['username'] = _usernameCtrl.text.trim();
-      }
-      if (_phoneCtrl.text.trim() != _origPhone) {
-        updates['phone'] = _phoneCtrl.text.trim();
-      }
-      if (updates.isNotEmpty) {
-        final batch = _db.batch();
-        batch.update(_db.collection('users').doc(_uid), updates);
-        await batch.commit();
+  Future<String?> _uploadProfilePhoto() async {
+    if (_pendingPhotoFile == null) return _photoUrl;
+
+    setState(() => _uploadingPhoto = true);
+    try {
+      final ref = _storage.ref('profile_photos/$_uid.jpg');
+      await ref.putFile(_pendingPhotoFile!);
+      return await ref.getDownloadURL();
+    } finally {
+      if (mounted) setState(() => _uploadingPhoto = false);
+    }
+  }
+
+  bool _isValidEmail(String value) {
+    return RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim());
+  }
+
+  String? _validateUsername(String? value) {
+    final text = value?.trim() ?? '';
+    if (text.isEmpty) return 'Username is required';
+    if (text.contains(' ')) return 'Username cannot contain spaces';
+    if (text != text.toLowerCase()) {
+      return 'Username must be lowercase only';
+    }
+    if (!RegExp(r'^[a-z0-9_\.]+$').hasMatch(text)) {
+      return 'Use lowercase letters, numbers, underscores, or dots';
+    }
+    return null;
+  }
+
+  Future<void> _saveProfile() async {
+    if (_uid.isEmpty || _saving) return;
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _saving = true);
+    try {
+      final photoUrl = await _uploadProfilePhoto();
+      final updates = <String, dynamic>{
+        'displayName': _displayNameCtrl.text.trim(),
+        'username': _usernameCtrl.text.trim(),
+        'bio': _bioCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
+      };
+      if (photoUrl != null) {
+        updates['photoUrl'] = photoUrl;
       }
 
-      // Email change: send verification to the new address first.
-      if (_emailCtrl.text.trim() != _origEmail &&
-          _emailCtrl.text.trim().isNotEmpty) {
-        await user.verifyBeforeUpdateEmail(_emailCtrl.text.trim());
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Verification email sent — check your inbox to confirm the change.',
-              ),
-              duration: Duration(seconds: 5),
-            ),
+      await _db.collection(_kUsersCollection).doc(_uid).set(
+            updates,
+            SetOptions(merge: true),
           );
-        }
-      }
 
-      _origName = _nameCtrl.text;
-      _origUsername = _usernameCtrl.text;
-      _origEmail = _emailCtrl.text;
-      _origPhone = _phoneCtrl.text;
-      _editing.clear();
+      final user = _auth.currentUser;
+      if (user != null &&
+          _displayNameCtrl.text.trim().isNotEmpty &&
+          user.displayName != _displayNameCtrl.text.trim()) {
+        await user.updateDisplayName(_displayNameCtrl.text.trim());
+      }
 
       if (mounted) {
-        setState(() => _saving = false);
+        setState(() {
+          _photoUrl = photoUrl ?? _photoUrl;
+          _pendingPhotoFile = null;
+          _saving = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Changes saved.')),
+          const SnackBar(content: Text('Profile updated!')),
         );
       }
     } catch (e) {
       if (mounted) {
         setState(() => _saving = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to save: $e')),
+          SnackBar(content: Text('Failed to save profile: $e')),
         );
       }
     }
   }
 
-  Future<void> _resetPassword() async {
-    final email = _auth.currentUser?.email;
-    if (email == null || email.isEmpty) return;
+  Future<void> _changePassword() async {
+    final email = _auth.currentUser?.email ?? _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No email address on file')),
+      );
+      return;
+    }
+
     try {
       await _auth.sendPasswordResetEmail(email: email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Password reset email sent to $email')),
+          const SnackBar(content: Text('Password reset email sent')),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Failed to send reset email. Try again.'),
-          ),
+          SnackBar(content: Text('Failed to send reset email: $e')),
         );
       }
     }
   }
 
-  // ── Formatting ────────────────────────────────────────────────────────────
-
-  static String _formatDate(DateTime? dt) {
-    if (dt == null) return 'Unknown';
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-    ];
-    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-  }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTopBar(context),
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
+      backgroundColor: const Color(0xFFF6F7FB),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1565C0),
+        foregroundColor: Colors.white,
+        title: const Text(
+          'Account Info',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
+        actions: [
+          TextButton(
+            onPressed: (_saving || _uploadingPhoto || _loading)
+                ? null
+                : _saveProfile,
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Save',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : _uid.isEmpty
+              ? const Center(
+                  child: Text('Please sign in to edit your profile.'),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+                  child: Form(
+                    key: _formKey,
+                    child: Column(
+                      children: [
+                        _buildAvatarSection(),
+                        if (_isVIPeep) ...[
+                          const SizedBox(height: 16),
+                          _buildVIPBadge(),
+                        ],
+                        const SizedBox(height: 28),
+                        _buildTextField(
+                          label: 'Display Name',
+                          controller: _displayNameCtrl,
+                          textInputAction: TextInputAction.next,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Username',
+                          controller: _usernameCtrl,
+                          textInputAction: TextInputAction.next,
+                          validator: _validateUsername,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                            TextInputFormatter.withFunction(
+                              (oldValue, newValue) => TextEditingValue(
+                                text: newValue.text.toLowerCase(),
+                                selection: newValue.selection,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Bio',
+                          controller: _bioCtrl,
+                          maxLines: 4,
+                          maxLength: 150,
+                          textInputAction: TextInputAction.newline,
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                          label: 'Email',
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.done,
+                          validator: (value) {
+                            final text = value?.trim() ?? '';
+                            if (text.isEmpty) return 'Email is required';
+                            if (!_isValidEmail(text)) {
+                              return 'Enter a valid email address';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 24),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _changePassword,
+                            icon: const Icon(Icons.lock_outline),
+                            label: const Text('Change Password'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF1565C0),
+                              side: const BorderSide(color: Color(0xFF1565C0)),
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                clipBehavior: Clip.antiAlias,
-                child: _loading
-                    ? const Center(child: CircularProgressIndicator())
-                    : _buildBody(),
+    );
+  }
+
+  Widget _buildAvatarSection() {
+    return GestureDetector(
+      onTap: _uploadingPhoto ? null : _pickPhoto,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CircleAvatar(
+            radius: 56,
+            backgroundColor: const Color(0xFF1565C0),
+            backgroundImage: _pendingPhotoFile != null
+                ? FileImage(_pendingPhotoFile!)
+                : (_photoUrl != null && _photoUrl!.isNotEmpty
+                    ? NetworkImage(_photoUrl!)
+                    : null),
+            child: (_pendingPhotoFile == null &&
+                    (_photoUrl == null || _photoUrl!.isEmpty))
+                ? Text(
+                    _displayNameCtrl.text.isNotEmpty
+                        ? _displayNameCtrl.text[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  )
+                : null,
+          ),
+          if (_uploadingPhoto)
+            const SizedBox(
+              width: 112,
+              height: 112,
+              child: ColoredBox(
+                color: Color(0x66000000),
+                child: Center(
+                  child: CircularProgressIndicator(color: Colors.white),
+                ),
               ),
             ),
+          Positioned(
+            right: 4,
+            bottom: 4,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: const Color(0xFF1565C0),
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 2),
+              ),
+              child: const Icon(
+                Icons.camera_alt,
+                color: Colors.white,
+                size: 18,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVIPBadge() {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/vip_peeps'),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFFFD700), Color(0xFFB8860B)],
+          ),
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.amber.withValues(alpha: 0.35),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.star, color: Colors.white, size: 18),
+            SizedBox(width: 6),
+            Text(
+              'VIPeep',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
+              ),
+            ),
+            SizedBox(width: 4),
+            Icon(Icons.chevron_right, color: Colors.white, size: 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTopBar(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(4, 12, 16, 4),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const Text(
-            'Account Info',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildBody() {
-    final user = _auth.currentUser;
-    final memberSince = _formatDate(user?.metadata.creationTime);
-    final rating =
-        (_userData['rating'] as num?)?.toStringAsFixed(1) ?? '—';
-    final isVip = _isVIPeep;
-    final pioneerLabel =
-        '$_pioneersCount ${_pioneersCount == 1 ? 'pioneer venue' : 'pioneer venues'}';
-
+  Widget _buildTextField({
+    required String label,
+    required TextEditingController controller,
+    String? Function(String?)? validator,
+    List<TextInputFormatter>? inputFormatters,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+    int maxLines = 1,
+    int? maxLength,
+  }) {
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: ListView(
-            padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-            children: [
-              // ── PROFILE (editable) ─────────────────────────────────────
-              _sectionLabel('PROFILE'),
-              _buildInfoCard(children: [
-                _editableRow(
-                  label: 'Name',
-                  field: 'name',
-                  ctrl: _nameCtrl,
-                ),
-                _divider(),
-                _editableRow(
-                  label: 'Username',
-                  field: 'username',
-                  ctrl: _usernameCtrl,
-                ),
-                _divider(),
-                _editableRow(
-                  label: 'Email',
-                  field: 'email',
-                  ctrl: _emailCtrl,
-                  keyboardType: TextInputType.emailAddress,
-                ),
-                _divider(),
-                _editableRow(
-                  label: 'Phone',
-                  field: 'phone',
-                  ctrl: _phoneCtrl,
-                  keyboardType: TextInputType.phone,
-                ),
-                _divider(),
-                _passwordRow(),
-              ]),
-
-              const SizedBox(height: 24),
-
-              // ── ACCOUNT DETAILS (read-only) ────────────────────────────
-              _sectionLabel('ACCOUNT DETAILS'),
-              _buildInfoCard(children: [
-                _readOnlyRow(label: 'Member Since', value: memberSince),
-                _divider(),
-                _readOnlyRow(label: 'Peepl Rating', value: rating),
-                _divider(),
-                _readOnlyRow(
-                  label: 'Pioneer Status',
-                  value: pioneerLabel,
-                ),
-                _divider(),
-                _readOnlyRow(
-                  label: 'VIPeeps',
-                  value: isVip ? 'Active ⭐' : 'Inactive',
-                  valueColor:
-                      isVip ? const Color(0xFFB8860B) : Colors.black54,
-                ),
-                _divider(),
-                _readOnlyRow(
-                  label: 'Linked Accounts',
-                  value: 'Not connected',
-                  valueColor: Colors.black38,
-                ),
-              ]),
-
-              const SizedBox(height: 16),
-            ],
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey.shade700,
           ),
         ),
-
-        // ── Save Changes button ────────────────────────────────────────
-        AnimatedSize(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeInOut,
-          child: _hasChanges
-              ? Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1565C0),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: _saving ? null : _save,
-                      child: _saving
-                          ? const SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Text(
-                              'Save Changes',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
+        const SizedBox(height: 8),
+        TextFormField(
+          controller: controller,
+          validator: validator,
+          inputFormatters: inputFormatters,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+          maxLines: maxLines,
+          maxLength: maxLength,
+          buildCounter: maxLength != null
+              ? (
+                  context, {
+                  required currentLength,
+                  required isFocused,
+                  maxLength,
+                }) =>
+                  Text(
+                    '$currentLength/$maxLength',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
                     ),
-                  ),
-                )
-              : const SizedBox.shrink(),
+                  )
+              : null,
+          decoration: InputDecoration(
+            filled: true,
+            fillColor: Colors.white,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: Colors.grey.shade300),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+            ),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
+          ),
         ),
       ],
     );
   }
-
-  // ── Row builders ──────────────────────────────────────────────────────────
-
-  Widget _buildInfoCard({required List<Widget> children}) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(children: children),
-    );
-  }
-
-  Widget _editableRow({
-    required String label,
-    required String field,
-    required TextEditingController ctrl,
-    TextInputType? keyboardType,
-  }) {
-    final isEditing = _editing.contains(field);
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 86,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: isEditing
-                ? TextField(
-                    controller: ctrl,
-                    keyboardType: keyboardType,
-                    autofocus: true,
-                    style: const TextStyle(fontSize: 14),
-                    decoration: const InputDecoration(
-                      isDense: true,
-                      contentPadding: EdgeInsets.symmetric(
-                        vertical: 6,
-                        horizontal: 8,
-                      ),
-                      border: OutlineInputBorder(),
-                    ),
-                  )
-                : Text(
-                    ctrl.text.isEmpty ? '—' : ctrl.text,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-          ),
-          const SizedBox(width: 10),
-          GestureDetector(
-            onTap: () => setState(() {
-              if (isEditing) {
-                _editing.remove(field);
-              } else {
-                _editing.add(field);
-              }
-            }),
-            child: Text(
-              isEditing ? 'Done' : '(edit)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: isEditing ? Colors.green : const Color(0xFF1565C0),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _passwordRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 86,
-            child: Text(
-              'Password',
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          const Expanded(
-            child: Text(
-              '••••••••',
-              style: TextStyle(fontSize: 14, color: Colors.black38),
-            ),
-          ),
-          GestureDetector(
-            onTap: _resetPassword,
-            child: const Text(
-              '(reset)',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _readOnlyRow({
-    required String label,
-    required String value,
-    Color? valueColor,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 130,
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: 13,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: TextStyle(
-                fontSize: 14,
-                color: valueColor ?? Colors.black87,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _sectionLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Text(
-        text,
-        style: TextStyle(
-          fontSize: 11,
-          fontWeight: FontWeight.w700,
-          color: Colors.grey[500],
-          letterSpacing: 1.2,
-        ),
-      ),
-    );
-  }
-
-  Widget _divider() => Divider(
-        height: 1,
-        thickness: 1,
-        color: Colors.grey.shade200,
-      );
 }

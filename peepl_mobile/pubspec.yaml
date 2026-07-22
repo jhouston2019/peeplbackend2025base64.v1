@@ -43,7 +43,7 @@ dependencies:
   flutter_local_notifications: ^17.2.4
   http: ^1.1.0
   shared_preferences: ^2.3.0
-  image_picker: ^1.0.7
+  image_picker: ^1.1.0
   video_player: ^2.9.2
   geolocator: ^13.0.0
   geofence_service: ^4.0.0
