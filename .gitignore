@@ -229,6 +229,7 @@ yarn-error.log
 
 # Local Netlify folder
 .netlify*.p8
+*.p8
 *.p12
 *.mobileprovision
 *.cer
