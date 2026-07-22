@@ -1,20 +1,30 @@
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/ad_cadence_service.dart';
-import '../services/location_service.dart';
-import '../services/native_ads_service.dart';
-import '../widgets/ad_card.dart';
-import '../widgets/crowd_dot_ring_meter.dart';
+import '../services/crowdsource_service.dart';
+import '../widgets/crowd_meter.dart';
+import 'location_detail_screen.dart';
 
-// ─── Mode enum ────────────────────────────────────────────────────────────────
-enum _Mode { nearMe, newCity, specificVenue }
+const _kRecentRequestsKey = 'recent_requests';
+const _kMaxRecent = 8;
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+class _SelectedLocation {
+  final String locationName;
+  final String locationId;
+  final double latitude;
+  final double longitude;
+
+  const _SelectedLocation({
+    required this.locationName,
+    required this.locationId,
+    required this.latitude,
+    required this.longitude,
+  });
+}
 
 class GetPeepsScreen extends StatefulWidget {
   const GetPeepsScreen({super.key});
@@ -24,793 +34,823 @@ class GetPeepsScreen extends StatefulWidget {
 }
 
 class _GetPeepsScreenState extends State<GetPeepsScreen> {
-  // ── Mode ─────────────────────────────────────────────────────────────────────
-  _Mode _mode = _Mode.nearMe;
-
-  // ── Controllers ───────────────────────────────────────────────────────────────
-  final TextEditingController _cityCtrl = TextEditingController();
-  final TextEditingController _venueCtrl = TextEditingController();
+  final _db = FirebaseFirestore.instance;
+  final _searchController = TextEditingController();
   Timer? _debounce;
 
-  // ── User location ─────────────────────────────────────────────────────────────
-  double? _userLat;
-  double? _userLng;
+  List<String> _recentRequests = [];
+  List<Map<String, dynamic>> _searchResults = [];
+  _SelectedLocation? _selected;
+  bool _searchLoading = false;
+  bool _sending = false;
+  String _searchTerm = '';
 
-  // ── Ads ───────────────────────────────────────────────────────────────────────
-  final NativeAdsService _adsService = NativeAdsService();
-  final AdCadenceService _cadence = AdCadenceService();
-  List<Map<String, dynamic>> _ads = [];
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
-  // ── Mode 1 — Near Me ──────────────────────────────────────────────────────────
-  List<Map<String, dynamic>> _nearMeVenues = [];
-  bool _nearMeLoading = false;
-  String? _nearMeError;
-
-  // ── Mode 2 — New City ─────────────────────────────────────────────────────────
-  List<Map<String, dynamic>> _cityVenues = [];
-  bool _cityLoading = false;
-  String _cityQueried = '';
-  bool _citySearched = false;
-  String? _cityError;
-
-  // ── Mode 3 — Specific Venue ───────────────────────────────────────────────────
-  List<Map<String, dynamic>> _venueResults = [];
-  bool _venueLoading = false;
-  String _venueTerm = '';
-  String? _venueError;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────────
   @override
   void initState() {
     super.initState();
-    _loadNearMe();
-    _initAds();
+    _loadRecentRequests();
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _cityCtrl.dispose();
-    _venueCtrl.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
-  // ── Ads ───────────────────────────────────────────────────────────────────────
-  Future<void> _initAds() async {
-    await _cadence.init();
+  Future<void> _loadRecentRequests() async {
     try {
-      final ads =
-          await _adsService.getAdsForFeed(context: 'get_peeps', limit: 3);
-      if (mounted) setState(() => _ads = ads);
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_kRecentRequestsKey) ?? [];
+      if (mounted) setState(() => _recentRequests = raw);
     } catch (e) {
-      debugPrint('GetPeepsScreen ads: $e');
+      debugPrint('GetPeepsScreen recent_requests: $e');
     }
   }
 
-  // ── Mode 1 loading ────────────────────────────────────────────────────────────
-  Future<void> _loadNearMe({bool refresh = false}) async {
-    if (_nearMeLoading) return;
-    setState(() {
-      _nearMeLoading = true;
-      _nearMeError = null;
-    });
+  Future<void> _saveRecentRequest(String locationName) async {
+    final name = locationName.trim();
+    if (name.isEmpty) return;
+    final updated = [name, ..._recentRequests.where((r) => r != name)]
+        .take(_kMaxRecent)
+        .toList();
+    setState(() => _recentRequests = updated);
     try {
-      if (refresh) LocationService.clearCache();
-      final pos = await LocationService.getCurrentLocation();
-      if (mounted) {
-        _userLat = pos?.latitude;
-        _userLng = pos?.longitude;
-      }
-
-      final snap = await FirebaseFirestore.instance
-          .collection('location_posts')
-          .orderBy('timestamp', descending: true)
-          .limit(30)
-          .get();
-
-      final venues = _groupByVenue(snap.docs);
-
-      if (_userLat != null && _userLng != null) {
-        for (final v in venues) {
-          final lat = (v['latitude'] as num?)?.toDouble();
-          final lng = (v['longitude'] as num?)?.toDouble();
-          if (lat != null && lng != null && !(lat == 0 && lng == 0)) {
-            v['_distanceM'] = _haversineM(_userLat!, _userLng!, lat, lng);
-          }
-        }
-        venues.sort((a, b) {
-          final da = a['_distanceM'] as double?;
-          final db = b['_distanceM'] as double?;
-          if (da == null && db == null) return 0;
-          if (da == null) return 1;
-          if (db == null) return -1;
-          return da.compareTo(db);
-        });
-      }
-
-      if (mounted) setState(() {
-        _nearMeVenues = venues;
-        _nearMeLoading = false;
-      });
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setStringList(_kRecentRequestsKey, updated);
     } catch (e) {
-      if (mounted) setState(() {
-        _nearMeError = e.toString();
-        _nearMeLoading = false;
-      });
+      debugPrint('GetPeepsScreen save recent: $e');
     }
   }
 
-  // ── Mode 2 loading ────────────────────────────────────────────────────────────
-  Future<void> _searchCity(String city) async {
-    final term = city.trim();
-    if (term.isEmpty) return;
-    FocusScope.of(context).unfocus();
-    setState(() {
-      _cityLoading = true;
-      _cityQueried = term;
-      _citySearched = true;
-    });
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('location_posts')
-          .where('city', isGreaterThanOrEqualTo: term)
-          .where('city', isLessThanOrEqualTo: '$term\uf8ff')
-          .orderBy('city')
-          .limit(50)
-          .get();
-      if (mounted) setState(() {
-        _cityVenues = _groupByVenue(snap.docs);
-        _cityLoading = false;
-        _cityError = null;
-      });
-    } catch (e) {
-      if (mounted) setState(() {
-        _cityVenues = [];
-        _cityLoading = false;
-        _cityError = 'Could not load results';
-      });
-      debugPrint('GetPeepsScreen city search: $e');
-    }
-  }
-
-  // ── Mode 3 loading ────────────────────────────────────────────────────────────
-  void _onVenueTyped(String value) {
+  void _onSearchChanged(String value) {
     _debounce?.cancel();
     final term = value.trim();
-    setState(() => _venueTerm = term);
+    setState(() => _searchTerm = term);
     if (term.isEmpty) {
-      setState(() => _venueResults = []);
+      setState(() => _searchResults = []);
       return;
     }
-    _debounce =
-        Timer(const Duration(milliseconds: 450), () => _searchVenues(term));
+    _debounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _searchLocations(term),
+    );
   }
 
-  Future<void> _searchVenues(String term) async {
-    setState(() => _venueLoading = true);
+  Future<void> _searchLocations(String term) async {
+    setState(() => _searchLoading = true);
     try {
-      final snap = await FirebaseFirestore.instance
+      final snap = await _db
           .collection('location_posts')
           .where('locationName', isGreaterThanOrEqualTo: term)
           .where('locationName', isLessThanOrEqualTo: '$term\uf8ff')
           .orderBy('locationName')
-          .limit(30)
+          .limit(20)
           .get();
-      if (mounted) setState(() {
-        _venueResults = _groupByVenue(snap.docs);
-        _venueLoading = false;
-        _venueError = null;
-      });
-    } catch (e) {
-      if (mounted) setState(() {
-        _venueResults = [];
-        _venueLoading = false;
-        _venueError = 'Could not load results';
-      });
-      debugPrint('GetPeepsScreen venue search: $e');
-    }
-  }
 
-  // ── Refresh ───────────────────────────────────────────────────────────────────
-  Future<void> _onRefresh() async {
-    switch (_mode) {
-      case _Mode.nearMe:
-        await _loadNearMe(refresh: true);
-      case _Mode.newCity:
-        if (_cityQueried.isNotEmpty) await _searchCity(_cityQueried);
-      case _Mode.specificVenue:
-        if (_venueTerm.isNotEmpty) await _searchVenues(_venueTerm);
-    }
-  }
-
-  // ── Mode switch ───────────────────────────────────────────────────────────────
-  void _setMode(_Mode mode) {
-    if (_mode == mode) return;
-    _debounce?.cancel();
-    setState(() {
-      _mode = mode;
-      if (mode == _Mode.nearMe && _nearMeVenues.isEmpty && !_nearMeLoading) {
-        _loadNearMe();
+      final byName = <String, Map<String, dynamic>>{};
+      for (final doc in snap.docs) {
+        final data = {...doc.data(), 'id': doc.id};
+        final name = data['locationName'] as String? ?? '';
+        if (name.isNotEmpty) byName.putIfAbsent(name, () => data);
       }
+
+      if (mounted) {
+        setState(() {
+          _searchResults = byName.values.toList();
+          _searchLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('GetPeepsScreen search: $e');
+      if (mounted) {
+        setState(() {
+          _searchResults = [];
+          _searchLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _selectFromPost(Map<String, dynamic> post) async {
+    final name = post['locationName'] as String? ?? '';
+    if (name.isEmpty) return;
+    _searchController.text = name;
+    setState(() {
+      _selected = _SelectedLocation(
+        locationName: name,
+        locationId: post['id'] as String? ?? name,
+        latitude: (post['latitude'] as num?)?.toDouble() ?? 0.0,
+        longitude: (post['longitude'] as num?)?.toDouble() ?? 0.0,
+      );
+      _searchResults = [];
+      _searchTerm = name;
     });
+    FocusScope.of(context).unfocus();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────────
-  List<Map<String, dynamic>> _groupByVenue(List<QueryDocumentSnapshot> docs) {
-    final byVenue = <String, Map<String, dynamic>>{};
-    final counts = <String, int>{};
-    for (final doc in docs) {
-      final data = {'id': doc.id, ...(doc.data() as Map<String, dynamic>)};
-      final name = data['locationName'] as String? ?? '';
-      if (name.isEmpty) continue;
-      byVenue.putIfAbsent(name, () => data);
-      counts[name] = (counts[name] ?? 0) + 1;
+  Future<void> _selectByName(String name) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) return;
+
+    _searchController.text = trimmed;
+    setState(() => _searchLoading = true);
+
+    try {
+      final snap = await _db
+          .collection('location_posts')
+          .where('locationName', isEqualTo: trimmed)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      double lat = 0;
+      double lng = 0;
+      String locationId = trimmed;
+      if (snap.docs.isNotEmpty) {
+        final data = snap.docs.first.data();
+        lat = (data['latitude'] as num?)?.toDouble() ?? 0;
+        lng = (data['longitude'] as num?)?.toDouble() ?? 0;
+        locationId = snap.docs.first.id;
+      }
+
+      if (mounted) {
+        setState(() {
+          _selected = _SelectedLocation(
+            locationName: trimmed,
+            locationId: locationId,
+            latitude: lat,
+            longitude: lng,
+          );
+          _searchResults = [];
+          _searchTerm = trimmed;
+          _searchLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _selected = _SelectedLocation(
+            locationName: trimmed,
+            locationId: trimmed,
+            latitude: 0,
+            longitude: 0,
+          );
+          _searchLoading = false;
+        });
+      }
     }
-    return byVenue.entries
-        .map((e) => {...e.value, 'peepCount': counts[e.key] ?? 1})
-        .toList();
+    if (mounted) FocusScope.of(context).unfocus();
   }
 
-  static double _haversineM(
-      double lat1, double lon1, double lat2, double lon2) {
-    const r = 6371000.0;
-    final p1 = lat1 * math.pi / 180;
-    final p2 = lat2 * math.pi / 180;
-    final dl = (lat2 - lat1) * math.pi / 180;
-    final dn = (lon2 - lon1) * math.pi / 180;
-    final a = math.sin(dl / 2) * math.sin(dl / 2) +
-        math.cos(p1) * math.cos(p2) * math.sin(dn / 2) * math.sin(dn / 2);
-    return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
+  Future<void> _sendRequest() async {
+    final loc = _selected;
+    if (loc == null || _uid.isEmpty || _sending) return;
+
+    setState(() => _sending = true);
+    try {
+      final requestId = await CrowdsourceService.instance.createRequest(
+        locationId: loc.locationId,
+        locationName: loc.locationName,
+        latitude: loc.latitude,
+        longitude: loc.longitude,
+      );
+
+      if (!mounted) return;
+
+      if (requestId != null) {
+        await _saveRecentRequest(loc.locationName);
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Request sent! We'll notify you when someone responds.",
+            ),
+            backgroundColor: Color(0xFF1565C0),
+          ),
+        );
+        setState(() {
+          _selected = null;
+          _searchController.clear();
+          _searchTerm = '';
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send request. Try again.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
   }
 
-  static String _formatDist(double m) {
-    final mi = m * 0.000621371;
-    if (mi < 0.1) return '${(m * 3.28084).round()} ft';
-    if (mi < 10) return '${mi.toStringAsFixed(1)} mi';
-    return '${mi.round()} mi';
+  static String _statusLabel(String? status) {
+    if (status == 'pending') return 'Pending';
+    if (status == 'fulfilled' || status == 'responded') return 'Responded';
+    return status ?? 'Unknown';
   }
 
-  static LinearGradient _categoryGradient(String? category) {
-    final c = (category ?? '').toLowerCase();
-    if (c.contains('bar') || c.contains('brew')) {
-      return const LinearGradient(
-          colors: [Color(0xFF1A0535), Color(0xFF3D1A6E)]);
+  static Color _statusColor(String? status) {
+    if (status == 'pending') return const Color(0xFFFFA726);
+    if (status == 'fulfilled' || status == 'responded') {
+      return const Color(0xFF4CAF50);
     }
-    if (c.contains('restaurant') || c.contains('cafe')) {
-      return const LinearGradient(
-          colors: [Color(0xFF7B1900), Color(0xFFBF360C)]);
-    }
-    if (c.contains('park') || c.contains('beach')) {
-      return const LinearGradient(
-          colors: [Color(0xFF1B5E20), Color(0xFF388E3C)]);
-    }
-    if (c.contains('gym') || c.contains('spa')) {
-      return const LinearGradient(
-          colors: [Color(0xFF006064), Color(0xFF00838F)]);
-    }
-    if (c.contains('mall') || c.contains('grocery')) {
-      return const LinearGradient(
-          colors: [Color(0xFF4A148C), Color(0xFF7B1FA2)]);
-    }
-    return const LinearGradient(
-        colors: [Color(0xFF2244EE), Color(0xFF1565C0)]);
+    return Colors.grey;
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────────
+  static String _formatTimestamp(dynamic ts) {
+    if (ts is! Timestamp) return '';
+    final dt = ts.toDate();
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${dt.month}/${dt.day}';
+  }
+
+  static int _compareDocTimestamp(
+    QueryDocumentSnapshot a,
+    QueryDocumentSnapshot b,
+  ) {
+    final ta = (a.data() as Map<String, dynamic>?)?['timestamp'];
+    final tb = (b.data() as Map<String, dynamic>?)?['timestamp'];
+    if (ta is Timestamp && tb is Timestamp) return tb.compareTo(ta);
+    return 0;
+  }
+
+  Future<void> _openResponse(Map<String, dynamic> response) async {
+    final postId = response['postId'] as String?;
+    if (postId == null || postId.isEmpty) return;
+
+    try {
+      final postDoc = await _db.collection('location_posts').doc(postId).get();
+      if (!mounted) return;
+
+      final postData = postDoc.exists
+          ? {...postDoc.data()!, 'id': postDoc.id}
+          : <String, dynamic>{
+              'id': postId,
+              'locationName': response['locationName'],
+              'crowdingLevel': response['crowdingLevel'],
+              'latitude': response['latitude'],
+              'longitude': response['longitude'],
+            };
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute<void>(
+          builder: (context) => LocationDetailScreen(postData: postData),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open post: $e')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      body: Column(
-        children: [
-          _buildHeader(),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: _onRefresh,
-              child: switch (_mode) {
-                _Mode.nearMe => _buildNearMeList(),
-                _Mode.newCity => _buildNewCityList(),
-                _Mode.specificVenue => _buildSpecificVenueList(),
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Header ────────────────────────────────────────────────────────────────────
-  Widget _buildHeader() {
-    final topPad = MediaQuery.of(context).padding.top;
-    return Container(
-      color: const Color(0xFF2244EE),
-      padding: EdgeInsets.fromLTRB(16, topPad + 12, 16, 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              GestureDetector(
-                onTap: () => Navigator.pop(context),
-                child: const Icon(Icons.arrow_back, color: Colors.white, size: 22),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Find Peeps',
-                style: TextStyle(
+      backgroundColor: const Color(0xFF1565C0),
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildHeader(context),
+            _buildSearchBar(),
+            Expanded(
+              child: Container(
+                decoration: const BoxDecoration(
                   color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              _ModePill(
-                label: 'Near Me',
-                selected: _mode == _Mode.nearMe,
-                onTap: () => _setMode(_Mode.nearMe),
-              ),
-              const SizedBox(width: 6),
-              _ModePill(
-                label: 'New City',
-                selected: _mode == _Mode.newCity,
-                onTap: () => _setMode(_Mode.newCity),
-              ),
-              const SizedBox(width: 6),
-              _ModePill(
-                label: 'Specific Venue',
-                selected: _mode == _Mode.specificVenue,
-                onTap: () => _setMode(_Mode.specificVenue),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Mode lists ────────────────────────────────────────────────────────────────
-  Widget _buildNearMeList() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 20),
-      children: [
-        if (_nearMeLoading)
-          const SizedBox(
-            height: 240,
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_nearMeError != null)
-          _buildErrorWidget('Could not load nearby peeps. Pull to retry.')
-        else ...[
-          _buildSectionHeader(
-            'What\'s happening near you',
-            count: _nearMeVenues.length,
-          ),
-          if (_nearMeVenues.isEmpty)
-            _buildEmptyWidget('No recent peeps found near you.'),
-          ..._nearMeVenues.map(_buildVenueCard),
-          _buildAdSlot(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildNewCityList() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 20),
-      children: [
-        _buildSearchField(
-          controller: _cityCtrl,
-          hint: 'Enter a city...',
-          icon: Icons.location_city_outlined,
-          onChanged: (_) => setState(() {}),
-          onSubmitted: _searchCity,
-          onClear: () => setState(() {
-            _cityCtrl.clear();
-            _cityVenues = [];
-            _citySearched = false;
-            _cityQueried = '';
-          }),
-        ),
-        if (_cityLoading)
-          const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_cityError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: Column(
-              children: [
-                Text(_cityError!,
-                    style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => _searchCity(_cityQueried),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          )
-        else if (_citySearched) ...[
-          _buildSectionHeader(
-            _cityVenues.isEmpty
-                ? 'No Peeps found in $_cityQueried'
-                : 'Near $_cityQueried',
-            count: _cityVenues.isEmpty ? null : _cityVenues.length,
-          ),
-          if (_cityVenues.isEmpty)
-            _buildEmptyWidget(
-                'Try a different city name or check the spelling.'),
-          ..._cityVenues.map(_buildVenueCard),
-          if (_cityVenues.isNotEmpty) _buildAdSlot(),
-        ] else
-          _buildHintWidget(
-            icon: Icons.location_city_outlined,
-            text: 'Enter a city name and press Search',
-          ),
-      ],
-    );
-  }
-
-  Widget _buildSpecificVenueList() {
-    return ListView(
-      physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.only(bottom: 20),
-      children: [
-        _buildSearchField(
-          controller: _venueCtrl,
-          hint: 'Search for a venue...',
-          icon: Icons.search,
-          onChanged: _onVenueTyped,
-          onClear: () {
-            _venueCtrl.clear();
-            _onVenueTyped('');
-          },
-        ),
-        if (_venueLoading)
-          const SizedBox(
-            height: 200,
-            child: Center(child: CircularProgressIndicator()),
-          )
-        else if (_venueError != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-            child: Column(
-              children: [
-                Text(_venueError!,
-                    style: const TextStyle(color: Colors.red)),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed: () => _searchVenues(_venueTerm),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          )
-        else if (_venueTerm.isNotEmpty) ...[
-          _buildSectionHeader(
-            _venueResults.isEmpty
-                ? 'No venues found for "$_venueTerm"'
-                : 'Matching "$_venueTerm"',
-            count: _venueResults.isEmpty ? null : _venueResults.length,
-          ),
-          if (_venueResults.isEmpty)
-            _buildEmptyWidget('Try a different name or partial spelling.'),
-          ..._venueResults.map(_buildVenueCard),
-          if (_venueResults.isNotEmpty) _buildAdSlot(),
-        ] else
-          _buildHintWidget(
-            icon: Icons.storefront_outlined,
-            text: 'Start typing to search for a venue',
-          ),
-      ],
-    );
-  }
-
-  // ── UI building blocks ────────────────────────────────────────────────────────
-  Widget _buildSearchField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    ValueChanged<String>? onChanged,
-    ValueChanged<String>? onSubmitted,
-    VoidCallback? onClear,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-      child: TextField(
-        controller: controller,
-        textInputAction: onSubmitted != null
-            ? TextInputAction.search
-            : TextInputAction.done,
-        onChanged: onChanged,
-        onSubmitted: onSubmitted,
-        decoration: InputDecoration(
-          hintText: hint,
-          prefixIcon: Icon(icon, color: const Color(0xFF2244EE), size: 20),
-          suffixIcon: controller.text.isNotEmpty
-              ? IconButton(
-                  icon:
-                      const Icon(Icons.clear, size: 18, color: Colors.grey),
-                  onPressed: onClear,
-                )
-              : null,
-          filled: true,
-          fillColor: Colors.white,
-          contentPadding:
-              const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(color: Colors.grey.shade200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide:
-                const BorderSide(color: Color(0xFF2244EE), width: 1.5),
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSectionHeader(String text, {int? count}) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1A1A1A),
-              ),
-            ),
-          ),
-          if (count != null)
-            Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color:
-                    const Color(0xFF2244EE).withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$count venue${count == 1 ? '' : 's'}',
-                style: const TextStyle(
-                  color: Color(0xFF2244EE),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVenueCard(Map<String, dynamic> venue) {
-    final name = venue['locationName'] as String? ?? 'Unknown Venue';
-    final imageUrl = venue['imageUrl'] as String? ?? '';
-    final crowdLevel = (venue['crowdingLevel'] as num?)?.toInt() ?? 0;
-    final distM = venue['_distanceM'] as double?;
-    final peepCount = (venue['peepCount'] as int?) ?? 1;
-    final category = venue['venueType'] as String?;
-
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/venue', arguments: venue),
-      child: Container(
-        height: 80,
-        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-        decoration:
-            BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              // Background — image with gradient fallback
-              if (imageUrl.isNotEmpty)
-                Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => DecoratedBox(
-                    decoration: BoxDecoration(
-                        gradient: _categoryGradient(category)),
-                  ),
-                )
-              else
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                      gradient: _categoryGradient(category)),
-                ),
-              // Readability overlay: left-to-right dark fade
-              const DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [Color(0xCC000000), Color(0x55000000)],
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(24),
+                    topRight: Radius.circular(24),
                   ),
                 ),
-              ),
-              // Top-right: crowd ring
-              Positioned(
-                top: 4,
-                right: 8,
-                child: CrowdDotRingMeter(level: crowdLevel, size: 38),
-              ),
-              // Bottom-left: venue name
-              Positioned(
-                left: 10,
-                bottom: 8,
-                right: 62,
-                child: Text(
-                  name,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 4,
-                          color: Colors.black87),
-                    ],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Bottom-right: distance + peep count
-              Positioned(
-                right: 8,
-                bottom: 6,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (distM != null)
-                      Text(
-                        _formatDist(distM),
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.9),
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
+                child: _uid.isEmpty
+                    ? const Center(child: Text('Sign in to ask for crowd updates'))
+                    : RefreshIndicator(
+                        onRefresh: () async {
+                          await _loadRecentRequests();
+                          if (_searchTerm.isNotEmpty) {
+                            await _searchLocations(_searchTerm);
+                          }
+                        },
+                        child: ListView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                          children: [
+                            if (_recentRequests.isNotEmpty) ...[
+                              _buildRecentSection(),
+                              const SizedBox(height: 16),
+                            ],
+                            if (_searchTerm.isNotEmpty && _selected == null)
+                              _buildSearchResults(),
+                            if (_selected != null) ...[
+                              _buildPreviewCard(),
+                              const SizedBox(height: 20),
+                            ],
+                            _buildActiveRequestsSection(),
+                            const SizedBox(height: 20),
+                            _buildResponsesSection(),
+                          ],
                         ),
                       ),
-                    Text(
-                      '$peepCount ${peepCount == 1 ? 'peep' : 'peeps'}',
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.75),
-                        fontSize: 10,
-                      ),
-                    ),
-                  ],
-                ),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAdSlot() {
-    if (_ads.isEmpty) return const SizedBox.shrink();
-    final ad = _ads.first;
-    final adId = ad['id'] as String? ?? '';
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-      child: AdCard(
-        ad: ad,
-        onImpression: () => _adsService.recordAdImpression(adId, uid),
-        onTap: () => _adsService.recordAdClick(adId, uid),
-      ),
-    );
-  }
-
-  Widget _buildEmptyWidget(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 32),
-      child: Column(
-        children: [
-          const Text('🔍', style: TextStyle(fontSize: 40)),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildErrorWidget(String message) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 32),
-      child: Column(
-        children: [
-          const Text('⚠️', style: TextStyle(fontSize: 40)),
-          const SizedBox(height: 10),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.grey, fontSize: 14),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHintWidget({required IconData icon, required String text}) {
-    return SizedBox(
-      height: 200,
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 40, color: Colors.grey.shade400),
-            const SizedBox(height: 12),
-            Text(
-              text,
-              style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
             ),
           ],
         ),
       ),
     );
   }
+
+  Widget _buildHeader(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 8, 16, 8),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
+          ),
+          const Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ask People Here Now',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 2),
+                Text(
+                  'Request a live crowd update',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+      child: TextField(
+        controller: _searchController,
+        onChanged: _onSearchChanged,
+        onSubmitted: _selectByName,
+        textInputAction: TextInputAction.search,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: 'Search for a location...',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+          prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.85)),
+          suffixIcon: _searchTerm.isNotEmpty
+              ? IconButton(
+                  icon: Icon(Icons.clear, color: Colors.white.withValues(alpha: 0.8)),
+                  onPressed: () {
+                    _searchController.clear();
+                    _onSearchChanged('');
+                    setState(() => _selected = null);
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Recent',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: _recentRequests.map((name) {
+            return ActionChip(
+              label: Text(name, style: const TextStyle(fontSize: 12)),
+              avatar: const Icon(Icons.history, size: 16),
+              onPressed: () => _selectByName(name),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSearchResults() {
+    if (_searchLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_searchResults.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          children: [
+            Text(
+              'No venues found — press Enter to use "$_searchTerm"',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: () => _selectByName(_searchTerm),
+              child: const Text('Use this location'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Results',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: Colors.grey[700],
+          ),
+        ),
+        const SizedBox(height: 8),
+        ..._searchResults.map((post) {
+          final name = post['locationName'] as String? ?? 'Unknown';
+          return ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.place_outlined, color: Color(0xFF1565C0)),
+            title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+            trailing: const Icon(Icons.chevron_right, size: 18),
+            onTap: () => _selectFromPost(post),
+          );
+        }),
+      ],
+    );
+  }
+
+  Widget _buildPreviewCard() {
+    final loc = _selected!;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1565C0).withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.location_on, color: Color(0xFF1565C0)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      loc.locationName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Color(0xFF1565C0),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    const Text(
+                      'Ask people there now for a crowd update',
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: _sending ? null : _sendRequest,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1565C0),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: _sending
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      'Send Request',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActiveRequestsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Active Requests',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        StreamBuilder<QuerySnapshot>(
+          stream: _db
+              .collectionGroup('requests')
+              .where('requesterId', isEqualTo: _uid)
+              .snapshots(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snap.hasError) {
+              return Text(
+                'Could not load requests',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              );
+            }
+
+            final docs = snap.data?.docs ?? [];
+            docs.sort(_compareDocTimestamp);
+
+            if (docs.isEmpty) {
+              return Text(
+                'No active requests yet',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              );
+            }
+
+            return Column(
+              children: docs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>?;
+                if (data == null) return const SizedBox.shrink();
+                final status = data['status'] as String?;
+                final name = data['locationName'] as String? ?? 'Unknown';
+                return _RequestRow(
+                  locationName: name,
+                  statusLabel: _statusLabel(status),
+                  statusColor: _statusColor(status),
+                  timeLabel: _formatTimestamp(data['timestamp']),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResponsesSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Responses',
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1565C0),
+          ),
+        ),
+        const SizedBox(height: 8),
+        StreamBuilder<QuerySnapshot>(
+          stream: _db
+              .collection('crowdsource_responses')
+              .where('requesterId', isEqualTo: _uid)
+              .snapshots(),
+          builder: (context, snap) {
+            if (snap.connectionState == ConnectionState.waiting) {
+              return const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Center(child: CircularProgressIndicator()),
+              );
+            }
+            if (snap.hasError) {
+              return Text(
+                'Could not load responses',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              );
+            }
+
+            final docs = snap.data?.docs ?? [];
+            docs.sort(_compareDocTimestamp);
+
+            if (docs.isEmpty) {
+              return Text(
+                'Responses will appear here when someone posts',
+                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              );
+            }
+
+            return Column(
+              children: docs.map((doc) {
+                final raw = doc.data() as Map<String, dynamic>?;
+                if (raw == null) return const SizedBox.shrink();
+                final data = {...raw, 'id': doc.id};
+                final name = data['locationName'] as String? ?? 'Unknown';
+                final level = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
+                final username = data['responderUsername'] as String? ?? 'Someone';
+                return _ResponseCard(
+                  locationName: name,
+                  username: username,
+                  crowdingLevel: level,
+                  timeLabel: _formatTimestamp(data['timestamp']),
+                  onTap: () => _openResponse(data),
+                );
+              }).toList(),
+            );
+          },
+        ),
+      ],
+    );
+  }
 }
 
-// ─── Mode pill ────────────────────────────────────────────────────────────────
-
-class _ModePill extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  const _ModePill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
+class _RequestRow extends StatelessWidget {
+  const _RequestRow({
+    required this.locationName,
+    required this.statusLabel,
+    required this.statusColor,
+    required this.timeLabel,
   });
+
+  final String locationName;
+  final String statusLabel;
+  final Color statusColor;
+  final String timeLabel;
 
   @override
   Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          decoration: BoxDecoration(
-            color: selected ? Colors.white : Colors.transparent,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.white.withValues(alpha: selected ? 0.0 : 0.5),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade200),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationName,
+                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (timeLabel.isNotEmpty)
+                  Text(
+                    timeLabel,
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  ),
+              ],
             ),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? const Color(0xFF2244EE) : Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.15),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Text(
+              statusLabel,
+              style: TextStyle(
+                color: statusColor,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ResponseCard extends StatelessWidget {
+  const _ResponseCard({
+    required this.locationName,
+    required this.username,
+    required this.crowdingLevel,
+    required this.timeLabel,
+    required this.onTap,
+  });
+
+  final String locationName;
+  final String username;
+  final int crowdingLevel;
+  final String timeLabel;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: Row(
+            children: [
+              CrowdMeter(level: crowdingLevel, size: 52),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      locationName,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: Color(0xFF1565C0),
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'From $username',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    ),
+                    if (timeLabel.isNotEmpty)
+                      Text(
+                        timeLabel,
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: Colors.grey),
+            ],
           ),
         ),
       ),

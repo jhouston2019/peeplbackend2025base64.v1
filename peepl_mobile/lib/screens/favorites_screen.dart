@@ -2,6 +2,38 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/crowd_meter.dart';
+
+const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+
+enum _SortOption {
+  recentlyAdded('Recently Added'),
+  alphabetical('Alphabetical'),
+  mostCrowded('Most Crowded'),
+  leastCrowded('Least Crowded');
+
+  const _SortOption(this.label);
+  final String label;
+}
+
+class _FavoriteItem {
+  final String docId;
+  final String locationName;
+  final dynamic savedAt;
+  final int crowdingLevel;
+  final dynamic lastUpdated;
+  final Map<String, dynamic>? latestPost;
+
+  const _FavoriteItem({
+    required this.docId,
+    required this.locationName,
+    this.savedAt,
+    this.crowdingLevel = 0,
+    this.lastUpdated,
+    this.latestPost,
+  });
+}
+
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
 
@@ -12,6 +44,11 @@ class FavoritesScreen extends StatefulWidget {
 class _FavoritesScreenState extends State<FavoritesScreen> {
   final _db = FirebaseFirestore.instance;
 
+  List<_FavoriteItem> _items = [];
+  bool _loading = true;
+  String? _error;
+  _SortOption _sort = _SortOption.recentlyAdded;
+
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   String get _displayName =>
@@ -19,63 +56,155 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       FirebaseAuth.instance.currentUser?.email?.split('@').first ??
       'User';
 
-  // ── colour helpers ───────────────────────────────────────────────────────
-
-  static const List<List<Color>> _palettes = [
-    [Color(0xFF1565C0), Color(0xFF42A5F5)],
-    [Color(0xFF2E7D32), Color(0xFF66BB6A)],
-    [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
-    [Color(0xFF00695C), Color(0xFF26A69A)],
-    [Color(0xFFBF360C), Color(0xFFEF9A9A)],
-    [Color(0xFF37474F), Color(0xFF78909C)],
-  ];
-
-  List<Color> _venueGradient(String name) =>
-      _palettes[name.isNotEmpty ? name.codeUnitAt(0) % _palettes.length : 0];
-
-  // ── crowd level colour ───────────────────────────────────────────────────
-
-  static Color _levelColor(int l) {
-    if (l <= 4) return const Color(0xFF4CAF50);
-    if (l <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
+  @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
   }
 
-  // ── actions ──────────────────────────────────────────────────────────────
+  Future<void> _loadFavorites() async {
+    if (_uid.isEmpty) {
+      setState(() {
+        _loading = false;
+        _items = [];
+      });
+      return;
+    }
 
-  Future<void> _navigateToVenue(
-      BuildContext context, String locationName) async {
-    final snap = await _db
-        .collection('location_posts')
-        .where('locationName', isEqualTo: locationName)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
 
-    if (!context.mounted) return;
+    try {
+      final favSnap = await _db
+          .collection(_kUsersCollection)
+          .doc(_uid)
+          .collection('favorites')
+          .get();
 
-    final venueData = snap.docs.isNotEmpty
-        ? {
-            ...snap.docs.first.data() as Map<String, dynamic>,
-            'id': snap.docs.first.id,
+      final items = await Future.wait(
+        favSnap.docs.map((doc) async {
+          final data = doc.data();
+          final locationName =
+              (data['locationName'] as String?)?.trim() ??
+                  doc.id.trim();
+
+          final postSnap = await _db
+              .collection('location_posts')
+              .where('locationName', isEqualTo: locationName)
+              .orderBy('timestamp', descending: true)
+              .limit(1)
+              .get();
+
+          Map<String, dynamic>? latestPost;
+          int crowdingLevel = 0;
+          dynamic lastUpdated;
+
+          if (postSnap.docs.isNotEmpty) {
+            latestPost = {
+              ...postSnap.docs.first.data(),
+              'id': postSnap.docs.first.id,
+            };
+            crowdingLevel =
+                (latestPost['crowdingLevel'] as num?)?.toInt() ?? 0;
+            lastUpdated = latestPost['timestamp'];
           }
-        : <String, dynamic>{'locationName': locationName};
 
-    Navigator.pushNamed(context, '/venue', arguments: venueData);
+          return _FavoriteItem(
+            docId: doc.id,
+            locationName: locationName.isNotEmpty ? locationName : 'Unknown venue',
+            savedAt: data['savedAt'] ?? data['lastVisited'],
+            crowdingLevel: crowdingLevel,
+            lastUpdated: lastUpdated,
+            latestPost: latestPost,
+          );
+        }),
+      );
+
+      if (mounted) {
+        setState(() {
+          _items = items;
+          _loading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Could not load favorites. Pull to retry.';
+        });
+      }
+    }
   }
 
-  Future<void> _deleteFavorite(
-      BuildContext context, String docId, String locationName) async {
+  List<_FavoriteItem> get _sortedItems {
+    final list = List<_FavoriteItem>.from(_items);
+    switch (_sort) {
+      case _SortOption.recentlyAdded:
+        list.sort((a, b) => _timestampCompare(b.savedAt, a.savedAt));
+      case _SortOption.alphabetical:
+        list.sort(
+          (a, b) => a.locationName.toLowerCase().compareTo(
+                b.locationName.toLowerCase(),
+              ),
+        );
+      case _SortOption.mostCrowded:
+        list.sort((a, b) {
+          final cmp = b.crowdingLevel.compareTo(a.crowdingLevel);
+          return cmp != 0 ? cmp : a.locationName.compareTo(b.locationName);
+        });
+      case _SortOption.leastCrowded:
+        list.sort((a, b) {
+          final cmp = a.crowdingLevel.compareTo(b.crowdingLevel);
+          return cmp != 0 ? cmp : a.locationName.compareTo(b.locationName);
+        });
+    }
+    return list;
+  }
+
+  static int _timestampCompare(dynamic a, dynamic b) {
+    final da = _toDate(a);
+    final db = _toDate(b);
+    if (da == null && db == null) return 0;
+    if (da == null) return 1;
+    if (db == null) return -1;
+    return da.compareTo(db);
+  }
+
+  static DateTime? _toDate(dynamic ts) {
+    if (ts is Timestamp) return ts.toDate();
+    if (ts is DateTime) return ts;
+    return null;
+  }
+
+  static String _formatLastUpdated(dynamic ts) {
+    final dt = _toDate(ts);
+    if (dt == null) return 'No recent updates';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'Updated just now';
+    if (diff.inMinutes < 60) return 'Updated ${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return 'Updated ${diff.inHours}h ago';
+    if (diff.inDays < 7) return 'Updated ${diff.inDays}d ago';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return 'Updated ${months[dt.month - 1]} ${dt.day}';
+  }
+
+  Future<void> _deleteFavorite(String docId) async {
     if (_uid.isEmpty) return;
     try {
       await _db
-          .collection('users')
+          .collection(_kUsersCollection)
           .doc(_uid)
           .collection('favorites')
           .doc(docId)
           .delete();
+      setState(() => _items.removeWhere((item) => item.docId == docId));
     } catch (e) {
-      if (context.mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Could not remove: $e')),
         );
@@ -83,7 +212,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     }
   }
 
-  // ── build ────────────────────────────────────────────────────────────────
+  void _openVenue(_FavoriteItem item) {
+    final venueData = item.latestPost ??
+        <String, dynamic>{'locationName': item.locationName};
+    Navigator.pushNamed(context, '/venue', arguments: venueData);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -93,6 +226,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         child: Column(
           children: [
             _buildBanner(context),
+            _buildSortBar(),
             _buildSectionHeader(),
             Expanded(
               child: Container(
@@ -105,7 +239,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
                 child: _uid.isEmpty
                     ? const Center(child: Text('Not signed in'))
-                    : _buildList(context),
+                    : _buildBody(context),
               ),
             ),
           ],
@@ -113,8 +247,6 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       ),
     );
   }
-
-  // ── BANNER ───────────────────────────────────────────────────────────────
 
   Widget _buildBanner(BuildContext context) {
     final name = _displayName;
@@ -155,13 +287,47 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
+  Widget _buildSortBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+      child: Row(
+        children: [
+          Icon(Icons.sort, color: Colors.white.withValues(alpha: 0.85), size: 18),
+          const SizedBox(width: 6),
+          Expanded(
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<_SortOption>(
+                value: _sort,
+                isExpanded: true,
+                dropdownColor: const Color(0xFF1565C0),
+                iconEnabledColor: Colors.white,
+                style: const TextStyle(color: Colors.white, fontSize: 13),
+                items: _SortOption.values
+                    .map(
+                      (opt) => DropdownMenuItem(
+                        value: opt,
+                        child: Text(opt.label),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (value) {
+                  if (value != null) setState(() => _sort = value);
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildSectionHeader() {
     return Container(
       width: double.infinity,
       color: const Color(0xFF00BCD4).withValues(alpha: 0.18),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
       child: const Text(
-        'Favorites',
+        'Saved venues',
         style: TextStyle(
           color: Colors.white,
           fontSize: 12,
@@ -171,194 +337,143 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  // ── LIST ─────────────────────────────────────────────────────────────────
+  Widget _buildBody(BuildContext context) {
+    if (_loading) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
-  Widget _buildList(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: _db
-          .collection('users')
-          .doc(_uid)
-          .collection('favorites')
-          .orderBy('lastVisited', descending: true)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.hasError) {
-          return Center(
-            child: TextButton(
-              onPressed: () => setState(() {}),
-              child: const Text('Failed to load — tap to retry'),
-            ),
-          );
-        }
-
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final docs = snap.data?.docs ?? [];
-
-        if (docs.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(32),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('♥', style: TextStyle(fontSize: 52, color: Colors.red)),
-                  SizedBox(height: 14),
-                  Text(
-                    'No favorites yet — tap ♥ on any venue to save it',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 15,
-                      color: Colors.black54,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
+    if (_error != null) {
+      return RefreshIndicator(
+        onRefresh: _loadFavorites,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: [
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(_error!, textAlign: TextAlign.center),
               ),
             ),
-          );
-        }
+          ],
+        ),
+      );
+    }
 
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          itemCount: docs.length,
-          separatorBuilder: (_, __) =>
-              Divider(height: 1, color: Colors.grey.shade100),
-          itemBuilder: (_, i) {
-            final doc = docs[i];
-            final data = doc.data() as Map<String, dynamic>;
-            final locationName =
-                data['locationName'] as String? ?? 'Unknown venue';
-            final lastCrowd =
-                (data['lastCrowdLevel'] as num?)?.toInt() ?? 0;
-            return _FavoriteRow(
-              docId: doc.id,
-              locationName: locationName,
-              lastCrowd: lastCrowd,
-              gradient: _venueGradient(locationName),
-              levelColor: _levelColor(lastCrowd),
-              onTap: () => _navigateToVenue(context, locationName),
-              onDelete: () =>
-                  _deleteFavorite(context, doc.id, locationName),
-            );
-          },
-        );
-      },
+    final items = _sortedItems;
+    if (items.isEmpty) return _buildEmpty();
+
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: ListView.separated(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
+        itemCount: items.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 10),
+        itemBuilder: (context, i) => _FavoriteCard(
+          item: items[i],
+          lastUpdatedLabel: _formatLastUpdated(items[i].lastUpdated),
+          onTap: () => _openVenue(items[i]),
+          onDelete: () => _deleteFavorite(items[i].docId),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEmpty() {
+    return RefreshIndicator(
+      onRefresh: _loadFavorites,
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        children: [
+          SizedBox(height: MediaQuery.sizeOf(context).height * 0.14),
+          const Column(
+            children: [
+              Text('⭐', style: TextStyle(fontSize: 52)),
+              SizedBox(height: 14),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  'No favorites yet — tap the ⭐ on any venue to save it here',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    color: Colors.black54,
+                    height: 1.45,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ── favorite row ─────────────────────────────────────────────────────────────
-
-class _FavoriteRow extends StatelessWidget {
-  const _FavoriteRow({
-    required this.docId,
-    required this.locationName,
-    required this.lastCrowd,
-    required this.gradient,
-    required this.levelColor,
+class _FavoriteCard extends StatelessWidget {
+  const _FavoriteCard({
+    required this.item,
+    required this.lastUpdatedLabel,
     required this.onTap,
     required this.onDelete,
   });
 
-  final String docId;
-  final String locationName;
-  final int lastCrowd;
-  final List<Color> gradient;
-  final Color levelColor;
+  final _FavoriteItem item;
+  final String lastUpdatedLabel;
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
   @override
   Widget build(BuildContext context) {
-    return Dismissible(
-      key: Key(docId),
-      direction: DismissDirection.endToStart,
-      onDismissed: (_) => onDelete(),
-      background: Container(
-        alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        decoration: BoxDecoration(
-          color: Colors.red.shade400,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: const Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(Icons.delete_outline, color: Colors.white),
-            SizedBox(width: 4),
-            Text(
-              'Remove',
-              style: TextStyle(
-                  color: Colors.white, fontWeight: FontWeight.w600),
-            ),
-          ],
-        ),
-      ),
+    return Material(
+      color: Colors.white,
+      elevation: 1,
+      shadowColor: Colors.black.withValues(alpha: 0.08),
+      borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 11),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
           child: Row(
             children: [
-              // 28px gradient thumbnail
-              Container(
-                width: 28,
-                height: 28,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: gradient,
-                  ),
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              const SizedBox(width: 14),
-              // Venue name + crowd level
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      locationName,
+                      item.locationName,
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
-                        fontSize: 14,
+                        fontSize: 15,
+                        color: Color(0xFF1565C0),
                       ),
-                      maxLines: 1,
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    if (lastCrowd > 0) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: levelColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Last crowd: $lastCrowd/10',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey[500],
-                            ),
-                          ),
-                        ],
+                    const SizedBox(height: 6),
+                    Text(
+                      lastUpdatedLabel,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
-              const Icon(Icons.chevron_right, color: Colors.grey, size: 20),
+              const SizedBox(width: 8),
+              CrowdMeter(level: item.crowdingLevel, size: 56),
+              IconButton(
+                onPressed: onDelete,
+                icon: Icon(Icons.delete_outline, color: Colors.grey[500]),
+                tooltip: 'Remove favorite',
+              ),
             ],
           ),
         ),

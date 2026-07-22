@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
 
 class DealClaimedScreen extends StatefulWidget {
   const DealClaimedScreen({super.key, required this.adData});
@@ -14,34 +15,58 @@ class DealClaimedScreen extends StatefulWidget {
   State<DealClaimedScreen> createState() => _DealClaimedScreenState();
 }
 
-class _DealClaimedScreenState extends State<DealClaimedScreen> {
+class _DealClaimedScreenState extends State<DealClaimedScreen>
+    with SingleTickerProviderStateMixin {
   final _db = FirebaseFirestore.instance;
 
+  late final AnimationController _checkCtrl;
+  late final Animation<double> _checkScale;
   late final String _code;
   late final DateTime _expiresAt;
   late final Timer _ticker;
   bool _claimWritten = false;
 
-  /// Normalise the adData map so it always has 'headline', 'subline', 'id'
-  /// regardless of whether it came from the native-ads shape or the map-pin shape.
-  Map<String, dynamic> get _normalisedAd {
-    final d = widget.adData;
-    if (d.containsKey('headline')) return d;
-    return {
-      ...d,
-      'headline': d['venueName'] as String? ?? '',
-      'subline': d['offerText'] as String? ?? '',
-      'id': d['dealId'] as String? ?? '',
-    };
+  Map<String, dynamic> get _ad => widget.adData;
+
+  String get _businessName {
+    final name = (_ad['businessName'] as String?)?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return (_ad['headline'] as String?) ??
+        (_ad['venueName'] as String?) ??
+        'Business';
   }
+
+  String get _dealDescription {
+    final desc = (_ad['dealDescription'] as String?)?.trim();
+    if (desc != null && desc.isNotEmpty) return desc;
+    return (_ad['subline'] as String?) ?? '';
+  }
+
+  String? get _merchantLogo {
+    for (final key in ['merchantLogo', 'logoUrl', 'imageUrl']) {
+      final v = _ad[key] as String?;
+      if (v != null && v.trim().isNotEmpty) return v.trim();
+    }
+    return null;
+  }
+
+  String get _dealId => (_ad['id'] as String?) ?? '';
 
   @override
   void initState() {
     super.initState();
-    final ad = _normalisedAd;
-    final venueName = (ad['headline'] as String?) ?? 'VEN';
-    _code = _generateCode(venueName);
-    _expiresAt = DateTime.now().add(const Duration(minutes: 45));
+    _code = _generateCode();
+    _expiresAt = _resolveExpiry();
+
+    _checkCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+    _checkScale = CurvedAnimation(
+      parent: _checkCtrl,
+      curve: Curves.elasticOut,
+    );
+    _checkCtrl.forward();
 
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() {});
@@ -52,114 +77,137 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
 
   @override
   void dispose() {
+    _checkCtrl.dispose();
     _ticker.cancel();
     super.dispose();
   }
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  DateTime _resolveExpiry() {
+    final expiry = _ad['dealExpiry'] ?? _ad['endDate'];
+    if (expiry is Timestamp) return expiry.toDate();
+    if (expiry is DateTime) return expiry;
+    return DateTime.now().add(const Duration(hours: 24));
+  }
 
-  static String _generateCode(String venueName) {
-    final letters =
-        venueName.replaceAll(RegExp(r'[^a-zA-Z]'), '').toUpperCase();
-    final prefix = letters.length >= 3
-        ? letters.substring(0, 3)
-        : letters.padRight(3, 'X');
-    final digits = (1000 + math.Random().nextInt(9000)).toString();
-    return '$prefix$digits';
+  static String _generateCode() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    final rng = math.Random.secure();
+    return List.generate(8, (_) => chars[rng.nextInt(chars.length)]).join();
   }
 
   String _expiryCountdown() {
     final diff = _expiresAt.difference(DateTime.now());
     if (diff.isNegative) return 'Expired';
-    final m = diff.inMinutes;
+    final h = diff.inHours;
+    final m = diff.inMinutes.remainder(60);
     final s = diff.inSeconds.remainder(60);
-    return '$m:${s.toString().padLeft(2, '0')}';
+    if (h > 0) {
+      return '${h}h ${m.toString().padLeft(2, '0')}m remaining';
+    }
+    return '${m}m ${s.toString().padLeft(2, '0')}s remaining';
   }
-
-  // ── Firestore ─────────────────────────────────────────────────────────────
 
   Future<void> _writeClaim() async {
     if (_claimWritten) return;
 
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || _dealId.isEmpty) return;
 
     _claimWritten = true;
-    final ad = _normalisedAd;
-    final adId = (ad['id'] as String?) ?? '';
 
     try {
-      await _db.collection('deal_claims').add({
+      await _db
+          .collection('claimed_deals')
+          .doc(user.uid)
+          .collection('deals')
+          .doc(_dealId)
+          .set({
         'userId': user.uid,
-        'adId': adId,
-        'claimedAt': FieldValue.serverTimestamp(),
+        'dealId': _dealId,
+        'businessName': _businessName,
+        'dealDescription': _dealDescription,
         'redemptionCode': _code,
+        'claimedAt': FieldValue.serverTimestamp(),
         'expiresAt': Timestamp.fromDate(_expiresAt),
+        'adData': _ad,
       });
     } catch (e) {
       debugPrint('DealClaimedScreen._writeClaim error: $e');
     }
   }
 
-  // ── Build ─────────────────────────────────────────────────────────────────
+  Future<void> _shareDeal() async {
+    await Share.share(
+      'I just got a deal at $_businessName on Peepl! 🎉',
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ad = _normalisedAd;
-    final venueName = (ad['headline'] as String?) ?? 'Venue';
-    final offerText = (ad['subline'] as String?) ?? '';
-
     return PopScope(
       canPop: false,
       child: Scaffold(
         backgroundColor: const Color(0xFF22CC44),
         body: SafeArea(
-          child: Column(
-            children: [
-              // Top padding + subtle header row (no back button — intentional)
-              const SizedBox(height: 40),
-
-              // 🎟️ hero emoji
-              const Text('🎟️', style: TextStyle(fontSize: 72)),
-              const SizedBox(height: 16),
-
-              // Title
-              const Text(
-                'Deal Claimed!',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: 0.5,
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                ScaleTransition(
+                  scale: _checkScale,
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.15),
+                          blurRadius: 16,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.check_rounded,
+                      color: Color(0xFF22CC44),
+                      size: 52,
+                    ),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 28),
-
-              // White semi-transparent card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Container(
+                const SizedBox(height: 20),
+                const Text(
+                  'Deal Claimed! 🎉',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
                   width: double.infinity,
                   decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.92),
+                    color: Colors.white.withValues(alpha: 0.95),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
+                        color: Colors.black.withValues(alpha: 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 22,
-                  ),
+                  padding: const EdgeInsets.all(20),
                   child: Column(
                     children: [
-                      // Venue name
+                      _MerchantLogo(logoUrl: _merchantLogo, name: _businessName),
+                      const SizedBox(height: 12),
                       Text(
-                        venueName,
+                        _businessName,
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
@@ -167,113 +215,163 @@ class _DealClaimedScreenState extends State<DealClaimedScreen> {
                         ),
                         textAlign: TextAlign.center,
                       ),
-
-                      if (offerText.isNotEmpty) ...[
-                        const SizedBox(height: 4),
+                      if (_dealDescription.isNotEmpty) ...[
+                        const SizedBox(height: 8),
                         Text(
-                          offerText,
+                          _dealDescription,
                           style: const TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
                             color: Colors.black54,
+                            height: 1.45,
                           ),
                           textAlign: TextAlign.center,
                         ),
                       ],
-
-                      const SizedBox(height: 14),
-                      const Divider(),
-                      const SizedBox(height: 14),
-
-                      // Instruction
+                      const SizedBox(height: 20),
+                      Container(
+                        width: double.infinity,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF1565C0),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.qr_code_2, color: Colors.white54, size: 56),
+                            SizedBox(height: 10),
+                            Text(
+                              'Show this to staff',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
                       const Text(
-                        'Show this screen to your server',
+                        'Your deal code',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black38,
-                          letterSpacing: 0.2,
+                          color: Colors.black45,
+                          letterSpacing: 0.3,
                         ),
-                        textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 12),
-
-                      // Redemption code
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFF8E1),
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(
-                            color: const Color(0xFFFFD700),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: Text(
-                          _code,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 28,
-                            fontWeight: FontWeight.w900,
-                            color: Color(0xFFB8860B),
-                            letterSpacing: 4,
-                          ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _code,
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF1565C0),
+                          letterSpacing: 6,
                         ),
                       ),
                     ],
                   ),
                 ),
-              ),
-
-              const SizedBox(height: 18),
-
-              // Expiry countdown below the card
-              Text(
-                'Expires in ${_expiryCountdown()}',
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 18),
+                Text(
+                  _expiryCountdown(),
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.95),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-              ),
-
-              const Spacer(),
-
-              // Done button
-              Padding(
-                padding: const EdgeInsets.fromLTRB(32, 0, 32, 28),
-                child: SizedBox(
+                const SizedBox(height: 28),
+                SizedBox(
                   width: double.infinity,
-                  height: 52,
-                  child: ElevatedButton(
+                  child: ElevatedButton.icon(
+                    onPressed: _shareDeal,
+                    icon: const Icon(Icons.share_outlined),
+                    label: const Text('Share Deal'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
                       foregroundColor: const Color(0xFF22CC44),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
-                      elevation: 0,
                     ),
-                    onPressed: () => Navigator.pushNamedAndRemoveUntil(
-                      context,
-                      '/home',
-                      (_) => false,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton(
+                    onPressed: () =>
+                        Navigator.pushNamedAndRemoveUntil(context, '/deals', (_) => false),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white, width: 1.5),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
                     ),
                     child: const Text(
-                      'Done',
+                      'Find More Deals',
                       style: TextStyle(
-                        fontSize: 17,
+                        fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MerchantLogo extends StatelessWidget {
+  const _MerchantLogo({required this.logoUrl, required this.name});
+
+  final String? logoUrl;
+  final String name;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        width: 64,
+        height: 64,
+        color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+        child: logoUrl != null
+            ? Image.network(
+                logoUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (_, error, stack) => Center(
+                  child: Text(
+                    initial,
+                    style: const TextStyle(
+                      color: Color(0xFF1565C0),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                ),
+              )
+            : Center(
+                child: Text(
+                  initial,
+                  style: const TextStyle(
+                    color: Color(0xFF1565C0),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 24,
+                  ),
+                ),
+              ),
       ),
     );
   }

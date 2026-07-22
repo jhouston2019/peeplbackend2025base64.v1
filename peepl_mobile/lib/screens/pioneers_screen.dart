@@ -1,25 +1,24 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-// ── model ─────────────────────────────────────────────────────────────────────
 
 class _PioneerEntry {
   final String locationName;
   final String userId;
   final String username;
-  final dynamic timestamp; // Firestore Timestamp
-  final int peepCount;
+  final String? photoUrl;
+  final dynamic timestamp;
+  final int postCount;
 
   const _PioneerEntry({
     required this.locationName,
     required this.userId,
     required this.username,
+    this.photoUrl,
     required this.timestamp,
-    this.peepCount = 0,
+    this.postCount = 0,
   });
 }
-
-// ── screen ───────────────────────────────────────────────────────────────────
 
 class PioneersScreen extends StatefulWidget {
   const PioneersScreen({super.key});
@@ -30,43 +29,55 @@ class PioneersScreen extends StatefulWidget {
 
 class _PioneersScreenState extends State<PioneersScreen> {
   final _db = FirebaseFirestore.instance;
+  final _searchController = TextEditingController();
   late Future<List<_PioneerEntry>> _future;
+  String _searchQuery = '';
+  String? _currentUserId;
 
   @override
   void initState() {
     super.initState();
+    _currentUserId = FirebaseAuth.instance.currentUser?.uid;
     _future = _load();
+    _searchController.addListener(() {
+      setState(() => _searchQuery = _searchController.text.trim().toLowerCase());
+    });
   }
 
-  // ── data ───────────────────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   Future<List<_PioneerEntry>> _load() async {
-    // All pioneer docs ordered earliest first so we get the true first pioneer
-    // per venue naturally.
     final snap = await _db
-        .collection('pioneers')
+        .collection('location_posts')
         .orderBy('timestamp')
         .get();
 
-    // Group by locationName — first doc per venue wins.
-    final Map<String, Map<String, dynamic>> first = {};
+    final Map<String, Map<String, dynamic>> firstPost = {};
+    final Map<String, int> postCounts = {};
+
     for (final doc in snap.docs) {
-      final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data();
       final venue = (data['locationName'] as String?)?.trim() ?? '';
-      if (venue.isEmpty || first.containsKey(venue)) continue;
-      first[venue] = {...data, 'id': doc.id};
+      if (venue.isEmpty) continue;
+
+      postCounts[venue] = (postCounts[venue] ?? 0) + 1;
+      firstPost.putIfAbsent(venue, () => {...data, 'id': doc.id});
     }
 
-    if (first.isEmpty) return [];
+    if (firstPost.isEmpty) return [];
 
-    // Batch-fetch usernames for unique pioneer userIds.
-    final uniqueUids = first.values
+    final uniqueUids = firstPost.values
         .map((d) => d['userId'] as String? ?? '')
         .where((id) => id.isNotEmpty)
         .toSet()
         .toList();
 
     final Map<String, String> usernameMap = {};
+    final Map<String, String?> photoMap = {};
     if (uniqueUids.isNotEmpty) {
       final userDocs = await Future.wait(
         uniqueUids.map((id) => _db.collection('users').doc(id).get()),
@@ -77,41 +88,32 @@ class _PioneersScreenState extends State<PioneersScreen> {
         usernameMap[doc.id] = (d['username'] as String?) ??
             (d['displayName'] as String?) ??
             'Unknown';
+        photoMap[doc.id] = d['photoUrl'] as String?;
       }
     }
 
-    // Batch-fetch peep counts for all venues in parallel.
-    final venues = first.keys.toList();
-    final countResults = await Future.wait(
-      venues.map(
-        (venue) => _db
-            .collection('location_posts')
-            .where('locationName', isEqualTo: venue)
-            .count()
-            .get(),
-      ),
-    );
+    final venues = firstPost.keys.toList()
+      ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
-    return List.generate(venues.length, (i) {
-      final venue = venues[i];
-      final data = first[venue]!;
+    return venues.map((venue) {
+      final data = firstPost[venue]!;
       final uid = data['userId'] as String? ?? '';
+      final postUsername = data['username'] as String?;
       return _PioneerEntry(
         locationName: venue,
         userId: uid,
-        username: usernameMap[uid] ?? 'Unknown',
+        username: usernameMap[uid] ?? postUsername ?? 'Unknown',
+        photoUrl: photoMap[uid],
         timestamp: data['timestamp'],
-        peepCount: countResults[i].count ?? 0,
+        postCount: postCounts[venue] ?? 0,
       );
-    });
+    }).toList();
   }
 
   Future<void> _refresh() async {
     setState(() => _future = _load());
     await _future;
   }
-
-  // ── navigation ─────────────────────────────────────────────────────────────
 
   Future<void> _openVenue(BuildContext context, String locationName) async {
     final snap = await _db
@@ -125,7 +127,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
 
     final venueData = snap.docs.isNotEmpty
         ? {
-            ...snap.docs.first.data() as Map<String, dynamic>,
+            ...snap.docs.first.data(),
             'id': snap.docs.first.id,
           }
         : <String, dynamic>{'locationName': locationName};
@@ -133,19 +135,10 @@ class _PioneersScreenState extends State<PioneersScreen> {
     Navigator.pushNamed(context, '/venue', arguments: venueData);
   }
 
-  // ── colour helpers ─────────────────────────────────────────────────────────
-
-  static const List<List<Color>> _palettes = [
-    [Color(0xFF1565C0), Color(0xFF42A5F5)],
-    [Color(0xFF2E7D32), Color(0xFF66BB6A)],
-    [Color(0xFF6A1B9A), Color(0xFFAB47BC)],
-    [Color(0xFF00695C), Color(0xFF26A69A)],
-    [Color(0xFFBF360C), Color(0xFFEF9A9A)],
-    [Color(0xFF37474F), Color(0xFF78909C)],
-  ];
-
-  List<Color> _venueGradient(String name) =>
-      _palettes[name.isNotEmpty ? name.codeUnitAt(0) % _palettes.length : 0];
+  void _openProfile(BuildContext context, String userId) {
+    if (userId.isEmpty) return;
+    Navigator.pushNamed(context, '/user_profile', arguments: userId);
+  }
 
   static String _formatDate(dynamic ts) {
     if (ts == null) return '';
@@ -158,7 +151,12 @@ class _PioneersScreenState extends State<PioneersScreen> {
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
-  // ── build ──────────────────────────────────────────────────────────────────
+  List<_PioneerEntry> _filterEntries(List<_PioneerEntry> entries) {
+    if (_searchQuery.isEmpty) return entries;
+    return entries
+        .where((e) => e.locationName.toLowerCase().contains(_searchQuery))
+        .toList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,6 +166,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
         child: Column(
           children: [
             _buildHeader(context),
+            _buildSearchBar(),
             _buildSectionHeader(),
             Expanded(
               child: Container(
@@ -181,21 +180,18 @@ class _PioneersScreenState extends State<PioneersScreen> {
                 child: FutureBuilder<List<_PioneerEntry>>(
                   future: _future,
                   builder: (context, snap) {
-                    if (snap.connectionState ==
-                        ConnectionState.waiting) {
-                      return const Center(
-                          child: CircularProgressIndicator());
+                    if (snap.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
                     }
                     if (snap.hasError) {
                       return Center(
                         child: Text(
                           'Failed to load: ${snap.error}',
-                          style:
-                              TextStyle(color: Colors.grey[500]),
+                          style: TextStyle(color: Colors.grey[500]),
                         ),
                       );
                     }
-                    final entries = snap.data ?? [];
+                    final entries = _filterEntries(snap.data ?? []);
                     if (entries.isEmpty) return _buildEmpty();
                     return _buildList(context, entries);
                   },
@@ -207,8 +203,6 @@ class _PioneersScreenState extends State<PioneersScreen> {
       ),
     );
   }
-
-  // ── HEADER ─────────────────────────────────────────────────────────────────
 
   Widget _buildHeader(BuildContext context) {
     return Padding(
@@ -232,6 +226,28 @@ class _PioneersScreenState extends State<PioneersScreen> {
     );
   }
 
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: TextField(
+        controller: _searchController,
+        style: const TextStyle(color: Colors.white),
+        decoration: InputDecoration(
+          hintText: 'Search locations...',
+          hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
+          prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.8)),
+          filled: true,
+          fillColor: Colors.white.withValues(alpha: 0.15),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 0),
+        ),
+      ),
+    );
+  }
+
   Widget _buildSectionHeader() {
     return Container(
       width: double.infinity,
@@ -248,20 +264,21 @@ class _PioneersScreenState extends State<PioneersScreen> {
     );
   }
 
-  // ── EMPTY STATE ────────────────────────────────────────────────────────────
-
   Widget _buildEmpty() {
-    return const Center(
+    final message = _searchQuery.isNotEmpty
+        ? 'No locations match "$_searchQuery"'
+        : 'No Pioneers yet — be the first!';
+    return Center(
       child: Padding(
-        padding: EdgeInsets.all(32),
+        padding: const EdgeInsets.all(32),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('🏅', style: TextStyle(fontSize: 48)),
-            SizedBox(height: 12),
+            const Text('🏅', style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
             Text(
-              'No Pioneers yet — be the first!',
-              style: TextStyle(fontSize: 16, color: Colors.black54),
+              message,
+              style: const TextStyle(fontSize: 16, color: Colors.black54),
               textAlign: TextAlign.center,
             ),
           ],
@@ -270,8 +287,6 @@ class _PioneersScreenState extends State<PioneersScreen> {
     );
   }
 
-  // ── LIST ───────────────────────────────────────────────────────────────────
-
   Widget _buildList(BuildContext context, List<_PioneerEntry> entries) {
     return RefreshIndicator(
       onRefresh: _refresh,
@@ -279,118 +294,164 @@ class _PioneersScreenState extends State<PioneersScreen> {
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         itemCount: entries.length,
-        separatorBuilder: (_, __) =>
+        separatorBuilder: (context, index) =>
             Divider(height: 1, color: Colors.grey.shade100),
-        itemBuilder: (_, i) =>
-            _PioneerRow(
-              entry: entries[i],
-              gradient: _venueGradient(entries[i].locationName),
-              dateLabel: _formatDate(entries[i].timestamp),
-              onTap: () =>
-                  _openVenue(context, entries[i].locationName),
-            ),
+        itemBuilder: (_, i) => _PioneerRow(
+          entry: entries[i],
+          dateLabel: _formatDate(entries[i].timestamp),
+          isCurrentUser: _currentUserId != null &&
+              entries[i].userId == _currentUserId,
+          onLocationTap: () => _openVenue(context, entries[i].locationName),
+          onProfileTap: () => _openProfile(context, entries[i].userId),
+        ),
       ),
     );
   }
 }
 
-// ── pioneer row ───────────────────────────────────────────────────────────────
-
 class _PioneerRow extends StatelessWidget {
   const _PioneerRow({
     required this.entry,
-    required this.gradient,
     required this.dateLabel,
-    required this.onTap,
+    required this.isCurrentUser,
+    required this.onLocationTap,
+    required this.onProfileTap,
   });
 
   final _PioneerEntry entry;
-  final List<Color> gradient;
   final String dateLabel;
-  final VoidCallback onTap;
+  final bool isCurrentUser;
+  final VoidCallback onLocationTap;
+  final VoidCallback onProfileTap;
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 11),
-        child: Row(
-          children: [
-            // Venue gradient thumbnail
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: gradient,
-                ),
-                borderRadius: BorderRadius.circular(10),
+    return Container(
+      decoration: isCurrentUser
+          ? BoxDecoration(
+              color: const Color(0xFFFFD700).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: const Color(0xFFFFD700).withValues(alpha: 0.55),
+                width: 1.5,
               ),
-              child: const Center(
-                child: Text('🏅', style: TextStyle(fontSize: 20)),
-              ),
+            )
+          : null,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        children: [
+          GestureDetector(
+            onTap: onProfileTap,
+            child: _PioneerAvatar(
+              username: entry.username,
+              photoUrl: entry.photoUrl,
             ),
-            const SizedBox(width: 12),
-
-            // Venue name + pioneer info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    entry.locationName,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 3),
-                  Text(
-                    'First: ${entry.username}'
-                    '${dateLabel.isNotEmpty ? ' · $dateLabel' : ''}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-
-            // Peep count
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${entry.peepCount}',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: Color(0xFF1565C0),
+                InkWell(
+                  onTap: onLocationTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      entry.locationName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isCurrentUser
+                            ? const Color(0xFFB8860B)
+                            : Colors.black87,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                 ),
-                Text(
-                  'peep${entry.peepCount == 1 ? '' : 's'}',
-                  style:
-                      TextStyle(fontSize: 10, color: Colors.grey[500]),
+                const SizedBox(height: 2),
+                InkWell(
+                  onTap: onProfileTap,
+                  borderRadius: BorderRadius.circular(4),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 2),
+                    child: Text(
+                      entry.username +
+                          (dateLabel.isNotEmpty ? ' · $dateLabel' : ''),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 ),
               ],
             ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right,
-                color: Colors.grey, size: 18),
-          ],
-        ),
+          ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                '${entry.postCount}',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isCurrentUser
+                      ? const Color(0xFFB8860B)
+                      : const Color(0xFF1565C0),
+                ),
+              ),
+              Text(
+                'post${entry.postCount == 1 ? '' : 's'}',
+                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              ),
+            ],
+          ),
+          const SizedBox(width: 4),
+          InkWell(
+            onTap: onLocationTap,
+            borderRadius: BorderRadius.circular(4),
+            child: const Padding(
+              padding: EdgeInsets.all(4),
+              child: Icon(Icons.chevron_right, color: Colors.grey, size: 18),
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _PioneerAvatar extends StatelessWidget {
+  const _PioneerAvatar({
+    required this.username,
+    this.photoUrl,
+  });
+
+  final String username;
+  final String? photoUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    final initial = username.isNotEmpty ? username[0].toUpperCase() : '?';
+    return CircleAvatar(
+      radius: 22,
+      backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+      backgroundImage:
+          photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
+      child: photoUrl == null || photoUrl!.isEmpty
+          ? Text(
+              initial,
+              style: const TextStyle(
+                color: Color(0xFF1565C0),
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
     );
   }
 }

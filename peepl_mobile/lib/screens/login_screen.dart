@@ -134,7 +134,17 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _email.text.trim(), password: _pass.text.trim());
-        if (mounted) Navigator.pushReplacementNamed(context, '/sign_up_confirmed');
+        if (mounted) {
+          final user = FirebaseAuth.instance.currentUser;
+          final username = user?.displayName ??
+              user?.email?.split('@').first ??
+              'there';
+          Navigator.pushReplacementNamed(
+            context,
+            '/sign_up_confirmed',
+            arguments: {'username': username},
+          );
+        }
       }
     } catch (e) {
       if (mounted) setState(() => _error = _getErrorMessage(e.toString()));

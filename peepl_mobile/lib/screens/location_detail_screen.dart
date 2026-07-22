@@ -566,7 +566,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             Navigator.pushNamed(
                               context,
                               '/likers',
-                              arguments: postId,
+                              arguments: {
+                                'postId': postId,
+                                'locationName':
+                                    widget.postData['locationName'] as String? ??
+                                        '',
+                              },
                             );
                           }
                         },

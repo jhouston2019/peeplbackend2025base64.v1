@@ -575,12 +575,26 @@ class _PostScreenState extends State<PostScreen> {
         crowdingLevel: _crowdingLevel.round(),
       );
 
+      final pioneerCount = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .count()
+          .get();
+
       if (mounted) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/peep_submitted',
-          arguments: locationName,
-        );
+        if ((pioneerCount.count ?? 0) == 1) {
+          Navigator.pushReplacementNamed(
+            context,
+            '/pioneer_congrat',
+            arguments: locationName,
+          );
+        } else {
+          Navigator.pushReplacementNamed(
+            context,
+            '/peep_submitted',
+            arguments: locationName,
+          );
+        }
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -773,6 +787,8 @@ class _PostScreenState extends State<PostScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         const SizedBox(height: 8),
+                        _buildQuickPeepBanner(),
+                        const SizedBox(height: 24),
                         FormField<String>(
                           key: _venueFieldKey,
                           validator: (_) => !_hasVenue
@@ -1073,6 +1089,74 @@ class _PostScreenState extends State<PostScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuickPeepBanner() {
+    return Material(
+      color: const Color(0xFF0D47A1),
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: _isLoading
+            ? null
+            : () {
+                final args = <String, dynamic>{};
+                final name = _locationController.text.trim();
+                if (name.isNotEmpty) args['locationName'] = name;
+                if (_latitude != null) args['latitude'] = _latitude;
+                if (_longitude != null) args['longitude'] = _longitude;
+                Navigator.pushNamed(
+                  context,
+                  '/create_peep',
+                  arguments: args.isEmpty ? null : args,
+                );
+              },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(Icons.flash_on, color: Colors.white),
+              ),
+              const SizedBox(width: 14),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Quick Peep',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Fast crowd report — tap level and go',
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: Colors.white.withValues(alpha: 0.8),
+              ),
+            ],
+          ),
         ),
       ),
     );

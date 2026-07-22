@@ -158,114 +158,77 @@ class MenuScreen extends StatelessWidget {
       padding: EdgeInsets.zero,
       children: [
         _NavRow(
-          emoji: '🏠',
-          label: 'Home / Feed',
-          onTap: () =>
-              Navigator.pushNamedAndRemoveUntil(context, '/home', (_) => false),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '🔍',
-          label: 'Search',
-          onTap: () => Navigator.pushNamed(context, '/search'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '📍',
-          label: 'Get Peeps',
-          onTap: () => Navigator.pushNamed(context, '/get_peeps'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '💰',
-          label: 'Deals',
-          onTap: () => Navigator.pushNamed(context, '/deals'),
-        ),
-        const _Divider(),
-        ListTile(
-          leading: const Icon(Icons.store, color: Color(0xFF1565C0)),
-          title: const Text('Merchant Portal'),
-          subtitle: const Text('Manage your ads and deals'),
-          trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-          onTap: () => Navigator.pushNamed(context, '/merchant_sign_in'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '🗺️',
-          label: 'Map',
-          onTap: () => Navigator.pushNamed(context, '/map'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '👤',
-          label: 'My Profile',
-          onTap: () => Navigator.pushNamed(
+          icon: Icons.home_outlined,
+          label: 'Feed',
+          onTap: () => Navigator.pushNamedAndRemoveUntil(
             context,
-            '/user_profile',
-            arguments: _uid,
+            '/feed',
+            (_) => false,
           ),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '📸',
-          label: 'Photo Gallery',
-          onTap: () => Navigator.pushNamed(context, '/gallery'),
+          icon: Icons.explore_outlined,
+          label: 'Discover',
+          onTap: () => Navigator.pushNamedAndRemoveUntil(
+            context,
+            '/discover',
+            (_) => false,
+          ),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '❤️',
+          icon: Icons.grid_view_outlined,
+          label: 'My Peeps',
+          onTap: () => Navigator.pushNamed(context, '/my_peeps'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.favorite_outline,
           label: 'Favorites',
           onTap: () => Navigator.pushNamed(context, '/favorites'),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '🔥',
-          label: 'Trending',
-          onTap: () => Navigator.pushNamed(context, '/trending'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '🏆',
-          label: 'Leaderboard',
-          onTap: () => Navigator.pushNamed(context, '/leaderboard'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '🏅',
-          label: 'Pioneers',
-          onTap: () => Navigator.pushNamed(context, '/pioneers'),
-        ),
-        const _Divider(),
-        _NavRow(
-          emoji: '👥',
+          icon: Icons.groups_outlined,
           label: 'Groups',
           onTap: () => Navigator.pushNamed(context, '/groups'),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '💬',
-          label: 'Invite Friends',
-          onTap: () => Navigator.pushNamed(context, '/invite'),
+          icon: Icons.leaderboard_outlined,
+          label: 'Leaderboard',
+          onTap: () => Navigator.pushNamed(context, '/leaderboard'),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '⭐',
+          icon: Icons.local_offer_outlined,
+          label: 'Deals',
+          onTap: () => Navigator.pushNamed(context, '/deals'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.star_outline,
           label: 'VIPeeps',
           labelColor: const Color(0xFFB8860B),
           onTap: () => Navigator.pushNamed(context, '/vip_peeps'),
         ),
         const _Divider(),
         _NavRow(
-          emoji: '⚙️',
+          icon: Icons.person_add_outlined,
+          label: 'Invite Friends',
+          onTap: () => Navigator.pushNamed(context, '/invite'),
+        ),
+        const _Divider(),
+        _NavRow(
+          icon: Icons.settings_outlined,
           label: 'Settings',
           onTap: () => Navigator.pushNamed(context, '/settings'),
         ),
         const Divider(height: 1, thickness: 1),
-
-        // Sign out — visually separated
         const SizedBox(height: 8),
         _NavRow(
-          emoji: '🚪',
+          icon: Icons.logout,
           label: 'Sign Out',
           labelColor: Colors.red,
           showChevron: false,
@@ -281,14 +244,14 @@ class MenuScreen extends StatelessWidget {
 
 class _NavRow extends StatelessWidget {
   const _NavRow({
-    required this.emoji,
+    required this.icon,
     required this.label,
     required this.onTap,
     this.labelColor,
     this.showChevron = true,
   });
 
-  final String emoji;
+  final IconData icon;
   final String label;
   final VoidCallback onTap;
   final Color? labelColor;
@@ -302,13 +265,10 @@ class _NavRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
         child: Row(
           children: [
-            SizedBox(
-              width: 28,
-              child: Text(
-                emoji,
-                style: const TextStyle(fontSize: 20),
-                textAlign: TextAlign.center,
-              ),
+            Icon(
+              icon,
+              size: 22,
+              color: labelColor ?? const Color(0xFF1565C0),
             ),
             const SizedBox(width: 16),
             Expanded(

@@ -3,9 +3,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({super.key, required this.postId});
+  const ReportScreen({
+    super.key,
+    this.postId,
+    this.reportedUserId,
+  });
 
-  final String postId;
+  final String? postId;
+  final String? reportedUserId;
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();
@@ -13,41 +18,102 @@ class ReportScreen extends StatefulWidget {
 
 class _ReportScreenState extends State<ReportScreen> {
   static const List<String> _reasons = [
-    'Inaccurate crowd size',
+    'Spam or misleading',
     'Inappropriate content',
-    'Spam or fake peep',
-    'Wrong location',
+    'Harassment or bullying',
+    'False crowd information',
     'Offensive language',
     'Other',
   ];
 
+  static const _kOther = 'Other';
+
+  final _customReasonController = TextEditingController();
+  final _detailsController = TextEditingController();
+
   String? _selected;
   bool _submitting = false;
+  bool _didInit = false;
+  String _postId = '';
+  String _reportedUserId = '';
 
-  // ── Firestore ─────────────────────────────────────────────────────────────
+  @override
+  void dispose() {
+    _customReasonController.dispose();
+    _detailsController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!_didInit) {
+      _didInit = true;
+      _postId = widget.postId ?? '';
+      _reportedUserId = widget.reportedUserId ?? '';
+
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is Map<String, dynamic>) {
+        _postId = _postId.isNotEmpty
+            ? _postId
+            : (args['postId'] as String? ?? '');
+        _reportedUserId = _reportedUserId.isNotEmpty
+            ? _reportedUserId
+            : (args['reportedUserId'] as String? ?? '');
+      } else if (args is String && _postId.isEmpty) {
+        _postId = args;
+      }
+    }
+  }
+
+  bool get _showCustomReason => _selected == _kOther;
+
+  bool get _canSubmit {
+    if (_selected == null) return false;
+    if (_showCustomReason &&
+        _customReasonController.text.trim().isEmpty) {
+      return false;
+    }
+    return true;
+  }
 
   Future<void> _submit() async {
-    if (_selected == null || _submitting) return;
-    if (widget.postId.isEmpty) {
+    if (!_canSubmit || _submitting) return;
+
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    if (uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Unable to report — post ID missing')),
+        const SnackBar(content: Text('Sign in to submit a report')),
       );
       return;
     }
+
     setState(() => _submitting = true);
 
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final reason = _showCustomReason
+        ? _customReasonController.text.trim()
+        : _selected!;
+    final details = _detailsController.text.trim();
+
     try {
-      await FirebaseFirestore.instance.collection('reports').add({
-        'postId': widget.postId,
+      final ref = FirebaseFirestore.instance.collection('reports').doc();
+      await ref.set({
+        'postId': _postId,
+        'reportedUserId': _reportedUserId,
         'reporterId': uid,
-        'reason': _selected,
+        'reason': reason,
+        'details': details,
         'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending',
       });
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Report submitted. Thank you.')),
+          const SnackBar(
+            content: Text(
+              "Report submitted. We'll review it within 24 hours.",
+            ),
+          ),
         );
         Navigator.pop(context);
       }
@@ -55,13 +121,13 @@ class _ReportScreenState extends State<ReportScreen> {
       if (mounted) {
         setState(() => _submitting = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to submit. Please try again.')),
+          const SnackBar(
+            content: Text('Failed to submit. Please try again.'),
+          ),
         );
       }
     }
   }
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +152,76 @@ class _ReportScreenState extends State<ReportScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(child: _buildReasonList()),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 200),
-                      child: _selected != null
-                          ? _buildSubmitButton()
-                          : const SizedBox.shrink(),
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Why are you reporting this content?',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            ..._reasons.map(
+                              (reason) => _ReasonRow(
+                                label: reason,
+                                selected: _selected == reason,
+                                onTap: () => setState(() => _selected = reason),
+                              ),
+                            ),
+                            if (_showCustomReason) ...[
+                              const SizedBox(height: 12),
+                              TextField(
+                                controller: _customReasonController,
+                                onChanged: (_) => setState(() {}),
+                                decoration: const InputDecoration(
+                                  labelText: 'Describe the issue',
+                                  hintText: 'Enter your reason...',
+                                  border: OutlineInputBorder(),
+                                ),
+                                maxLines: 2,
+                              ),
+                            ],
+                            const SizedBox(height: 20),
+                            const Text(
+                              'Additional details (optional)',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: Color(0xFF1565C0),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            TextField(
+                              controller: _detailsController,
+                              maxLength: 500,
+                              maxLines: 4,
+                              decoration: const InputDecoration(
+                                hintText:
+                                    'Add any extra context that may help us review...',
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              'Reports help keep Peepl safe and accurate for everyone',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey[600],
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
+                    _buildSubmitButton(),
                     const SizedBox(height: 16),
                   ],
                 ),
@@ -115,7 +244,7 @@ class _ReportScreenState extends State<ReportScreen> {
           ),
           const Expanded(
             child: Text(
-              'Report This Peep',
+              'Report Content',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 18,
@@ -135,39 +264,12 @@ class _ReportScreenState extends State<ReportScreen> {
       color: Colors.white.withValues(alpha: 0.12),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 7),
       child: const Text(
-        'Report This Peep',
+        'Report Content',
         style: TextStyle(
           color: Colors.white,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
-      ),
-    );
-  }
-
-  Widget _buildReasonList() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Why are you reporting this peep?',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.black87,
-            ),
-          ),
-          const SizedBox(height: 20),
-          ..._reasons.map(
-            (reason) => _ReasonRow(
-              label: reason,
-              selected: _selected == reason,
-              onTap: () => setState(() => _selected = reason),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -182,12 +284,13 @@ class _ReportScreenState extends State<ReportScreen> {
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
             foregroundColor: Colors.white,
+            disabledBackgroundColor: Colors.red.withValues(alpha: 0.45),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
             ),
             elevation: 0,
           ),
-          onPressed: _submitting ? null : _submit,
+          onPressed: _canSubmit && !_submitting ? _submit : null,
           child: _submitting
               ? const SizedBox(
                   width: 20,
@@ -207,8 +310,6 @@ class _ReportScreenState extends State<ReportScreen> {
   }
 }
 
-// ── Radio row ─────────────────────────────────────────────────────────────────
-
 class _ReasonRow extends StatelessWidget {
   const _ReasonRow({
     required this.label,
@@ -226,43 +327,26 @@ class _ReasonRow extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 13, horizontal: 4),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         child: Row(
           children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              width: 22,
-              height: 22,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: selected
-                      ? const Color(0xFF1565C0)
-                      : Colors.grey.shade400,
-                  width: selected ? 2 : 1.5,
-                ),
-              ),
-              child: selected
-                  ? Center(
-                      child: Container(
-                        width: 12,
-                        height: 12,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFF1565C0),
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                    )
-                  : null,
+            Icon(
+              selected
+                  ? Icons.radio_button_checked
+                  : Icons.radio_button_off,
+              color: selected ? const Color(0xFF1565C0) : Colors.grey,
+              size: 22,
             ),
-            const SizedBox(width: 16),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 15,
-                color: selected ? const Color(0xFF1565C0) : Colors.black87,
-                fontWeight:
-                    selected ? FontWeight.w600 : FontWeight.normal,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 15,
+                  color: selected ? const Color(0xFF1565C0) : Colors.black87,
+                  fontWeight:
+                      selected ? FontWeight.w600 : FontWeight.normal,
+                ),
               ),
             ),
           ],

@@ -54,7 +54,7 @@ dependencies:
   visibility_detector: ^0.4.0+2
   google_fonts: ^6.2.1
   flutter_stripe: ^12.5.0
-  confetti: ^0.8.0
+  confetti: ^0.7.0
   flutter_contacts: ^1.1.9+2
   fl_chart: ^0.69.0
 
