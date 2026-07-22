@@ -233,8 +233,9 @@ yarn-error.log
 *.mobileprovision
 *.cer
 *.csr
-*.p8
-*.p12
-*.mobileprovision
-*.cer
-*.csr
+
+# Office / Word temp files
+*.docx
+~$*
+~WRL*.tmp
+*.tmp
