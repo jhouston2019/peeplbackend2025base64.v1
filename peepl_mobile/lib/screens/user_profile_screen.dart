@@ -2,65 +2,104 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-class UserProfileScreen extends StatefulWidget {
-  const UserProfileScreen({super.key, required this.userId});
+import '../widgets/crowd_meter.dart';
+import 'location_detail_screen.dart';
 
-  final String userId;
+const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+
+class UserProfileScreen extends StatefulWidget {
+  const UserProfileScreen({super.key, this.userId});
+
+  final String? userId;
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
-class _UserProfileScreenState extends State<UserProfileScreen> {
-  final _db = FirebaseFirestore.instance;
+class _UserProfileScreenState extends State<UserProfileScreen>
+    with SingleTickerProviderStateMixin {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // user doc
+  String _targetUserId = '';
   Map<String, dynamic>? _userData;
-
-  // follow state
   bool _isFollowing = false;
   bool _loadingFollow = false;
   bool _isCurrentUser = false;
+  bool _didInit = false;
 
-  // stats
-  int _peepsCount = 0;
-  int _pioneersCount = 0;
+  int _postsCount = 0;
   int _followersCount = 0;
   int _followingCount = 0;
 
-  List<QueryDocumentSnapshot> _recentPeeps = [];
-  bool _dataLoaded = false;
+  bool _loading = true;
   bool _error = false;
 
-  // ── lifecycle ────────────────────────────────────────────────────────────
+  TabController? _tabController;
 
   @override
-  void initState() {
-    super.initState();
-    _loadAll();
+  void dispose() {
+    _tabController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didInit) return;
+    _didInit = true;
+
+    _targetUserId = widget.userId ?? '';
+    if (_targetUserId.isEmpty) {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String) {
+        _targetUserId = args;
+      } else if (args is Map) {
+        _targetUserId = args['userId'] as String? ?? '';
+      }
+    }
+
+    final currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _isCurrentUser =
+        _targetUserId.isNotEmpty && _targetUserId == currentUid;
+
+    _tabController = TabController(
+      length: _isCurrentUser ? 2 : 1,
+      vsync: this,
+    );
+
+    if (_targetUserId.isNotEmpty) _loadAll();
   }
 
   Future<void> _loadAll() async {
-    if (mounted) setState(() { _error = false; _dataLoaded = false; });
-    await Future.wait([_loadUserAndFollow(), _loadStats(), _loadRecentPeeps()]);
-    if (mounted) setState(() => _dataLoaded = true);
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = false;
+      });
+    }
+
+    await Future.wait([
+      _loadUserAndFollow(),
+      _loadStats(),
+    ]);
+
+    if (mounted) setState(() => _loading = false);
   }
 
   Future<void> _loadUserAndFollow() async {
     try {
-      final currentUser = FirebaseAuth.instance.currentUser;
-      _isCurrentUser = currentUser?.uid == widget.userId;
-
-      final doc = await _db.collection('users').doc(widget.userId).get();
+      final doc =
+          await _db.collection(_kUsersCollection).doc(_targetUserId).get();
       if (!mounted) return;
       setState(() => _userData = doc.data() ?? {});
 
-      if (currentUser != null && !_isCurrentUser) {
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid != null && !_isCurrentUser) {
         final followDoc = await _db
-            .collection('users')
-            .doc(currentUser.uid)
+            .collection('follows')
+            .doc(currentUid)
             .collection('following')
-            .doc(widget.userId)
+            .doc(_targetUserId)
             .get();
         if (mounted) setState(() => _isFollowing = followDoc.exists);
       }
@@ -72,37 +111,31 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
 
   Future<void> _loadStats() async {
     try {
-      final uid = widget.userId;
       final results = await Future.wait([
         _db
             .collection('location_posts')
-            .where('userId', isEqualTo: uid)
+            .where('userId', isEqualTo: _targetUserId)
             .count()
             .get(),
         _db
-            .collection('pioneers')
-            .where('userId', isEqualTo: uid)
-            .count()
-            .get(),
-        _db
-            .collection('users')
-            .doc(uid)
+            .collection('follows')
+            .doc(_targetUserId)
             .collection('followers')
             .count()
             .get(),
         _db
-            .collection('users')
-            .doc(uid)
+            .collection('follows')
+            .doc(_targetUserId)
             .collection('following')
             .count()
             .get(),
       ]);
+
       if (!mounted) return;
       setState(() {
-        _peepsCount = results[0].count ?? 0;
-        _pioneersCount = results[1].count ?? 0;
-        _followersCount = results[2].count ?? 0;
-        _followingCount = results[3].count ?? 0;
+        _postsCount = results[0].count ?? 0;
+        _followersCount = results[1].count ?? 0;
+        _followingCount = results[2].count ?? 0;
       });
     } catch (e) {
       debugPrint('UserProfile._loadStats: $e');
@@ -110,57 +143,46 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  Future<void> _loadRecentPeeps() async {
-    try {
-      final snap = await _db
-          .collection('location_posts')
-          .where('userId', isEqualTo: widget.userId)
-          .orderBy('timestamp', descending: true)
-          .limit(3)
-          .get();
-      if (!mounted) return;
-      setState(() => _recentPeeps = snap.docs);
-    } catch (e) {
-      debugPrint('UserProfile._loadRecentPeeps: $e');
-      if (mounted) setState(() => _error = true);
-    }
-  }
-
-  // ── follow / unfollow ────────────────────────────────────────────────────
-
   Future<void> _toggleFollow() async {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null) return;
+
     setState(() => _loadingFollow = true);
     try {
-      final myRef = _db.collection('users').doc(currentUser.uid);
-      final theirRef = _db.collection('users').doc(widget.userId);
+      final myFollowingRef = _db
+          .collection('follows')
+          .doc(currentUid)
+          .collection('following')
+          .doc(_targetUserId);
+      final theirFollowersRef = _db
+          .collection('follows')
+          .doc(_targetUserId)
+          .collection('followers')
+          .doc(currentUid);
       final now = FieldValue.serverTimestamp();
 
       if (_isFollowing) {
         await Future.wait([
-          myRef.collection('following').doc(widget.userId).delete(),
-          theirRef.collection('followers').doc(currentUser.uid).delete(),
+          myFollowingRef.delete(),
+          theirFollowersRef.delete(),
         ]);
-        setState(() {
-          _isFollowing = false;
-          _followersCount = (_followersCount - 1).clamp(0, 999999);
-        });
+        if (mounted) {
+          setState(() {
+            _isFollowing = false;
+            _followersCount = (_followersCount - 1).clamp(0, 999999);
+          });
+        }
       } else {
         await Future.wait([
-          myRef
-              .collection('following')
-              .doc(widget.userId)
-              .set({'followedAt': now}),
-          theirRef
-              .collection('followers')
-              .doc(currentUser.uid)
-              .set({'followedAt': now}),
+          myFollowingRef.set({'followedAt': now}),
+          theirFollowersRef.set({'followedAt': now}),
         ]);
-        setState(() {
-          _isFollowing = true;
-          _followersCount++;
-        });
+        if (mounted) {
+          setState(() {
+            _isFollowing = true;
+            _followersCount++;
+          });
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -173,38 +195,217 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     }
   }
 
-  // ── colour helpers ───────────────────────────────────────────────────────
+  Future<void> _blockUser() async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null) return;
 
-  static const List<List<Color>> _gradients = [
-    [Color(0xFF1565C0), Color(0xFF0D47A1)],
-    [Color(0xFF2E7D32), Color(0xFF1B5E20)],
-    [Color(0xFF4527A0), Color(0xFF311B92)],
-    [Color(0xFF00695C), Color(0xFF004D40)],
-    [Color(0xFFBF360C), Color(0xFF7F0000)],
-    [Color(0xFF37474F), Color(0xFF263238)],
-  ];
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Block user?'),
+        content: const Text(
+          'They will not be able to interact with you. You can unblock later in settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Block', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
 
-  List<Color> _userGradient(String name) =>
-      _gradients[name.isNotEmpty ? name.codeUnitAt(0) % _gradients.length : 0];
+    if (confirmed != true || !mounted) return;
 
-  // ── build ────────────────────────────────────────────────────────────────
+    try {
+      await _db
+          .collection('blocks')
+          .doc(currentUid)
+          .collection('blocked')
+          .doc(_targetUserId)
+          .set({'blockedAt': FieldValue.serverTimestamp()});
+
+      if (_isFollowing) await _toggleFollow();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('User blocked')),
+        );
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not block user: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _reportUser() async {
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    if (currentUid == null) return;
+
+    const reasons = [
+      'Spam or fake account',
+      'Harassment',
+      'Inappropriate content',
+      'Impersonation',
+      'Other',
+    ];
+
+    String? selected;
+    final submitted = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Report user'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: reasons
+                  .map(
+                    (reason) => ListTile(
+                      title: Text(reason, style: const TextStyle(fontSize: 14)),
+                      leading: Icon(
+                        selected == reason
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_off,
+                        color: const Color(0xFF1565C0),
+                      ),
+                      onTap: () => setDialogState(() => selected = reason),
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: selected == null
+                  ? null
+                  : () => Navigator.pop(ctx, true),
+              child: const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (submitted != true || selected == null || !mounted) return;
+
+    try {
+      await _db.collection('reports').add({
+        'reportedUserId': _targetUserId,
+        'reporterId': currentUid,
+        'reason': selected,
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Report submitted. Thank you.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to submit report: $e')),
+        );
+      }
+    }
+  }
+
+  void _showMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.flag_outlined, color: Colors.red),
+              title: const Text('Report'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _reportUser();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.block, color: Colors.red),
+              title: const Text('Block'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _blockUser();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _formatJoinDate(dynamic value) {
+    DateTime? date;
+    if (value is Timestamp) {
+      date = value.toDate();
+    } else if (value is DateTime) {
+      date = value;
+    }
+    if (date == null) return 'Joined —';
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return 'Joined ${months[date.month - 1]} ${date.year}';
+  }
 
   @override
   Widget build(BuildContext context) {
-    final username = (_userData?['username'] as String?) ??
-        (_userData?['displayName'] as String?) ??
+    if (_targetUserId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Profile'),
+          backgroundColor: const Color(0xFF1565C0),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: Text('User not found')),
+      );
+    }
+
+    final displayName = (_userData?['displayName'] as String?) ??
+        (_userData?['name'] as String?) ??
         'User';
-    final likesCount = (_userData?['likesCount'] as num?)?.toInt() ?? 0;
-    final gradient = _userGradient(username);
+    final username = (_userData?['username'] as String?) ?? '';
+    final bio = (_userData?['bio'] as String?) ?? '';
+    final photoUrl = _userData?['photoUrl'] as String?;
+    final isVIP = _userData?['isVIPeep'] as bool? ?? false;
+    final joinDate = _formatJoinDate(
+      _userData?['joinDate'] ??
+          _userData?['createdAt'] ??
+          _userData?['joinedAt'],
+    );
 
     return Scaffold(
-      backgroundColor: gradient[0],
+      backgroundColor: const Color(0xFF1565C0),
       body: SafeArea(
         child: Column(
           children: [
-            _buildBanner(context, username, gradient),
+            _buildTopBar(),
             Expanded(
               child: Container(
+                width: double.infinity,
                 decoration: const BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.only(
@@ -212,35 +413,59 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                     topRight: Radius.circular(24),
                   ),
                 ),
-                child: _error
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'Something went wrong',
-                              style: TextStyle(fontSize: 15, color: Colors.black54),
-                            ),
-                            TextButton(
-                              onPressed: _loadAll,
-                              child: const Text('Retry'),
-                            ),
-                          ],
-                        ),
-                      )
-                    : !_dataLoaded
+                child: _loading
                     ? const Center(child: CircularProgressIndicator())
-                    : SingleChildScrollView(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _buildStatsRow(context, likesCount),
-                            const Divider(height: 32),
-                            _buildRecentPeepsSection(context),
-                          ],
-                        ),
-                      ),
+                    : _error && _userData == null
+                        ? _buildErrorState()
+                        : Column(
+                            children: [
+                              Expanded(
+                                child: NestedScrollView(
+                                  headerSliverBuilder: (context, innerBoxIsScrolled) {
+                                    return [
+                                      SliverToBoxAdapter(
+                                        child: _buildProfileHeader(
+                                          displayName: displayName,
+                                          username: username,
+                                          bio: bio,
+                                          photoUrl: photoUrl,
+                                          isVIP: isVIP,
+                                          joinDate: joinDate,
+                                        ),
+                                      ),
+                                      if (_tabController != null)
+                                        SliverPersistentHeader(
+                                          pinned: true,
+                                          delegate: _TabBarDelegate(
+                                            TabBar(
+                                              controller: _tabController,
+                                              labelColor: const Color(0xFF1565C0),
+                                              unselectedLabelColor: Colors.grey,
+                                              indicatorColor: const Color(0xFF1565C0),
+                                              tabs: [
+                                                const Tab(text: 'Posts'),
+                                                if (_isCurrentUser)
+                                                  const Tab(text: 'Favorites'),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                    ];
+                                  },
+                                  body: _tabController == null
+                                      ? const SizedBox.shrink()
+                                      : TabBarView(
+                                          controller: _tabController,
+                                          children: [
+                                            _buildPostsTab(),
+                                            if (_isCurrentUser)
+                                              _buildFavoritesTab(),
+                                          ],
+                                        ),
+                                ),
+                              ),
+                            ],
+                          ),
               ),
             ),
           ],
@@ -249,288 +474,451 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
-  // ── BANNER ───────────────────────────────────────────────────────────────
-
-  Widget _buildBanner(
-      BuildContext context, String username, List<Color> gradient) {
-    return Container(
-      height: 72,
-      width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: gradient,
-        ),
-      ),
-      padding: const EdgeInsets.fromLTRB(4, 0, 16, 0),
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 8, 8),
       child: Row(
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
             icon: const Icon(Icons.arrow_back, color: Colors.white),
           ),
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: Colors.white.withValues(alpha: 0.28),
+          const Expanded(
             child: Text(
-              username.isNotEmpty ? username[0].toUpperCase() : '?',
-              style: const TextStyle(
+              'Profile',
+              style: TextStyle(
                 color: Colors.white,
-                fontSize: 20,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              username,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
+          if (!_isCurrentUser)
+            IconButton(
+              onPressed: _showMenu,
+              icon: const Icon(Icons.more_vert, color: Colors.white),
             ),
-          ),
-          if (!_isCurrentUser) _buildFollowButton(gradient),
         ],
       ),
     );
   }
 
-  Widget _buildFollowButton(List<Color> gradient) {
-    if (_loadingFollow) {
-      return const SizedBox(
-        width: 20,
-        height: 20,
-        child:
-            CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Something went wrong',
+            style: TextStyle(fontSize: 15, color: Colors.black54),
+          ),
+          TextButton(onPressed: _loadAll, child: const Text('Retry')),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfileHeader({
+    required String displayName,
+    required String username,
+    required String bio,
+    required String? photoUrl,
+    required bool isVIP,
+    required String joinDate,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
+      child: Column(
+        children: [
+          CircleAvatar(
+            radius: 52,
+            backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+            backgroundImage:
+                photoUrl != null && photoUrl.isNotEmpty
+                    ? NetworkImage(photoUrl)
+                    : null,
+            child: photoUrl == null || photoUrl.isEmpty
+                ? Text(
+                    displayName.isNotEmpty
+                        ? displayName[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontSize: 36,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF1565C0),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(height: 12),
+          Text(
+            displayName,
+            style: const TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (username.isNotEmpty) ...[
+            const SizedBox(height: 4),
+            Text(
+              '@$username',
+              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+            ),
+          ],
+          if (isVIP) ...[
+            const SizedBox(height: 10),
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFFD4AC0D), Color(0xFFFFD700)],
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('⭐', style: TextStyle(fontSize: 14)),
+                  SizedBox(width: 6),
+                  Text(
+                    'VIPeep',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          if (bio.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Text(
+              bio,
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[700],
+                height: 1.4,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            joinDate,
+            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 16),
+          _buildStatsRow(),
+          const SizedBox(height: 16),
+          _buildActionButton(),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatsRow() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        _buildStatItem('Posts', _postsCount, null),
+        _buildStatItem('Followers', _followersCount, 0),
+        _buildStatItem('Following', _followingCount, 1),
+      ],
+    );
+  }
+
+  Widget _buildStatItem(String label, int count, int? initialTab) {
+    final tappable = initialTab != null;
+    return GestureDetector(
+      onTap: tappable
+          ? () => Navigator.pushNamed(
+                context,
+                '/follow_list',
+                arguments: {
+                  'userId': _targetUserId,
+                  'initialTab': initialTab,
+                },
+              )
+          : null,
+      child: Column(
+        children: [
+          Text(
+            '$count',
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              color: tappable ? const Color(0xFF1565C0) : Colors.black87,
+              decoration: tappable ? TextDecoration.underline : null,
+              decorationColor: const Color(0xFF1565C0),
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton() {
+    if (_isCurrentUser) {
+      return SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: () => Navigator.pushNamed(context, '/account_info'),
+          icon: const Icon(Icons.edit_outlined),
+          label: const Text(
+            'Edit Profile',
+            style: TextStyle(fontWeight: FontWeight.w600),
+          ),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: const Color(0xFF1565C0),
+            side: const BorderSide(color: Color(0xFF1565C0)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
       );
     }
-    return GestureDetector(
-      onTap: _toggleFollow,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: _isFollowing
-              ? Colors.white.withValues(alpha: 0.18)
-              : Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: Colors.white, width: 1.5),
+
+    if (_loadingFollow) {
+      return const SizedBox(
+        height: 44,
+        child: Center(
+          child: SizedBox(
+            width: 22,
+            height: 22,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: _toggleFollow,
+        style: ElevatedButton.styleFrom(
+          backgroundColor:
+              _isFollowing ? Colors.grey.shade200 : const Color(0xFF1565C0),
+          foregroundColor:
+              _isFollowing ? Colors.black87 : Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: _isFollowing ? 0 : 2,
         ),
         child: Text(
-          _isFollowing ? 'Following' : '+ Follow',
-          style: TextStyle(
-            color: _isFollowing ? Colors.white : gradient[0],
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
+          _isFollowing ? 'Following' : 'Follow',
+          style: const TextStyle(fontWeight: FontWeight.bold),
         ),
       ),
     );
   }
 
-  // ── STATS ────────────────────────────────────────────────────────────────
+  Widget _buildPostsTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _db
+          .collection('location_posts')
+          .where('userId', isEqualTo: _targetUserId)
+          .orderBy('timestamp', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Could not load posts: ${snapshot.error}'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-  Widget _buildStatsRow(BuildContext context, int likesCount) {
-    final stats = <(String, int, String?)>[
-      ('Peeps', _peepsCount, null),
-      ('Pioneers', _pioneersCount, null),
-      ('Likes', likesCount, null),
-      ('Followers', _followersCount, 'followers'),
-      ('Following', _followingCount, 'following'),
-    ];
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Center(
+            child: Text(
+              'No posts yet',
+              style: TextStyle(color: Colors.grey[500]),
+            ),
+          );
+        }
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceAround,
-      children: stats.map((s) {
-        final (label, count, mode) = s;
-        final tappable = mode != null;
-        return GestureDetector(
-          onTap: tappable
-              ? () => Navigator.pushNamed(
-                    context,
-                    '/follow_list',
-                    arguments: {
-                      'userId': widget.userId,
-                      'mode': mode,
-                    },
-                  )
-              : null,
-          child: Column(
-            children: [
-              Text(
-                '$count',
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: tappable
-                      ? const Color(0xFF1565C0)
-                      : Colors.black87,
-                  decoration:
-                      tappable ? TextDecoration.underline : null,
-                  decorationColor: const Color(0xFF1565C0),
+        return GridView.builder(
+          primary: false,
+          padding: const EdgeInsets.all(12),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 3,
+            crossAxisSpacing: 6,
+            mainAxisSpacing: 6,
+          ),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final doc = docs[index];
+            final post = {
+              'id': doc.id,
+              ...doc.data() as Map<String, dynamic>,
+            };
+            return _PostGridTile(
+              post: post,
+              onTap: () => Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => LocationDetailScreen(postData: post),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-              ),
-            ],
-          ),
+            );
+          },
         );
-      }).toList(),
+      },
     );
   }
 
-  // ── RECENT PEEPS ─────────────────────────────────────────────────────────
+  Widget _buildFavoritesTab() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _db
+          .collection(_kUsersCollection)
+          .doc(_targetUserId)
+          .collection('favorites')
+          .orderBy('savedAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(child: Text('Could not load favorites'));
+        }
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-  Widget _buildRecentPeepsSection(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Text(
-              'Recent Peeps',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            TextButton(
-              onPressed: () => Navigator.pushNamed(
-                context,
-                '/my_peeps',
-                arguments: widget.userId,
-              ),
-              child: const Text(
-                'See all →',
-                style: TextStyle(color: Color(0xFF1565C0)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        if (_recentPeeps.isEmpty)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 20),
-            child: Center(
-              child: Text(
-                'No Peeps yet.',
-                style: TextStyle(color: Colors.grey[500]),
-              ),
-            ),
-          )
-        else
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _recentPeeps.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (_, i) {
-              final data =
-                  _recentPeeps[i].data() as Map<String, dynamic>;
-              return _MiniPeepCard(
-                data: data,
-                onTap: () => Navigator.pushNamed(
-                  context,
-                  '/peep_detail',
-                  arguments: Map<String, dynamic>.from(data)
-                    ..['id'] = _recentPeeps[i].id,
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('♥', style: TextStyle(fontSize: 40, color: Colors.red)),
+                const SizedBox(height: 10),
+                Text(
+                  'No favorite venues yet',
+                  style: TextStyle(color: Colors.grey[500]),
                 ),
-              );
-            },
-          ),
-      ],
+              ],
+            ),
+          );
+        }
+
+        return ListView.separated(
+          primary: false,
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          separatorBuilder: (context, index) => const Divider(height: 1),
+          itemBuilder: (context, index) {
+            final data = docs[index].data() as Map<String, dynamic>;
+            final locationName =
+                data['locationName'] as String? ?? docs[index].id;
+            return ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.storefront_outlined,
+                  color: Color(0xFF1565C0),
+                  size: 20,
+                ),
+              ),
+              title: Text(
+                locationName,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+              onTap: () => Navigator.pushNamed(
+                context,
+                '/venue',
+                arguments: {'locationName': locationName},
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }
 
-// ── mini peep card ───────────────────────────────────────────────────────────
+class _PostGridTile extends StatelessWidget {
+  const _PostGridTile({required this.post, required this.onTap});
 
-class _MiniPeepCard extends StatelessWidget {
-  const _MiniPeepCard({required this.data, required this.onTap});
-
-  final Map<String, dynamic> data;
+  final Map<String, dynamic> post;
   final VoidCallback onTap;
-
-  static Color _levelColor(int l) {
-    if (l <= 4) return const Color(0xFF4CAF50);
-    if (l <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
-  }
 
   @override
   Widget build(BuildContext context) {
-    final locationName =
-        data['locationName'] as String? ?? 'Unknown location';
-    final level = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
-    final description = data['description'] as String? ?? '';
+    final imageUrl = post['imageUrl'] as String? ?? '';
+    final crowdLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        height: 60,
-        padding: const EdgeInsets.symmetric(horizontal: 14),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF5F7FF),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-              color: const Color(0xFF1565C0).withValues(alpha: 0.12)),
-        ),
-        child: Row(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: _levelColor(level),
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  '$level',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                  ),
-                ),
-              ),
+            if (imageUrl.isNotEmpty)
+              Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) =>
+                    ColoredBox(color: Colors.grey.shade300),
+              )
+            else
+              ColoredBox(color: Colors.grey.shade300),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: CrowdMeter(level: crowdLevel, size: 32),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    locationName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w600, fontSize: 13),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (description.isNotEmpty)
-                    Text(
-                      description,
-                      style: TextStyle(
-                          fontSize: 11, color: Colors.grey[500]),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right,
-                color: Colors.grey, size: 18),
           ],
         ),
       ),
     );
+  }
+}
+
+class _TabBarDelegate extends SliverPersistentHeaderDelegate {
+  _TabBarDelegate(this.tabBar);
+
+  final TabBar tabBar;
+
+  @override
+  double get minExtent => tabBar.preferredSize.height;
+
+  @override
+  double get maxExtent => tabBar.preferredSize.height;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    return Material(
+      color: Colors.white,
+      child: tabBar,
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _TabBarDelegate oldDelegate) {
+    return oldDelegate.tabBar != tabBar;
   }
 }

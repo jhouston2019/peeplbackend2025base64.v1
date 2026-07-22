@@ -1,590 +1,393 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import '../services/ad_cadence_service.dart';
-import '../services/native_ads_service.dart';
-import '../widgets/ad_card.dart';
-import '../widgets/crowd_dot_ring_meter.dart';
-import '../widgets/no_peeps_empty_state.dart';
+import '../services/crowdsource_service.dart';
+import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 
-// ─── Screen ───────────────────────────────────────────────────────────────────
+const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 class VenueScreen extends StatefulWidget {
-  /// Optionally supplied when pushed directly.
-  /// Falls back to named-route arguments (a Map<String,dynamic>).
-  final Map<String, dynamic>? venueData;
+  final String? locationName;
 
-  const VenueScreen({super.key, this.venueData});
+  const VenueScreen({super.key, this.locationName});
 
   @override
   State<VenueScreen> createState() => _VenueScreenState();
 }
 
 class _VenueScreenState extends State<VenueScreen> {
-  // ── Services ────────────────────────────────────────────────────────────────
-  final NativeAdsService _adsService = NativeAdsService();
-  final AdCadenceService _cadence = AdCadenceService();
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ── Scroll / keys ────────────────────────────────────────────────────────────
-  final ScrollController _scrollController = ScrollController();
-  final GlobalKey _dealBannerKey = GlobalKey();
-
-  // ── State ────────────────────────────────────────────────────────────────────
-  Map<String, dynamic> _venue = {};
+  String _venueName = '';
   bool _didInit = false;
+  bool _isFavorite = false;
 
-  double? _averageCrowding;
-  int? _crowdingReports;
-  Map<String, dynamic>? _activeDeal;
-  String? _pioneerUsername;
-  List<Map<String, dynamic>> _availableAds = [];
+  double? _latitude;
+  double? _longitude;
+  String? _latestPostId;
 
-  // ── Derived helpers ───────────────────────────────────────────────────────────
-  String get _venueName =>
-      _venue['locationName'] as String? ??
-      _venue['venueName'] as String? ??
-      _venue['name'] as String? ??
-      '';
-
-  String get _cityAddress =>
-      _venue['city'] as String? ??
-      _venue['address'] as String? ??
-      _venue['subLocality'] as String? ??
-      '';
-
-  String? get _venueType => _venue['venueType'] as String?;
-
-  // ── Lifecycle ─────────────────────────────────────────────────────────────────
-  @override
-  void initState() {
-    super.initState();
-    _venue = widget.venueData ?? {};
-  }
+  String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (!_didInit) {
-      _didInit = true;
-      if (_venue.isEmpty) {
-        _venue = (ModalRoute.of(context)?.settings.arguments
-                as Map<String, dynamic>?) ??
-            {};
-      }
-      if (_venueName.isNotEmpty) _loadAllData();
+    if (_didInit) return;
+    _didInit = true;
+    _venueName = _resolveLocationName();
+    if (_venueName.isNotEmpty) _checkFavorite();
+  }
+
+  String _resolveLocationName() {
+    if (widget.locationName != null && widget.locationName!.isNotEmpty) {
+      return widget.locationName!;
     }
+    final args = ModalRoute.of(context)?.settings.arguments;
+    if (args is String && args.isNotEmpty) return args;
+    if (args is Map<String, dynamic>) {
+      return args['locationName'] as String? ??
+          args['venueName'] as String? ??
+          args['name'] as String? ??
+          '';
+    }
+    return '';
   }
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  // ── Data loading ──────────────────────────────────────────────────────────────
-  Future<void> _loadAllData() async {
-    await Future.wait([
-      _loadVenueStats(),
-      _loadActiveDeal(),
-      _loadPioneer(),
-      _initAds(),
-    ]);
-  }
-
-  Future<void> _loadVenueStats() async {
+  Future<void> _checkFavorite() async {
+    if (_uid.isEmpty || _venueName.isEmpty) return;
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('locations')
-          .where('locationName', isEqualTo: _venueName)
-          .limit(1)
+      final doc = await _db
+          .collection(_kUsersCollection)
+          .doc(_uid)
+          .collection('favorites')
+          .doc(_venueName)
           .get();
-      if (!mounted || snap.docs.isEmpty) return;
-      final data = snap.docs.first.data();
-      setState(() {
-        _averageCrowding = (data['averageCrowding'] as num?)?.toDouble();
-        _crowdingReports = (data['crowdingReports'] as num?)?.toInt();
-      });
+      if (mounted) setState(() => _isFavorite = doc.exists);
     } catch (e) {
-      debugPrint('VenueScreen stats: $e');
+      debugPrint('VenueScreen favorite check: $e');
     }
   }
 
-  Future<void> _loadActiveDeal() async {
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('native_ads')
-          .where('targetLocations', arrayContains: _venueName)
-          .where('isActive', isEqualTo: true)
-          .where('endDate', isGreaterThan: Timestamp.now())
-          .limit(1)
-          .get();
-      if (!mounted || snap.docs.isEmpty) return;
-      setState(() => _activeDeal = {
-            'id': snap.docs.first.id,
-            ...snap.docs.first.data(),
-          });
-    } catch (e) {
-      debugPrint('VenueScreen deal: $e');
-    }
-  }
-
-  Future<void> _loadPioneer() async {
-    try {
-      final snap = await FirebaseFirestore.instance
-          .collection('pioneers')
-          .where('locationName', isEqualTo: _venueName)
-          .orderBy('timestamp', descending: false)
-          .limit(1)
-          .get();
-      if (!mounted || snap.docs.isEmpty) return;
-
-      final data = snap.docs.first.data();
-      String name = data['username'] as String? ?? '';
-
-      // Pioneer doc may only store userId — look up display name.
-      if (name.isEmpty) {
-        final uid = data['userId'] as String?;
-        if (uid != null) {
-          try {
-            final userDoc = await FirebaseFirestore.instance
-                .collection('users')
-                .doc(uid)
-                .get();
-            name = userDoc.data()?['username'] as String? ??
-                userDoc.data()?['displayName'] as String? ??
-                (uid.length >= 6 ? uid.substring(0, 6) : uid);
-          } catch (_) {
-            name = uid.length >= 6 ? uid.substring(0, 6) : uid;
-          }
-        }
-      }
-
-      if (mounted && name.isNotEmpty) setState(() => _pioneerUsername = name);
-    } catch (e) {
-      debugPrint('VenueScreen pioneer: $e');
-    }
-  }
-
-  Future<void> _initAds() async {
-    await _cadence.init(pattern: [3, 3, 3, 3]);
-    try {
-      // Use userLocation to target ads to this venue; context filters to
-      // 'venue' placement slots only.
-      final ads = await _adsService.getAdsForFeed(
-        context: 'venue',
-        userLocation: _venueName,
-        limit: 10,
-      );
-      if (mounted) setState(() => _availableAds = ads);
-    } catch (e) {
-      debugPrint('VenueScreen ads: $e');
-    }
-  }
-
-  // ── Ad merge (same pattern as FeedScreen / LocationDetailScreen) ──────────────
-  List<Map<String, dynamic>> _mergeAds(List<QueryDocumentSnapshot> docs) {
-    _cadence.reset();
-    final items = <Map<String, dynamic>>[];
-    var adIdx = 0;
-
-    for (final doc in docs) {
-      final post = {'id': doc.id, ...(doc.data() as Map<String, dynamic>)};
-
-      if (_availableAds.isNotEmpty) {
-        bool added = false;
-        for (var i = 0; i < _availableAds.length; i++) {
-          final c = _availableAds[(adIdx + i) % _availableAds.length];
-          if (_cadence.shouldShowAd(candidateAdId: c['id'] as String?)) {
-            items.add({'_isAd': true, ...c});
-            adIdx += i + 1;
-            added = true;
-            break;
-          }
-          if (!_cadence.isSlotPending) break;
-        }
-        if (!added && _cadence.isSlotPending) _cadence.skipSlot();
-      }
-
-      items.add(post);
-    }
-    return items;
-  }
-
-  // ── Actions ───────────────────────────────────────────────────────────────────
-  void _scrollToDeals() {
-    if (_activeDeal == null) {
+  Future<void> _toggleFavorite() async {
+    if (_uid.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No active deals at this venue')),
+        const SnackBar(content: Text('Sign in to save favorites')),
       );
       return;
     }
-    final ctx = _dealBannerKey.currentContext;
-    if (ctx != null) {
-      Scrollable.ensureVisible(
-        ctx,
-        duration: const Duration(milliseconds: 350),
-        curve: Curves.easeOut,
-      );
+    final ref = _db
+        .collection(_kUsersCollection)
+        .doc(_uid)
+        .collection('favorites')
+        .doc(_venueName);
+
+    try {
+      if (_isFavorite) {
+        await ref.delete();
+        if (mounted) setState(() => _isFavorite = false);
+      } else {
+        await ref.set({
+          'locationName': _venueName,
+          'savedAt': FieldValue.serverTimestamp(),
+        });
+        if (mounted) setState(() => _isFavorite = true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update favorite: $e')),
+        );
+      }
     }
   }
 
-  void _openMap() {
-    Navigator.pushNamed(context, '/map', arguments: {
-      'lat': (_venue['latitude'] as num?)?.toDouble(),
-      'lng': (_venue['longitude'] as num?)?.toDouble(),
-      'locationName': _venueName,
-    });
+  Future<void> _shareVenue(int currentCrowd) async {
+    final crowdingWord = CrowdMeter.wordLabel(currentCrowd);
+    await Share.share(
+      'Check out $_venueName on Peepl — currently $crowdingWord! '
+      'https://peepl.app',
+    );
   }
 
-  void _showMenuSheet() {
-    final website = _venue['website'] as String?;
-    showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _venueName.isNotEmpty ? _venueName : 'Venue Info',
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (website != null && website.isNotEmpty)
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.open_in_browser,
-                      color: Color(0xFF2244EE)),
-                  title: const Text('Visit Website'),
-                  subtitle: Text(
-                    website,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 12),
-                  ),
-                  onTap: () async {
-                    Navigator.pop(context);
-                    final uri = Uri.tryParse(website);
-                    if (uri != null) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    }
-                  },
-                )
-              else
-                const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 8),
-                  child: Text(
-                    'No website available for this venue.',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              const SizedBox(height: 8),
-            ],
+  Future<void> _sendAskRequest() async {
+    if (_venueName.isEmpty) return;
+    try {
+      final requestId = await CrowdsourceService.instance.createRequest(
+        locationId: _latestPostId ?? _venueName,
+        locationName: _venueName,
+        latitude: _latitude ?? 0.0,
+        longitude: _longitude ?? 0.0,
+      );
+      if (mounted && requestId != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Asked everyone at $_venueName to report crowd levels!',
+            ),
+            duration: const Duration(seconds: 3),
+            backgroundColor: const Color(0xFF1565C0),
           ),
-        ),
-      ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to send request. Try again.')),
+        );
+      }
+    }
+  }
+
+  void _openPostScreen() {
+    Navigator.pushNamed(
+      context,
+      '/post',
+      arguments: {'locationName': _venueName},
     );
   }
 
-  void _shareVenue() {
-    final level = _averageCrowding?.round() ?? 5;
-    final status = CrowdDotRingMeter.statusWord(level);
-    Share.share(
-      'Check out $_venueName on Peepl — it\'s $status right now! '
-      'Know Before You Go 👇\nhttps://peepl.app',
-    );
-  }
-
-  // ── Build ─────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final topPad = MediaQuery.of(context).padding.top;
-    return Scaffold(
-      bottomNavigationBar: _buildBottomBar(),
-      floatingActionButton: _buildFAB(),
-      body: Column(
-        children: [
-          _buildHeader(topPad),
-          Expanded(child: _buildBody()),
-        ],
-      ),
-    );
-  }
-
-  // ── Header (non-scrollable, 90 px content area) ───────────────────────────────
-  static LinearGradient _gradientForCategory(String? category) {
-    final c = (category ?? '').toLowerCase();
-    if (c.contains('bar') || c.contains('brew') || c.contains('night')) {
-      return const LinearGradient(
-        colors: [Color(0xFF1A0535), Color(0xFF3D1A6E)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('restaurant') ||
-        c.contains('cafe') ||
-        c.contains('food truck')) {
-      return const LinearGradient(
-        colors: [Color(0xFF7B1900), Color(0xFFBF360C)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('park') || c.contains('beach')) {
-      return const LinearGradient(
-        colors: [Color(0xFF1B5E20), Color(0xFF388E3C)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('gym') || c.contains('spa')) {
-      return const LinearGradient(
-        colors: [Color(0xFF006064), Color(0xFF00838F)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('mall') ||
-        c.contains('grocery') ||
-        c.contains('retail')) {
-      return const LinearGradient(
-        colors: [Color(0xFF4A148C), Color(0xFF7B1FA2)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('hospital') ||
-        c.contains('clinic') ||
-        c.contains('urgent')) {
-      return const LinearGradient(
-        colors: [Color(0xFF1565C0), Color(0xFF0288D1)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    if (c.contains('airport') ||
-        c.contains('train') ||
-        c.contains('bus terminal')) {
-      return const LinearGradient(
-        colors: [Color(0xFF37474F), Color(0xFF546E7A)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      );
-    }
-    // Peepl blue default
-    return const LinearGradient(
-      colors: [Color(0xFF2244EE), Color(0xFF1565C0)],
-      begin: Alignment.topLeft,
-      end: Alignment.bottomRight,
-    );
-  }
-
-  Widget _buildHeader(double topPad) {
-    return Container(
-      height: 90 + topPad,
-      padding: EdgeInsets.fromLTRB(16, topPad + 8, 16, 12),
-      decoration: BoxDecoration(gradient: _gradientForCategory(_venueType)),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // Back
-          GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: const Padding(
-              padding: EdgeInsets.only(right: 12, bottom: 2),
-              child: Icon(Icons.arrow_back, color: Colors.white, size: 22),
-            ),
-          ),
-          // Venue name + city
-          Expanded(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _venueName.isEmpty ? 'Venue' : _venueName,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    shadows: [
-                      Shadow(
-                          offset: Offset(0, 1),
-                          blurRadius: 4,
-                          color: Colors.black54),
-                    ],
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                if (_cityAddress.isNotEmpty) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    _cityAddress,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.85),
-                      fontSize: 12,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-          // Stat chips
-          Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              _StatChip(
-                label: _averageCrowding != null
-                    ? 'Avg now: ${_averageCrowding!.toStringAsFixed(1)}'
-                    : 'Avg now: —',
-              ),
-              const SizedBox(height: 4),
-              _StatChip(
-                label: _crowdingReports != null
-                    ? 'All-time: $_crowdingReports'
-                    : 'All-time: —',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Scrollable body ───────────────────────────────────────────────────────────
-  Widget _buildBody() {
     if (_venueName.isEmpty) {
-      return const Center(child: CircularProgressIndicator());
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Venue'),
+          backgroundColor: const Color(0xFF1565C0),
+          foregroundColor: Colors.white,
+        ),
+        body: const Center(child: Text('No venue specified')),
+      );
     }
 
     return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
+      stream: _db
           .collection('location_posts')
           .where('locationName', isEqualTo: _venueName)
           .orderBy('timestamp', descending: true)
-          .limit(20)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting &&
-            !snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
         if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Text(
-                'Could not load peeps: ${snapshot.error}',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey[600]),
+          return _buildShell(
+            currentCrowd: 0,
+            body: Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Text(
+                  'Could not load venue: ${snapshot.error}',
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           );
         }
 
+        if (snapshot.connectionState == ConnectionState.waiting &&
+            !snapshot.hasData) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         final docs = snapshot.data?.docs ?? [];
-        final items = _mergeAds(docs);
+        final posts = docs.map((d) {
+          return {'id': d.id, ...d.data() as Map<String, dynamic>};
+        }).toList();
 
-        // 2 fixed header slots (deal banner + pioneer badge) always present,
-        // followed by either the empty-state widget or the post/ad list.
-        const headerSlots = 2;
-        final bodyCount = items.isEmpty ? 1 : items.length;
+        if (posts.isNotEmpty) {
+          final latest = posts.first;
+          _latitude = (latest['latitude'] as num?)?.toDouble();
+          _longitude = (latest['longitude'] as num?)?.toDouble();
+          _latestPostId = latest['id'] as String?;
+        }
 
-        return ListView.builder(
-          controller: _scrollController,
-          padding: const EdgeInsets.only(bottom: 16),
-          itemCount: headerSlots + bodyCount,
-          itemBuilder: (context, index) {
-            if (index == 0) return _buildDealBanner();
-            if (index == 1) return _buildPioneerBadge();
+        final stats = _computeStats(posts);
+        final heroImageUrl = _heroImageUrl(posts);
+        final recentPosts = posts.take(10).toList();
+        final chartSpots = _chartSpots(posts);
 
-            if (items.isEmpty) {
-              return NoPeepsEmptyState(locationName: _venueName);
-            }
-
-            final item = items[index - headerSlots];
-            if (item['_isAd'] == true) {
-              final adId = item['id'] as String? ?? '';
-              final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-              return AdCard(
-                ad: item,
-                onImpression: () => _adsService.recordAdImpression(adId, uid),
-                onTap: () => _adsService.recordAdClick(adId, uid),
-              );
-            }
-            return _buildPostCard(item);
-          },
+        return _buildShell(
+          currentCrowd: stats.currentCrowd,
+          body: CustomScrollView(
+            slivers: [
+              SliverToBoxAdapter(child: _buildHero(heroImageUrl)),
+              SliverToBoxAdapter(child: _buildStatCards(stats)),
+              SliverToBoxAdapter(child: _buildCrowdHistory(chartSpots)),
+              SliverToBoxAdapter(child: _buildRecentPostsHeader()),
+              if (recentPosts.isEmpty)
+                const SliverToBoxAdapter(
+                  child: Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Center(
+                      child: Text(
+                        'No posts yet — be the first to Peep here!',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                    ),
+                  ),
+                )
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) =>
+                        _buildRecentPostCard(recentPosts[index]),
+                    childCount: recentPosts.length,
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+          ),
         );
       },
     );
   }
 
-  // ── Deal banner ───────────────────────────────────────────────────────────────
-  Widget _buildDealBanner() {
-    if (_activeDeal == null) return const SizedBox.shrink();
-    final text = _activeDeal!['dealText'] as String? ??
-        _activeDeal!['headline'] as String? ??
-        'Active deal — tap for details';
-
-    return Container(
-      key: _dealBannerKey,
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.red, width: 1.5),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(
-          color: Colors.red,
-          fontSize: 13,
-          fontWeight: FontWeight.bold,
-          letterSpacing: 0.4,
+  Widget _buildShell({
+    required Widget body,
+    required int currentCrowd,
+  }) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      extendBodyBehindAppBar: true,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.white,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            tooltip: _isFavorite ? 'Remove favorite' : 'Save favorite',
+            icon: Icon(
+              _isFavorite ? Icons.star : Icons.star_border,
+              color: _isFavorite ? Colors.amber : Colors.white,
+            ),
+            onPressed: _toggleFavorite,
+          ),
+          IconButton(
+            tooltip: 'Share',
+            icon: const Icon(Icons.share),
+            onPressed: () => _shareVenue(currentCrowd),
+          ),
+        ],
+      ),
+      body: body,
+      bottomNavigationBar: _buildBottomActions(),
+    );
+  }
+
+  Widget _buildHero(String? imageUrl) {
+    return SizedBox(
+      height: 220,
+      width: double.infinity,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          if (imageUrl != null && imageUrl.isNotEmpty)
+            Image.network(
+              imageUrl,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) =>
+                  Container(color: const Color(0xFF1565C0)),
+            )
+          else
+            Container(color: const Color(0xFF1565C0)),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  const Color(0xFF2244EE).withValues(alpha: 0.55),
+                  const Color(0xFF1565C0).withValues(alpha: 0.85),
+                ],
+              ),
+            ),
+          ),
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 20,
+            child: Text(
+              _venueName,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    offset: Offset(0, 1),
+                    blurRadius: 6,
+                    color: Colors.black54,
+                  ),
+                ],
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  // ── Pioneer badge ─────────────────────────────────────────────────────────────
-  Widget _buildPioneerBadge() {
-    if (_pioneerUsername == null) return const SizedBox.shrink();
+  Widget _buildStatCards(_VenueStats stats) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 8),
       child: Row(
         children: [
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: const Color(0xFF2244EE),
-              borderRadius: BorderRadius.circular(20),
+          Expanded(
+            child: _StatCard(
+              label: 'Current Crowd',
+              child: CrowdMeter(level: stats.currentCrowd, size: 44),
             ),
-            child: Text(
-              '🏅 Pioneered by $_pioneerUsername',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatCard(
+              label: 'Total Posts',
+              child: Text(
+                '${stats.totalPosts}',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatCard(
+              label: 'Avg Crowd',
+              child: Text(
+                stats.totalPosts > 0
+                    ? stats.averageCrowd.toStringAsFixed(1)
+                    : '—',
+                style: const TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: _StatCard(
+              label: 'Peak Hour',
+              child: Text(
+                stats.peakHourLabel,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1565C0),
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
           ),
@@ -593,101 +396,349 @@ class _VenueScreenState extends State<VenueScreen> {
     );
   }
 
-  // ── Post card (mirrors FeedScreen style) ──────────────────────────────────────
-  Widget _buildPostCard(Map<String, dynamic> post) {
-    final imageUrl = post['imageUrl'] as String? ?? '';
-    if (imageUrl.isEmpty) return const SizedBox.shrink();
+  Widget _buildCrowdHistory(List<FlSpot> spots) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Crowd History',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1565C0),
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Last 7 days',
+            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 180,
+            child: spots.isEmpty
+                ? Center(
+                    child: Text(
+                      'No crowd data yet',
+                      style: TextStyle(color: Colors.grey[500]),
+                    ),
+                  )
+                : LineChart(
+                    LineChartData(
+                      minY: 0,
+                      maxY: 10,
+                      gridData: FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: 2,
+                        getDrawingHorizontalLine: (value) => FlLine(
+                          color: Colors.grey.withValues(alpha: 0.2),
+                          strokeWidth: 1,
+                        ),
+                      ),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 28,
+                            interval: 2,
+                            getTitlesWidget: (value, meta) => Text(
+                              value.toInt().toString(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 28,
+                            interval: 1,
+                            getTitlesWidget: (value, meta) {
+                              final labels = _dayLabels();
+                              final i = value.toInt();
+                              if (i < 0 || i >= labels.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  labels[i],
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                      borderData: FlBorderData(
+                        show: true,
+                        border: Border.all(
+                          color: Colors.grey.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      lineBarsData: [
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          color: const Color(0xFF1565C0),
+                          barWidth: 3,
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, bar, index) =>
+                                FlDotCirclePainter(
+                              radius: 4,
+                              color: const Color(0xFF1565C0),
+                              strokeWidth: 1,
+                              strokeColor: Colors.white,
+                            ),
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: const Color(0xFF1565C0)
+                                .withValues(alpha: 0.12),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget _buildRecentPostsHeader() {
+    return const Padding(
+      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Text(
+        'Recent Posts',
+        style: TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Color(0xFF1565C0),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentPostCard(Map<String, dynamic> post) {
     final crowdLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
-    final w = MediaQuery.sizeOf(context).width;
-    final cardH = w * 0.22;
-
-    return GestureDetector(
+    return InkWell(
       onTap: () => Navigator.push<void>(
         context,
         MaterialPageRoute(
           builder: (_) => LocationDetailScreen(postData: post),
         ),
       ),
-      child: SizedBox(
-        width: double.infinity,
-        height: cardH,
-        child: Stack(
-          fit: StackFit.expand,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.grey.shade200),
+        ),
+        child: Row(
           children: [
-            Image.network(
-              imageUrl,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) =>
-                  Container(color: Colors.grey[300]),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    post['username'] as String? ?? 'Anonymous',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    _relativeTime(post['timestamp']),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
             ),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.65),
-                  ],
-                  stops: const [0.0, 0.35, 1.0],
+            CrowdMeter(level: crowdLevel, size: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBottomActions() {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 8,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                onPressed: _openPostScreen,
+                icon: const Icon(Icons.camera_alt_outlined),
+                label: const Text(
+                  'Post Here',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF2244EE),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          post['username'] as String? ?? 'Anonymous',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                            shadows: [
-                              Shadow(
-                                  offset: Offset(0, 1),
-                                  blurRadius: 4,
-                                  color: Colors.black87),
-                            ],
-                          ),
-                        ),
-                        Text(
-                          _relativeTime(post['timestamp']),
-                          style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.88),
-                            fontSize: 9,
-                          ),
-                        ),
-                        const Spacer(),
-                        if ((post['description'] as String?)?.isNotEmpty ==
-                            true)
-                          Text(
-                            post['description'] as String,
-                            style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.85),
-                              fontSize: 10,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                      ],
-                    ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: OutlinedButton.icon(
+                onPressed: _sendAskRequest,
+                icon: const Icon(Icons.campaign_outlined),
+                label: const Text(
+                  'Ask Here Now',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: const Color(0xFF1565C0),
+                  side: const BorderSide(color: Color(0xFF1565C0)),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  CrowdDotRingMeter(level: crowdLevel, size: 32),
-                ],
+                ),
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  String? _heroImageUrl(List<Map<String, dynamic>> posts) {
+    for (final post in posts) {
+      final url = post['imageUrl'] as String?;
+      if (url != null && url.isNotEmpty) return url;
+    }
+    return null;
+  }
+
+  _VenueStats _computeStats(List<Map<String, dynamic>> posts) {
+    if (posts.isEmpty) {
+      return const _VenueStats(
+        currentCrowd: 0,
+        totalPosts: 0,
+        averageCrowd: 0,
+        peakHourLabel: '—',
+      );
+    }
+
+    final currentCrowd = (posts.first['crowdingLevel'] as num?)?.toInt() ?? 0;
+    final totalPosts = posts.length;
+
+    var sum = 0.0;
+    var count = 0;
+    final hourCounts = List<int>.filled(24, 0);
+
+    for (final post in posts) {
+      final level = post['crowdingLevel'];
+      if (level is num) {
+        sum += level.toDouble();
+        count++;
+      }
+      final ts = post['timestamp'];
+      if (ts is Timestamp) {
+        hourCounts[ts.toDate().hour]++;
+      }
+    }
+
+    var peakHour = 0;
+    var peakCount = 0;
+    for (var h = 0; h < 24; h++) {
+      if (hourCounts[h] > peakCount) {
+        peakCount = hourCounts[h];
+        peakHour = h;
+      }
+    }
+
+    return _VenueStats(
+      currentCrowd: currentCrowd,
+      totalPosts: totalPosts,
+      averageCrowd: count > 0 ? sum / count : 0,
+      peakHourLabel: peakCount > 0 ? _formatHour(peakHour) : '—',
+    );
+  }
+
+  List<FlSpot> _chartSpots(List<Map<String, dynamic>> posts) {
+    final now = DateTime.now();
+    final start = DateTime(now.year, now.month, now.day)
+        .subtract(const Duration(days: 6));
+
+    final buckets = List<List<double>>.generate(7, (_) => []);
+
+    for (final post in posts) {
+      final ts = post['timestamp'];
+      final level = post['crowdingLevel'];
+      if (ts is! Timestamp || level is! num) continue;
+
+      final date = ts.toDate();
+      if (date.isBefore(start)) continue;
+
+      final dayIndex = DateTime(date.year, date.month, date.day)
+          .difference(start)
+          .inDays;
+      if (dayIndex >= 0 && dayIndex < 7) {
+        buckets[dayIndex].add(level.toDouble());
+      }
+    }
+
+    final spots = <FlSpot>[];
+    for (var i = 0; i < 7; i++) {
+      if (buckets[i].isEmpty) continue;
+      final avg = buckets[i].reduce((a, b) => a + b) / buckets[i].length;
+      spots.add(FlSpot(i.toDouble(), avg));
+    }
+    return spots;
+  }
+
+  List<String> _dayLabels() {
+    final now = DateTime.now();
+    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    return List.generate(7, (i) {
+      final day = now.subtract(Duration(days: 6 - i));
+      return weekdays[day.weekday - 1];
+    });
+  }
+
+  static String _formatHour(int hour) {
+    if (hour == 0) return '12 AM';
+    if (hour < 12) return '$hour AM';
+    if (hour == 12) return '12 PM';
+    return '${hour - 12} PM';
   }
 
   static String _relativeTime(dynamic ts) {
@@ -698,126 +749,60 @@ class _VenueScreenState extends State<VenueScreen> {
     if (diff.inHours < 24) return '${diff.inHours}h ago';
     return '${diff.inDays}d ago';
   }
+}
 
-  // ── Bottom bar ────────────────────────────────────────────────────────────────
-  Widget _buildBottomBar() {
+class _VenueStats {
+  final int currentCrowd;
+  final int totalPosts;
+  final double averageCrowd;
+  final String peakHourLabel;
+
+  const _VenueStats({
+    required this.currentCrowd,
+    required this.totalPosts,
+    required this.averageCrowd,
+    required this.peakHourLabel,
+  });
+}
+
+class _StatCard extends StatelessWidget {
+  final String label;
+  final Widget child;
+
+  const _StatCard({required this.label, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      height: 56 + MediaQuery.of(context).padding.bottom,
-      color: const Color(0xFF2244EE),
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
-      child: Row(
-        children: [
-          _BarAction(
-            label: 'DEALS',
-            color: const Color(0xFFFFD700),
-            icon: Icons.local_offer_outlined,
-            onTap: _scrollToDeals,
-          ),
-          _BarAction(
-            label: 'Map',
-            color: Colors.white,
-            icon: Icons.map_outlined,
-            onTap: _openMap,
-          ),
-          _BarAction(
-            label: 'Menu',
-            color: Colors.white,
-            icon: Icons.menu_book_outlined,
-            onTap: _showMenuSheet,
-          ),
-          _BarAction(
-            label: 'SHARE',
-            color: const Color(0xFFFFD700),
-            icon: Icons.share_outlined,
-            onTap: _shareVenue,
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
-    );
-  }
-
-  // ── FAB ───────────────────────────────────────────────────────────────────────
-  Widget _buildFAB() {
-    return FloatingActionButton.extended(
-      onPressed: () => Navigator.pushNamed(
-        context,
-        '/post',
-        arguments: {'locationName': _venueName},
-      ),
-      backgroundColor: const Color(0xFF2244EE),
-      foregroundColor: Colors.white,
-      label: const Text(
-        'Peep Here',
-        style: TextStyle(fontWeight: FontWeight.bold),
-      ),
-      icon: const Icon(Icons.camera_alt_outlined),
-    );
-  }
-}
-
-// ─── Private helper widgets ───────────────────────────────────────────────────
-
-class _StatChip extends StatelessWidget {
-  final String label;
-  const _StatChip({required this.label});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.2),
-          width: 0.5,
-        ),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-    );
-  }
-}
-
-class _BarAction extends StatelessWidget {
-  final String label;
-  final Color color;
-  final IconData icon;
-  final VoidCallback onTap;
-
-  const _BarAction({
-    required this.label,
-    required this.color,
-    required this.icon,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, color: color, size: 18),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w700,
-              ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w600,
+              color: Colors.grey[600],
             ),
-          ],
-        ),
+            textAlign: TextAlign.center,
+            maxLines: 2,
+          ),
+          const SizedBox(height: 6),
+          child,
+        ],
       ),
     );
   }

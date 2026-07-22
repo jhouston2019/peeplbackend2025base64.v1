@@ -2,25 +2,33 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-// ── models ───────────────────────────────────────────────────────────────────
+const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
-enum _Mode { friends, everyone }
+enum _Period { week, month, allTime }
 
-class _Leader {
+class _LeaderEntry {
   final String userId;
-  final String username;
-  final int points;
-  final bool isMe;
+  final int postCount;
+  final int totalLikes;
+  final int uniqueLocations;
+  String displayName;
+  String username;
+  String? photoUrl;
+  bool isVIP;
 
-  const _Leader({
+  _LeaderEntry({
     required this.userId,
-    required this.username,
-    required this.points,
-    required this.isMe,
+    required this.postCount,
+    required this.totalLikes,
+    required this.uniqueLocations,
+    this.displayName = 'User',
+    this.username = '',
+    this.photoUrl,
+    this.isVIP = false,
   });
-}
 
-// ── screen ───────────────────────────────────────────────────────────────────
+  int get score => totalLikes;
+}
 
 class LeaderboardScreen extends StatefulWidget {
   const LeaderboardScreen({super.key});
@@ -29,420 +37,288 @@ class LeaderboardScreen extends StatefulWidget {
   State<LeaderboardScreen> createState() => _LeaderboardScreenState();
 }
 
-class _LeaderboardScreenState extends State<LeaderboardScreen> {
-  final _db = FirebaseFirestore.instance;
-  final _scrollController = ScrollController();
+class _LeaderboardScreenState extends State<LeaderboardScreen>
+    with SingleTickerProviderStateMixin {
+  final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  _Mode _mode = _Mode.everyone;
+  late TabController _tabController;
+  String _currentUid = '';
 
-  // Current user info (loaded once)
-  String _myUid = '';
-  String _myUsername = '';
-  int _myPoints = 0;
-  int? _myRank;
-
-  // Everyone (paginated)
-  final List<_Leader> _everyone = [];
-  bool _loadingEveryone = true;
-  bool _everyoneLoaded = false;
-  bool _everyoneHasMore = true;
-  bool _loadingMoreEveryone = false;
-  DocumentSnapshot? _everyoneLastDoc;
-
-  // Friends
-  List<_Leader> _friends = [];
-  bool _loadingFriends = false;
-  bool _friendsLoaded = false;
-
-  // ── lifecycle ──────────────────────────────────────────────────────────────
+  final Map<_Period, List<_LeaderEntry>> _cache = {};
+  final Map<_Period, bool> _loading = {};
+  final Map<_Period, String?> _errors = {};
 
   @override
   void initState() {
     super.initState();
-    _scrollController.addListener(_onScroll);
-    _loadMyData();
-    _loadEveryone();
+    _currentUid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    _tabController = TabController(length: 3, vsync: this);
+    _tabController.addListener(_onTabChanged);
+    _loadPeriod(_Period.week);
   }
 
   @override
   void dispose() {
-    _scrollController.dispose();
+    _tabController.removeListener(_onTabChanged);
+    _tabController.dispose();
     super.dispose();
   }
 
-  void _onScroll() {
-    if (_mode == _Mode.everyone &&
-        _scrollController.position.pixels >=
-            _scrollController.position.maxScrollExtent - 300) {
-      _loadMoreEveryone();
+  void _onTabChanged() {
+    if (_tabController.indexIsChanging) return;
+    _loadPeriod(_periodForIndex(_tabController.index));
+  }
+
+  _Period _periodForIndex(int index) {
+    switch (index) {
+      case 1:
+        return _Period.month;
+      case 2:
+        return _Period.allTime;
+      default:
+        return _Period.week;
     }
   }
 
-  // ── data: current user ─────────────────────────────────────────────────────
+  DateTime? _cutoffFor(_Period period) {
+    final now = DateTime.now();
+    switch (period) {
+      case _Period.week:
+        return DateTime(now.year, now.month, now.day)
+            .subtract(Duration(days: now.weekday - 1));
+      case _Period.month:
+        return DateTime(now.year, now.month, 1);
+      case _Period.allTime:
+        return null;
+    }
+  }
 
-  Future<void> _loadMyData() async {
-    final me = FirebaseAuth.instance.currentUser;
-    if (me == null) return;
-    _myUid = me.uid;
+  Future<void> _loadPeriod(_Period period) async {
+    if (_loading[period] == true) return;
+    setState(() {
+      _loading[period] = true;
+      _errors[period] = null;
+    });
+
     try {
-      final doc = await _db.collection('users').doc(me.uid).get();
-      final data = doc.data() ?? {};
-      if (!mounted) return;
-      setState(() {
-        _myUsername = (data['username'] as String?) ??
-            (data['displayName'] as String?) ??
-            me.displayName ??
-            me.email?.split('@').first ??
-            'Me';
-        _myPoints = (data['points'] as num?)?.toInt() ?? 0;
-        _myRank = (data['rank'] as num?)?.toInt();
-      });
-    } catch (_) {}
-  }
+      final cutoff = _cutoffFor(period);
+      Query<Map<String, dynamic>> query =
+          _db.collection('location_posts');
 
-  // ── data: everyone (paginated) ─────────────────────────────────────────────
-
-  Future<void> _loadEveryone() async {
-    if (_loadingEveryone && _everyoneLoaded) return;
-    if (!_everyoneLoaded) setState(() => _loadingEveryone = true);
-    try {
-      final snap = await _db
-          .collection('users')
-          .orderBy('points', descending: true)
-          .limit(20)
-          .get();
-      final leaders = _toLeaders(snap.docs);
-      if (!mounted) return;
-      setState(() {
-        _everyone
-          ..clear()
-          ..addAll(leaders);
-        _everyoneHasMore = snap.docs.length >= 20;
-        _everyoneLastDoc =
-            snap.docs.isNotEmpty ? snap.docs.last : null;
-        _loadingEveryone = false;
-        _everyoneLoaded = true;
-        // Derive rank from position if not set on user doc
-        if (_myRank == null) {
-          final pos =
-              _everyone.indexWhere((l) => l.isMe);
-          if (pos >= 0) _myRank = pos + 1;
-        }
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingEveryone = false);
-    }
-  }
-
-  Future<void> _loadMoreEveryone() async {
-    if (_loadingMoreEveryone ||
-        !_everyoneHasMore ||
-        _everyoneLastDoc == null) return;
-    setState(() => _loadingMoreEveryone = true);
-    try {
-      final snap = await _db
-          .collection('users')
-          .orderBy('points', descending: true)
-          .startAfterDocument(_everyoneLastDoc!)
-          .limit(20)
-          .get();
-      if (!mounted) return;
-      setState(() {
-        _everyone.addAll(_toLeaders(snap.docs));
-        _everyoneHasMore = snap.docs.length >= 20;
-        _everyoneLastDoc =
-            snap.docs.isNotEmpty ? snap.docs.last : null;
-        _loadingMoreEveryone = false;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingMoreEveryone = false);
-    }
-  }
-
-  // ── data: friends ──────────────────────────────────────────────────────────
-
-  Future<void> _loadFriends() async {
-    if (_loadingFriends || _friendsLoaded) return;
-    setState(() => _loadingFriends = true);
-    try {
-      final me = FirebaseAuth.instance.currentUser;
-      if (me == null) {
-        setState(() => _loadingFriends = false);
-        return;
-      }
-      final followingSnap = await _db
-          .collection('users')
-          .doc(me.uid)
-          .collection('following')
-          .limit(50)
-          .get();
-
-      final ids =
-          {...followingSnap.docs.map((d) => d.id), me.uid}.toList();
-
-      final docs = await Future.wait(
-          ids.map((id) => _db.collection('users').doc(id).get()));
-
-      final leaders = docs
-          .map((doc) {
-            if (!doc.exists) return null;
-            final d = doc.data() as Map<String, dynamic>;
-            return _Leader(
-              userId: doc.id,
-              username: (d['username'] as String?) ??
-                  (d['displayName'] as String?) ??
-                  'Unknown',
-              points: (d['points'] as num?)?.toInt() ?? 0,
-              isMe: doc.id == me.uid,
-            );
-          })
-          .whereType<_Leader>()
-          .toList()
-        ..sort((a, b) => b.points.compareTo(a.points));
-
-      if (!mounted) return;
-      setState(() {
-        _friends = leaders;
-        _loadingFriends = false;
-        _friendsLoaded = true;
-      });
-    } catch (_) {
-      if (mounted) setState(() => _loadingFriends = false);
-    }
-  }
-
-  // ── refresh ────────────────────────────────────────────────────────────────
-
-  Future<void> _refresh() async {
-    if (_mode == _Mode.everyone) {
-      setState(() {
-        _everyoneLoaded = false;
-        _everyoneLastDoc = null;
-        _everyoneHasMore = true;
-      });
-      await _loadEveryone();
-    } else {
-      setState(() => _friendsLoaded = false);
-      await _loadFriends();
-    }
-  }
-
-  // ── helpers ────────────────────────────────────────────────────────────────
-
-  List<_Leader> _toLeaders(List<QueryDocumentSnapshot> docs) =>
-      docs.map((doc) {
-        final d = doc.data() as Map<String, dynamic>;
-        return _Leader(
-          userId: doc.id,
-          username: (d['username'] as String?) ??
-              (d['displayName'] as String?) ??
-              'Unknown',
-          points: (d['points'] as num?)?.toInt() ?? 0,
-          isMe: doc.id == _myUid,
+      if (cutoff != null) {
+        query = query.where(
+          'timestamp',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(cutoff),
         );
-      }).toList();
+      }
 
-  static Color _avatarColor(String name) {
-    const palette = [
-      Color(0xFF1565C0),
-      Color(0xFF388E3C),
-      Color(0xFFBF360C),
-      Color(0xFF6A1B9A),
-      Color(0xFF00695C),
-      Color(0xFF558B2F),
-    ];
-    if (name.isEmpty) return palette[0];
-    return palette[name.codeUnitAt(0) % palette.length];
+      final snap = await query.limit(3000).get();
+      final aggregated = _aggregatePosts(snap.docs);
+      aggregated.sort((a, b) {
+        final likes = b.totalLikes.compareTo(a.totalLikes);
+        if (likes != 0) return likes;
+        final posts = b.postCount.compareTo(a.postCount);
+        if (posts != 0) return posts;
+        return b.uniqueLocations.compareTo(a.uniqueLocations);
+      });
+
+      final topIds = aggregated.take(20).map((e) => e.userId).toSet();
+      if (_currentUid.isNotEmpty) topIds.add(_currentUid);
+
+      await _hydrateUsers(aggregated.where((e) => topIds.contains(e.userId)).toList());
+
+      if (mounted) {
+        setState(() {
+          _cache[period] = aggregated;
+          _loading[period] = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('LeaderboardScreen._loadPeriod: $e');
+      if (mounted) {
+        setState(() {
+          _errors[period] = e.toString();
+          _loading[period] = false;
+        });
+      }
+    }
   }
 
-  List<_Leader> get _leaders =>
-      _mode == _Mode.friends ? _friends : _everyone;
-  bool get _isLoading =>
-      _mode == _Mode.friends ? _loadingFriends : _loadingEveryone;
+  List<_LeaderEntry> _aggregatePosts(List<QueryDocumentSnapshot> docs) {
+    final byUser = <String, _LeaderEntry>{};
+    final locationsByUser = <String, Set<String>>{};
 
-  // ── build ──────────────────────────────────────────────────────────────────
+    for (final doc in docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final uid = data['userId'] as String? ?? '';
+      if (uid.isEmpty) continue;
+
+      locationsByUser.putIfAbsent(uid, () => {});
+      final location = data['locationName'] as String? ?? '';
+      if (location.isNotEmpty) locationsByUser[uid]!.add(location);
+
+      final likes = (data['likesCount'] as num?)?.toInt() ?? 0;
+      final existing = byUser[uid];
+      if (existing == null) {
+        byUser[uid] = _LeaderEntry(
+          userId: uid,
+          postCount: 1,
+          totalLikes: likes,
+          uniqueLocations: 0,
+        );
+      } else {
+        byUser[uid] = _LeaderEntry(
+          userId: uid,
+          postCount: existing.postCount + 1,
+          totalLikes: existing.totalLikes + likes,
+          uniqueLocations: existing.uniqueLocations,
+          displayName: existing.displayName,
+          username: existing.username,
+          photoUrl: existing.photoUrl,
+          isVIP: existing.isVIP,
+        );
+      }
+    }
+
+    for (final uid in byUser.keys) {
+      final entry = byUser[uid]!;
+      byUser[uid] = _LeaderEntry(
+        userId: entry.userId,
+        postCount: entry.postCount,
+        totalLikes: entry.totalLikes,
+        uniqueLocations: locationsByUser[uid]?.length ?? 0,
+        displayName: entry.displayName,
+        username: entry.username,
+        photoUrl: entry.photoUrl,
+        isVIP: entry.isVIP,
+      );
+    }
+
+    return byUser.values.toList();
+  }
+
+  Future<void> _hydrateUsers(List<_LeaderEntry> entries) async {
+    await Future.wait(entries.map((entry) async {
+      try {
+        final doc =
+            await _db.collection(_kUsersCollection).doc(entry.userId).get();
+        final data = doc.data() ?? {};
+        entry.displayName = (data['displayName'] as String?) ??
+            (data['name'] as String?) ??
+            entry.displayName;
+        entry.username = (data['username'] as String?) ?? entry.username;
+        entry.photoUrl = data['photoUrl'] as String?;
+        entry.isVIP = data['isVIPeep'] as bool? ?? false;
+      } catch (_) {}
+    }));
+  }
+
+  int? _rankOf(List<_LeaderEntry> all, String uid) {
+    final index = all.indexWhere((e) => e.userId == uid);
+    return index >= 0 ? index + 1 : null;
+  }
 
   @override
   Widget build(BuildContext context) {
-    final rankLabel = _myRank != null ? '#$_myRank' : '—';
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
       body: SafeArea(
         child: Column(
           children: [
-            _buildTopBar(context, rankLabel),
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
-                child: _buildContent(),
-              ),
-            ),
+            _buildHeader(),
+            _buildTabBar(),
+            Expanded(child: _buildTabViews()),
           ],
         ),
       ),
     );
   }
 
-  // ── TOP BAR ────────────────────────────────────────────────────────────────
-
-  Widget _buildTopBar(BuildContext context, String rankLabel) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(4, 10, 20, 0),
-          child: Row(
-            children: [
-              IconButton(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
-              ),
-              const Text(
-                'Leaderboard',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+  Widget _buildHeader() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(4, 4, 16, 0),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: () => Navigator.pop(context),
+            icon: const Icon(Icons.arrow_back, color: Colors.white),
           ),
-        ),
-
-        // "Your Score" row
-        Container(
-          margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          padding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2)),
+          const Text(
+            'Leaderboard',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 34,
-                height: 34,
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.18),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    rankLabel,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 12,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              CircleAvatar(
-                radius: 16,
-                backgroundColor:
-                    Colors.white.withValues(alpha: 0.25),
-                child: Text(
-                  _myUsername.isNotEmpty
-                      ? _myUsername[0].toUpperCase()
-                      : '?',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  _myUsername,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              Text(
-                '$_myPoints pts',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Mode toggle pills
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-          child: Row(
-            children: [
-              _pill('Everyone', _Mode.everyone),
-              const SizedBox(width: 8),
-              _pill('Friends', _Mode.friends),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _pill(String label, _Mode mode) {
-    final selected = _mode == mode;
-    return GestureDetector(
-      onTap: () {
-        setState(() => _mode = mode);
-        if (mode == _Mode.friends && !_friendsLoaded) {
-          _loadFriends();
-        }
-      },
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
-        padding:
-            const EdgeInsets.symmetric(horizontal: 18, vertical: 7),
-        decoration: BoxDecoration(
-          color: selected ? Colors.white : Colors.transparent,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: Colors.white
-                .withValues(alpha: selected ? 0 : 0.5),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: selected
-                ? const Color(0xFF1565C0)
-                : Colors.white,
-            fontWeight: FontWeight.w700,
-            fontSize: 13,
-          ),
-        ),
+        ],
       ),
     );
   }
 
-  // ── CONTENT ────────────────────────────────────────────────────────────────
+  Widget _buildTabBar() {
+    return Material(
+      color: const Color(0xFF1565C0),
+      child: TabBar(
+        controller: _tabController,
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: Colors.white,
+        indicatorWeight: 3,
+        tabs: const [
+          Tab(text: 'This Week'),
+          Tab(text: 'This Month'),
+          Tab(text: 'All Time'),
+        ],
+      ),
+    );
+  }
 
-  Widget _buildContent() {
-    if (_isLoading && _leaders.isEmpty) {
+  Widget _buildTabViews() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+        ),
+      ),
+      child: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildPeriodBody(_Period.week),
+          _buildPeriodBody(_Period.month),
+          _buildPeriodBody(_Period.allTime),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPeriodBody(_Period period) {
+    final loading = _loading[period] == true;
+    final error = _errors[period];
+    final all = _cache[period] ?? [];
+
+    if (loading && all.isEmpty) {
       return const Center(child: CircularProgressIndicator());
     }
 
-    if (_leaders.isEmpty) {
+    if (error != null && all.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Could not load leaderboard', style: TextStyle(color: Colors.grey[600])),
+            TextButton(
+              onPressed: () => _loadPeriod(period),
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (all.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -450,113 +326,142 @@ class _LeaderboardScreenState extends State<LeaderboardScreen> {
             const Text('🏆', style: TextStyle(fontSize: 48)),
             const SizedBox(height: 12),
             Text(
-              _mode == _Mode.friends
-                  ? 'No friends on Peepl yet!'
-                  : 'Leaderboard is empty',
-              style:
-                  TextStyle(color: Colors.grey[500], fontSize: 16),
+              'No activity yet for this period',
+              style: TextStyle(color: Colors.grey[500], fontSize: 16),
             ),
           ],
         ),
       );
     }
 
-    final hasPodium = _leaders.length >= 3;
-    final top3 = hasPodium ? _leaders.take(3).toList() : <_Leader>[];
-    final rest =
-        hasPodium ? _leaders.skip(3).toList() : _leaders;
+    final top20 = all.take(20).toList();
+    final top3 = top20.length >= 3 ? top20.take(3).toList() : <_LeaderEntry>[];
+    final rest = top20.length >= 3 ? top20.skip(3).toList() : top20;
+
+    final myRank = _currentUid.isNotEmpty ? _rankOf(all, _currentUid) : null;
+    _LeaderEntry? myEntry;
+    if (_currentUid.isNotEmpty) {
+      for (final e in all) {
+        if (e.userId == _currentUid) {
+          myEntry = e;
+          break;
+        }
+      }
+    }
+    final showMyFooter =
+        myEntry != null && myRank != null && myRank > 20;
+    final footerEntry = myEntry;
+    final footerRank = myRank;
 
     return RefreshIndicator(
-      onRefresh: _refresh,
-      child: ListView.builder(
-        controller: _scrollController,
+      onRefresh: () => _loadPeriod(period),
+      child: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 16),
-        itemCount:
-            1 + rest.length + (_loadingMoreEveryone ? 1 : 0),
-        itemBuilder: (_, i) {
-          // Podium slot
-          if (i == 0) {
-            return hasPodium
-                ? _Podium(top3: top3, myUid: _myUid)
-                : const SizedBox(height: 8);
-          }
-          // Loading-more footer
-          if (_loadingMoreEveryone && i == rest.length + 1) {
-            return const Padding(
-              padding: EdgeInsets.all(16),
-              child:
-                  Center(child: CircularProgressIndicator()),
-            );
-          }
-          final idx = i - 1;
-          final rank = (hasPodium ? 3 : 0) + idx + 1;
-          return _RankRow(
-            rank: rank,
-            leader: rest[idx],
-            avatarColor: _avatarColor(rest[idx].username),
-          );
-        },
+        slivers: [
+          if (top3.length >= 3)
+            SliverToBoxAdapter(
+              child: _Podium(
+                top3: top3,
+                currentUid: _currentUid,
+                onTap: _openProfile,
+              ),
+            ),
+          SliverList(
+            delegate: SliverChildBuilderDelegate(
+              (context, index) {
+                final rank = (top3.length >= 3 ? 3 : 0) + index + 1;
+                final entry = rest[index];
+                return _RankRow(
+                  rank: rank,
+                  entry: entry,
+                  isMe: entry.userId == _currentUid,
+                  onTap: () => _openProfile(entry.userId),
+                );
+              },
+              childCount: rest.length,
+            ),
+          ),
+          if (showMyFooter)
+            SliverToBoxAdapter(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Divider(height: 1, color: Colors.grey.shade300),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                    child: Text(
+                      'Your rank',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ),
+                  _RankRow(
+                    rank: footerRank!,
+                    entry: footerEntry!,
+                    isMe: true,
+                    onTap: () => _openProfile(footerEntry.userId),
+                  ),
+                ],
+              ),
+            ),
+          const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        ],
       ),
     );
   }
+
+  void _openProfile(String userId) {
+    Navigator.pushNamed(context, '/user_profile', arguments: userId);
+  }
 }
 
-// ── podium ───────────────────────────────────────────────────────────────────
-
 class _Podium extends StatelessWidget {
-  const _Podium({required this.top3, required this.myUid});
+  const _Podium({
+    required this.top3,
+    required this.currentUid,
+    required this.onTap,
+  });
 
-  final List<_Leader> top3;
-  final String myUid;
-
-  static Color _avatarColor(String name) {
-    const palette = [
-      Color(0xFF1565C0),
-      Color(0xFF388E3C),
-      Color(0xFFBF360C),
-      Color(0xFF6A1B9A),
-      Color(0xFF00695C),
-    ];
-    if (name.isEmpty) return palette[0];
-    return palette[name.codeUnitAt(0) % palette.length];
-  }
+  final List<_LeaderEntry> top3;
+  final String currentUid;
+  final void Function(String userId) onTap;
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: const Color(0xFFF5F7FF),
-      padding: const EdgeInsets.fromLTRB(12, 20, 12, 0),
+      padding: const EdgeInsets.fromLTRB(12, 20, 12, 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          // #2 — left, medium step
           _PodiumPlace(
             rank: 2,
-            leader: top3[1],
+            entry: top3[1],
             stepHeight: 60,
-            avatarRadius: 26,
-            avatarColor: _avatarColor(top3[1].username),
+            avatarRadius: 28,
+            isMe: top3[1].userId == currentUid,
+            onTap: () => onTap(top3[1].userId),
           ),
-          // #1 — center, tallest step, gold border
           _PodiumPlace(
             rank: 1,
-            leader: top3[0],
+            entry: top3[0],
             stepHeight: 90,
-            avatarRadius: 34,
+            avatarRadius: 36,
             goldBorder: true,
-            avatarColor: top3[0].isMe
-                ? const Color(0xFF1565C0)
-                : _avatarColor(top3[0].username),
+            isMe: top3[0].userId == currentUid,
+            onTap: () => onTap(top3[0].userId),
           ),
-          // #3 — right, shortest step
           _PodiumPlace(
             rank: 3,
-            leader: top3[2],
+            entry: top3[2],
             stepHeight: 42,
-            avatarRadius: 22,
-            avatarColor: _avatarColor(top3[2].username),
+            avatarRadius: 24,
+            isMe: top3[2].userId == currentUid,
+            onTap: () => onTap(top3[2].userId),
           ),
         ],
       ),
@@ -567,18 +472,20 @@ class _Podium extends StatelessWidget {
 class _PodiumPlace extends StatelessWidget {
   const _PodiumPlace({
     required this.rank,
-    required this.leader,
+    required this.entry,
     required this.stepHeight,
     required this.avatarRadius,
-    required this.avatarColor,
+    required this.isMe,
+    required this.onTap,
     this.goldBorder = false,
   });
 
   final int rank;
-  final _Leader leader;
+  final _LeaderEntry entry;
   final double stepHeight;
   final double avatarRadius;
-  final Color avatarColor;
+  final bool isMe;
+  final VoidCallback onTap;
   final bool goldBorder;
 
   static Color _stepColor(int r) {
@@ -587,222 +494,309 @@ class _PodiumPlace extends StatelessWidget {
     return const Color(0xFFCD7F32);
   }
 
+  static Color _rankColor(int r) {
+    if (r == 1) return const Color(0xFFFFD700);
+    if (r == 2) return const Color(0xFF9E9E9E);
+    return const Color(0xFFCD7F32);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final emoji = rank == 1 ? '🥇' : rank == 2 ? '🥈' : '🥉';
-    final stepColor = _stepColor(rank);
-    final nameWidth = rank == 1 ? 88.0 : 72.0;
+    final name = entry.displayName.isNotEmpty
+        ? entry.displayName
+        : entry.username.isNotEmpty
+            ? entry.username
+            : 'User';
+    final width = rank == 1 ? 100.0 : 82.0;
 
     return GestureDetector(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/user_profile',
-        arguments: leader.userId,
-      ),
+      onTap: onTap,
       child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(emoji,
-            style: TextStyle(fontSize: rank == 1 ? 22 : 17)),
-        const SizedBox(height: 4),
-        // Avatar (gold border for #1)
-        Container(
-          decoration: goldBorder
-              ? BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: const Color(0xFFFFD700),
-                    width: 3,
-                  ),
-                )
-              : null,
-          child: CircleAvatar(
-            radius: avatarRadius,
-            backgroundColor: avatarColor,
-            child: Text(
-              leader.username.isNotEmpty
-                  ? leader.username[0].toUpperCase()
-                  : '?',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: rank == 1 ? 24 : 18,
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          width: nameWidth,
-          child: Text(
-            leader.username,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            '#$rank',
             style: TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: rank == 1 ? 13 : 11,
-              color: leader.isMe
-                  ? const Color(0xFF1565C0)
-                  : Colors.black87,
-            ),
-            textAlign: TextAlign.center,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-        Text(
-          '${leader.points} pts',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: rank == 1 ? 13 : 11,
-            color: const Color(0xFF1565C0),
-          ),
-        ),
-        const SizedBox(height: 4),
-        // Podium step
-        Container(
-          width: rank == 1 ? 82 : 66,
-          height: stepHeight,
-          decoration: BoxDecoration(
-            color: stepColor,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(5),
-              topRight: Radius.circular(5),
+              fontWeight: FontWeight.bold,
+              fontSize: rank == 1 ? 16 : 14,
+              color: _rankColor(rank),
             ),
           ),
-          child: Center(
+          const SizedBox(height: 4),
+          Container(
+            decoration: goldBorder
+                ? BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(color: const Color(0xFFFFD700), width: 3),
+                  )
+                : null,
+            child: _LeaderAvatar(
+              entry: entry,
+              radius: avatarRadius,
+              isMe: isMe,
+            ),
+          ),
+          const SizedBox(height: 4),
+          SizedBox(
+            width: width,
             child: Text(
-              '#$rank',
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-                fontSize: 18,
+              name,
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: rank == 1 ? 13 : 11,
+                color: isMe ? const Color(0xFF1565C0) : Colors.black87,
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          if (entry.isVIP)
+            const Padding(
+              padding: EdgeInsets.only(top: 2),
+              child: Text('⭐ VIP', style: TextStyle(fontSize: 9)),
+            ),
+          const SizedBox(height: 4),
+          _StatChips(
+            entry: entry,
+            compact: true,
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: rank == 1 ? 88 : 72,
+            height: stepHeight,
+            decoration: BoxDecoration(
+              color: _stepColor(rank),
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(5),
+                topRight: Radius.circular(5),
               ),
             ),
           ),
-        ),
-      ],
-    ),
+        ],
+      ),
     );
   }
 }
 
-// ── rank row ─────────────────────────────────────────────────────────────────
-
 class _RankRow extends StatelessWidget {
   const _RankRow({
     required this.rank,
-    required this.leader,
-    required this.avatarColor,
+    required this.entry,
+    required this.isMe,
+    required this.onTap,
   });
 
   final int rank;
-  final _Leader leader;
-  final Color avatarColor;
+  final _LeaderEntry entry;
+  final bool isMe;
+  final VoidCallback onTap;
+
+  static Color _rankTextColor(int rank) {
+    if (rank == 1) return const Color(0xFFFFD700);
+    if (rank == 2) return const Color(0xFF9E9E9E);
+    if (rank == 3) return const Color(0xFFCD7F32);
+    return Colors.grey;
+  }
 
   @override
   Widget build(BuildContext context) {
+    final name = entry.displayName.isNotEmpty
+        ? entry.displayName
+        : entry.username.isNotEmpty
+            ? entry.username
+            : 'User';
+
     return InkWell(
-      onTap: () => Navigator.pushNamed(
-        context,
-        '/user_profile',
-        arguments: leader.userId,
-      ),
+      onTap: onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        decoration: leader.isMe
+        decoration: isMe
             ? const BoxDecoration(
                 color: Color(0xFFE3F2FD),
                 border: Border(
-                  left: BorderSide(
-                    color: Color(0xFF1565C0),
-                    width: 3,
-                  ),
+                  left: BorderSide(color: Color(0xFF1565C0), width: 3),
                 ),
               )
             : null,
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 10,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 36,
+              width: 32,
               child: Text(
                 '#$rank',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
-                  color: Colors.grey[500],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ),
-            const SizedBox(width: 8),
-            CircleAvatar(
-              radius: 19,
-              backgroundColor:
-                  leader.isMe ? const Color(0xFF1565C0) : avatarColor,
-              child: Text(
-                leader.username.isNotEmpty
-                    ? leader.username[0].toUpperCase()
-                    : '?',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
                   fontSize: 14,
+                  color: rank <= 3 ? _rankTextColor(rank) : Colors.grey[600],
                 ),
               ),
             ),
+            _LeaderAvatar(entry: entry, radius: 22, isMe: isMe),
             const SizedBox(width: 12),
             Expanded(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Flexible(
-                    child: Text(
-                      leader.username,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                        color: leader.isMe
-                            ? const Color(0xFF1565C0)
-                            : Colors.black87,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (leader.isMe) ...[
-                    const SizedBox(width: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 5, vertical: 1),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1565C0),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Text(
-                        'You',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w700,
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          name,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                            color: isMe
+                                ? const Color(0xFF1565C0)
+                                : Colors.black87,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (entry.isVIP) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFD4AC0D), Color(0xFFFFD700)],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Text(
+                            'VIP',
+                            style: TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
+                        ),
+                      ],
+                      if (isMe) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 5,
+                            vertical: 1,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF1565C0),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: const Text(
+                            'You',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  if (entry.username.isNotEmpty)
+                    Text(
+                      '@${entry.username}',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                     ),
-                  ],
+                  const SizedBox(height: 6),
+                  _StatChips(entry: entry),
                 ],
               ),
             ),
-            Text(
-              '${leader.points} pts',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 14,
-                color: leader.isMe
-                    ? const Color(0xFF1565C0)
-                    : Colors.black87,
-              ),
-            ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LeaderAvatar extends StatelessWidget {
+  const _LeaderAvatar({
+    required this.entry,
+    required this.radius,
+    required this.isMe,
+  });
+
+  final _LeaderEntry entry;
+  final double radius;
+  final bool isMe;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = entry.displayName.isNotEmpty
+        ? entry.displayName
+        : entry.username.isNotEmpty
+            ? entry.username
+            : 'U';
+
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: isMe
+          ? const Color(0xFF1565C0)
+          : const Color(0xFF1565C0).withValues(alpha: 0.15),
+      backgroundImage: entry.photoUrl != null && entry.photoUrl!.isNotEmpty
+          ? NetworkImage(entry.photoUrl!)
+          : null,
+      child: entry.photoUrl == null || entry.photoUrl!.isEmpty
+          ? Text(
+              name[0].toUpperCase(),
+              style: TextStyle(
+                color: isMe ? Colors.white : const Color(0xFF1565C0),
+                fontWeight: FontWeight.bold,
+                fontSize: radius * 0.55,
+              ),
+            )
+          : null,
+    );
+  }
+}
+
+class _StatChips extends StatelessWidget {
+  const _StatChips({required this.entry, this.compact = false});
+
+  final _LeaderEntry entry;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final fontSize = compact ? 8.0 : 10.0;
+    final hPad = compact ? 5.0 : 7.0;
+    final vPad = compact ? 2.0 : 3.0;
+    return Wrap(
+      spacing: 4,
+      runSpacing: 4,
+      children: [
+        _chip('${entry.postCount} posts', fontSize, hPad, vPad),
+        _chip('${entry.totalLikes} likes', fontSize, hPad, vPad),
+        _chip('${entry.uniqueLocations} locs', fontSize, hPad, vPad),
+      ],
+    );
+  }
+
+  Widget _chip(String label, double fontSize, double hPad, double vPad) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1565C0).withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w600,
+          color: const Color(0xFF1565C0),
         ),
       ),
     );
