@@ -117,8 +117,8 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         backgroundColor: _kSelectedBlue,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.6),
+        selectedItemColor: const Color(0xFFFFC93C),
+        unselectedItemColor: Colors.white70,
         currentIndex: _currentIndex,
         onTap: _onBarTap,
         items: [
