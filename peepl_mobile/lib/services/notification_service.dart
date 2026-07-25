@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
 import 'crowdsource_service.dart';
+import 'debug_log_service.dart';
 
 /// Firestore collection used for user profile documents (includes fcmToken).
 const kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
@@ -513,6 +514,21 @@ class NotificationService {
     }
   }
 
+  /// Maps every known FCM `type` variant to a single canonical value.
+  /// The deployed onLikeCreated function may send either 'like' (older
+  /// build) or 'post_liked' (current source), so both must resolve here.
+  String _canonicalNotificationType(dynamic rawType) {
+    final t = (rawType ?? '').toString().trim().toLowerCase();
+    switch (t) {
+      case 'like':
+      case 'post_like':
+      case 'post_liked':
+        return 'post_liked';
+      default:
+        return t;
+    }
+  }
+
   Future<void> _routeFromData(Map<String, dynamic> data) async {
     final nav = navigatorKey?.currentState;
     if (nav == null) {
@@ -520,7 +536,17 @@ class NotificationService {
       return;
     }
 
-    final type = data['type'] as String?;
+    final type = _canonicalNotificationType(data['type']);
+    final resolvedPostId = type == 'post_liked'
+        ? (data['postId'] ?? data['post_id'] ?? data['id'])
+            ?.toString()
+            .trim()
+        : data['postId']?.toString();
+    DebugLogService.log('NOTIF', 'tap', data: {
+      'rawType': data['type'],
+      'canonicalType': type,
+      'postId': resolvedPostId,
+    });
 
     switch (type) {
       case 'new_post':
@@ -533,12 +559,12 @@ class NotificationService {
         }
         break;
       case 'post_liked':
-      case 'like':
-        final postId =
-            data['postId'] as String? ?? data['relatedId'] as String?;
+        final postId = resolvedPostId;
         if (postId != null && postId.isNotEmpty) {
           await _navigateToPostDetail(postId);
         } else {
+          DebugLogService.log('NOTIF', 'post_liked_missing_postId',
+              data: {'payload': data.toString()});
           nav.pushNamed('/feed');
         }
         break;

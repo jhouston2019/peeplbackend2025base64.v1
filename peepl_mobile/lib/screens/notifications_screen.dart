@@ -35,6 +35,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     'new_post_nearby',
   ];
 
+  /// Mirrors [NotificationService._canonicalNotificationType] — kept inline to
+  /// avoid a shared-file scope expansion.
+  static String _canonicalNotificationType(dynamic rawType) {
+    final t = (rawType ?? '').toString().trim().toLowerCase();
+    switch (t) {
+      case 'like':
+      case 'post_like':
+      case 'post_liked':
+        return 'post_liked';
+      default:
+        return t;
+    }
+  }
+
   static bool isNotificationRead(Map<String, dynamic> data) {
     if (data.containsKey('read')) {
       return data['read'] as bool? ?? true;
@@ -183,7 +197,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     if (!context.mounted) return;
 
-    final type = data['type'] as String? ?? '';
+    final type = _canonicalNotificationType(data['type']);
     switch (type) {
       case 'post_liked':
       case 'new_post_nearby':
@@ -202,8 +216,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           '/post',
           arguments: <String, dynamic>{
             'locationName': data['locationName'] as String? ?? '',
-            'latitude': ?lat,
-            'longitude': ?lng,
+            if (lat != null) 'latitude': lat,
+            if (lng != null) 'longitude': lng,
           },
         );
       default:
@@ -217,8 +231,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (final doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
-      final type = data['type'] as String? ?? 'other';
-      grouped.putIfAbsent(type, () => []).add(doc);
+      final type = _canonicalNotificationType(data['type']);
+      final key = type.isEmpty ? 'other' : type;
+      grouped.putIfAbsent(key, () => []).add(doc);
     }
     return grouped;
   }
@@ -351,8 +366,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     Map<String, dynamic> data,
   ) {
     final isRead = isNotificationRead(data);
-    final type = data['type'] as String? ?? 'other';
-    final message = _messageForType(type, data);
+    final rawType = data['type'];
+    final type = _canonicalNotificationType(rawType);
+    final displayType = type.isEmpty ? 'other' : type;
+    final message = _messageForType(displayType, data);
     final timestamp = data['timestamp'];
 
     return Material(
@@ -368,10 +385,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: _iconBgForType(type),
+                  color: _iconBgForType(displayType),
                   shape: BoxShape.circle,
                 ),
-                child: Center(child: _iconForType(type)),
+                child: Center(child: _iconForType(displayType)),
               ),
               const SizedBox(width: 12),
               Expanded(

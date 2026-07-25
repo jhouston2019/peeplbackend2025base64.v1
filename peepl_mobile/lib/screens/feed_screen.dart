@@ -2,15 +2,12 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-
 import 'package:firebase_auth/firebase_auth.dart';
-
-import 'package:url_launcher/url_launcher.dart';
-import 'package:visibility_detector/visibility_detector.dart';
+import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/ad_cadence_service.dart';
+import '../services/debug_log_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
@@ -19,6 +16,9 @@ import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
 
 enum _SortMode { rating, date, distance, local, region }
+
+/// Matches the users-collection key used across settings/profile/VIP screens.
+const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -42,7 +42,7 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   String? _errorMessage;
-  bool _cadenceReady = false;
+  bool _adsReady = false;
 
   _SortMode _sortMode = _SortMode.date;
   double? _userLat;
@@ -52,14 +52,37 @@ class _FeedScreenState extends State<FeedScreen> {
   /// detected. Changes trigger a targeted ad reload via [_reloadAds].
   String _adContext = 'feed';
 
-  static const TextStyle _overlayShadow = TextStyle(
-    color: Colors.white,
-    shadows: [
-      Shadow(offset: Offset(0, 1), blurRadius: 6, color: Colors.black87),
-    ],
-  );
+  Timer? _dealsTimer;
+  int _dealIndex = 0;
+  // DUMMY DATA — placeholder until live merchant deals are wired.
+  // TODO: replace with a Firestore query sorted by proximity, capped at 5
+  // entries. Index 0 must be a computed count ('N deals near you') derived
+  // from the actual result length, not a hardcoded string.
+  List<String> _dealMessages = [
+    '3 deals near you',
+    '20% off entrees — Cotto, Gainesville · 0.4 mi',
+    'Happy hour til 7pm — NaiThai Dunwoody · 2.8 mi',
+    'Free appetizer with 2 entrees — Johnson Ferry Rd · 0.9 mi',
+    'Kids eat free Tuesdays — 434 High St SW · 39 mi',
+    '\$5 draft pints all night — Brookhaven · 1.1 mi',
+    'Half-price bottles Wednesdays — Foundry Grill',
+    'Early bird 15% off before 5pm — Hidden Branches · 2.8 mi',
+  ];
 
-  static const Color _kPostCtaTeal = Color(0xFF00897B);
+  final Set<String> _recordedImpressions = {};
+
+  /// VIPeeps subscribers see zero ads.
+  bool _isVip = false;
+
+  bool _isFirstSession = false;
+
+  static final List<Shadow> _textShadow = [
+    Shadow(
+      offset: const Offset(0, 1),
+      blurRadius: 3,
+      color: Colors.black.withOpacity(0.7),
+    ),
+  ];
 
   @override
   void initState() {
@@ -67,6 +90,10 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeedData();
     _initAds();
     _initUserLocation();
+    _dealsTimer = Timer.periodic(const Duration(seconds: 3), (_) {
+      if (!mounted) return;
+      setState(() => _dealIndex = (_dealIndex + 1) % _dealMessages.length);
+    });
   }
 
   Future<void> _initUserLocation() async {
@@ -148,8 +175,11 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _initAds() async {
-    await _cadence.init();
-    if (mounted) setState(() => _cadenceReady = true);
+    await _loadSessionAndVipFlags();
+    DebugLogService.log('ADS', 'vip_check', data: {'isVIPeep': _isVip});
+    await _cadence.init(isFirstSession: _isFirstSession);
+    _cadence.setVipSubscriber(_isVip);
+    if (mounted) setState(() => _adsReady = true);
     // Pre-warm the location cache alongside cadence init. LocationService
     // deduplicates the Geolocator call if _initUserLocation already fired it.
     final pos = await LocationService.getCurrentLocation();
@@ -158,6 +188,35 @@ class _FeedScreenState extends State<FeedScreen> {
       _userLng = pos.longitude;
     }
     await _reloadAds();
+  }
+
+  Future<void> _loadSessionAndVipFlags() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isFirstSession = !(prefs.getBool('has_seen_feed') ?? false);
+    await _loadVipStatus();
+  }
+
+  Future<void> _loadVipStatus() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      _isVip = false;
+      return;
+    }
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection(_kUsersCollection)
+          .doc(uid)
+          .get();
+      _isVip = (doc.data()?['isVIPeep'] as bool?) ?? false;
+    } catch (_) {
+      _isVip = false;
+    }
+  }
+
+  Future<void> _markFeedSeen() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (prefs.getBool('has_seen_feed') ?? false) return;
+    await prefs.setBool('has_seen_feed', true);
   }
 
   /// Fetches ads for the current [_adContext] + user coordinates and rebuilds
@@ -170,6 +229,7 @@ class _FeedScreenState extends State<FeedScreen> {
         userLng: _userLng,
         limit: 10,
       );
+      DebugLogService.log('ADS', 'fetched', data: {'count': ads.length});
       if (mounted) {
         setState(() {
           _availableAds = ads;
@@ -204,36 +264,44 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<Map<String, dynamic>> _mergeAdsIntoFeed(List<Map<String, dynamic>> posts) {
-    _cadence.reset();
+    if (_isVip) {
+      DebugLogService.log('ADS', 'suppressed', data: {'reason': 'vip'});
+      return List<Map<String, dynamic>>.from(posts);
+    }
+    if (_availableAds.isEmpty) {
+      return List<Map<String, dynamic>>.from(posts);
+    }
+
+    // Precedence: VIP suppression > session max of 5 > min-3-post floor >
+    // gap pattern [2,3,2,3] (first session [3,3,3,3]) > per-session dedup.
+    _cadence.resetForMerge(postCount: posts.length);
     final items = <Map<String, dynamic>>[];
     var adIndex = 0;
 
     for (final post in posts) {
       if (_availableAds.isNotEmpty) {
-        bool adAdded = false;
-        // Cycle through candidates to find the first unseen one the cadence
-        // approves. shouldShowAd advances counters when the slot is not yet
-        // due; it skips counter advancement when a slot IS due but the
-        // candidate was already seen, keeping the slot open for the next try.
+        var adAdded = false;
         for (var i = 0; i < _availableAds.length; i++) {
-          final candidate = _availableAds[(adIndex + i) % _availableAds.length];
+          final candidate =
+              _availableAds[(adIndex + i) % _availableAds.length];
           if (_cadence.shouldShowAd(candidateAdId: candidate['id'] as String?)) {
             items.add({'type': 'ad', ...candidate});
+            DebugLogService.log('ADS', 'injected', data: {
+              'feedIndex': items.length - 1,
+              'adId': candidate['id']?.toString(),
+            });
             adIndex += i + 1;
             adAdded = true;
             break;
           }
-          // If the slot is no longer pending (cap / floor / pattern declined),
-          // no point trying further candidates for this post position.
           if (!_cadence.isSlotPending) break;
         }
-        // Slot was due but every candidate had already been seen — advance
-        // the pattern cleanly without counting an impression.
         if (!adAdded && _cadence.isSlotPending) _cadence.skipSlot();
       }
 
       items.add(post);
     }
+    _cadence.finalizeMerge();
     return items;
   }
 
@@ -260,13 +328,14 @@ class _FeedScreenState extends State<FeedScreen> {
       _reloadAds(); // async — will rebuild feed when ads arrive
     }
 
-    final feedItems = _cadenceReady ? _mergeAdsIntoFeed(posts) : posts;
+    final feedItems = _adsReady ? _mergeAdsIntoFeed(posts) : posts;
     if (mounted) {
       setState(() {
         _locationPosts = posts;
         _feedItems = feedItems;
         _isLoading = false;
       });
+      _markFeedSeen();
     }
   }
 
@@ -399,15 +468,38 @@ class _FeedScreenState extends State<FeedScreen> {
     return (post['crowdingLevel'] as num?)?.toInt() ?? 0;
   }
 
+  void _onSearchTapped() {
+    Navigator.pushNamed(context, '/search');
+  }
+
+  void _onPeepTapped() {
+    Navigator.pushNamed(context, '/post');
+  }
+
+  void _onMenuTapped() {
+    Navigator.pushNamed(context, '/menu');
+  }
+
+  void _onDealsTapped() {
+    Navigator.pushNamed(context, '/deals');
+  }
+
+  void _onExploreTapped() {
+    // TODO: wire to onCrowdsourceRequest Cloud Function
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Ask others to peep a spot — coming soon')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF1565C0),
       body: SafeArea(
+        top: true,
         child: Column(
           children: [
-            _buildCustomAppBar(),
-            _buildDealsPill(),
+            _buildHeader(),
             _buildSortBar(),
             Expanded(child: _buildFeedContent()),
           ],
@@ -416,165 +508,173 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildHeaderIconButton({
-    required IconData icon,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: 0.2),
-          borderRadius: BorderRadius.circular(8),
+  Widget _buildHeader() {
+    // No horizontal padding on this Column — ticker must be edge-to-edge.
+    // Wordmark and action bar pad themselves.
+    return Column(
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(top: 4, bottom: 8, left: 16, right: 16),
+          child: Center(
+            child: Text(
+              'peepl',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 34,
+                fontWeight: FontWeight.bold,
+                letterSpacing: -1,
+              ),
+            ),
+          ),
         ),
-        child: Icon(icon, color: Colors.white, size: 18),
+        _buildDealsTicker(),
+        _buildActionBar(),
+      ],
+    );
+  }
+
+  Widget _buildDealsTicker() {
+    return GestureDetector(
+      onTap: _onDealsTapped,
+      child: Container(
+        width: double.infinity,
+        height: 34,
+        color: const Color(0xFFE8F5E9),
+        alignment: Alignment.center,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const SizedBox(width: 12),
+            Container(
+              width: 8,
+              height: 8,
+              decoration: const BoxDecoration(
+                color: Color(0xFF2E7D32),
+                shape: BoxShape.circle,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                transitionBuilder: (child, animation) => SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, 0.6),
+                    end: Offset.zero,
+                  ).animate(animation),
+                  child: FadeTransition(opacity: animation, child: child),
+                ),
+                child: Text(
+                  _dealMessages[_dealIndex],
+                  key: ValueKey<int>(_dealIndex),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: Color(0xFF1B5E20),
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 6),
+            const Icon(Icons.chevron_right, size: 18, color: Color(0xFF2E7D32)),
+            const SizedBox(width: 8),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildHeaderButton({
+  Widget _buildActionBar() {
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 12, left: 16, right: 16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          _buildActionButton(
+            icon: Icons.search,
+            label: 'SEARCH',
+            bgColor: Colors.white.withOpacity(0.2),
+            iconColor: Colors.white,
+            onTap: _onSearchTapped,
+          ),
+          const SizedBox(width: 14),
+          _buildActionButton(
+            icon: Icons.campaign_outlined,
+            label: 'EXPLORE',
+            bgColor: const Color(0xFFD1C4E9),
+            iconColor: const Color(0xFF4527A0),
+            onTap: _onExploreTapped,
+          ),
+          const SizedBox(width: 14),
+          _buildActionButton(
+            icon: Icons.add,
+            label: 'PEEP',
+            bgColor: const Color(0xFFFFF59D),
+            iconColor: const Color(0xFF5D4037),
+            isPrimary: true,
+            onTap: _onPeepTapped,
+          ),
+          const SizedBox(width: 14),
+          _buildActionButton(
+            icon: Icons.local_offer,
+            label: 'DEALS',
+            bgColor: const Color(0xFF43A047),
+            iconColor: Colors.white,
+            onTap: _onDealsTapped,
+          ),
+          const SizedBox(width: 14),
+          _buildActionButton(
+            icon: Icons.menu,
+            label: 'MENU',
+            bgColor: Colors.white.withOpacity(0.2),
+            iconColor: Colors.white,
+            onTap: _onMenuTapped,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton({
     required IconData icon,
     required String label,
+    required Color bgColor,
+    required Color iconColor,
     required VoidCallback onTap,
-    Color? bgColor,
+    bool isPrimary = false,
   }) {
+    final double size = isPrimary ? 56 : 44;
+    final double iconSize = isPrimary ? 30 : 22;
     return GestureDetector(
       onTap: onTap,
+      behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 32,
-            height: 32,
+            width: size,
+            height: size,
             decoration: BoxDecoration(
-              color: bgColor ?? Colors.white.withValues(alpha: 0.2),
-              borderRadius: BorderRadius.circular(8),
+              color: bgColor,
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(icon, color: Colors.white, size: 18),
+            child: Icon(icon, color: iconColor, size: iconSize),
           ),
-          const SizedBox(height: 2),
+          const SizedBox(height: 4),
           Text(
             label,
             style: const TextStyle(
               color: Colors.white,
               fontSize: 10,
               fontWeight: FontWeight.w600,
+              letterSpacing: 0.3,
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildCustomAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          // Centered logo — Syne 800 to match updated brand font
-          Text(
-            'peepl',
-            style: GoogleFonts.syne(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.5,
-            ),
-          ),
-          // Left side: POST + SEARCH flush together
-          Row(
-            mainAxisAlignment: MainAxisAlignment.start,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              _buildHeaderButton(
-                icon: Icons.add,
-                label: 'POST',
-                onTap: () => Navigator.pushNamed(context, '/post'),
-              ),
-              const SizedBox(width: 10),
-              _buildHeaderButton(
-                icon: Icons.search,
-                label: 'SEARCH',
-                onTap: () => Navigator.pushNamed(context, '/search'),
-              ),
-              const SizedBox(width: 8),
-              _buildHeaderIconButton(
-                icon: Icons.whatshot,
-                onTap: () => Navigator.pushNamed(context, '/heat_map'),
-              ),
-              const SizedBox(width: 6),
-              _buildHeaderIconButton(
-                icon: Icons.map,
-                onTap: () => Navigator.pushNamed(context, '/map'),
-              ),
-            ],
-          ),
-          // Right side: DEALS + MENU
-          Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              _buildHeaderButton(
-                icon: Icons.local_offer,
-                label: 'DEALS',
-                onTap: () => Navigator.pushNamed(context, '/deals'),
-                bgColor: const Color(0xFF2E7D32),
-              ),
-              const SizedBox(width: 10),
-              _buildHeaderButton(
-                icon: Icons.menu,
-                label: 'MENU',
-                onTap: () => Navigator.pushNamed(context, '/menu'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDealsPill() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      child: GestureDetector(
-        onTap: () => Navigator.pushNamed(context, '/deals'),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE8F5E9),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: const Color(0xFF2E7D32).withValues(alpha: 0.3),
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 8,
-                height: 8,
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2E7D32),
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                '3 deals near you',
-                style: TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(Icons.chevron_right, color: Color(0xFF2E7D32), size: 16),
-            ],
-          ),
-        ),
       ),
     );
   }
@@ -639,15 +739,88 @@ class _FeedScreenState extends State<FeedScreen> {
       return const Center(child: Text('No posts yet!', style: TextStyle(color: Colors.white, fontSize: 18)));
     }
 
-    return ListView.separated(
+    return ListView.builder(
       controller: _scrollController,
       padding: EdgeInsets.zero,
       itemCount: _feedItems.length,
-      separatorBuilder: (context, index) => const Divider(height: 1, thickness: 1, color: Color(0x33FFFFFF)),
       itemBuilder: (context, index) {
         final item = _feedItems[index];
-        return item['type'] == 'ad' ? _buildAdCard(item) : _buildLocationCard(item);
+        if (item['type'] == 'ad') {
+          final adId = item['id']?.toString();
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (adId != null &&
+              uid != null &&
+              !_recordedImpressions.contains(adId)) {
+            _recordedImpressions.add(adId);
+            DebugLogService.log('ADS', 'impression', data: {'adId': adId});
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              _adsService.recordAdImpression(adId, uid);
+            });
+          }
+          return _buildAdCard(item);
+        }
+        return _buildLocationCard(item);
       },
+    );
+  }
+
+  Widget _buildCrowdRing(int crowdingLevel) {
+    final value = CrowdMeter.clampLevel(crowdingLevel);
+    final color = CrowdMeter.levelColor(value);
+    final label = CrowdMeter.wordLabel(value);
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          width: 44,
+          height: 44,
+          child: Stack(
+            alignment: Alignment.center,
+            children: [
+              CustomPaint(
+                size: const Size.square(44),
+                painter: _FeedCrowdRingPainter(
+                  progress: value / 10,
+                  fillColor: color,
+                ),
+              ),
+              Text(
+                '$value',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                  height: 1,
+                  shadows: const [
+                    Shadow(
+                      offset: Offset(0, 1),
+                      blurRadius: 4,
+                      color: Colors.black54,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+            shadows: [
+              Shadow(
+                offset: Offset(0, 1),
+                blurRadius: 2,
+                color: Colors.black,
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -658,10 +831,14 @@ class _FeedScreenState extends State<FeedScreen> {
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/peep_detail', arguments: post),
-      child: SizedBox(
+      child: Container(
         width: double.infinity,
         height: cardHeight,
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.white, width: 2)),
+        ),
         child: Stack(
+          clipBehavior: Clip.none,
           fit: StackFit.expand,
           children: [
             Image.network(
@@ -683,67 +860,74 @@ class _FeedScreenState extends State<FeedScreen> {
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
                   colors: [
-                    Colors.black.withValues(alpha: 0.45),
-                    Colors.transparent,
-                    Colors.black.withValues(alpha: 0.65),
+                    Colors.black.withOpacity(0.75),
+                    Colors.black.withOpacity(0.35),
+                    Colors.black.withOpacity(0.10),
                   ],
-                  stops: const [0, 0.35, 1],
+                  stops: const [0.0, 0.55, 1.0],
                 ),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 8, 10),
+              padding: const EdgeInsets.fromLTRB(10, 8, 68, 10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              post['locationName']?.toString() ?? 'Unknown',
-                              style: _overlayShadow.copyWith(fontSize: 12, fontWeight: FontWeight.bold),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              post['username']?.toString() ?? 'Unknown',
-                              style: _overlayShadow.copyWith(fontSize: 9, fontWeight: FontWeight.w500),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              '${_formatDate(post['timestamp'])} · ${_formatDistance(post)}',
-                              style: _overlayShadow.copyWith(fontSize: 8, color: Colors.white.withValues(alpha: 0.95)),
-                            ),
-                            if (_overlayCrowdDetailLine(post).isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                _overlayCrowdDetailLine(post),
-                                style: _overlayShadow.copyWith(
-                                  fontSize: 7,
-                                  color: Colors.white.withValues(alpha: 0.92),
-                                  height: 1.2,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      CrowdMeter(level: crowdingLevel, size: 60),
-                    ],
+                  Text(
+                    post['locationName']?.toString() ?? 'Unknown',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      shadows: _textShadow,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                   ),
+                  const SizedBox(height: 2),
+                  Text(
+                    post['username']?.toString() ?? 'Unknown',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w500,
+                      shadows: _textShadow,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_formatDate(post['timestamp'])} · ${_formatDistance(post)}',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 11,
+                      shadows: _textShadow,
+                    ),
+                  ),
+                  if (_overlayCrowdDetailLine(post).isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Text(
+                      _overlayCrowdDetailLine(post),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 11,
+                        height: 1.2,
+                        shadows: _textShadow,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             Positioned(
-              right: 8,
+              top: 10,
+              right: 12,
+              child: _buildCrowdRing(crowdingLevel),
+            ),
+            Positioned(
+              right: 12,
               bottom: 8,
               child: _buildAskButton(post),
             ),
@@ -766,28 +950,21 @@ class _FeedScreenState extends State<FeedScreen> {
         longitude: lng,
       ),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: const Color(0xFF1565C0).withValues(alpha: 0.85),
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.25),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: const Color(0xFF1565C0),
+          borderRadius: BorderRadius.circular(12),
         ),
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.campaign_outlined, color: Colors.white, size: 14),
+            Icon(Icons.campaign_outlined, color: Colors.white, size: 11),
             SizedBox(width: 4),
             Text(
               'Ask',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 12,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -831,31 +1008,137 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildAdCard(Map<String, dynamic> ad) {
-    final adId = ad['id'] as String? ?? '';
-    if (adId.isEmpty) return const SizedBox.shrink();
-
-    final headline = ad['headline'] as String? ?? '';
-    final bodyText =
-        ad['bodyText'] as String? ?? ad['subline'] as String? ?? '';
-    if (headline.isEmpty && bodyText.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
-    final cardHeight = MediaQuery.sizeOf(context).width * 0.19;
-
-    return _FeedNativeAdCard(
-      ad: ad,
-      height: cardHeight,
-      onImpression: () => _adsService.recordAdImpression(adId, uid),
-      onCtaTap: () async {
-        await _adsService.recordAdClick(adId, uid);
-        final ctaUrl = ad['ctaUrl'] as String? ?? '';
-        if (ctaUrl.isEmpty) return;
-        final uri = Uri.tryParse(ctaUrl);
-        if (uri == null) return;
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+    return GestureDetector(
+      onTap: () {
+        final adId = ad['id']?.toString();
+        final uid = FirebaseAuth.instance.currentUser?.uid;
+        if (adId != null && uid != null) {
+          DebugLogService.log('ADS', 'click', data: {'adId': adId});
+          _adsService.recordAdClick(adId, uid);
+        }
+        // TODO: launch ad['destinationUrl'] via url_launcher
       },
+      child: Container(
+        width: double.infinity,
+        height: 120,
+        decoration: const BoxDecoration(
+          color: Color(0xFF0D47A1),
+          border: Border(bottom: BorderSide(color: Colors.white, width: 2)),
+        ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            if ((ad['imageUrl'] ?? '').toString().isNotEmpty)
+              Positioned.fill(
+                child: Image.network(
+                  ad['imageUrl'],
+                  fit: BoxFit.cover,
+                  errorBuilder: (c, e, s) =>
+                      Container(color: const Color(0xFF0D47A1)),
+                ),
+              ),
+            Positioned.fill(
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withOpacity(0.75),
+                      Colors.black.withOpacity(0.35),
+                      Colors.black.withOpacity(0.10),
+                    ],
+                    stops: const [0.0, 0.55, 1.0],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 10,
+              left: 16,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+                child: const Text(
+                  'SPONSORED',
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.8,
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              bottom: 34,
+              right: 100,
+              child: Text(
+                ad['title'] ?? ad['headline'] ?? 'Advertisement',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      offset: Offset(0, 1),
+                      blurRadius: 3,
+                      color: Colors.black87,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              left: 16,
+              bottom: 14,
+              right: 100,
+              child: Text(
+                ad['body'] ?? ad['subtitle'] ?? '',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white.withOpacity(0.9),
+                  fontSize: 11,
+                  shadows: [
+                    Shadow(
+                      offset: const Offset(0, 1),
+                      blurRadius: 3,
+                      color: Colors.black.withOpacity(0.7),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 12,
+              bottom: 8,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFC107),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'Learn More',
+                  style: TextStyle(
+                    color: Colors.black87,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -866,7 +1149,8 @@ class _FeedScreenState extends State<FeedScreen> {
     _didInitDeps = true;
     // Re-check VIPeeps status once after the first dependency resolution so a
     // user who just subscribed stops seeing ads without needing to restart.
-    _cadence.refreshVIPeepsStatus().then((_) {
+    _loadVipStatus().then((_) {
+      _cadence.setVipSubscriber(_isVip);
       if (mounted && _locationPosts.isNotEmpty) {
         setState(() => _feedItems = _mergeAdsIntoFeed(_locationPosts));
       }
@@ -875,177 +1159,60 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   void dispose() {
+    _dealsTimer?.cancel();
     _feedSub?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
 }
 
-class _FeedNativeAdCard extends StatefulWidget {
-  const _FeedNativeAdCard({
-    required this.ad,
-    required this.height,
-    required this.onImpression,
-    required this.onCtaTap,
+class _FeedCrowdRingPainter extends CustomPainter {
+  _FeedCrowdRingPainter({
+    required this.progress,
+    required this.fillColor,
   });
 
-  final Map<String, dynamic> ad;
-  final double height;
-  final VoidCallback onImpression;
-  final Future<void> Function() onCtaTap;
+  final double progress;
+  final Color fillColor;
 
   @override
-  State<_FeedNativeAdCard> createState() => _FeedNativeAdCardState();
-}
+  void paint(Canvas canvas, Size size) {
+    const strokeWidth = 4.0;
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = (size.width - strokeWidth) / 2;
+    final arcRect = Rect.fromCircle(center: center, radius: radius);
 
-class _FeedNativeAdCardState extends State<_FeedNativeAdCard> {
-  bool _impressionFired = false;
+    const startAngle = -math.pi / 2;
+    const fullSweep = 2 * math.pi;
+
+    final backgroundPaint = Paint()
+      ..color = Colors.white.withOpacity(0.3)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    final fillPaint = Paint()
+      ..color = fillColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth
+      ..strokeCap = StrokeCap.round;
+
+    canvas.drawArc(arcRect, startAngle, fullSweep, false, backgroundPaint);
+
+    if (progress > 0) {
+      canvas.drawArc(
+        arcRect,
+        startAngle,
+        fullSweep * progress.clamp(0.0, 1.0),
+        false,
+        fillPaint,
+      );
+    }
+  }
 
   @override
-  Widget build(BuildContext context) {
-    final imageUrl = widget.ad['imageUrl'] as String? ?? '';
-    final advertiserName = widget.ad['advertiserName'] as String? ?? '';
-    final headline = widget.ad['headline'] as String? ?? '';
-    final bodyText =
-        widget.ad['bodyText'] as String? ?? widget.ad['subline'] as String? ?? '';
-    final ctaText = widget.ad['ctaText'] as String? ?? 'Learn More';
-    final adId = widget.ad['id'] as String? ?? 'ad';
-    final imageSize = math.min(80.0, widget.height - 16);
-
-    return VisibilityDetector(
-      key: Key('feed_native_ad_$adId'),
-      onVisibilityChanged: (info) {
-        if (!_impressionFired && info.visibleFraction >= 0.5 && mounted) {
-          _impressionFired = true;
-          widget.onImpression();
-        }
-      },
-      child: SizedBox(
-        width: double.infinity,
-        height: widget.height,
-        child: Material(
-          color: Colors.white,
-          child: Stack(
-            children: [
-              Padding(
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: SizedBox(
-                        width: imageSize,
-                        height: imageSize,
-                        child: imageUrl.isNotEmpty
-                            ? Image.network(
-                                imageUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    ColoredBox(
-                                  color: Colors.grey.shade200,
-                                  child: const Icon(
-                                    Icons.campaign_outlined,
-                                    color: Colors.grey,
-                                  ),
-                                ),
-                              )
-                            : ColoredBox(
-                                color: Colors.grey.shade200,
-                                child: const Icon(
-                                  Icons.campaign_outlined,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          if (advertiserName.isNotEmpty)
-                            Text(
-                              advertiserName,
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey.shade600,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          if (advertiserName.isNotEmpty) const SizedBox(height: 2),
-                          Text(
-                            headline,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (bodyText.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              bodyText,
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: Colors.grey.shade700,
-                                height: 1.2,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: () => widget.onCtaTap(),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1565C0),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      child: Text(
-                        ctaText,
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Positioned(
-                top: 6,
-                right: 8,
-                child: Text(
-                  'Sponsored',
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade500,
-                    letterSpacing: 0.2,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
+  bool shouldRepaint(covariant _FeedCrowdRingPainter oldDelegate) {
+    return oldDelegate.progress != progress ||
+        oldDelegate.fillColor != fillColor;
   }
 }

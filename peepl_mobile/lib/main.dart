@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
@@ -18,13 +19,15 @@ import 'theme_notifier.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Stripe must be configured before Firebase and before runApp.
-  Stripe.publishableKey = kStripePublishableKey;
-  await Stripe.instance.applySettings();
-
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  if (!kIsWeb) {
+    Stripe.publishableKey = kStripePublishableKey;
+    await Stripe.instance.applySettings();
+  }
+
   await NotificationService.instance.initialize();
   runApp(const MyApp());
 }

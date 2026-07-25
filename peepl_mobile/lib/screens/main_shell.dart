@@ -10,7 +10,8 @@ const Color _kSelectedBlue = Color(0xFF1565C0);
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialBodyIndex = 0});
 
-  /// Legacy indices: 0 Feed, 1 Discover, 2 Post (opens /post), 3 Notifications, 4 Profile (home).
+  /// Legacy indices: 0 Feed, 1 Discover, 2 Post (opens /post), 3 Notifications, 4 Profile (menu).
+  /// Bottom bar indices: 0 Home, 1 Discover, 2 Notifications.
   final int initialBodyIndex;
 
   @override
@@ -18,8 +19,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  /// Bottom bar indices: 0 Home, 1 Discover, 3 Notifications (2 and 4 are push-only).
-  late int _currentBarIndex;
+  late int _currentIndex;
 
   static const List<Widget> _tabBodies = [
     FeedScreen(),
@@ -27,8 +27,9 @@ class _MainShellState extends State<MainShell> {
     NotificationsScreen(),
   ];
 
-  int get _stackIndex {
-    switch (_currentBarIndex) {
+  /// Maps legacy body indices (incl. Post=2 / Menu=4) onto the 3-tab bar.
+  int _barIndexFromLegacy(int legacy) {
+    switch (legacy) {
       case 0:
         return 0;
       case 1:
@@ -44,15 +45,15 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     final i = widget.initialBodyIndex;
-    if (i == 0 || i == 1 || i == 3) {
-      _currentBarIndex = i;
-    } else {
-      _currentBarIndex = 0;
-      if (i == 2) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) Navigator.of(context).pushNamed('/post');
-        });
-      }
+    _currentIndex = _barIndexFromLegacy(i);
+    if (i == 2) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pushNamed('/post');
+      });
+    } else if (i == 4) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).pushNamed('/menu');
+      });
     }
     ShellTabBus.pendingBodyIndex.addListener(_onShellTabBus);
   }
@@ -67,7 +68,7 @@ class _MainShellState extends State<MainShell> {
       } else if (v == 4) {
         Navigator.of(context).pushNamed('/menu');
       } else if (v == 0 || v == 1 || v == 3) {
-        setState(() => _currentBarIndex = v);
+        setState(() => _currentIndex = _barIndexFromLegacy(v));
       }
       ShellTabBus.pendingBodyIndex.value = null;
     });
@@ -80,15 +81,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   void _onBarTap(int index) {
-    if (index == 2) {
-      Navigator.of(context).pushNamed('/post');
-      return;
-    }
-    if (index == 4) {
-      Navigator.of(context).pushNamed('/menu');
-      return;
-    }
-    setState(() => _currentBarIndex = index);
+    setState(() => _currentIndex = index);
   }
 
   Widget _notificationNavIcon(String? uid) {
@@ -118,7 +111,7 @@ class _MainShellState extends State<MainShell> {
 
     return Scaffold(
       body: IndexedStack(
-        index: _stackIndex,
+        index: _currentIndex,
         children: _tabBodies,
       ),
       bottomNavigationBar: BottomNavigationBar(
@@ -126,7 +119,7 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: _kSelectedBlue,
         selectedItemColor: Colors.white,
         unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-        currentIndex: _currentBarIndex,
+        currentIndex: _currentIndex,
         onTap: _onBarTap,
         items: [
           const BottomNavigationBarItem(
@@ -137,17 +130,9 @@ class _MainShellState extends State<MainShell> {
             icon: Icon(Icons.explore),
             label: 'Discover',
           ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.add_circle_outline),
-            label: 'Post',
-          ),
           BottomNavigationBarItem(
             icon: _notificationNavIcon(uid),
             label: 'Notifications',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.menu),
-            label: 'Menu',
           ),
         ],
         iconSize: 26,
