@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../services/ad_cadence_service.dart';
 import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
+import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../utils/post_crowd_format.dart';
@@ -62,6 +64,10 @@ class _FeedScreenState extends State<FeedScreen> {
   double? _userLat;
   double? _userLng;
 
+  /// Miles cutoffs for the radius-based filters.
+  static const double _localRadiusMiles = 25.0;
+  static const double _regionRadiusMiles = 100.0;
+
   // Static deal placeholder until live merchant data lands.
   final Map<String, String> _deal = const {
     'offer': '20% OFF ENTREES',
@@ -91,7 +97,26 @@ class _FeedScreenState extends State<FeedScreen> {
     setState(() {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
+      _feedItems = _rebuildFeedItems();
     });
+    if (!kIsWeb) {
+      unawaited(_startGeofencingIfPermitted());
+    }
+  }
+
+  /// Activates geofencing once location is already working. Never called on
+  /// web, never called before the user has a location-dependent surface open.
+  /// Failures degrade the feature silently — the feed must not be affected.
+  Future<void> _startGeofencingIfPermitted() async {
+    try {
+      if (PeeplGeofenceService.instance.isActive) return;
+      await PeeplGeofenceService.instance.start();
+      if (PeeplGeofenceService.instance.isActive) {
+        await PeeplGeofenceService.instance.loadGeofencesFromFirestore();
+      }
+    } catch (e) {
+      debugPrint('[feed] geofence start skipped: $e');
+    }
   }
 
   // ---------------------------------------------------------------- data
@@ -127,7 +152,7 @@ class _FeedScreenState extends State<FeedScreen> {
       if (!mounted) return;
       setState(() {
         _availableAds = ads;
-        _feedItems = _mergeAdsIntoFeed(_posts);
+        _feedItems = _rebuildFeedItems();
       });
     } catch (e) {
       debugPrint('Failed to load ads: $e');
@@ -146,9 +171,13 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!mounted) return;
     setState(() {
       _posts = posts;
-      _feedItems = _mergeAdsIntoFeed(posts);
+      _feedItems = _rebuildFeedItems();
       _isLoading = false;
     });
+  }
+
+  List<Map<String, dynamic>> _rebuildFeedItems() {
+    return _mergeAdsIntoFeed(_applyFilter(_posts));
   }
 
   List<Map<String, dynamic>> _mergeAdsIntoFeed(
@@ -221,23 +250,81 @@ class _FeedScreenState extends State<FeedScreen> {
     return radiusMiles * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  /// Returns null when distance is unknown. Callers must omit the separator
-  /// entirely rather than rendering an em dash.
-  String? _distanceLabel(Map<String, dynamic> post) {
+  /// Returns the raw miles to a post, or null when it can't be computed.
+  double? _milesTo(Map<String, dynamic> post) {
     final pre = post['distanceMiles'];
-    if (pre is num) return '${pre.round()} mi';
+    if (pre is num) return pre.toDouble();
 
     final lat = post['latitude'];
     final lng = post['longitude'];
     if (_userLat == null || _userLng == null) return null;
     if (lat is! num || lng is! num) return null;
 
-    final miles = _haversineMiles(
+    return _haversineMiles(
       _userLat!,
       _userLng!,
       lat.toDouble(),
       lng.toDouble(),
     );
+  }
+
+  /// Applies the active filter chip to the raw post list.
+  /// Posts with unknown distance are never dropped by a radius filter —
+  /// they sort to the bottom instead, so a post with missing coordinates
+  /// stays reachable rather than silently vanishing.
+  List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> posts) {
+    final out = List<Map<String, dynamic>>.from(posts);
+
+    switch (_activeFilter) {
+      case 'Nearby':
+        out.sort((a, b) {
+          final da = _milesTo(a);
+          final db = _milesTo(b);
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
+        });
+        return out;
+
+      case 'Local':
+        return _withinRadius(out, _localRadiusMiles);
+
+      case 'Region':
+        return _withinRadius(out, _regionRadiusMiles);
+
+      case 'Newest':
+      default:
+        // Firestore already returns timestamp-descending; preserve that order.
+        return out;
+    }
+  }
+
+  List<Map<String, dynamic>> _withinRadius(
+    List<Map<String, dynamic>> posts,
+    double radiusMiles,
+  ) {
+    final known = <Map<String, dynamic>>[];
+    final unknown = <Map<String, dynamic>>[];
+
+    for (final post in posts) {
+      final miles = _milesTo(post);
+      if (miles == null) {
+        unknown.add(post);
+      } else if (miles <= radiusMiles) {
+        known.add(post);
+      }
+    }
+
+    known.sort((a, b) => _milesTo(a)!.compareTo(_milesTo(b)!));
+    return [...known, ...unknown];
+  }
+
+  /// Returns null when distance is unknown. Callers must omit the separator
+  /// entirely rather than rendering an em dash.
+  String? _distanceLabel(Map<String, dynamic> post) {
+    final miles = _milesTo(post);
+    if (miles == null) return null;
     return '${miles.round()} mi';
   }
 
@@ -284,6 +371,43 @@ class _FeedScreenState extends State<FeedScreen> {
         const SnackBar(content: Text('Failed to send request. Try again.')),
       );
     }
+  }
+
+  String get _resultsLabel {
+    switch (_activeFilter) {
+      case 'Nearby':
+        return 'Showing nearest first';
+      case 'Local':
+        return 'Within 25 miles';
+      case 'Region':
+        return 'Within 100 miles';
+      case 'Newest':
+      default:
+        return 'Showing newest first';
+    }
+  }
+
+  void _onFilterTapped(String filter) {
+    if ((filter == 'Nearby' || filter == 'Local' || filter == 'Region') &&
+        _userLat == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Location needed for this filter. Enable location access to sort by distance.',
+          ),
+        ),
+      );
+      setState(() {
+        _activeFilter = 'Newest';
+        _feedItems = _rebuildFeedItems();
+      });
+      return;
+    }
+
+    setState(() {
+      _activeFilter = filter;
+      _feedItems = _rebuildFeedItems();
+    });
   }
 
   // --------------------------------------------------------------- build
@@ -596,7 +720,7 @@ class _FeedScreenState extends State<FeedScreen> {
           return Padding(
             padding: const EdgeInsets.only(right: 10),
             child: GestureDetector(
-              onTap: () => setState(() => _activeFilter = entry.key),
+              onTap: () => _onFilterTapped(entry.key),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                 decoration: BoxDecoration(
@@ -644,9 +768,9 @@ class _FeedScreenState extends State<FeedScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          const Text(
-            'Showing results near you',
-            style: TextStyle(
+          Text(
+            _resultsLabel,
+            style: const TextStyle(
               color: _T.title,
               fontSize: 15,
               fontWeight: FontWeight.w600,

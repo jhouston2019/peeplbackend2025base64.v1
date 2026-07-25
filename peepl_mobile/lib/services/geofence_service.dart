@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
@@ -23,25 +24,153 @@ class PeeplGeofenceService {
   /// locationId → display name (for callbacks that still need the name).
   final Map<String, String> _locationNames = {};
 
+  bool _isActive = false;
+  bool _permanentlyDenied = false;
+  bool _listenersRegistered = false;
+  bool _alreadyActiveLogged = false;
+  bool _denialLogged = false;
+  bool _firestoreErrorLogged = false;
+
   Function(String locationId, String locationName, double latitude, double longitude)?
       onLocationEntered;
 
-  Future<void> initialize() async {
-    geo.LocationPermission permission =
-        await geo.Geolocator.checkPermission();
-    if (permission == geo.LocationPermission.denied) {
+  bool get isActive => _isActive;
+
+  void _logDenialOnce(String message) {
+    if (_denialLogged) return;
+    _denialLogged = true;
+    debugPrint('[PeeplGeofenceService] $message');
+  }
+
+  /// Requires When-In-Use to already be granted (feed owns that prompt).
+  /// Escalates to Always for background geofencing. Never prompts cold.
+  Future<bool> ensurePermission() async {
+    if (kIsWeb) return false;
+    if (_permanentlyDenied) return false;
+
+    try {
+      var permission = await geo.Geolocator.checkPermission();
+
+      if (permission != geo.LocationPermission.whileInUse &&
+          permission != geo.LocationPermission.always) {
+        return false;
+      }
+
+      if (permission == geo.LocationPermission.always) {
+        return true;
+      }
+
+      // When-In-Use granted — escalate to Always (in-context on iOS).
       permission = await geo.Geolocator.requestPermission();
+
+      if (permission == geo.LocationPermission.always) {
+        return true;
+      }
+
+      _permanentlyDenied = true;
+      _logDenialOnce(
+        'Always location denied — geofencing disabled.',
+      );
+      return false;
+    } catch (_) {
+      _logDenialOnce('Permission check failed — geofencing disabled.');
+      return false;
     }
-    if (permission == geo.LocationPermission.denied ||
-        permission == geo.LocationPermission.deniedForever) {
-      debugPrint(
-          '[PeeplGeofenceService] Location permission denied — geofencing disabled.');
+  }
+
+  /// Registers listeners only. Does not request location permission.
+  Future<void> initialize() async {
+    if (kIsWeb) {
+      debugPrint('[PeeplGeofenceService] Geofencing unavailable on web.');
       return;
     }
 
-    _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
-    _geofenceService.addActivityChangeListener(_onActivityChanged);
-    _geofenceService.addStreamErrorListener(_onError);
+    try {
+      if (_listenersRegistered) return;
+      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
+      _geofenceService.addActivityChangeListener(_onActivityChanged);
+      _geofenceService.addStreamErrorListener(_onError);
+      _listenersRegistered = true;
+    } catch (e) {
+      debugPrint('[PeeplGeofenceService] initialize failed (non-fatal): $e');
+    }
+  }
+
+  /// Activates geofencing after Always permission. Idempotent.
+  Future<void> start() async {
+    if (kIsWeb) return;
+
+    if (_permanentlyDenied) {
+      _logDenialOnce('Geofencing permanently disabled.');
+      return;
+    }
+
+    if (_isActive) {
+      if (!_alreadyActiveLogged) {
+        _alreadyActiveLogged = true;
+        debugPrint('[PeeplGeofenceService] Geofencing already active.');
+      }
+      return;
+    }
+
+    try {
+      final granted = await ensurePermission();
+      if (!granted) return;
+
+      _isActive = true;
+    } catch (e) {
+      debugPrint('[PeeplGeofenceService] start failed (non-fatal): $e');
+    }
+  }
+
+  /// Loads venue geofences from Firestore. Requires [isActive] and signed-in user.
+  Future<void> loadGeofencesFromFirestore() async {
+    if (kIsWeb) return;
+    if (!_isActive) return;
+
+    if (FirebaseAuth.instance.currentUser == null) return;
+
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('locations')
+          .limit(100)
+          .get();
+
+      _locationNames.clear();
+      final geofences = <Geofence>[];
+      for (final doc in snapshot.docs) {
+        final data = doc.data();
+        final name = data['locationName'] as String?;
+        final lat = (data['latitude'] as num?)?.toDouble();
+        final lng = (data['longitude'] as num?)?.toDouble();
+
+        if (name == null || lat == null || lng == null) continue;
+
+        _locationNames[doc.id] = name;
+        geofences.add(
+          Geofence(
+            id: doc.id,
+            latitude: lat,
+            longitude: lng,
+            radius: [
+              GeofenceRadius(id: 'radius_150m', length: 150),
+            ],
+          ),
+        );
+      }
+
+      await _geofenceService.start(geofences);
+      debugPrint(
+        '[PeeplGeofenceService] Started with ${geofences.length} geofences.',
+      );
+    } catch (e) {
+      if (!_firestoreErrorLogged) {
+        _firestoreErrorLogged = true;
+        debugPrint(
+          '[PeeplGeofenceService] loadGeofencesFromFirestore error: $e',
+        );
+      }
+    }
   }
 
   Future<void> _onGeofenceStatusChanged(
@@ -74,45 +203,8 @@ class PeeplGeofenceService {
 
   // ignore: avoid_annotating_with_dynamic
   void _onError(dynamic error) {
+    if (_permanentlyDenied) return;
     debugPrint('[PeeplGeofenceService] Error: $error');
-  }
-
-  Future<void> loadGeofencesFromFirestore() async {
-    try {
-      final snapshot = await FirebaseFirestore.instance
-          .collection('locations')
-          .limit(100)
-          .get();
-
-      _locationNames.clear();
-      final geofences = <Geofence>[];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final name = data['locationName'] as String?;
-        final lat = (data['latitude'] as num?)?.toDouble();
-        final lng = (data['longitude'] as num?)?.toDouble();
-
-        if (name == null || lat == null || lng == null) continue;
-
-        _locationNames[doc.id] = name;
-        geofences.add(
-          Geofence(
-            id: doc.id,
-            latitude: lat,
-            longitude: lng,
-            radius: [
-              GeofenceRadius(id: 'radius_150m', length: 150),
-            ],
-          ),
-        );
-      }
-
-      await _geofenceService.start(geofences);
-      debugPrint(
-          '[PeeplGeofenceService] Started with ${geofences.length} geofences.');
-    } catch (e) {
-      debugPrint('[PeeplGeofenceService] loadGeofencesFromFirestore error: $e');
-    }
   }
 
   Future<void> addGeofence(
@@ -121,6 +213,8 @@ class PeeplGeofenceService {
     double lat,
     double lng,
   ) async {
+    if (kIsWeb || !_isActive) return;
+
     try {
       _locationNames[locationId] = locationName;
       _geofenceService.addGeofence(
@@ -140,5 +234,6 @@ class PeeplGeofenceService {
 
   void dispose() {
     _geofenceService.stop();
+    _isActive = false;
   }
 }

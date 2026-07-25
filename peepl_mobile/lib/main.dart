@@ -55,7 +55,6 @@ class _MyAppState extends State<MyApp> {
         await PresenceService.instance.recordArrival(name, lat, lng);
       };
       await geofenceService.initialize();
-      await geofenceService.loadGeofencesFromFirestore();
 
       if (mounted) setState(() => _ready = true);
     });
