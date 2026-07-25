@@ -49,20 +49,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  /// Resolves a post id from inbox or FCM payload field name variants.
+  /// [_persistNotification] stores the FCM postId in [relatedId].
+  static String _resolvedPostId(Map<String, dynamic> data) {
+    final id =
+        data['postId'] ?? data['post_id'] ?? data['id'] ?? data['relatedId'];
+    return id?.toString().trim() ?? '';
+  }
+
   static bool isNotificationRead(Map<String, dynamic> data) {
     if (data.containsKey('read')) {
-      return data['read'] as bool? ?? true;
+      final value = data['read'];
+      if (value is bool) return value;
+      return true;
     }
     if (data.containsKey('isRead')) {
-      return data['isRead'] as bool? ?? true;
+      final value = data['isRead'];
+      if (value is bool) return value;
+      return true;
     }
     return false;
   }
 
   static String _relativeTime(dynamic ts) {
     if (ts == null) return '';
-    final DateTime dt =
-        ts is Timestamp ? ts.toDate() : DateTime.fromMillisecondsSinceEpoch(0);
+    final DateTime dt = ts is Timestamp
+        ? ts.toDate()
+        : ts is DateTime
+            ? ts
+            : DateTime.fromMillisecondsSinceEpoch(0);
     final now = DateTime.now();
     final diff = now.difference(dt);
 
@@ -92,19 +107,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   static String _messageForType(String type, Map<String, dynamic> data) {
+    final persistedBody = data['body']?.toString().trim() ?? '';
     final locationName = data['locationName'] as String? ?? 'a location';
     switch (type) {
       case 'post_liked':
+        if (persistedBody.isNotEmpty) return persistedBody;
         final username = data['username'] as String? ?? 'Someone';
         return '$username liked your post at $locationName';
       case 'crowdsource_request':
+        if (persistedBody.isNotEmpty) return persistedBody;
         return 'Someone wants to know about $locationName — can you help?';
       case 'new_post_nearby':
+        if (persistedBody.isNotEmpty) return persistedBody;
         return 'New post near you at $locationName';
       default:
-        final body = data['body'] as String? ?? '';
         final title = data['title'] as String? ?? '';
-        return body.isNotEmpty ? body : title;
+        return persistedBody.isNotEmpty ? persistedBody : title;
     }
   }
 
@@ -140,28 +158,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .doc(uid)
         .collection('items')
         .doc(docId)
-        .update({'read': true});
+        .update({'read': true, 'isRead': true});
   }
 
   Future<void> _markAllRead(String uid) async {
-    final query = await FirebaseFirestore.instance
-        .collection('notifications')
-        .doc(uid)
-        .collection('items')
-        .orderBy('timestamp', descending: true)
-        .limit(50)
-        .get();
+    try {
+      final query = await FirebaseFirestore.instance
+          .collection('notifications')
+          .doc(uid)
+          .collection('items')
+          .orderBy('timestamp', descending: true)
+          .limit(50)
+          .get();
 
-    final unread = query.docs
-        .where((doc) => !isNotificationRead(doc.data()))
-        .toList();
-    if (unread.isEmpty) return;
+      final unread = query.docs
+          .where((doc) => !isNotificationRead(doc.data()))
+          .toList();
+      if (unread.isEmpty) return;
 
-    final batch = FirebaseFirestore.instance.batch();
-    for (final doc in unread) {
-      batch.update(doc.reference, {'read': true});
+      final batch = FirebaseFirestore.instance.batch();
+      for (final doc in unread) {
+        batch.update(doc.reference, {'read': true, 'isRead': true});
+      }
+      await batch.commit();
+    } catch (e) {
+      debugPrint('NotificationsScreen._markAllRead error: $e');
     }
-    await batch.commit();
   }
 
   Future<void> _navigateToPost(BuildContext context, String postId) async {
@@ -201,8 +223,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     switch (type) {
       case 'post_liked':
       case 'new_post_nearby':
-        final postId =
-            data['postId'] as String? ?? data['relatedId'] as String? ?? '';
+        final postId = _resolvedPostId(data);
         if (postId.isNotEmpty) {
           await _navigateToPost(context, postId);
         } else {
@@ -211,6 +232,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'crowdsource_request':
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
+        // TODO: verify — latitude/longitude are not persisted by
+        // notification_service._persistNotification; inbox taps may lack coords.
         Navigator.pushNamed(
           context,
           '/post',
@@ -230,7 +253,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   ) {
     final grouped = <String, List<QueryDocumentSnapshot>>{};
     for (final doc in docs) {
-      final data = doc.data() as Map<String, dynamic>;
+      final data = doc.data() as Map<String, dynamic>? ?? {};
       final type = _canonicalNotificationType(data['type']);
       final key = type.isEmpty ? 'other' : type;
       grouped.putIfAbsent(key, () => []).add(doc);
@@ -347,7 +370,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 ),
                 ...sectionDocs.map(
                   (doc) {
-                    final data = doc.data() as Map<String, dynamic>;
+                    final data = doc.data() as Map<String, dynamic>? ?? {};
                     return _buildRow(context, uid, doc.id, data);
                   },
                 ),
@@ -366,8 +389,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     Map<String, dynamic> data,
   ) {
     final isRead = isNotificationRead(data);
-    final rawType = data['type'];
-    final type = _canonicalNotificationType(rawType);
+    final type = _canonicalNotificationType(data['type']);
     final displayType = type.isEmpty ? 'other' : type;
     final message = _messageForType(displayType, data);
     final timestamp = data['timestamp'];

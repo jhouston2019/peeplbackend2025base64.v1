@@ -74,7 +74,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
 
     // Parallel: user doc, peep count, pioneer count, following list
     final raw = await Future.wait<dynamic>([
-      _db.collection('users').doc(uid).get(),
+      _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(uid).get(),
       _db
           .collection('location_posts')
           .where('userId', isEqualTo: uid)
@@ -86,7 +86,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
           .count()
           .get(),
       _db
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(uid)
           .collection('following')
           .limit(50)
@@ -123,7 +123,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     final allIds = {...friendIds, uid}.toList(); // deduplicate
 
     final friendDocs = await Future.wait(
-      allIds.map((id) => _db.collection('users').doc(id).get()),
+      allIds.map((id) => _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(id).get()),
     );
 
     final entries = friendDocs

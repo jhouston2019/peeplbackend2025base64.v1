@@ -54,7 +54,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       return;
     }
     try {
-      final doc = await _db.collection('users').doc(_uid).get();
+      final doc = await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).get();
       final data = doc.data() ?? {};
       const validVisibilities = ['Public', 'Friends Only'];
       if (mounted) {
@@ -91,7 +91,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setProfileVisibility(String? val) async {
     if (val == null || _uid.isEmpty) return;
     setState(() => _profileVisibility = val);
-    await _db.collection('users').doc(_uid).set(
+    await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
       {'profileVisibility': val},
       SetOptions(merge: true),
     );
@@ -100,7 +100,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setLocationSharing(bool val) async {
     setState(() => _locationSharingEnabled = val);
     if (_uid.isEmpty) return;
-    await _db.collection('users').doc(_uid).set(
+    await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
       {'locationSharingEnabled': val},
       SetOptions(merge: true),
     );

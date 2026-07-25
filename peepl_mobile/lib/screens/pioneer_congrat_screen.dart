@@ -70,7 +70,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
             'timestamp': FieldValue.serverTimestamp(),
             'pointsAwarded': 500,
           });
-          batch.update(db.collection('users').doc(user.uid), {
+          batch.update(db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(user.uid), {
             'points': FieldValue.increment(500),
           });
           await batch.commit();

@@ -1,9 +1,12 @@
-const functions = require('firebase-functions');
+const functions = require('firebase-functions/v1');
 const admin = require('firebase-admin');
+const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
+const { getMessaging } = require('firebase-admin/messaging');
+
 admin.initializeApp();
 
-const db = admin.firestore();
-const messaging = admin.messaging();
+const db = getFirestore();
+const messaging = getMessaging();
 const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 // ─── HELPER: get FCM token for a uid ───────────────────────────────────────
@@ -63,7 +66,7 @@ exports.onCrowdsourceRequest = functions.firestore
     }
 
     const DELTA = 0.00135; // ~150m in degrees
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
 
     let presenceSnap;
     try {
@@ -123,7 +126,7 @@ exports.onCrowdsourceRequest = functions.firestore
     await snap.ref.update({
       status: 'sent',
       targetCount: targets.length,
-      sentAt: admin.firestore.FieldValue.serverTimestamp(),
+      sentAt: FieldValue.serverTimestamp(),
     });
 
     console.log(`Sent crowdsource request for ${locationName} to ${targets.length} users.`);

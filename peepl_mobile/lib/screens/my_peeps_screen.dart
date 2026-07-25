@@ -46,7 +46,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
   Future<void> _loadUsername() async {
     if (_uid.isEmpty) return;
     try {
-      final doc = await _db.collection('users').doc(_uid).get();
+      final doc = await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).get();
       final name = (doc.data()?['username'] as String?) ??
           (doc.data()?['displayName'] as String?) ??
           'User';

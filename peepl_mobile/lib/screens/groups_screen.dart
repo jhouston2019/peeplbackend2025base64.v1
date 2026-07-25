@@ -96,7 +96,7 @@ class _GroupsScreenState extends State<GroupsScreen>
         'category': 'Other',
         'memberCount': 1,
       });
-      await _db.collection('users').doc(_uid).collection('groups').doc(ref.id).set({
+      await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).collection('groups').doc(ref.id).set({
         'name': name,
         'groupId': ref.id,
         'joinedAt': FieldValue.serverTimestamp(),
@@ -339,7 +339,7 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
           await FirebaseFirestore.instance.collection('groups').doc(groupId).get();
       final name = groupDoc.data()?['name'] as String? ?? 'Group';
       await FirebaseFirestore.instance
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(widget.uid)
           .collection('groups')
           .doc(groupId)
@@ -664,7 +664,7 @@ class _UnreadBadge extends StatelessWidget {
       if (members.isEmpty) return 0;
 
       final readDoc = await db
-          .collection('users')
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
           .doc(uid)
           .collection('groups')
           .doc(groupId)
@@ -757,7 +757,7 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
   Future<void> _markRead() async {
     if (_uid.isEmpty) return;
     try {
-      await _db.collection('users').doc(_uid).collection('groups').doc(widget.groupId).set(
+      await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).collection('groups').doc(widget.groupId).set(
         {'lastReadAt': FieldValue.serverTimestamp()},
         SetOptions(merge: true),
       );

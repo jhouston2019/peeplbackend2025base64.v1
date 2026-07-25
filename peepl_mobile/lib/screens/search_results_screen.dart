@@ -181,8 +181,8 @@ class _SearchResultsScreenState extends State<SearchResultsScreen> {
 
   /// Builds the display list: organic venues + sponsored ad at position 3.
   List<Map<String, dynamic>> _displayList() {
-    _cadence.reset();
     final organic = _sorted();
+    _cadence.resetForMerge(postCount: organic.length);
     if (_ads.isEmpty || organic.length < 3) return organic;
 
     final result = <Map<String, dynamic>>[];

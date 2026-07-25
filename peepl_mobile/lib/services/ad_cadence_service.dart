@@ -89,6 +89,12 @@ class AdCadenceService {
     await refreshVIPeepsStatus();
   }
 
+  /// Alias for [init] — resets all session and merge state.
+  /// Prefer calling [init] directly for clarity.
+  Future<void> reset() async {
+    await init();
+  }
+
   /// Sync VIP flag from the feed screen without an extra Firestore read.
   void setVipSubscriber(bool isVip) {
     _isVIPeep = isVip;
@@ -126,6 +132,7 @@ class AdCadenceService {
       'adsInjected': _mergeAdsInjected,
       'adsSuppressed': _mergeAdsSuppressed,
       'firstSession': _isFirstSession,
+      'isVip': _isVIPeep,
     });
   }
 
@@ -187,11 +194,13 @@ class AdCadenceService {
     _postsSinceAd = 0;
   }
 
-  /// Ends the current merge walk and emits [ADS/merge_complete] immediately.
+  /// Call this immediately after the merge loop completes.
+  /// Emits ADS/merge_complete for the current session to Firestore
+  /// so it is readable from the Firebase console during TestFlight QA.
   void finalizeMerge() {
     if (!_mergeWalkStarted) return;
     _logMergeComplete();
-    _mergeWalkStarted = false;
+    _mergeWalkStarted = false; // guard: resetForMerge() skips log when false
   }
 
   /// Resets merge-walk counters only. Session dedup + cap tallies survive
@@ -199,8 +208,9 @@ class AdCadenceService {
   ///
   /// [postCount] is the number of posts in the current merge walk (pass from
   /// the caller when available). Logs a summary for the previous merge walk
-  /// if [finalizeMerge] was not called (safety net).
+  /// only if [finalizeMerge] was not called (safety net).
   void resetForMerge({int postCount = 0}) {
+    // Safety net: log only when prior walk started but finalizeMerge() never ran.
     if (_mergeWalkStarted) {
       _logMergeComplete();
     }

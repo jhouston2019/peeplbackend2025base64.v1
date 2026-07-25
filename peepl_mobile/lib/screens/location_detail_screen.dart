@@ -93,7 +93,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   /// Interleaves [_availableAds] into a comment doc list using the cadence.
   /// Returns a mixed list of [QueryDocumentSnapshot] and ad [Map] entries.
   List<dynamic> _interleaveAdsIntoComments(List<QueryDocumentSnapshot> docs) {
-    _cadence.reset();
+    _cadence.resetForMerge(postCount: docs.length);
     final items = <dynamic>[];
     var adIndex = 0;
 

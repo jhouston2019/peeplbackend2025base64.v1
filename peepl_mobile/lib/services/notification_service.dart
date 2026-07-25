@@ -57,6 +57,7 @@ class NotificationService {
 
   GlobalKey<NavigatorState>? navigatorKey;
   Map<String, dynamic>? _pendingNotificationData;
+  RemoteMessage? _pendingLaunchMessage;
   bool _listenersAttached = false;
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>?
       _crowdsourceResponseSub;
@@ -105,6 +106,7 @@ class NotificationService {
     final initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
       _pendingNotificationData = Map<String, dynamic>.from(initialMessage.data);
+      _pendingLaunchMessage = initialMessage;
     }
 
     _startCrowdsourceResponseListener();
@@ -375,6 +377,11 @@ class NotificationService {
     if (data == null) return;
     _pendingNotificationData = null;
     await _routeFromData(data);
+    final launchMessage = _pendingLaunchMessage;
+    _pendingLaunchMessage = null;
+    if (launchMessage != null) {
+      await _persistNotification(launchMessage);
+    }
   }
 
   Future<void> _refreshAndSaveToken() async {
@@ -402,11 +409,6 @@ class NotificationService {
         SetOptions(merge: true),
       );
 
-      await _db.collection(uid).doc('profile').set(
-        tokenData,
-        SetOptions(merge: true),
-      );
-
       debugPrint('[FCM] Token saved for $uid');
     } catch (e) {
       debugPrint('[FCM] Token save error: $e');
@@ -427,9 +429,6 @@ class NotificationService {
     if (uid == null) return;
     try {
       await _db.collection(kUsersCollection).doc(uid).update({
-        'fcmToken': FieldValue.delete(),
-      });
-      await _db.collection(uid).doc('profile').update({
         'fcmToken': FieldValue.delete(),
       });
       await _fcm.deleteToken();
@@ -474,10 +473,23 @@ class NotificationService {
 
   Future<void> _persistNotification(RemoteMessage message) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    if (uid == null) return; // Auth not available in background isolate
+
+    // TODO: add Firestore index on notifications.items.messageId if query is slow
+    if (message.messageId != null) {
+      final existing = await _db
+          .collection('notifications')
+          .doc(uid)
+          .collection('items')
+          .where('messageId', isEqualTo: message.messageId)
+          .limit(1)
+          .get();
+      if (existing.docs.isNotEmpty) return;
+    }
 
     final title = message.notification?.title ?? '';
     final body = message.notification?.body ?? '';
+    final data = message.data;
 
     try {
       await _db
@@ -485,23 +497,36 @@ class NotificationService {
           .doc(uid)
           .collection('items')
           .add({
-        'type': message.data['type'] ?? 'push',
+        'type': data['type'] ?? 'push',
         'title': title,
         'body': body,
         'isRead': false,
+        'read': false,
+        'messageId': message.messageId ?? '',
         'timestamp': FieldValue.serverTimestamp(),
-        'relatedId': message.data['postId'] ??
-            message.data['relatedId'] ??
-            '',
-        'iconType': message.data['iconType'] ?? 'push',
+        'relatedId': data['postId'] ?? data['relatedId'] ?? '',
+        // Location context — present on crowdsource_request, null on others.
+        // notifications_screen uses these for in-app tap navigation.
+        if (data['locationName'] != null) 'locationName': data['locationName'],
+        if (data['latitude'] != null)
+          'latitude': data['latitude'] is String
+              ? double.tryParse(data['latitude']!) ?? 0.0
+              : (data['latitude'] as num).toDouble(),
+        if (data['longitude'] != null)
+          'longitude': data['longitude'] is String
+              ? double.tryParse(data['longitude']!) ?? 0.0
+              : (data['longitude'] as num).toDouble(),
+        if (data['username'] != null) 'username': data['username'],
+        'iconType': data['iconType'] ?? 'push',
       });
     } catch (e) {
       debugPrint('[FCM] Firestore write error: $e');
     }
   }
 
-  void _handleNotificationTap(RemoteMessage message) {
-    _routeFromData(Map<String, dynamic>.from(message.data));
+  Future<void> _handleNotificationTap(RemoteMessage message) async {
+    await _routeFromData(Map<String, dynamic>.from(message.data));
+    await _persistNotification(message);
   }
 
   void _onLocalNotificationTap(NotificationResponse response) {

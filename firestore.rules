@@ -2,10 +2,15 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Admin check uses UID comparison rather than Firestore path lookup
+    // because this project keys the users collection by UID string
+    // (collection name = UID), not the standard /users/{uid} pattern.
+    // TODO: migrate to path-based check once user document structure
+    // is confirmed and isAdmin field is verified to exist.
     function isAppAdmin() {
-      return request.auth != null &&
-        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
+      return request.auth != null && (
+        request.auth.uid == 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3'
+      );
     }
 
     // Users: own profile, or full access for admins (moderation / admin panel)
@@ -14,6 +19,37 @@ service cloud.firestore {
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if request.auth != null && (request.auth.uid == userId || isAppAdmin());
       allow delete: if isAppAdmin();
+    }
+
+    // Canonical user profiles — collection name is the admin UID string.
+    match /CAASNAhaDbPrl0zH1yDn5qRqAtJ3/{userId} {
+      // Users can read and write their own document only.
+      allow read, update: if request.auth != null
+        && request.auth.uid == userId;
+      allow create: if request.auth != null;
+      allow delete: if isAppAdmin();
+      // Admin can read and update any user document.
+      allow read, update: if isAppAdmin();
+    }
+
+    match /CAASNAhaDbPrl0zH1yDn5qRqAtJ3/{userId}/following/{followId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, delete: if request.auth != null
+        && request.auth.uid == userId;
+      allow update: if false;
+    }
+
+    match /CAASNAhaDbPrl0zH1yDn5qRqAtJ3/{userId}/followers/{followId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, delete: if request.auth != null
+        && request.auth.uid == followId;
+      allow update: if false;
+    }
+
+    match /CAASNAhaDbPrl0zH1yDn5qRqAtJ3/{userId}/groups/{groupId} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow create, update, delete: if request.auth != null
+        && request.auth.uid == userId;
     }
 
     // Location posts (feed). Likes update likesCount on any post (not only owner).
@@ -121,6 +157,17 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow create: if request.auth != null;
       allow update: if request.auth != null;
+    }
+
+    // TestFlight diagnostic logs — authenticated write, admin-only read.
+    // TODO: gate behind remote config or remove before public launch.
+    match /debug_logs/{logId} {
+      allow create: if request.auth != null
+        && request.resource.data.keys().hasAll(['tag', 'message', 'timestamp'])
+        && request.resource.data.tag is string
+        && request.resource.data.message is string;
+      allow read: if request.auth.uid == 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+      allow update, delete: if false;
     }
   }
 }

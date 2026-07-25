@@ -80,7 +80,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
     final Map<String, String?> photoMap = {};
     if (uniqueUids.isNotEmpty) {
       final userDocs = await Future.wait(
-        uniqueUids.map((id) => _db.collection('users').doc(id).get()),
+        uniqueUids.map((id) => _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(id).get()),
       );
       for (final doc in userDocs) {
         if (!doc.exists) continue;

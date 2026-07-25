@@ -214,7 +214,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
 
   // ── Ad injection ──────────────────────────────────────────────────────────────
   List<Object> _buildDisplayList(List<_VenueTrend> venues) {
-    _cadence.reset();
+    _cadence.resetForMerge(postCount: venues.length);
     final items = <Object>[];
     var adIndex = 0;
 

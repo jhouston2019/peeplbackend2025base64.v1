@@ -234,7 +234,7 @@ class _SearchScreenState extends State<SearchScreen>
         if (currentUid != null && currentUid != doc.id) {
           try {
             final followDoc = await _db
-                .collection('users')
+                .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
                 .doc(currentUid)
                 .collection('following')
                 .doc(doc.id)
@@ -310,8 +310,8 @@ class _SearchScreenState extends State<SearchScreen>
 
     setState(() => _followLoading.add(person.userId));
     try {
-      final myRef = _db.collection('users').doc(currentUser.uid);
-      final theirRef = _db.collection('users').doc(person.userId);
+      final myRef = _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(currentUser.uid);
+      final theirRef = _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(person.userId);
       final isFollowing = _followingByUserId[person.userId] ?? false;
       final now = FieldValue.serverTimestamp();
 
