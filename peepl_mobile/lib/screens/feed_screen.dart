@@ -16,14 +16,8 @@ import 'location_detail_screen.dart';
 
 /// Design tokens for the redesigned home screen.
 class _T {
-  static const blueTop = Color(0xFF1668E3);
-  static const blueBottom = Color(0xFF0D5BD1);
   static const blue = Color(0xFF1565C0);
   static const yellow = Color(0xFFFFC93C);
-  static const bg = Color(0xFFF4F6F9);
-  static const border = Color(0xFFE8ECF2);
-  static const title = Color(0xFF0D2B4E);
-  static const muted = Color(0xFF7A879C);
 
   static const ringGreen = Color(0xFF34C759);
   static const ringAmber = Color(0xFFFF9F0A);
@@ -420,98 +414,79 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final screenH = MediaQuery.of(context).size.height;
+    final heroMax = screenH * 0.05;
+    final topInset = MediaQuery.of(context).padding.top;
+
     return Scaffold(
-      backgroundColor: _T.bg,
+      backgroundColor: _T.blue,
       body: Column(
         children: [
-          _buildTopSection(),
-          const SizedBox(height: 12),
+          SizedBox(
+            height: heroMax + topInset,
+            child: Padding(
+              padding: EdgeInsets.only(top: topInset),
+              child: SizedBox(
+                height: heroMax,
+                child: ClipRect(
+                  child: _buildHero(),
+                ),
+              ),
+            ),
+          ),
+          _buildActionRow(),
           _buildFilterRow(),
-          const SizedBox(height: 6),
           _buildResultsRow(),
-          const SizedBox(height: 4),
           Expanded(child: _buildFeedContent()),
         ],
       ),
     );
   }
 
-  /// Curved blue header with the action row straddling its lower edge.
-  Widget _buildTopSection() {
-    return Stack(
-      clipBehavior: Clip.none,
-      alignment: Alignment.bottomCenter,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: 40),
-          child: _buildHeader(),
-        ),
-        _buildActionRow(),
-      ],
-    );
-  }
-
-  Widget _buildHeader() {
-    final topInset = MediaQuery.of(context).padding.top;
-
-    return ClipPath(
-      clipper: _HeaderCurveClipper(),
-      child: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [_T.blueTop, _T.blueBottom],
-          ),
-        ),
-        padding: EdgeInsets.only(top: topInset + 10, bottom: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildBrandRow(),
-            const SizedBox(height: 6),
-            _buildAreaSelector(),
-            const SizedBox(height: 16),
-            _buildDealBanner(),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBrandRow() {
-    return Padding(
+  Widget _buildHero() {
+    return Container(
+      color: _T.blue,
       padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(width: 44),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'peepl',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                  fontWeight: FontWeight.w900,
-                  letterSpacing: -1.2,
-                  height: 1.1,
+          Row(
+            children: [
+              const SizedBox(width: 26),
+              const Expanded(
+                child: Center(
+                  child: Text(
+                    'peepl',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                      height: 1.0,
+                    ),
+                  ),
                 ),
               ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/profile'),
-            child: Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                border: Border.all(color: Colors.white.withValues(alpha: 0.55), width: 1.5),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/profile'),
+                child: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      width: 1,
+                    ),
+                  ),
+                  child: const Icon(Icons.person, color: Colors.white, size: 14),
+                ),
               ),
-              child: const Icon(Icons.person, color: Colors.white, size: 24),
-            ),
+            ],
           ),
+          const SizedBox(height: 1),
+          _buildAreaSelector(),
+          const SizedBox(height: 1),
+          _buildDealBanner(),
         ],
       ),
     );
@@ -528,18 +503,18 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.location_on, color: Colors.white, size: 13),
-          const SizedBox(width: 6),
+          const Icon(Icons.location_on, color: Colors.white, size: 10),
+          const SizedBox(width: 4),
           Text(
             _areaLabel,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 12,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(width: 4),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 13),
+          const SizedBox(width: 2),
+          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 12),
         ],
       ),
     );
@@ -551,42 +526,44 @@ class _FeedScreenState extends State<FeedScreen> {
       duration: const Duration(milliseconds: 400),
       child: Container(
         key: ValueKey(_dealIndex),
-        margin: const EdgeInsets.symmetric(horizontal: 16),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
+          color: Colors.white.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(6),
         ),
         child: Row(
           children: [
-            const Icon(Icons.star, size: 14, color: _T.yellow),
-            const SizedBox(width: 6),
+            const Icon(Icons.star, size: 10, color: _T.yellow),
+            const SizedBox(width: 4),
             Text(
               deal['offer']!,
               style: const TextStyle(
-                color: _T.title,
-                fontSize: 11,
+                color: Colors.white,
+                fontSize: 9,
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 4),
             Expanded(
               child: Text(
                 '${deal['merchant']}  ·  ${deal['distance']}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: _T.muted, fontSize: 11),
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  fontSize: 9,
+                ),
               ),
             ),
-            const Text(
+            Text(
               'View Deal',
               style: TextStyle(
-                color: _T.blue,
-                fontSize: 11,
+                color: Colors.white.withValues(alpha: 0.9),
+                fontSize: 9,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const Icon(Icons.chevron_right, color: _T.blue, size: 14),
+            const Icon(Icons.chevron_right, color: Colors.white, size: 10),
           ],
         ),
       ),
@@ -595,23 +572,22 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildActionRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _circleAction(Icons.search, 'Search', _T.blue, () {
+          _circleAction(Icons.search, 'Search', () {
             Navigator.pushNamed(context, '/search');
           }),
-          _circleAction(Icons.explore_outlined, 'Explore', const Color(0xFF7B3FE4),
-              () {
+          _circleAction(Icons.explore_outlined, 'Explore', () {
             Navigator.pushNamed(context, '/discover');
           }),
           _peepButton(),
-          _circleAction(Icons.local_offer, 'Deals', const Color(0xFF2BA84A), () {
+          _circleAction(Icons.local_offer, 'Deals', () {
             Navigator.pushNamed(context, '/deals');
           }),
-          _circleAction(Icons.menu, 'Menu', _T.blue, () {
+          _circleAction(Icons.menu, 'Menu', () {
             Navigator.pushNamed(context, '/settings');
           }),
         ],
@@ -619,39 +595,27 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _circleAction(
-    IconData icon,
-    String label,
-    Color iconColor,
-    VoidCallback onTap,
-  ) {
+  Widget _circleAction(IconData icon, String label, VoidCallback onTap) {
     return GestureDetector(
       onTap: onTap,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Colors.white.withValues(alpha: 0.15),
               shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.10),
-                  blurRadius: 10,
-                  offset: const Offset(0, 3),
-                ),
-              ],
             ),
-            child: Icon(icon, color: iconColor, size: 18),
+            child: Icon(icon, color: Colors.white, size: 16),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 2),
           Text(
             label,
             style: const TextStyle(
-              color: _T.title,
-              fontSize: 10,
+              color: Colors.white,
+              fontSize: 9,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -663,36 +627,34 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _peepButton() {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/post'),
-      child: Container(
-        width: 64,
-        height: 64,
-        decoration: BoxDecoration(
-          color: _T.yellow,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 3),
-          boxShadow: [
-            BoxShadow(
-              color: _T.yellow.withValues(alpha: 0.45),
-              blurRadius: 16,
-              offset: const Offset(0, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: _T.yellow,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            Icon(Icons.add, color: _T.blue, size: 22),
-            Text(
-              'PEEP',
-              style: TextStyle(
-                color: _T.blue,
-                fontSize: 10,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 0.5,
-              ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: const [
+                Icon(Icons.add, color: _T.blue, size: 20),
+                Text(
+                  'PEEP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -705,68 +667,81 @@ class _FeedScreenState extends State<FeedScreen> {
       'Region': Icons.map_outlined,
     };
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Row(
-        children: filters.entries.map((entry) {
-          final isActive = _activeFilter == entry.key;
-          return Padding(
-            padding: const EdgeInsets.only(right: 6),
-            child: GestureDetector(
-              onTap: () => _onFilterTapped(entry.key),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: isActive ? _T.blue : Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: isActive ? _T.blue : _T.border,
-                    width: 1.2,
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      entry.value,
-                      size: 14,
-                      color: isActive ? Colors.white : _T.blue,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      entry.key,
-                      style: TextStyle(
-                        color: isActive ? Colors.white : _T.title,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: filters.entries.map((entry) {
+            final isActive = _activeFilter == entry.key;
+            return Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: GestureDetector(
+                onTap: () => _onFilterTapped(entry.key),
+                child: SizedBox(
+                  height: 28,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(
+                        color: isActive
+                            ? Colors.white
+                            : Colors.white.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(28),
+                        border: Border.all(
+                          color: Colors.white.withValues(alpha: 0.3),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            entry.value,
+                            size: 12,
+                            color: isActive ? _T.blue : Colors.white,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            entry.key,
+                            style: TextStyle(
+                              color: isActive ? _T.blue : Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if (isActive) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.keyboard_arrow_down,
+                              size: 12,
+                              color: _T.blue,
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (isActive) ...[
-                      const SizedBox(width: 4),
-                      const Icon(Icons.keyboard_arrow_down,
-                          size: 14, color: Colors.white),
-                    ],
-                  ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
 
   Widget _buildResultsRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       child: Row(
         children: [
           Text(
             _resultsLabel,
             style: const TextStyle(
-              color: _T.title,
-              fontSize: 12,
+              color: Colors.white,
+              fontSize: 11,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -778,22 +753,22 @@ class _FeedScreenState extends State<FeedScreen> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.transparent,
                 borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: _T.border, width: 1.2),
+                border: Border.all(color: Colors.white, width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.map_outlined, size: 13, color: _T.blue),
-                  SizedBox(width: 6),
+                  Icon(Icons.map_outlined, size: 13, color: Colors.white),
+                  SizedBox(width: 4),
                   Text(
                     'Map View',
                     style: TextStyle(
-                      color: _T.blue,
-                      fontSize: 11,
+                      color: Colors.white,
+                      fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -810,7 +785,7 @@ class _FeedScreenState extends State<FeedScreen> {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(_T.blue),
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
         ),
       );
     }
@@ -822,12 +797,12 @@ class _FeedScreenState extends State<FeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 56, color: _T.muted),
+              Icon(Icons.error_outline, size: 56, color: Colors.white.withValues(alpha: 0.7)),
               const SizedBox(height: 14),
               const Text(
                 'Something went wrong',
                 style: TextStyle(
-                  color: _T.title,
+                  color: Colors.white,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -836,7 +811,7 @@ class _FeedScreenState extends State<FeedScreen> {
               Text(
                 _errorMessage ?? 'Please try again later',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: _T.muted, fontSize: 14),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -850,15 +825,17 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     if (_feedItems.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           'No peeps yet. Be the first.',
-          style: TextStyle(color: _T.muted, fontSize: 15),
+          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 15),
         ),
       );
     }
 
     return RefreshIndicator(
+      color: Colors.white,
+      backgroundColor: _T.blue,
       onRefresh: _onRefresh,
       child: ListView.builder(
         controller: _scrollController,
@@ -877,125 +854,119 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildLocationCard(Map<String, dynamic> post) {
-    final int crowdingLevel = (post['crowdingLevel'] is num)
+    final int level = (post['crowdingLevel'] is num)
         ? (post['crowdingLevel'] as num).round()
         : 0;
-    final String locationName = (post['locationName'] ?? 'Unknown Location').toString();
-    final String username = (post['username'] ?? 'Unknown User').toString();
+    final String name = (post['locationName'] ?? 'Unknown').toString();
+    final String username = (post['username'] ?? '').toString();
     final String imageUrl = (post['imageUrl'] ?? '').toString();
-
-    final String date = _formatDate(post['timestamp']);
     final String? distance = _distanceLabel(post);
+    final String date = _formatDate(post['timestamp']);
     final String? ratios = _ratioLine(post);
 
     final metaParts = <String>[];
     if (date.isNotEmpty) metaParts.add(date);
     if (distance != null) metaParts.add(distance);
-    final String metaLine = metaParts.join('  •  ');
 
     return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => LocationDetailScreen(postData: post),
-          ),
-        );
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 6),
-        padding: const EdgeInsets.all(6),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: _T.border, width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LocationDetailScreen(postData: post),
         ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(8),
-              child: SizedBox(
-                width: 70,
-                height: 72,
-                child: imageUrl.isEmpty
-                    ? Container(
-                        color: const Color(0xFFE6EAF0),
-                        child: const Icon(Icons.location_on,
-                            color: _T.muted, size: 30),
-                      )
-                    : Image.network(
-                        imageUrl,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: const Color(0xFFE6EAF0),
-                          child: const Icon(Icons.broken_image,
-                              color: _T.muted, size: 30),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        height: 90,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white, width: 1.5),
+          image: imageUrl.isNotEmpty
+              ? DecorationImage(
+                  image: NetworkImage(imageUrl),
+                  fit: BoxFit.cover,
+                  onError: (_, __) {},
+                )
+              : null,
+          color: const Color(0xFF0D47A1),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(11),
+            gradient: const LinearGradient(
+              begin: Alignment.centerRight,
+              end: Alignment.centerLeft,
+              colors: [Colors.transparent, Color(0xCC000000)],
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        height: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      username,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.85),
+                        fontSize: 10,
+                      ),
+                    ),
+                    if (metaParts.isNotEmpty) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        metaParts.join('  •  '),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 10,
                         ),
                       ),
+                    ],
+                    if (ratios != null) ...[
+                      const SizedBox(height: 1),
+                      Text(
+                        ratios,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.75),
+                          fontSize: 10,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 8),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    locationName,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: _T.title,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      height: 1.25,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Text(
-                    username,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _T.muted, fontSize: 11),
-                  ),
-                  if (metaLine.isNotEmpty) ...[
-                    const SizedBox(height: 1),
-                    Text(
-                      metaLine,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _T.muted, fontSize: 11),
-                    ),
-                  ],
-                  if (ratios != null) ...[
-                    const SizedBox(height: 1),
-                    Text(
-                      ratios,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _T.muted, fontSize: 11),
-                    ),
-                  ],
+                  _crowdRing(level),
+                  const SizedBox(height: 4),
+                  _askButton(post),
                 ],
               ),
-            ),
-            const SizedBox(width: 10),
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _crowdRing(crowdingLevel),
-                const SizedBox(height: 4),
-                _askButton(post),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1004,19 +975,19 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _crowdRing(int level) {
     final color = _ringColor(level);
     return Container(
-      width: 40,
-      height: 40,
+      width: 38,
+      height: 38,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border: Border.all(color: color, width: 2.5),
+        border: Border.all(color: color, width: 2),
       ),
       child: Center(
         child: Text(
           '$level',
           style: TextStyle(
             color: color,
-            fontSize: 16,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1028,7 +999,7 @@ class _FeedScreenState extends State<FeedScreen> {
     return GestureDetector(
       onTap: () => _onAskTapped(post),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
         decoration: BoxDecoration(
           color: _T.blue,
           borderRadius: BorderRadius.circular(20),
@@ -1036,13 +1007,13 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.chat_bubble_outline, size: 11, color: Colors.white),
-            SizedBox(width: 5),
+            Icon(Icons.chat_bubble_outline, size: 10, color: Colors.white),
+            SizedBox(width: 4),
             Text(
               'Ask',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1054,112 +1025,50 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildAdCard(Map<String, dynamic> ad) {
     final String headline = (ad['headline'] ?? ad['title'] ?? 'Sponsored').toString();
-    final String body = (ad['body'] ?? ad['description'] ?? '').toString();
-    final String imageUrl = (ad['imageUrl'] ?? '').toString();
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(10),
+      margin: const EdgeInsets.only(bottom: 8),
+      height: 90,
       decoration: BoxDecoration(
-        color: const Color(0xFFF7FAFF),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _T.border, width: 1),
+        color: const Color(0xFF0D47A1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.white, width: 1.5),
       ),
-      child: Row(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: SizedBox(
-              width: 108,
-              height: 88,
-              child: imageUrl.isEmpty
-                  ? Container(
-                      color: const Color(0xFFE3EDFB),
-                      child: const Icon(Icons.campaign_outlined,
-                          color: _T.blue, size: 28),
-                    )
-                  : Image.network(
-                      imageUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) => Container(
-                        color: const Color(0xFFE3EDFB),
-                        child: const Icon(Icons.campaign_outlined,
-                            color: _T.blue, size: 28),
-                      ),
-                    ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: const Text(
+              'SPONSORED',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.6,
+              ),
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: _T.blue.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: const Text(
-                    'SPONSORED',
-                    style: TextStyle(
-                      color: _T.blue,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  headline,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _T.title,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
-                    height: 1.25,
-                  ),
-                ),
-                if (body.isNotEmpty) ...[
-                  const SizedBox(height: 3),
-                  Text(
-                    body,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _T.muted, fontSize: 13),
-                  ),
-                ],
-              ],
+          const SizedBox(height: 6),
+          Text(
+            headline,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              height: 1.2,
             ),
           ),
         ],
       ),
     );
   }
-}
-
-/// Concave bottom edge on the blue header — rises in the centre so the PEEP
-/// button straddles the boundary.
-class _HeaderCurveClipper extends CustomClipper<Path> {
-  @override
-  Path getClip(Size size) {
-    final path = Path();
-    path.lineTo(0, size.height);
-    path.quadraticBezierTo(
-      size.width / 2,
-      size.height - 20,
-      size.width,
-      size.height,
-    );
-    path.lineTo(size.width, 0);
-    path.close();
-    return path;
-  }
-
-  @override
-  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
