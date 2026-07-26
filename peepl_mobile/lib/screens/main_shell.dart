@@ -5,7 +5,7 @@ import 'discover_screen.dart';
 import 'feed_screen.dart';
 import 'notifications_screen.dart';
 
-const Color _kSelectedBlue = Color(0xFF1565C0);
+const Color _kSelectedBlue = Color(0xFF0A66FF);
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialBodyIndex = 0});
@@ -114,30 +114,35 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: _tabBodies,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: _kSelectedBlue,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-        currentIndex: _currentIndex,
-        onTap: _onBarTap,
-        items: [
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
-          const BottomNavigationBarItem(
-            icon: Icon(Icons.explore),
-            label: 'Discover',
-          ),
-          BottomNavigationBarItem(
-            icon: _notificationNavIcon(uid),
-            label: 'Notifications',
-          ),
-        ],
-        iconSize: 26,
-        selectedFontSize: 12,
-        unselectedFontSize: 11,
+      bottomNavigationBar: SizedBox(
+        height: 82,
+        child: BottomNavigationBar(
+          type: BottomNavigationBarType.fixed,
+          backgroundColor: _kSelectedBlue,
+          selectedItemColor: Colors.white,
+          unselectedItemColor: Colors.white.withValues(alpha: 0.6),
+          currentIndex: _currentIndex,
+          onTap: _onBarTap,
+          items: [
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.home),
+              label: 'Home',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.explore),
+              label: 'Discover',
+            ),
+            BottomNavigationBarItem(
+              icon: _notificationNavIcon(uid),
+              label: 'Notifications',
+            ),
+          ],
+          iconSize: 26,
+          selectedFontSize: 11,
+          unselectedFontSize: 11,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400),
+        ),
       ),
     );
   }

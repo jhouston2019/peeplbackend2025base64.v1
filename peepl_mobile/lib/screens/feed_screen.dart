@@ -11,18 +11,35 @@ import '../services/feed_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../utils/post_crowd_format.dart';
+import '../shell_tab_bus.dart';
 import 'location_detail_screen.dart';
 
-/// Design tokens for the redesigned home screen.
+/// Peepl Home Screen v2.0 design tokens.
 class _T {
-  static const blue = Color(0xFF1565C0);
-  static const yellow = Color(0xFFFFC93C);
+  static const blueTop = Color(0xFF0A66FF);
+  static const blueBottom = Color(0xFF0054D8);
+  static const dealGreen = Color(0xFFA5D6A7);
+  static const feedBg = Color(0xFFFFFFFF);
+  static const cardFallback = Color(0xFF0D47A1);
+  static const primaryText = Color(0xFF111111);
+  static const secondaryText = Color(0xFF6B7280);
 
   static const ringGreen = Color(0xFF34C759);
   static const ringAmber = Color(0xFFFF9F0A);
   static const ringOrange = Color(0xFFFF6B35);
   static const ringRed = Color(0xFFFF3B30);
+
+  static const cardShadow = BoxShadow(
+    color: Color(0x24000000),
+    offset: Offset(0, 16),
+    blurRadius: 40,
+  );
+
+  static const pillShadow = BoxShadow(
+    color: Color(0x14000000),
+    offset: Offset(0, 4),
+    blurRadius: 10,
+  );
 }
 
 class FeedScreen extends StatefulWidget {
@@ -48,17 +65,11 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _hasError = false;
   String? _errorMessage;
 
-  // Filter state
   String _activeFilter = 'Newest';
 
-  // Area label shown under the wordmark.
-  final String _areaLabel = 'Near you';
-
-  // User position used for distance labels. Null = distance is hidden.
   double? _userLat;
   double? _userLng;
 
-  /// Miles cutoffs for the radius-based filters.
   static const double _localRadiusMiles = 25.0;
   static const double _regionRadiusMiles = 100.0;
 
@@ -104,9 +115,6 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
-  /// Activates geofencing once location is already working. Never called on
-  /// web, never called before the user has a location-dependent surface open.
-  /// Failures degrade the feature silently — the feed must not be affected.
   Future<void> _startGeofencingIfPermitted() async {
     try {
       if (PeeplGeofenceService.instance.isActive) return;
@@ -118,8 +126,6 @@ class _FeedScreenState extends State<FeedScreen> {
       debugPrint('[feed] geofence start skipped: $e');
     }
   }
-
-  // ---------------------------------------------------------------- data
 
   void _loadFeedData() {
     setState(() {
@@ -217,23 +223,24 @@ class _FeedScreenState extends State<FeedScreen> {
     await _loadAds();
   }
 
-  // ------------------------------------------------------------- helpers
-
-  Color _ringColor(int level) {
-    if (level <= 3) return _T.ringGreen;
-    if (level <= 6) return _T.ringAmber;
-    if (level <= 8) return _T.ringOrange;
+  Color _ringColor(num level) {
+    final v = level.toDouble();
+    if (v <= 3) return _T.ringGreen;
+    if (v <= 6) return _T.ringAmber;
+    if (v <= 8) return _T.ringOrange;
     return _T.ringRed;
   }
 
-  String _formatDate(dynamic timestamp) {
-    if (timestamp == null) return '';
-    try {
-      final DateTime d = (timestamp as Timestamp).toDate();
-      return '${d.month}/${d.day}/${d.year}';
-    } catch (_) {
-      return '';
+  String _scoreLabel(Map<String, dynamic> post) {
+    final ai = post['aiScore'];
+    if (ai is num) {
+      return ai.toDouble().toStringAsFixed(1);
     }
+    final level = post['crowdingLevel'];
+    if (level is num) {
+      return level.toDouble().toStringAsFixed(1);
+    }
+    return '0.0';
   }
 
   double _deg2rad(double deg) => deg * math.pi / 180.0;
@@ -250,7 +257,6 @@ class _FeedScreenState extends State<FeedScreen> {
     return radiusMiles * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  /// Returns the raw miles to a post, or null when it can't be computed.
   double? _milesTo(Map<String, dynamic> post) {
     final pre = post['distanceMiles'];
     if (pre is num) return pre.toDouble();
@@ -268,10 +274,6 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  /// Applies the active filter chip to the raw post list.
-  /// Posts with unknown distance are never dropped by a radius filter —
-  /// they sort to the bottom instead, so a post with missing coordinates
-  /// stays reachable rather than silently vanishing.
   List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> posts) {
     final out = List<Map<String, dynamic>>.from(posts);
 
@@ -295,7 +297,6 @@ class _FeedScreenState extends State<FeedScreen> {
 
       case 'Newest':
       default:
-        // Firestore already returns timestamp-descending; preserve that order.
         return out;
     }
   }
@@ -320,25 +321,28 @@ class _FeedScreenState extends State<FeedScreen> {
     return [...known, ...unknown];
   }
 
-  /// Returns null when distance is unknown. Callers must omit the separator
-  /// entirely rather than rendering an em dash.
   String? _distanceLabel(Map<String, dynamic> post) {
     final miles = _milesTo(post);
     if (miles == null) return null;
-    return '${miles.round()} mi';
+    return '${miles.toStringAsFixed(1)} mi';
   }
 
-  String? _ratioLine(Map<String, dynamic> post) {
-    final mf = PostCrowdFormat.maleFemaleShort(post['maleFemaleRatio']);
-    final ak = PostCrowdFormat.adultKidShort(post['adultKidRatio']);
-
-    final parts = <String>[];
-    if (mf != null) parts.add('M/F  •  $mf');
-    if (ak != null) parts.add('A/K  •  $ak');
-    return parts.isEmpty ? null : parts.join('  •  ');
+  String? _addressLine(Map<String, dynamic> post) {
+    for (final key in [
+      'address',
+      'streetAddress',
+      'formattedAddress',
+      'street',
+    ]) {
+      final raw = post[key];
+      if (raw == null) continue;
+      final text = raw.toString().trim();
+      if (text.isNotEmpty) return text;
+    }
+    return null;
   }
 
-  Future<void> _onAskTapped(Map<String, dynamic> post) async {
+  Future<void> _onExploreLiveTapped(Map<String, dynamic> post) async {
     final locationName = (post['locationName'] ?? '').toString();
     if (locationName.isEmpty) return;
 
@@ -358,10 +362,10 @@ class _FeedScreenState extends State<FeedScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'Asked everyone at $locationName to report crowd levels!',
+              'Explore Live request sent for $locationName',
             ),
             duration: const Duration(seconds: 3),
-            backgroundColor: _T.blue,
+            backgroundColor: _T.blueTop,
           ),
         );
       }
@@ -370,20 +374,6 @@ class _FeedScreenState extends State<FeedScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to send request. Try again.')),
       );
-    }
-  }
-
-  String get _resultsLabel {
-    switch (_activeFilter) {
-      case 'Nearby':
-        return 'Showing nearest first';
-      case 'Local':
-        return 'Within 25 miles';
-      case 'Region':
-        return 'Within 100 miles';
-      case 'Newest':
-      default:
-        return 'Showing newest first';
     }
   }
 
@@ -410,111 +400,139 @@ class _FeedScreenState extends State<FeedScreen> {
     });
   }
 
-  // --------------------------------------------------------------- build
+  void _openNotificationsTab() {
+    ShellTabBus.requestTab(3);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final screenH = MediaQuery.of(context).size.height;
-    final heroMax = screenH * 0.05;
-    final topInset = MediaQuery.of(context).padding.top;
-
     return Scaffold(
-      backgroundColor: _T.blue,
+      backgroundColor: _T.feedBg,
       body: Column(
         children: [
-          SizedBox(
-            height: heroMax + topInset,
-            child: Padding(
-              padding: EdgeInsets.only(top: topInset),
-              child: SizedBox(
-                height: heroMax,
-                child: ClipRect(
-                  child: _buildHero(),
-                ),
-              ),
-            ),
-          ),
+          _buildHeader(),
           _buildDealBanner(),
-          _buildActionRow(),
-          _buildFilterRow(),
-          _buildResultsRow(),
+          _buildNearbyHeader(),
           Expanded(child: _buildFeedContent()),
         ],
       ),
     );
   }
 
-  Widget _buildHero() {
+  Widget _buildHeader() {
     return Container(
-      color: _T.blue,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            children: [
-              const SizedBox(width: 26),
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    'peepl',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w900,
-                      height: 1.0,
-                    ),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [_T.blueTop, _T.blueBottom],
+        ),
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+      child: SafeArea(
+        bottom: false,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 32,
+              child: Center(
+                child: Text(
+                  'peepl',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w900,
+                    height: 1.0,
+                    letterSpacing: -0.5,
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/profile'),
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      width: 1,
-                    ),
-                  ),
-                  child: const Icon(Icons.person, color: Colors.white, size: 14),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 1),
-          _buildAreaSelector(),
-        ],
+            ),
+            const SizedBox(height: 6),
+            _buildHeaderNav(),
+            const SizedBox(height: 8),
+            _buildFilterRow(),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildAreaSelector() {
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Area selector coming soon')),
+  Widget _buildHeaderNav() {
+    final items = <(IconData, String, VoidCallback)>[
+      (Icons.local_offer_outlined, 'Deals', () => Navigator.pushNamed(context, '/deals')),
+      (Icons.explore_outlined, 'Explore', () => Navigator.pushNamed(context, '/discover')),
+      (Icons.bookmark_border, 'Saved', () => Navigator.pushNamed(context, '/favorites')),
+      (Icons.notifications_outlined, 'Alerts', _openNotificationsTab),
+      (Icons.person_outline, 'Profile', () => Navigator.pushNamed(context, '/profile')),
+    ];
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: items.map((item) {
+        return _HeaderNavItem(
+          icon: item.$1,
+          label: item.$2,
+          onTap: item.$3,
         );
-      },
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(Icons.location_on, color: Colors.white, size: 10),
-          const SizedBox(width: 4),
-          Text(
-            _areaLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
+      }).toList(),
+    );
+  }
+
+  Widget _buildFilterRow() {
+    const filters = <String, IconData>{
+      'Newest': Icons.calendar_today_outlined,
+      'Nearby': Icons.location_on_outlined,
+      'Local': Icons.storefront_outlined,
+      'Region': Icons.map_outlined,
+    };
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 10),
+        itemBuilder: (context, index) {
+          final entry = filters.entries.elementAt(index);
+          final isActive = _activeFilter == entry.key;
+          return GestureDetector(
+            onTap: () => _onFilterTapped(entry.key),
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedOpacity(
+              duration: const Duration(milliseconds: 120),
+              opacity: 1.0,
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isActive ? _T.blueBottom : _T.blueTop,
+                  borderRadius: BorderRadius.circular(22),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: isActive ? 0.5 : 0.25),
+                  ),
+                  boxShadow: const [_T.pillShadow],
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(entry.value, size: 14, color: Colors.white),
+                    const SizedBox(width: 6),
+                    Text(
+                      entry.key,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          const SizedBox(width: 2),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 12),
-        ],
+          );
+        },
       ),
     );
   }
@@ -526,257 +544,59 @@ class _FeedScreenState extends State<FeedScreen> {
       child: Container(
         key: ValueKey(_dealIndex),
         width: double.infinity,
+        height: 42,
         margin: EdgeInsets.zero,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: const BoxDecoration(
-          color: Color(0xFF2BA84A),
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        color: _T.dealGreen,
         child: Row(
           children: [
-            const Icon(Icons.star, size: 10, color: Colors.white),
-            const SizedBox(width: 6),
+            Icon(Icons.sell, size: 18, color: Colors.green.shade800),
+            const SizedBox(width: 8),
             Text(
               deal['offer']!,
               style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w800,
+                color: _T.primaryText,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             Expanded(
               child: Text(
                 '${deal['merchant']}  ·  ${deal['distance']}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.9),
-                  fontSize: 9,
+                style: const TextStyle(
+                  color: _T.primaryText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w400,
                 ),
               ),
             ),
-            Text(
-              'View Deal',
-              style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.95),
-                fontSize: 9,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.white, size: 10),
+            Icon(Icons.chevron_right, color: Colors.green.shade900, size: 18),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildActionRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _circleAction(Icons.search, 'Search', () {
-            Navigator.pushNamed(context, '/search');
-          }),
-          _circleAction(Icons.explore_outlined, 'Explore', () {
-            Navigator.pushNamed(context, '/discover');
-          }),
-          _peepButton(),
-          _circleAction(Icons.local_offer, 'Deals', () {
-            Navigator.pushNamed(context, '/deals');
-          }),
-          _circleAction(Icons.menu, 'Menu', () {
-            Navigator.pushNamed(context, '/settings');
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _circleAction(IconData icon, String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.15),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.white, size: 16),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
+  Widget _buildNearbyHeader() {
+    return SizedBox(
+      height: 36,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            'Nearby',
+            style: TextStyle(
+              color: _T.primaryText,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              height: 1.0,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _peepButton() {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/post'),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _T.yellow,
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white, width: 2),
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.add, color: _T.blue, size: 20),
-                Text(
-                  'PEEP',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterRow() {
-    const filters = <String, IconData>{
-      'Newest': Icons.calendar_today,
-      'Nearby': Icons.location_on_outlined,
-      'Local': Icons.storefront_outlined,
-      'Region': Icons.map_outlined,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: filters.entries.map((entry) {
-            final isActive = _activeFilter == entry.key;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: GestureDetector(
-                onTap: () => _onFilterTapped(entry.key),
-                child: SizedBox(
-                  height: 28,
-                  child: Center(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? Colors.white
-                            : Colors.white.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(28),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.3),
-                          width: 1,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            entry.value,
-                            size: 12,
-                            color: isActive ? _T.blue : Colors.white,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            entry.key,
-                            style: TextStyle(
-                              color: isActive ? _T.blue : Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (isActive) ...[
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 12,
-                              color: _T.blue,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
         ),
-      ),
-    );
-  }
-
-  Widget _buildResultsRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      child: Row(
-        children: [
-          Text(
-            _resultsLabel,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const Spacer(),
-          GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Map view coming soon')),
-              );
-            },
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: Colors.transparent,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(color: Colors.white, width: 1),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.map_outlined, size: 13, color: Colors.white),
-                  SizedBox(width: 4),
-                  Text(
-                    'Map View',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -785,7 +605,7 @@ class _FeedScreenState extends State<FeedScreen> {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+          valueColor: AlwaysStoppedAnimation<Color>(_T.blueTop),
         ),
       );
     }
@@ -797,12 +617,12 @@ class _FeedScreenState extends State<FeedScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 56, color: Colors.white.withValues(alpha: 0.7)),
+              Icon(Icons.error_outline, size: 56, color: _T.secondaryText),
               const SizedBox(height: 14),
               const Text(
                 'Something went wrong',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: _T.primaryText,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -811,7 +631,7 @@ class _FeedScreenState extends State<FeedScreen> {
               Text(
                 _errorMessage ?? 'Please try again later',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14),
+                style: const TextStyle(color: _T.secondaryText, fontSize: 14),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -828,19 +648,24 @@ class _FeedScreenState extends State<FeedScreen> {
       return Center(
         child: Text(
           'No peeps yet. Be the first.',
-          style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 15),
+          style: TextStyle(color: _T.secondaryText, fontSize: 15),
         ),
       );
     }
 
     return RefreshIndicator(
-      color: Colors.white,
-      backgroundColor: _T.blue,
+      color: _T.blueTop,
+      backgroundColor: _T.feedBg,
       onRefresh: _onRefresh,
-      child: ListView.builder(
+      child: GridView.builder(
         controller: _scrollController,
-        // Bottom padding clears the bottom nav bar so the last card is reachable.
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: 2,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 14,
+          childAspectRatio: 3 / 4,
+        ),
         itemCount: _feedItems.length,
         itemBuilder: (context, index) {
           final item = _feedItems[index];
@@ -854,235 +679,359 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildLocationCard(Map<String, dynamic> post) {
-    final int level = (post['crowdingLevel'] is num)
-        ? (post['crowdingLevel'] as num).round()
-        : 0;
-    final String name = (post['locationName'] ?? 'Unknown').toString();
-    final String username = (post['username'] ?? '').toString();
-    final String imageUrl = (post['imageUrl'] ?? '').toString();
-    final String? distance = _distanceLabel(post);
-    final String date = _formatDate(post['timestamp']);
-    final String? ratios = _ratioLine(post);
+    final name = (post['locationName'] ?? 'Unknown').toString();
+    final imageUrl = (post['imageUrl'] ?? '').toString();
+    final address = _addressLine(post);
+    final distance = _distanceLabel(post);
+    final score = _scoreLabel(post);
+    final ringColor = _ringColor(
+      post['aiScore'] is num
+          ? post['aiScore'] as num
+          : ((post['crowdingLevel'] as num?) ?? 0),
+    );
 
-    final metaParts = <String>[];
-    if (date.isNotEmpty) metaParts.add(date);
-    if (distance != null) metaParts.add(distance);
-
-    return GestureDetector(
-      onTap: () => Navigator.push(
+    return _FeedListingCard(
+      imageUrl: imageUrl,
+      name: name,
+      address: address,
+      distance: distance,
+      scoreLabel: score,
+      ringColor: ringColor,
+      onOpen: () => Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => LocationDetailScreen(postData: post),
         ),
       ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        height: 90,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.white, width: 1.5),
-          image: imageUrl.isNotEmpty
-              ? DecorationImage(
-                  image: NetworkImage(imageUrl),
-                  fit: BoxFit.cover,
-                  onError: (_, __) {},
-                )
-              : null,
-          color: const Color(0xFF0D47A1),
-        ),
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(11),
-            gradient: const LinearGradient(
-              begin: Alignment.centerRight,
-              end: Alignment.centerLeft,
-              colors: [Colors.transparent, Color(0xCC000000)],
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w700,
-                        height: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      username,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.85),
-                        fontSize: 10,
-                      ),
-                    ),
-                    if (metaParts.isNotEmpty) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        metaParts.join('  •  '),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                    if (ratios != null) ...[
-                      const SizedBox(height: 1),
-                      Text(
-                        ratios,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.75),
-                          fontSize: 10,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 8),
-              Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _crowdRing(level),
-                  const SizedBox(height: 4),
-                  _exploreLiveButton(post),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _crowdRing(int level) {
-    final color = _ringColor(level);
-    return Container(
-      width: 38,
-      height: 38,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.white,
-        border: Border.all(color: color, width: 2),
-      ),
-      child: Center(
-        child: Text(
-          '$level',
-          style: TextStyle(
-            color: color,
-            fontSize: 15,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _exploreLiveButton(Map<String, dynamic> post) {
-    return GestureDetector(
-      onTap: () => _onAskTapped(post),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(22),
-          border: Border.all(color: Colors.white, width: 1),
-        ),
-        child: const Text(
-          'Explore Live',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ),
+      onExploreLive: () => _onExploreLiveTapped(post),
     );
   }
 
   Widget _buildAdCard(Map<String, dynamic> ad) {
-    final String headline =
-        (ad['headline'] ?? ad['title'] ?? 'Sponsored').toString();
-    final String imageUrl = (ad['imageUrl'] ?? '').toString();
+    final headline = (ad['headline'] ?? ad['title'] ?? 'Sponsored').toString();
+    final imageUrl = (ad['imageUrl'] ?? '').toString();
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      height: 90,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.white, width: 1.5),
-        image: imageUrl.isNotEmpty
-            ? DecorationImage(
-                image: NetworkImage(imageUrl),
-                fit: BoxFit.cover,
-                onError: (_, __) {},
-              )
-            : null,
-        color: const Color(0xFF0D47A1),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(11),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.black.withValues(alpha: 0.45),
-              Colors.transparent,
-              Colors.black.withValues(alpha: 0.55),
-            ],
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    return _FeedListingCard(
+      imageUrl: imageUrl,
+      name: headline,
+      address: null,
+      distance: null,
+      scoreLabel: null,
+      ringColor: null,
+      isSponsored: true,
+      onOpen: () {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(headline), backgroundColor: _T.blueTop),
+        );
+      },
+      onExploreLive: null,
+    );
+  }
+}
+
+class _HeaderNavItem extends StatelessWidget {
+  const _HeaderNavItem({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: SizedBox(
+        width: 56,
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-              decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.35),
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: const Text(
-                'SPONSORED',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 9,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.6,
-                ),
-              ),
-            ),
-            const Spacer(),
+            Icon(icon, color: Colors.white, size: 24),
+            const SizedBox(height: 2),
             Text(
-              headline,
-              maxLines: 2,
+              label,
+              maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 1.2,
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedListingCard extends StatefulWidget {
+  const _FeedListingCard({
+    required this.imageUrl,
+    required this.name,
+    required this.address,
+    required this.distance,
+    required this.scoreLabel,
+    required this.ringColor,
+    required this.onOpen,
+    required this.onExploreLive,
+    this.isSponsored = false,
+  });
+
+  final String imageUrl;
+  final String name;
+  final String? address;
+  final String? distance;
+  final String? scoreLabel;
+  final Color? ringColor;
+  final bool isSponsored;
+  final VoidCallback onOpen;
+  final VoidCallback? onExploreLive;
+
+  @override
+  State<_FeedListingCard> createState() => _FeedListingCardState();
+}
+
+class _FeedListingCardState extends State<_FeedListingCard> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onOpen,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        transform: Matrix4.translationValues(0, _pressed ? -2 : 0, 0),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: const [_T.cardShadow],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18),
+          child: AspectRatio(
+            aspectRatio: 3 / 4,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (widget.imageUrl.isNotEmpty)
+                  Image.network(
+                    widget.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: _T.cardFallback,
+                    ),
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return Container(
+                        color: const Color(0xFFE8ECF2),
+                        child: const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      );
+                    },
+                  )
+                else
+                  Container(color: _T.cardFallback),
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: 120,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.72),
+                          Colors.black.withValues(alpha: 0.35),
+                          Colors.transparent,
+                        ],
+                        stops: const [0.0, 0.55, 1.0],
+                      ),
+                    ),
+                  ),
+                ),
+                if (widget.isSponsored)
+                  Positioned(
+                    top: 10,
+                    left: 10,
+                    child: Text(
+                      'Sponsored',
+                      style: TextStyle(
+                        color: Colors.white.withValues(alpha: 0.7),
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                if (widget.scoreLabel != null && widget.ringColor != null)
+                  Positioned(
+                    top: 10,
+                    right: 10,
+                    child: _ScoreRing(
+                      label: widget.scoreLabel!,
+                      color: widget.ringColor!,
+                    ),
+                  ),
+                Positioned(
+                  left: 16,
+                  right: 16,
+                  bottom: widget.onExploreLive != null ? 52 : 16,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        widget.name,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          height: 1.15,
+                        ),
+                      ),
+                      if (widget.address != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          widget.address!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.80),
+                            fontSize: 13,
+                            fontWeight: FontWeight.w500,
+                            height: 1.2,
+                          ),
+                        ),
+                      ],
+                      if (widget.distance != null) ...[
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.distance!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.70),
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                if (widget.onExploreLive != null)
+                  Positioned(
+                    left: 16,
+                    right: 16,
+                    bottom: 12,
+                    child: _ExploreLiveButton(onTap: widget.onExploreLive!),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ScoreRing extends StatelessWidget {
+  const _ScoreRing({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 48,
+      height: 48,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [color, color.withValues(alpha: 0.55)],
+        ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x33000000),
+            offset: Offset(0, 4),
+            blurRadius: 12,
+          ),
+        ],
+      ),
+      child: Container(
+        margin: const EdgeInsets.all(2.5),
+        decoration: const BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.white,
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ExploreLiveButton extends StatefulWidget {
+  const _ExploreLiveButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  State<_ExploreLiveButton> createState() => _ExploreLiveButtonState();
+}
+
+class _ExploreLiveButtonState extends State<_ExploreLiveButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _pressed = true),
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedOpacity(
+        duration: const Duration(milliseconds: 120),
+        opacity: _pressed ? 0.90 : 1.0,
+        child: Container(
+          height: 36,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: Colors.transparent,
+            borderRadius: BorderRadius.circular(22),
+            border: Border.all(color: Colors.white, width: 1),
+          ),
+          child: const Text(
+            'Explore Live',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
