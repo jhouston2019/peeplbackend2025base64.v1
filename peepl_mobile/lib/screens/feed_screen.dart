@@ -88,6 +88,13 @@ class _FeedScreenState extends State<FeedScreen> {
   String? _errorMessage;
 
   String _activeFilter = 'Newest';
+  bool _newestFirst = true;
+
+  final Map<String, String> _activeDeal = {
+    'advertiser': 'Cotto Italian Grill',
+    'discount': '20% OFF ENTREES',
+    'distance': '0.4 mi',
+  };
 
   final String _areaLabel = 'Perimeter Mall Area';
 
@@ -118,95 +125,42 @@ class _FeedScreenState extends State<FeedScreen> {
     'Download',
   ];
 
-  /// Brand demo inventory when Firestore native_ads is empty (or web preview).
-  static const List<Map<String, dynamic>> _dummyNativeAds = [
+  /// Inline fallback ads when Firestore native_ads is empty (or web preview).
+  static const List<Map<String, dynamic>> _fallbackAds = [
     {
-      'id': 'dummy_cocacola',
+      'type': 'ad',
       'isDummy': true,
-      'brandName': 'Coca-Cola',
-      'headline': 'Taste the feeling',
-      'tagline': 'Ice-cold refreshment',
-      'subline': 'Ice-cold refreshment',
-      'ctaText': 'Learn More',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=240',
+      'id': 'fallback_cotto',
+      'advertiser': 'Cotto Italian Grill',
+      'tagline': '20% off all entrees today only',
+      'cta': 'View Deal',
+      'accentColor': 0xFF1565C0,
+      'initial': 'C',
+      'distance': '0.4 mi',
     },
     {
-      'id': 'dummy_progressive',
+      'type': 'ad',
       'isDummy': true,
-      'brandName': 'Progressive',
-      'headline': 'Save on auto insurance',
-      'tagline': 'Bundle and save today',
-      'subline': 'Bundle and save today',
-      'ctaText': 'Get Quote',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=240',
+      'id': 'fallback_naithai',
+      'advertiser': 'NaiThai — Dunwoody',
+      'tagline': 'Happy hour 4–7PM · half-price cocktails',
+      'cta': 'Learn More',
+      'accentColor': 0xFF6A1B9A,
+      'initial': 'N',
+      'distance': '1.2 mi',
     },
     {
-      'id': 'dummy_chanel',
+      'type': 'ad',
       'isDummy': true,
-      'brandName': 'Chanel',
-      'headline': 'Bleu de Chanel',
-      'tagline': 'Luxury collection',
-      'subline': 'Luxury collection',
-      'ctaText': 'Shop Now',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1541643600914-78b084683601?w=240',
-    },
-    {
-      'id': 'dummy_stella_artois',
-      'isDummy': true,
-      'brandName': 'Stella Artois',
-      'headline': 'Make time for the life artois',
-      'tagline': 'Premium lager',
-      'subline': 'Premium lager',
-      'ctaText': 'Learn More',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=240',
-    },
-    {
-      'id': 'dummy_vrbo',
-      'isDummy': true,
-      'brandName': 'Vrbo',
-      'headline': 'Find your perfect getaway',
-      'tagline': 'Whole homes for your whole group',
-      'subline': 'Whole homes for your whole group',
-      'ctaText': 'Book Now',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=240',
-    },
-    {
-      'id': 'dummy_cotto',
-      'isDummy': true,
-      'brandName': 'Cotto Grill',
-      'headline': '20% off entrees this week',
-      'tagline': '0.4 mi · Perimeter area',
-      'subline': '0.4 mi · Perimeter area',
-      'promotionalBadge': '20% OFF',
-      'ctaText': 'Get Offer',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=240',
-    },
-    {
-      'id': 'dummy_nike',
-      'isDummy': true,
-      'brandName': 'Nike',
-      'headline': 'Just do it',
-      'tagline': 'New arrivals in store',
-      'subline': 'New arrivals in store',
-      'ctaText': 'Shop Now',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=240',
+      'id': 'fallback_foundry',
+      'advertiser': 'The Foundry Grill',
+      'tagline': 'Live music every Friday night',
+      'cta': 'See Menu',
+      'accentColor': 0xFFBF360C,
+      'initial': 'F',
+      'distance': '2.1 mi',
     },
   ];
-
-  final List<Map<String, String>> _deals = const [
-    {'offer': '20% OFF ENTREES', 'merchant': 'Cotto Italian Grill', 'distance': '0.4 mi'},
-    {'offer': 'FREE APPETIZER', 'merchant': 'NaiThai Dunwoody', 'distance': '1.2 mi'},
-    {'offer': 'HAPPY HOUR 4–7PM', 'merchant': 'Lamont\'s Lounge', 'distance': '0.8 mi'},
-  ];
-  int _dealIndex = 0;
-  Timer? _dealTimer;
 
   @override
   void initState() {
@@ -218,16 +172,11 @@ class _FeedScreenState extends State<FeedScreen> {
     _initLocation();
     _loadFeedData();
     _loadAds();
-    _dealTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
-      setState(() => _dealIndex = (_dealIndex + 1) % _deals.length);
-    });
   }
 
   @override
   void dispose() {
     _feedSub?.cancel();
-    _dealTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -348,7 +297,7 @@ class _FeedScreenState extends State<FeedScreen> {
         return ad;
       }
       final dummy = Map<String, dynamic>.from(
-        _dummyNativeAds[dummyAdIndex % _dummyNativeAds.length],
+        _fallbackAds[dummyAdIndex % _fallbackAds.length],
       );
       dummyAdIndex++;
       return dummy;
@@ -478,6 +427,17 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  DateTime? _postTimestamp(Map<String, dynamic> post) {
+    final timestamp = post['timestamp'];
+    if (timestamp is Timestamp) return timestamp.toDate();
+    if (timestamp is DateTime) return timestamp;
+    try {
+      return (timestamp as dynamic).toDate() as DateTime;
+    } catch (_) {
+      return null;
+    }
+  }
+
   List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> posts) {
     final out = List<Map<String, dynamic>>.from(posts);
 
@@ -502,6 +462,14 @@ class _FeedScreenState extends State<FeedScreen> {
       case 'Map':
       case 'Newest':
       default:
+        out.sort((a, b) {
+          final ta = _postTimestamp(a);
+          final tb = _postTimestamp(b);
+          if (ta == null && tb == null) return 0;
+          if (ta == null) return 1;
+          if (tb == null) return -1;
+          return _newestFirst ? tb.compareTo(ta) : ta.compareTo(tb);
+        });
         return out;
     }
   }
@@ -530,34 +498,6 @@ class _FeedScreenState extends State<FeedScreen> {
     final miles = _milesTo(post);
     if (miles == null) return null;
     return '${miles.toStringAsFixed(1)} mi';
-  }
-
-  void _onFilterTapped(String filter) {
-    if (filter == 'Map') {
-      Navigator.pushNamed(context, '/map');
-      return;
-    }
-
-    if ((filter == 'Nearby' || filter == 'Local' || filter == 'Region') &&
-        _userLat == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Location needed for this filter. Enable location access to sort by distance.',
-          ),
-        ),
-      );
-      setState(() {
-        _activeFilter = 'Newest';
-        _feedItems = _rebuildFeedItems();
-      });
-      return;
-    }
-
-    setState(() {
-      _activeFilter = filter;
-      _feedItems = _rebuildFeedItems();
-    });
   }
 
   /// Card height so exactly 8 single-column rows fit without scrolling.
@@ -673,7 +613,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           Center(
             child: Padding(
-              padding: const EdgeInsets.only(top: 6),
+              padding: const EdgeInsets.only(top: 14),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -851,57 +791,78 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildPillRow(double slotHeight) {
-    const filters = <String, IconData>{
-      'Newest': Icons.calendar_today_outlined,
-      'Nearby': Icons.location_on_outlined,
-      'Local': Icons.storefront_outlined,
-      'Region': Icons.public_outlined,
-    };
-    final pillHeight = slotHeight * 0.62;
-
-    return Stack(
-      alignment: Alignment.center,
-      children: [
-        Center(
+  Widget _buildPillRow(double slot3Height) {
+    return SizedBox(
+      height: slot3Height,
+      child: Center(
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              for (var i = 0; i < filters.length; i++) ...[
-                if (i > 0) SizedBox(width: slotHeight * 0.08),
-                _filterPill(
-                  filters.entries.elementAt(i),
-                  height: pillHeight,
-                ),
-              ],
+              _filterPill('Newest', Icons.calendar_today, () {
+                setState(() {
+                  _newestFirst = !_newestFirst;
+                  _activeFilter = 'Newest';
+                  _feedItems = _rebuildFeedItems();
+                });
+              }),
+              const SizedBox(width: 6),
+              _filterPill('Nearby', Icons.location_on, () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Filter coming soon')),
+                );
+              }),
+              const SizedBox(width: 6),
+              _filterPill('Local', Icons.store, () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Filter coming soon')),
+                );
+              }),
+              const SizedBox(width: 6),
+              _filterPill('Region', Icons.public, () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Filter coming soon')),
+                );
+              }),
+              const SizedBox(width: 6),
+              _filterPill('Map View', Icons.map, () {
+                Navigator.pushNamed(context, '/map');
+              }),
             ],
           ),
         ),
-        Positioned(
-          right: 12,
-          child: GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/map'),
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.map_outlined, size: 12, color: Colors.white),
-                SizedBox(width: 4),
-                Text(
-                  'Map View',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    height: 1.0,
-                  ),
-                ),
-              ],
-            ),
-          ),
+      ),
+    );
+  }
+
+  Widget _filterPill(String label, IconData icon, VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
+          borderRadius: BorderRadius.circular(20),
+          color: Colors.white.withOpacity(0.12),
         ),
-      ],
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Colors.white, size: 11),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -936,129 +897,64 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  void _onDealBannerTapped() {
-    final deal = _deals[_dealIndex];
-    final merchant = (deal['merchant'] ?? '').toString();
-    Map<String, dynamic>? match;
-    for (final post in _posts) {
-      final name = (post['locationName'] ?? '').toString();
-      if (name.isEmpty) continue;
-      final nameLower = name.toLowerCase();
-      final merchantLower = merchant.toLowerCase();
-      if (nameLower.contains(merchantLower) ||
-          merchantLower.contains(nameLower)) {
-        match = post;
-        break;
-      }
-    }
-    if (match != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => LocationDetailScreen(postData: match!),
-        ),
-      );
-      return;
-    }
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Deal details coming soon')),
-    );
-  }
-
   Widget _buildDealBanner() {
-    final deal = _deals[_dealIndex];
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 400),
-      child: GestureDetector(
-        key: ValueKey(_dealIndex),
-        onTap: _onDealBannerTapped,
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          width: double.infinity,
-          height: 44,
-          color: _T.dealGreen,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const Icon(Icons.sell, size: 14, color: _T.dealGreenText),
-              const SizedBox(width: 6),
-              Text(
-                deal['offer']!,
+    return GestureDetector(
+      onTap: () {
+        Map<String, dynamic>? match;
+        final advertiser =
+            (_activeDeal['advertiser'] ?? '').toString().toLowerCase();
+        for (final item in _feedItems) {
+          if (item['type'] == 'ad') continue;
+          final locationName =
+              (item['locationName'] ?? '').toString().toLowerCase();
+          if (advertiser.isNotEmpty && locationName.contains(advertiser)) {
+            match = item;
+            break;
+          }
+        }
+        if (match != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (_) => LocationDetailScreen(postData: match!),
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Deal details coming soon')),
+          );
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        height: 44,
+        color: const Color(0xFFE8F5E9),
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            const Icon(Icons.local_offer, color: Color(0xFF2E7D32), size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${_activeDeal['discount'] ?? '20% OFF'} '
+                '${_activeDeal['advertiser'] ?? ''} · '
+                '${_activeDeal['distance'] ?? '0.4 mi'}',
                 style: const TextStyle(
-                  color: _T.dealGreenText,
-                  fontSize: 14,
+                  color: Color(0xFF2E7D32),
+                  fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '${deal['merchant']}  ·  ${deal['distance']}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _T.dealGreenText,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-              const Text(
-                'View Deal',
-                style: TextStyle(
-                  color: _T.dealGreenText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const Icon(Icons.chevron_right, color: _T.dealGreenText, size: 14),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filterPill(MapEntry<String, IconData> entry, {required double height}) {
-    final isActive = _activeFilter == entry.key;
-    return GestureDetector(
-      onTap: () => _onFilterTapped(entry.key),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: height,
-        padding: const EdgeInsets.symmetric(horizontal: 10),
-        decoration: BoxDecoration(
-          color: isActive
-              ? const Color(0xFF0046BE)
-              : const Color(0xFF0046BE).withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(height / 2),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: isActive ? 0.55 : 0.35),
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(entry.value, size: height * 0.38, color: Colors.white),
-            SizedBox(width: height * 0.12),
-            Text(
-              entry.key,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                height: 1.0,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (entry.key == 'Newest') ...[
-              SizedBox(width: height * 0.06),
-              Icon(
-                Icons.keyboard_arrow_down,
-                size: height * 0.38,
-                color: Colors.white.withValues(alpha: 0.9),
+            const Text(
+              'View Deal >',
+              style: TextStyle(
+                color: Color(0xFF2E7D32),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
               ),
-            ],
+            ),
           ],
         ),
       ),
@@ -1148,7 +1044,9 @@ class _FeedScreenState extends State<FeedScreen> {
       return _FeedAdCard(
         name: content.name,
         tagline: content.tagline,
-        imageUrl: content.imageUrl,
+        distance: content.distance,
+        initial: content.initial,
+        accentColor: content.accentColor,
         ctaLabel: content.ctaLabel,
         onOpen: content.onOpen,
         onCta: content.onCta,
@@ -1227,32 +1125,49 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   _FeedCardContent _feedCardContentFromAd(Map<String, dynamic> ad) {
-    final brandName = (ad['brandName'] ??
+    final advertiser = (ad['advertiser'] ??
+            ad['brandName'] ??
             ad['advertiserName'] ??
             ad['merchantName'] ??
+            ad['headline'] ??
+            ad['title'] ??
             '')
         .toString();
     final headline =
         (ad['headline'] ?? ad['title'] ?? 'Sponsored offer').toString();
-    final ctaText = _normalizeSponsorCta(ad['ctaText'] as String?);
+    final rawCta = (ad['cta'] ?? ad['ctaText'])?.toString().trim();
+    final ctaText = (rawCta != null && rawCta.isNotEmpty)
+        ? rawCta
+        : _normalizeSponsorCta(rawCta);
     final adId = (ad['id'] ?? '').toString();
     final placement = (ad['feedPlacement'] as num?)?.toInt();
-    final advertiserId = (ad['advertiserId'] ?? ad['advertiserName'] ?? '')
+    final advertiserId = (ad['advertiserId'] ??
+            ad['advertiserName'] ??
+            ad['advertiser'] ??
+            '')
         .toString();
-    final name = brandName.isNotEmpty ? brandName : headline;
+    final name = advertiser.isNotEmpty ? advertiser : headline;
     final tagline = (ad['tagline'] ??
             ad['subline'] ??
             ad['headline'] ??
             ad['bodyText'] ??
             '')
         .toString();
-    final imageUrl =
-        (ad['imageUrl'] ?? ad['imageAsset'] ?? '').toString().trim();
+    final distance = (ad['distance'] ?? '').toString();
+    final accentColor = Color(
+      (ad['accentColor'] as int?) ?? 0xFF1565C0,
+    );
+    final initialRaw = (ad['initial'] ?? '').toString();
+    final initial = initialRaw.isNotEmpty
+        ? initialRaw
+        : (name.isNotEmpty ? name.trim()[0].toUpperCase() : 'A');
 
     return _FeedCardContent(
       name: name,
       tagline: tagline,
-      imageUrl: imageUrl,
+      distance: distance,
+      initial: initial,
+      accentColor: accentColor,
       ctaLabel: ctaText.isNotEmpty ? ctaText : 'Learn More',
       onImpression: () {
         unawaited(_adsService.recordAdImpression(
@@ -1280,7 +1195,9 @@ class _FeedCardContent {
   const _FeedCardContent({
     required this.name,
     required this.tagline,
-    required this.imageUrl,
+    required this.distance,
+    required this.initial,
+    required this.accentColor,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1290,7 +1207,9 @@ class _FeedCardContent {
 
   final String name;
   final String tagline;
-  final String imageUrl;
+  final String distance;
+  final String initial;
+  final Color accentColor;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1398,7 +1317,9 @@ class _FeedAdCard extends StatefulWidget {
   const _FeedAdCard({
     required this.name,
     required this.tagline,
-    required this.imageUrl,
+    required this.distance,
+    required this.initial,
+    required this.accentColor,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1408,7 +1329,9 @@ class _FeedAdCard extends StatefulWidget {
 
   final String name;
   final String tagline;
-  final String imageUrl;
+  final String distance;
+  final String initial;
+  final Color accentColor;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1455,42 +1378,25 @@ class _FeedAdCardState extends State<_FeedAdCard> {
 
   @override
   Widget build(BuildContext context) {
-    const accent = Color(0xFF1565C0);
-    final letter = widget.name.isNotEmpty
-        ? widget.name.trim()[0].toUpperCase()
-        : 'A';
-    final hasImage = widget.imageUrl.isNotEmpty;
-
-    Widget leadingTile;
-    if (hasImage) {
-      leadingTile = ClipRRect(
+    const sponsoredBlue = Color(0xFF1565C0);
+    final leadingTile = Container(
+      width: 44,
+      height: 44,
+      decoration: BoxDecoration(
+        color: widget.accentColor,
         borderRadius: BorderRadius.circular(8),
-        child: SizedBox(
-          width: 44,
-          height: 44,
-          child: _feedCardImage(widget.imageUrl, alignment: Alignment.center),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        widget.initial,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 20,
+          fontWeight: FontWeight.w900,
+          height: 1.0,
         ),
-      );
-    } else {
-      leadingTile = Container(
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: accent,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          letter,
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.w900,
-            height: 1.0,
-          ),
-        ),
-      );
-    }
+      ),
+    );
 
     final card = GestureDetector(
       onTap: widget.onOpen,
@@ -1506,7 +1412,7 @@ class _FeedAdCardState extends State<_FeedAdCard> {
               top: 0,
               bottom: 0,
               width: 4,
-              child: ColoredBox(color: accent),
+              child: ColoredBox(color: sponsoredBlue),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -1527,7 +1433,7 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: accent,
+                            color: sponsoredBlue,
                             borderRadius: BorderRadius.circular(3),
                           ),
                           child: const Text(
@@ -1547,8 +1453,8 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: accent,
-                            fontSize: 14,
+                            color: sponsoredBlue,
+                            fontSize: 13,
                             fontWeight: FontWeight.w700,
                             height: 1.1,
                           ),
@@ -1567,6 +1473,20 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                             ),
                           ),
                         ],
+                        if (widget.distance.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.distance,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black38,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -1576,11 +1496,11 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
+                        horizontal: 10,
+                        vertical: 6,
                       ),
                       decoration: BoxDecoration(
-                        color: accent,
+                        color: widget.accentColor,
                         borderRadius: BorderRadius.circular(16),
                       ),
                       child: Text(
