@@ -2,21 +2,22 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-/// Circular crowd level meter (0–10) with arc progress and word label.
 class CrowdMeter extends StatelessWidget {
-  const CrowdMeter({
-    super.key,
-    required this.level,
-    this.size = 60,
-  });
+  final int level; // 0-10
+  final double size; // outer diameter
+  const CrowdMeter({super.key, required this.level, this.size = 52});
 
-  final int level;
-  final double size;
+  Color get _color => levelColor(level);
 
-  static int clampLevel(int raw) => raw.clamp(0, 10);
+  static Color levelColor(int level) {
+    final clamped = level.clamp(0, 10);
+    if (clamped <= 4) return const Color(0xFF4CAF50);
+    if (clamped <= 7) return const Color(0xFFFFA726);
+    return const Color(0xFFFF5722);
+  }
 
-  static String wordLabel(int raw) {
-    final value = clampLevel(raw);
+  static String wordLabel(int level) {
+    final value = level.clamp(0, 10);
     if (value == 0) return 'Empty';
     if (value <= 2) return 'Quiet';
     if (value <= 4) return 'Moderate';
@@ -25,123 +26,73 @@ class CrowdMeter extends StatelessWidget {
     return 'Packed';
   }
 
-  static Color levelColor(int raw) {
-    final value = clampLevel(raw);
-    if (value <= 4) return const Color(0xFF4CAF50);
-    if (value <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
-  }
-
   @override
   Widget build(BuildContext context) {
-    final value = clampLevel(level);
-    final color = levelColor(value);
-    final label = wordLabel(value);
-
     return SizedBox(
       width: size,
       height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          CustomPaint(
-            size: Size.square(size),
-            painter: _CrowdMeterPainter(
-              progress: value / 10,
-              fillColor: color,
+      child: CustomPaint(
+        painter: _RingPainter(
+          progress: (level.clamp(0, 10)) / 10.0,
+          color: _color,
+          stroke: size * 0.13,
+        ),
+        child: Center(
+          child: Text(
+            '$level',
+            style: TextStyle(
+              color: _color,
+              fontSize: size * 0.44,
+              fontWeight: FontWeight.w900,
+              height: 1.0,
+              shadows: const [
+                Shadow(
+                  offset: Offset(0, 1),
+                  blurRadius: 3,
+                  color: Colors.black54,
+                ),
+              ],
             ),
           ),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                '$value',
-                style: TextStyle(
-                  color: color,
-                  fontSize: size * 0.28,
-                  fontWeight: FontWeight.bold,
-                  height: 1,
-                  shadows: const [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 4,
-                      color: Colors.black54,
-                    ),
-                  ],
-                ),
-              ),
-              Text(
-                label,
-                style: TextStyle(
-                  color: color,
-                  fontSize: size * 0.13,
-                  fontWeight: FontWeight.w600,
-                  height: 1.05,
-                  shadows: const [
-                    Shadow(
-                      offset: Offset(0, 1),
-                      blurRadius: 4,
-                      color: Colors.black54,
-                    ),
-                  ],
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 }
 
-class _CrowdMeterPainter extends CustomPainter {
-  _CrowdMeterPainter({
-    required this.progress,
-    required this.fillColor,
-  });
-
+class _RingPainter extends CustomPainter {
   final double progress;
-  final Color fillColor;
+  final Color color;
+  final double stroke;
+  _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.stroke,
+  });
 
   @override
   void paint(Canvas canvas, Size size) {
-    final strokeWidth = size.width * 0.1;
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.width - strokeWidth) / 2;
-    final arcRect = Rect.fromCircle(center: center, radius: radius);
+    final radius = (size.width - stroke) / 2;
+    final rect = Rect.fromCircle(center: center, radius: radius);
 
-    const startAngle = -math.pi / 2;
-    const fullSweep = 2 * math.pi;
-
-    final backgroundPaint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.3)
+    // faint track so the ring reads on any photo
+    final track = Paint()
+      ..color = Colors.white.withValues(alpha: 0.28)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
+      ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, radius, track);
 
-    final fillPaint = Paint()
-      ..color = fillColor
+    final arc = Paint()
+      ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth
+      ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
-
-    canvas.drawArc(arcRect, startAngle, fullSweep, false, backgroundPaint);
-
-    if (progress > 0) {
-      canvas.drawArc(
-        arcRect,
-        startAngle,
-        fullSweep * progress.clamp(0.0, 1.0),
-        false,
-        fillPaint,
-      );
-    }
+    canvas.drawArc(rect, -math.pi / 2, 2 * math.pi * progress, false, arc);
   }
 
   @override
-  bool shouldRepaint(covariant _CrowdMeterPainter oldDelegate) {
-    return oldDelegate.progress != progress ||
-        oldDelegate.fillColor != fillColor;
-  }
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color || old.stroke != stroke;
 }

@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
@@ -13,6 +13,7 @@ import '../services/feed_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 
 /// Peepl Home Feed — Sponsored Card Specification
@@ -98,6 +99,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   static const double _heroHeightFraction = 0.20;
   static const double _cardMarginBottom = 6;
+  static const double _shellBottomNavHeight = 52;
   static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
   /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
   static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
@@ -116,51 +118,58 @@ class _FeedScreenState extends State<FeedScreen> {
     'Download',
   ];
 
-  /// Sponsored cards share the Peepl card shell. Never louder: same size, type,
-  /// overlay, CTA, shadows; no autoplay, animation, flash, or extra badges
-  /// beyond a compact AD / logo mark in the score-ring slot.
+  /// Brand demo inventory when Firestore native_ads is empty (or web preview).
   static const List<Map<String, dynamic>> _dummyNativeAds = [
     {
       'id': 'dummy_cocacola',
       'isDummy': true,
       'brandName': 'Coca-Cola',
       'headline': 'Taste the feeling',
+      'tagline': 'Ice-cold refreshment',
       'subline': 'Ice-cold refreshment',
       'ctaText': 'Learn More',
-      'imageAsset': 'assets/ads/cocacola.png',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1629203851122-3726ecdf080e?w=240',
     },
     {
       'id': 'dummy_progressive',
       'isDummy': true,
       'brandName': 'Progressive',
       'headline': 'Save on auto insurance',
+      'tagline': 'Bundle and save today',
       'subline': 'Bundle and save today',
       'ctaText': 'Get Quote',
-      'imageAsset': 'assets/ads/progressive.png',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=240',
     },
     {
       'id': 'dummy_chanel',
       'isDummy': true,
       'brandName': 'Chanel',
       'headline': 'Bleu de Chanel',
+      'tagline': 'Luxury collection',
       'subline': 'Luxury collection',
       'ctaText': 'Shop Now',
-      'imageAsset': 'assets/ads/chanel.png',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1541643600914-78b084683601?w=240',
     },
     {
       'id': 'dummy_stella_artois',
       'isDummy': true,
       'brandName': 'Stella Artois',
       'headline': 'Make time for the life artois',
+      'tagline': 'Premium lager',
       'subline': 'Premium lager',
       'ctaText': 'Learn More',
-      'imageAsset': 'assets/ads/stella_artois.png',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1608270586620-248524c67de9?w=240',
     },
     {
       'id': 'dummy_vrbo',
       'isDummy': true,
       'brandName': 'Vrbo',
       'headline': 'Find your perfect getaway',
+      'tagline': 'Whole homes for your whole group',
       'subline': 'Whole homes for your whole group',
       'ctaText': 'Book Now',
       'imageUrl':
@@ -171,6 +180,7 @@ class _FeedScreenState extends State<FeedScreen> {
       'isDummy': true,
       'brandName': 'Cotto Grill',
       'headline': '20% off entrees this week',
+      'tagline': '0.4 mi · Perimeter area',
       'subline': '0.4 mi · Perimeter area',
       'promotionalBadge': '20% OFF',
       'ctaText': 'Get Offer',
@@ -182,6 +192,7 @@ class _FeedScreenState extends State<FeedScreen> {
       'isDummy': true,
       'brandName': 'Nike',
       'headline': 'Just do it',
+      'tagline': 'New arrivals in store',
       'subline': 'New arrivals in store',
       'ctaText': 'Shop Now',
       'imageUrl':
@@ -200,7 +211,10 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
-    _cadence.init();
+    unawaited(_cadence.init().then((_) {
+      if (!mounted) return;
+      setState(() => _feedItems = _rebuildFeedItems());
+    }));
     _initLocation();
     _loadFeedData();
     _loadAds();
@@ -278,8 +292,17 @@ class _FeedScreenState extends State<FeedScreen> {
       });
     } catch (e) {
       debugPrint('Failed to load ads: $e');
+      if (!mounted) return;
+      setState(() {
+        _availableAds = [];
+        _feedItems = _rebuildFeedItems();
+      });
     }
   }
+
+  /// Demo brand inventory when Firestore is empty, or on web debug preview.
+  bool get _useDummyNativeAds =>
+      _availableAds.isEmpty || (kDebugMode && kIsWeb);
 
   void _processFeedData(List<QueryDocumentSnapshot> docs) {
     final posts = docs.map((doc) {
@@ -319,7 +342,7 @@ class _FeedScreenState extends State<FeedScreen> {
     var streamCardIndex = 0;
 
     Map<String, dynamic> pickAd() {
-      if (_availableAds.isNotEmpty) {
+      if (!_useDummyNativeAds) {
         final ad = _availableAds[liveAdIndex % _availableAds.length];
         liveAdIndex++;
         return ad;
@@ -384,12 +407,6 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeedData();
     await _initLocation();
     await _loadAds();
-  }
-
-  Color _getCrowdingColor(int level) {
-    if (level <= 4) return const Color(0xFF4CAF50);
-    if (level <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
   }
 
   int _crowdLevelInt(Map<String, dynamic> post) {
@@ -561,7 +578,8 @@ class _FeedScreenState extends State<FeedScreen> {
         removeTop: true,
         child: Column(
           children: [
-            _buildHeroSection(),
+            _buildBlueHeader(),
+            SizedBox(height: 44, child: _buildDealBanner()),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -576,95 +594,311 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildHeroSection() {
-    final headerHeight = _headerHeight(context);
+  Widget _buildBlueHeader() {
+    final h = _headerHeight(context);
+    final slot1 = h * 0.32;
+    final slot2 = h * 0.40;
+    final slot3 = h * 0.28;
 
-    return SizedBox(
-      height: headerHeight,
-      width: double.infinity,
-      child: Container(
-        clipBehavior: Clip.antiAlias,
-        decoration: const BoxDecoration(
-          color: _T.blue,
-          borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(20),
-            bottomRight: Radius.circular(20),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: Color(0x18000000),
-              offset: Offset(0, 2),
-              blurRadius: 6,
+    return ClipRect(
+      child: SizedBox(
+        height: h,
+        width: double.infinity,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: _T.blue,
+            borderRadius: BorderRadius.only(
+              bottomLeft: Radius.circular(20),
+              bottomRight: Radius.circular(20),
             ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Expanded(child: _buildHeaderBar()),
-            SizedBox(height: 44, child: _buildDealBanner()),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 6),
-                child: _buildActionRow(),
+            boxShadow: [
+              BoxShadow(
+                color: Color(0x18000000),
+                offset: Offset(0, 2),
+                blurRadius: 6,
               ),
-            ),
-            SizedBox(height: 36, child: _buildFilterAndMapRow()),
-          ],
+            ],
+          ),
+          child: Column(
+            children: [
+              SizedBox(height: slot1, child: _buildLogoBar(slot1)),
+              SizedBox(height: slot2, child: _buildIconRow(slot2)),
+              SizedBox(height: slot3, child: _buildPillRow(slot3)),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildHeaderBar() {
+  Widget _buildLogoBar(double slotHeight) {
+    final logoCharStyle = TextStyle(
+      color: Colors.white,
+      fontSize: 26,
+      fontWeight: FontWeight.w900,
+      height: 1.0,
+      fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
+    );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-      child: Align(
-        alignment: Alignment.bottomCenter,
-        child: Row(
-          children: [
-            Expanded(child: _buildLocationChip()),
-            Image.asset(
-              _logoAsset,
-              height: 34,
-              fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Text(
-                'peepl',
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(child: _buildLocationChip()),
+              GestureDetector(
+                onTap: () => Navigator.pushNamed(context, '/profile'),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  width: 28,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.55),
+                      width: 1.2,
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.person,
+                    color: Colors.white,
+                    size: 15,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('p', style: logoCharStyle),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('e', style: logoCharStyle),
+                    Transform.scale(
+                      scaleX: -1,
+                      child: Text('e', style: logoCharStyle),
+                    ),
+                  ],
+                ),
+                Text('pl', style: logoCharStyle),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIconRow(double slotHeight) {
+    final outerSize = slotHeight * 0.52;
+    final peepSize = slotHeight * 0.68;
+    final iconSize = outerSize * 0.42;
+    final peepIconSize = peepSize * 0.34;
+    const labelSize = 8.0;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _headerAction(
+            icon: Icons.search,
+            label: 'Search',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/search'),
+          ),
+          _headerAction(
+            icon: Icons.explore_outlined,
+            label: 'Explore',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/discover'),
+          ),
+          _headerPeepAction(
+            circleSize: peepSize,
+            iconSize: peepIconSize,
+            labelSize: labelSize,
+          ),
+          _headerAction(
+            icon: Icons.local_offer_outlined,
+            label: 'Deals',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/deals'),
+          ),
+          _headerAction(
+            icon: Icons.menu,
+            label: 'Menu',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/settings'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerAction({
+    required IconData icon,
+    required String label,
+    required double circleSize,
+    required double iconSize,
+    required double labelSize,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: circleSize,
+            height: circleSize,
+            decoration: BoxDecoration(
+              color: _T.white,
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.85),
+                width: 1.2,
+              ),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x26000000),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
+                ),
+              ],
+            ),
+            child: Icon(icon, color: _T.blue, size: iconSize),
+          ),
+          SizedBox(height: circleSize * 0.06),
+          Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: labelSize,
+              fontWeight: FontWeight.w600,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _headerPeepAction({
+    required double circleSize,
+    required double iconSize,
+    required double labelSize,
+  }) {
+    return GestureDetector(
+      onTap: () => Navigator.pushNamed(context, '/post'),
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: circleSize,
+            height: circleSize,
+            decoration: BoxDecoration(
+              color: _T.yellow,
+              shape: BoxShape.circle,
+              border: Border.all(color: _T.white, width: 2),
+              boxShadow: [
+                BoxShadow(
+                  color: _T.yellow.withValues(alpha: 0.35),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Center(
+              child: Text(
+                'PEEP',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 28,
+                  fontSize: 13,
                   fontWeight: FontWeight.w800,
                   height: 1.0,
                 ),
               ),
             ),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: GestureDetector(
-                  onTap: () => Navigator.pushNamed(context, '/profile'),
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.55),
-                        width: 1.2,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.person,
-                      color: Colors.white,
-                      size: 16,
-                    ),
+          ),
+          SizedBox(height: circleSize * 0.06),
+          SizedBox(height: labelSize),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPillRow(double slotHeight) {
+    const filters = <String, IconData>{
+      'Newest': Icons.calendar_today_outlined,
+      'Nearby': Icons.location_on_outlined,
+      'Local': Icons.storefront_outlined,
+      'Region': Icons.public_outlined,
+    };
+    final pillHeight = slotHeight * 0.62;
+
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              for (var i = 0; i < filters.length; i++) ...[
+                if (i > 0) SizedBox(width: slotHeight * 0.08),
+                _filterPill(
+                  filters.entries.elementAt(i),
+                  height: pillHeight,
+                ),
+              ],
+            ],
+          ),
+        ),
+        Positioned(
+          right: 12,
+          child: GestureDetector(
+            onTap: () => Navigator.pushNamed(context, '/map'),
+            behavior: HitTestBehavior.opaque,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                Icon(Icons.map_outlined, size: 12, color: Colors.white),
+                SizedBox(width: 4),
+                Text(
+                  'Map View',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    height: 1.0,
                   ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 
@@ -783,179 +1017,19 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildActionRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        children: [
-          _circleAction(Icons.search, 'Search', () {
-            Navigator.pushNamed(context, '/search');
-          }),
-          _circleAction(Icons.explore_outlined, 'Explore', () {
-            Navigator.pushNamed(context, '/discover');
-          }),
-          _peepButton(),
-          _circleAction(Icons.local_offer_outlined, 'Deals', () {
-            Navigator.pushNamed(context, '/deals');
-          }),
-          _circleAction(Icons.menu, 'Menu', () {
-            Navigator.pushNamed(context, '/settings');
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _circleAction(
-    IconData icon,
-    String label,
-    VoidCallback onTap,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              color: _T.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.85),
-                width: 1.2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x26000000),
-                  offset: Offset(0, 2),
-                  blurRadius: 4,
-                ),
-              ],
-            ),
-            child: Icon(icon, color: _T.blue, size: 18),
-          ),
-          const SizedBox(height: 3),
-          Text(
-            label,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 9,
-              fontWeight: FontWeight.w600,
-              height: 1.0,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _peepButton() {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/post'),
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          color: _T.yellow,
-          shape: BoxShape.circle,
-          border: Border.all(color: _T.white, width: 2),
-          boxShadow: [
-            BoxShadow(
-              color: _T.yellow.withValues(alpha: 0.35),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.add, color: _T.blue, size: 20),
-            const Text(
-              'PEEP',
-              style: TextStyle(
-                color: _T.blue,
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                height: 1.0,
-                letterSpacing: 0.2,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterAndMapRow() {
-    const filters = <String, IconData>{
-      'Newest': Icons.calendar_today_outlined,
-      'Nearby': Icons.location_on_outlined,
-      'Local': Icons.storefront_outlined,
-      'Region': Icons.public_outlined,
-    };
-
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: Center(
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (var i = 0; i < filters.length; i++) ...[
-                    if (i > 0) const SizedBox(width: 6),
-                    _filterPill(filters.entries.elementAt(i)),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          GestureDetector(
-            onTap: () => Navigator.pushNamed(context, '/map'),
-            behavior: HitTestBehavior.opaque,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.map_outlined, size: 14, color: Colors.white),
-                SizedBox(width: 4),
-                Text(
-                  'Map View',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _filterPill(MapEntry<String, IconData> entry) {
+  Widget _filterPill(MapEntry<String, IconData> entry, {required double height}) {
     final isActive = _activeFilter == entry.key;
     return GestureDetector(
       onTap: () => _onFilterTapped(entry.key),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 28,
+        height: height,
         padding: const EdgeInsets.symmetric(horizontal: 10),
         decoration: BoxDecoration(
           color: isActive
               ? const Color(0xFF0046BE)
               : const Color(0xFF0046BE).withValues(alpha: 0.92),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(height / 2),
           border: Border.all(
             color: Colors.white.withValues(alpha: isActive ? 0.55 : 0.35),
           ),
@@ -963,8 +1037,8 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(entry.value, size: 11, color: Colors.white),
-            const SizedBox(width: 4),
+            Icon(entry.value, size: height * 0.38, color: Colors.white),
+            SizedBox(width: height * 0.12),
             Text(
               entry.key,
               style: const TextStyle(
@@ -975,10 +1049,10 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ),
             if (entry.key == 'Newest') ...[
-              const SizedBox(width: 2),
+              SizedBox(width: height * 0.06),
               Icon(
                 Icons.keyboard_arrow_down,
-                size: 11,
+                size: height * 0.38,
                 color: Colors.white.withValues(alpha: 0.9),
               ),
             ],
@@ -1070,6 +1144,8 @@ class _FeedScreenState extends State<FeedScreen> {
       final content = _feedCardContentFromAd(item);
       return _FeedAdCard(
         name: content.name,
+        tagline: content.tagline,
+        imageUrl: content.imageUrl,
         ctaLabel: content.ctaLabel,
         onOpen: content.onOpen,
         onCta: content.onCta,
@@ -1085,7 +1161,6 @@ class _FeedScreenState extends State<FeedScreen> {
       name: name,
       subtitle: _subtitleLine(post),
       crowdLevel: _crowdLevelInt(post),
-      crowdColor: _getCrowdingColor(_crowdLevelInt(post)),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
@@ -1162,10 +1237,20 @@ class _FeedScreenState extends State<FeedScreen> {
     final advertiserId = (ad['advertiserId'] ?? ad['advertiserName'] ?? '')
         .toString();
     final name = brandName.isNotEmpty ? brandName : headline;
+    final tagline = (ad['tagline'] ??
+            ad['subline'] ??
+            ad['headline'] ??
+            ad['bodyText'] ??
+            '')
+        .toString();
+    final imageUrl =
+        (ad['imageUrl'] ?? ad['imageAsset'] ?? '').toString().trim();
 
     return _FeedCardContent(
       name: name,
-      ctaLabel: ctaText,
+      tagline: tagline,
+      imageUrl: imageUrl,
+      ctaLabel: ctaText.isNotEmpty ? ctaText : 'Learn More',
       onImpression: () {
         unawaited(_adsService.recordAdImpression(
           adId,
@@ -1191,6 +1276,8 @@ class _FeedScreenState extends State<FeedScreen> {
 class _FeedCardContent {
   const _FeedCardContent({
     required this.name,
+    required this.tagline,
+    required this.imageUrl,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1199,6 +1286,8 @@ class _FeedCardContent {
   });
 
   final String name;
+  final String tagline;
+  final String imageUrl;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1212,7 +1301,6 @@ class _FeedPostCard extends StatelessWidget {
     required this.name,
     required this.subtitle,
     required this.crowdLevel,
-    required this.crowdColor,
     required this.onTap,
   });
 
@@ -1220,7 +1308,6 @@ class _FeedPostCard extends StatelessWidget {
   final String name;
   final String? subtitle;
   final int crowdLevel;
-  final Color crowdColor;
   final VoidCallback onTap;
 
   @override
@@ -1294,10 +1381,7 @@ class _FeedPostCard extends StatelessWidget {
               bottom: 0,
               child: Align(
                 alignment: Alignment.centerRight,
-                child: _CrowdBadge(
-                  level: crowdLevel,
-                  color: crowdColor,
-                ),
+                child: CrowdMeter(level: crowdLevel, size: 52),
               ),
             ),
           ],
@@ -1307,54 +1391,11 @@ class _FeedPostCard extends StatelessWidget {
   }
 }
 
-class _CrowdBadge extends StatelessWidget {
-  const _CrowdBadge({
-    required this.level,
-    required this.color,
-  });
-
-  final int level;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 52,
-      height: 52,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.55),
-            blurRadius: 10,
-            spreadRadius: 2,
-          ),
-        ],
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-          border: Border.all(color: Colors.white, width: 2.5),
-        ),
-        alignment: Alignment.center,
-        child: Text(
-          '$level',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.w900,
-            height: 1.0,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _FeedAdCard extends StatefulWidget {
   const _FeedAdCard({
     required this.name,
+    required this.tagline,
+    required this.imageUrl,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1363,6 +1404,8 @@ class _FeedAdCard extends StatefulWidget {
   });
 
   final String name;
+  final String tagline;
+  final String imageUrl;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1410,6 +1453,41 @@ class _FeedAdCardState extends State<_FeedAdCard> {
   @override
   Widget build(BuildContext context) {
     const accent = Color(0xFF1565C0);
+    final letter = widget.name.isNotEmpty
+        ? widget.name.trim()[0].toUpperCase()
+        : 'A';
+    final hasImage = widget.imageUrl.isNotEmpty;
+
+    Widget leadingTile;
+    if (hasImage) {
+      leadingTile = ClipRRect(
+        borderRadius: BorderRadius.circular(8),
+        child: SizedBox(
+          width: 44,
+          height: 44,
+          child: _feedCardImage(widget.imageUrl, alignment: Alignment.center),
+        ),
+      );
+    } else {
+      leadingTile = Container(
+        width: 44,
+        height: 44,
+        decoration: BoxDecoration(
+          color: accent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          letter,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+          ),
+        ),
+      );
+    }
 
     final card = GestureDetector(
       onTap: widget.onOpen,
@@ -1428,10 +1506,12 @@ class _FeedAdCardState extends State<_FeedAdCard> {
               child: ColoredBox(color: accent),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
+                  leadingTile,
+                  const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1440,7 +1520,7 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 4,
+                            horizontal: 5,
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
@@ -1451,35 +1531,50 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                             'SPONSORED',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: 9,
+                              fontSize: 8,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.0,
                               height: 1.0,
                             ),
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 4),
                         Text(
                           widget.name,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: accent,
-                            fontSize: 15,
+                            fontSize: 14,
                             fontWeight: FontWeight.w700,
                             height: 1.1,
                           ),
                         ),
+                        if (widget.tagline.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            widget.tagline,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.black54,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              height: 1.1,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),
+                  const SizedBox(width: 8),
                   GestureDetector(
                     onTap: widget.onCta,
                     behavior: HitTestBehavior.opaque,
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 7,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: accent,
@@ -1491,8 +1586,8 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           color: Colors.white,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600,
                           height: 1.0,
                         ),
                       ),
@@ -1552,7 +1647,7 @@ class FeedPreviewHost extends StatelessWidget {
         children: [
           const Expanded(child: FeedScreen()),
           Container(
-            height: 41 + bottomInset,
+            height: _FeedScreenState._shellBottomNavHeight + bottomInset,
             padding: EdgeInsets.only(bottom: bottomInset),
             color: _T.blue,
             child: Row(
