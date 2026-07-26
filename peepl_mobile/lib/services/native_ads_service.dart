@@ -103,39 +103,114 @@ class NativeAdsService {
     }
   }
 
-  Future<void> recordAdImpression(String adId, String userId) async {
-    if (adId.isEmpty) return;
+  Future<void> recordAdClick(String adId, String userId) async {
+    await recordAdEvent(
+      adId: adId,
+      userId: userId,
+      event: 'click',
+    );
+  }
+
+  /// Unified feed analytics: impression, viewable, card_tap, cta_tap.
+  ///
+  /// [feedPlacement] — stream position (4, 7, 11, 14 …) for CTR-by-slot.
+  /// [advertiserId] — enables CTR-by-advertiser rollups.
+  Future<void> recordAdEvent({
+    required String adId,
+    required String userId,
+    required String event,
+    int? feedPlacement,
+    String? advertiserId,
+    String context = 'feed',
+  }) async {
+    if (adId.isEmpty || adId.startsWith('dummy_')) return;
     try {
-      await _firestore.collection('native_ads').doc(adId).update({
-        'impressions': FieldValue.increment(1),
-      });
-      await _firestore.collection('ad_events').add({
+      final payload = <String, dynamic>{
         'adId': adId,
         'userId': userId,
-        'event': 'impression',
+        'event': event,
+        'context': context,
         'timestamp': FieldValue.serverTimestamp(),
-      });
+        if (feedPlacement != null) 'feedPlacement': feedPlacement,
+        if (advertiserId != null && advertiserId.isNotEmpty)
+          'advertiserId': advertiserId,
+      };
+      await _firestore.collection('ad_events').add(payload);
+
+      switch (event) {
+        case 'impression':
+          await _firestore.collection('native_ads').doc(adId).update({
+            'impressions': FieldValue.increment(1),
+          });
+        case 'viewable':
+          break;
+        case 'card_tap':
+        case 'cta_tap':
+        case 'click':
+          await _firestore.collection('native_ads').doc(adId).update({
+            'clicks': FieldValue.increment(1),
+          });
+      }
     } catch (e) {
-      debugPrint('NativeAdsService.recordAdImpression error: $e');
+      debugPrint('NativeAdsService.recordAdEvent($event) error: $e');
     }
   }
 
-  Future<void> recordAdClick(String adId, String userId) async {
-    if (adId.isEmpty) return;
-    try {
-      await _firestore.collection('native_ads').doc(adId).update({
-        'clicks': FieldValue.increment(1),
-      });
-      await _firestore.collection('ad_events').add({
-        'adId': adId,
-        'userId': userId,
-        'event': 'click',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      debugPrint('NativeAdsService.recordAdClick error: $e');
-    }
-  }
+  Future<void> recordAdImpression(
+    String adId,
+    String userId, {
+    int? feedPlacement,
+    String? advertiserId,
+  }) =>
+      recordAdEvent(
+        adId: adId,
+        userId: userId,
+        event: 'impression',
+        feedPlacement: feedPlacement,
+        advertiserId: advertiserId,
+      );
+
+  Future<void> recordAdViewability(
+    String adId,
+    String userId, {
+    int? feedPlacement,
+    String? advertiserId,
+  }) =>
+      recordAdEvent(
+        adId: adId,
+        userId: userId,
+        event: 'viewable',
+        feedPlacement: feedPlacement,
+        advertiserId: advertiserId,
+      );
+
+  Future<void> recordAdCardTap(
+    String adId,
+    String userId, {
+    int? feedPlacement,
+    String? advertiserId,
+  }) =>
+      recordAdEvent(
+        adId: adId,
+        userId: userId,
+        event: 'card_tap',
+        feedPlacement: feedPlacement,
+        advertiserId: advertiserId,
+      );
+
+  Future<void> recordAdCtaTap(
+    String adId,
+    String userId, {
+    int? feedPlacement,
+    String? advertiserId,
+  }) =>
+      recordAdEvent(
+        adId: adId,
+        userId: userId,
+        event: 'cta_tap',
+        feedPlacement: feedPlacement,
+        advertiserId: advertiserId,
+      );
 
   // ── Static helpers ─────────────────────────────────────────────────────────
 

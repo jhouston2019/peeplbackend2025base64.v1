@@ -1,6 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
@@ -118,6 +118,18 @@ class _AuthGateState extends State<_AuthGate> {
   }
 
   Future<void> _redirect() async {
+    // Web debug: skip auth/onboarding and land on home (or hash route).
+    if (kDebugMode && kIsWeb) {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('onboarding_complete', true);
+      await prefs.setBool('hasCompletedOnboarding', true);
+
+      final route = _webDebugEntryRoute();
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, route);
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final onboardingComplete =
         prefs.getBool('onboarding_complete') ?? false;
@@ -155,5 +167,29 @@ class _AuthGateState extends State<_AuthGate> {
     return const Scaffold(
       body: Center(child: CircularProgressIndicator()),
     );
+  }
+
+  /// Chrome QA entry — defaults to [/home]; honors `#/feed`, `#/feed_preview`, etc.
+  static String _webDebugEntryRoute() {
+    const allowed = <String>{
+      '/home',
+      '/feed',
+      '/feed_preview',
+      '/discover',
+    };
+
+    var fragment = Uri.base.fragment.trim();
+    if (fragment.isEmpty) {
+      return '/home';
+    }
+    if (!fragment.startsWith('/')) {
+      fragment = '/$fragment';
+    }
+    // Strip query string if present.
+    final q = fragment.indexOf('?');
+    if (q >= 0) {
+      fragment = fragment.substring(0, q);
+    }
+    return allowed.contains(fragment) ? fragment : '/home';
   }
 }

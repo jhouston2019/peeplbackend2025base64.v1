@@ -64,6 +64,9 @@ class AdCadenceService {
       _overridePattern ??
       (_isFirstSession ? firstSessionPattern : adPattern);
 
+  /// True for VIPeeps subscribers — feed row ads should be suppressed entirely.
+  bool get suppressesAds => _isVIPeep;
+
   /// True when a slot is open at the current position — pattern threshold,
   /// hard floor, session cap, and VIPeeps guard all agree an ad can appear.
   bool get isSlotPending {
@@ -181,6 +184,32 @@ class AdCadenceService {
     _patternIndex = (_patternIndex + 1) % _activePattern.length;
     _postsSinceAd = 0;
     _postsSinceLastAd = 0;
+    _adsShownThisSession++;
+    _mergeAdsInjected++;
+    if (candidateAdId != null) _seenAdIds.add(candidateAdId);
+    return true;
+  }
+
+  /// Row-based feed slots (every 3rd grid row): VIP, session cap, dedup only.
+  bool tryConsumeRowAdSlot({String? candidateAdId}) {
+    if (_isVIPeep) {
+      _logSuppressed('vip', adId: candidateAdId);
+      return false;
+    }
+
+    if (_adsShownThisSession >= maxAdsPerSession) {
+      if (!_sessionMaxLogged) {
+        _logSuppressed('session_max', adId: candidateAdId);
+        _sessionMaxLogged = true;
+      }
+      return false;
+    }
+
+    if (candidateAdId != null && _seenAdIds.contains(candidateAdId)) {
+      _logSuppressed('dedup', adId: candidateAdId);
+      return false;
+    }
+
     _adsShownThisSession++;
     _mergeAdsInjected++;
     if (candidateAdId != null) _seenAdIds.add(candidateAdId);

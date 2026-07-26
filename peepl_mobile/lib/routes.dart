@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
 import 'screens/location_permission_screen.dart';
@@ -54,6 +55,7 @@ import 'screens/merchant/merchant_setup_step3_screen.dart';
 import 'screens/merchant/merchant_sign_in_screen.dart';
 import 'screens/gallery_screen.dart';
 import 'screens/scoreboard_screen.dart';
+import 'screens/feed_screen.dart';
 
 /// Demo post for catalog navigation (does not require Firestore).
 final Map<String, dynamic> kLocationDetailDemoPostData = <String, dynamic>{
@@ -190,4 +192,5 @@ Map<String, WidgetBuilder> appRoutes = {
   '/merchant_setup_step3': (_) => const MerchantSetupStep3Screen(),
   '/merchant_sign_in': (_) => const MerchantSignInScreen(),
   '/gallery': (_) => const GalleryScreen(),
+  if (kDebugMode && kIsWeb) '/feed_preview': (_) => const FeedPreviewHost(),
 };

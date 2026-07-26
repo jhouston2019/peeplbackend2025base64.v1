@@ -84,64 +84,112 @@ class _MainShellState extends State<MainShell> {
     setState(() => _currentIndex = index);
   }
 
-  Widget _notificationNavIcon(String? uid) {
-    const icon = Icon(Icons.notifications_outlined);
-    if (uid == null) return icon;
-
-    return StreamBuilder<int>(
-      stream: NotificationsScreen.unreadCountStream(uid),
-      builder: (context, snap) {
-        final count = snap.data ?? 0;
-        if (count <= 0) return icon;
-        return Badge(
-          label: Text(
-            count > 99 ? '99+' : '$count',
-            style: const TextStyle(fontSize: 10),
-          ),
-          backgroundColor: Colors.red,
-          child: icon,
-        );
-      },
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
+    final bottomInset = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
         children: _tabBodies,
       ),
-      bottomNavigationBar: SizedBox(
-        height: 82,
-        child: BottomNavigationBar(
-          type: BottomNavigationBarType.fixed,
-          backgroundColor: _kSelectedBlue,
-          selectedItemColor: Colors.white,
-          unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-          currentIndex: _currentIndex,
-          onTap: _onBarTap,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.home),
+      bottomNavigationBar: Container(
+        height: 41 + bottomInset,
+        padding: EdgeInsets.only(bottom: bottomInset),
+        color: _kSelectedBlue,
+        child: Row(
+          children: [
+            _CompactBottomNavItem(
+              icon: Icons.home,
               label: 'Home',
+              selected: _currentIndex == 0,
+              onTap: () => _onBarTap(0),
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.explore),
+            _CompactBottomNavItem(
+              icon: Icons.explore,
               label: 'Discover',
+              selected: _currentIndex == 1,
+              onTap: () => _onBarTap(1),
             ),
-            BottomNavigationBarItem(
-              icon: _notificationNavIcon(uid),
-              label: 'Notifications',
+            _CompactBottomNavItem(
+              icon: Icons.notifications_outlined,
+              label: 'Alerts',
+              selected: _currentIndex == 2,
+              onTap: () => _onBarTap(2),
+              notificationUid: uid,
             ),
           ],
-          iconSize: 26,
-          selectedFontSize: 11,
-          unselectedFontSize: 11,
-          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600),
-          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w400),
+        ),
+      ),
+    );
+  }
+}
+
+class _CompactBottomNavItem extends StatelessWidget {
+  const _CompactBottomNavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.notificationUid,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final String? notificationUid;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = selected
+        ? Colors.white
+        : Colors.white.withValues(alpha: 0.6);
+
+    Widget iconWidget = Icon(icon, size: 16, color: color);
+
+    if (notificationUid != null) {
+      iconWidget = StreamBuilder<int>(
+        stream: NotificationsScreen.unreadCountStream(notificationUid!),
+        builder: (context, snap) {
+          final count = snap.data ?? 0;
+          final iconChild = Icon(icon, size: 16, color: color);
+          if (count <= 0) return iconChild;
+          return Badge(
+            label: Text(
+              count > 99 ? '99+' : '$count',
+              style: const TextStyle(fontSize: 7, height: 1.0),
+            ),
+            backgroundColor: Colors.red,
+            child: iconChild,
+          );
+        },
+      );
+    }
+
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            iconWidget,
+            const SizedBox(height: 1),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: color,
+                fontSize: 8,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                height: 1.0,
+              ),
+            ),
+          ],
         ),
       ),
     );
