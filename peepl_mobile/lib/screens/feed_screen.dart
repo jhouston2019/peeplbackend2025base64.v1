@@ -597,7 +597,8 @@ class _FeedScreenState extends State<FeedScreen> {
     return SizedBox(
       height: heroH,
       width: double.infinity,
-      child: DecoratedBox(
+      child: Container(
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: _T.blue,
           borderRadius: BorderRadius.only(
@@ -612,7 +613,6 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ],
         ),
-        clipBehavior: Clip.antiAlias,
         child: Column(
           mainAxisSize: MainAxisSize.max,
           children: [
