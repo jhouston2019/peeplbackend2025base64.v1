@@ -9,12 +9,10 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../services/ad_cadence_service.dart';
-import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../utils/post_crowd_format.dart';
 import 'location_detail_screen.dart';
 
 /// Peepl Home Feed — Sponsored Card Specification
@@ -98,13 +96,11 @@ class _FeedScreenState extends State<FeedScreen> {
   static const double _localRadiusMiles = 25.0;
   static const double _regionRadiusMiles = 100.0;
 
-  /// Hero = 25% viewport. Mockup design 393×852, spec rows 130+36+84+34 = 284px.
-  static const double _heroHeightFraction = 0.25;
-  static const double _heroDesignHeight = 284.0;
-  static const double _gridGutter = 8;
-  static const int _targetVisibleRows = 8;
-  /// Peep cards between native ad slots: 4, 7, 11, 14, 18, 21 … (3, 2, 3, 2 …).
-  static const List<int> _peepCardsBeforeAdPattern = [3, 2];
+  static const double _heroHeightFraction = 0.20;
+  static const double _cardMarginBottom = 6;
+  static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
+  /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
+  static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
 
   /// Approved sponsor CTA labels — keeps pill size/typography consistent with Peepl cards.
   static const List<String> _approvedSponsorCtas = [
@@ -324,15 +320,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
     Map<String, dynamic> pickAd() {
       if (_availableAds.isNotEmpty) {
-        for (var i = 0; i < _availableAds.length; i++) {
-          final candidate = _availableAds[(liveAdIndex + i) % _availableAds.length];
-          if (_cadence.tryConsumeRowAdSlot(
-            candidateAdId: candidate['id'] as String?,
-          )) {
-            liveAdIndex += i + 1;
-            return candidate;
-          }
-        }
+        final ad = _availableAds[liveAdIndex % _availableAds.length];
+        liveAdIndex++;
+        return ad;
       }
       final dummy = Map<String, dynamic>.from(
         _dummyNativeAds[dummyAdIndex % _dummyNativeAds.length],
@@ -396,24 +386,48 @@ class _FeedScreenState extends State<FeedScreen> {
     await _loadAds();
   }
 
-  Color _ringColor(num level) {
-    final v = level.toDouble();
-    if (v <= 3) return _T.ringGreen;
-    if (v <= 6) return _T.ringAmber;
-    if (v <= 8) return _T.ringOrange;
-    return _T.ringRed;
+  Color _getCrowdingColor(int level) {
+    if (level <= 4) return const Color(0xFF4CAF50);
+    if (level <= 6) return const Color(0xFFFFA726);
+    return const Color(0xFFFF5722);
   }
 
-  String _scoreLabel(Map<String, dynamic> post) {
+  int _crowdLevelInt(Map<String, dynamic> post) {
     final ai = post['aiScore'];
-    if (ai is num) {
-      return ai.toDouble().toStringAsFixed(1);
-    }
+    if (ai is num) return ai.round().clamp(0, 10);
     final level = post['crowdingLevel'];
-    if (level is num) {
-      return level.toDouble().toStringAsFixed(1);
+    if (level is num) return level.round().clamp(0, 10);
+    return 0;
+  }
+
+  String _relativeTime(dynamic timestamp) {
+    if (timestamp == null) return '';
+    DateTime? dt;
+    if (timestamp is Timestamp) {
+      dt = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      dt = timestamp;
+    } else {
+      try {
+        dt = (timestamp as dynamic).toDate() as DateTime;
+      } catch (_) {
+        return '';
+      }
     }
-    return '0.0';
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  String? _subtitleLine(Map<String, dynamic> post) {
+    final parts = <String>[];
+    final distance = _distanceLabel(post);
+    if (distance != null) parts.add(distance);
+    final time = _relativeTime(post['timestamp']);
+    if (time.isNotEmpty) parts.add(time);
+    return parts.isEmpty ? null : parts.join(' · ');
   }
 
   double _deg2rad(double deg) => deg * math.pi / 180.0;
@@ -501,72 +515,9 @@ class _FeedScreenState extends State<FeedScreen> {
     return '${miles.toStringAsFixed(1)} mi';
   }
 
-  String? _addressLine(Map<String, dynamic> post) {
-    for (final key in [
-      'address',
-      'streetAddress',
-      'formattedAddress',
-      'street',
-    ]) {
-      final raw = post[key];
-      if (raw == null) continue;
-      final text = raw.toString().trim();
-      if (text.isNotEmpty) return text;
-    }
-    return null;
-  }
-
-  String? _ratioLine(Map<String, dynamic> post) {
-    final mf = PostCrowdFormat.maleFemaleShort(post['maleFemaleRatio']);
-    final ak = PostCrowdFormat.adultKidShort(post['adultKidRatio']);
-
-    final parts = <String>[];
-    if (mf != null) parts.add('M/F  •  $mf');
-    if (ak != null) parts.add('A/K  •  $ak');
-    return parts.isEmpty ? null : parts.join('  •  ');
-  }
-
-  Future<void> _onAskTapped(Map<String, dynamic> post) async {
-    final locationName = (post['locationName'] ?? '').toString();
-    if (locationName.isEmpty) return;
-
-    final locationId = (post['id'] ?? locationName).toString();
-    final lat = (post['latitude'] as num?)?.toDouble() ?? 0.0;
-    final lng = (post['longitude'] as num?)?.toDouble() ?? 0.0;
-
-    try {
-      final requestId = await CrowdsourceService.instance.createRequest(
-        locationId: locationId,
-        locationName: locationName,
-        latitude: lat,
-        longitude: lng,
-      );
-      if (!mounted) return;
-      if (requestId != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Explore Live request sent for $locationName',
-            ),
-            duration: const Duration(seconds: 3),
-            backgroundColor: _T.blue,
-          ),
-        );
-      }
-    } catch (_) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send request. Try again.')),
-      );
-    }
-  }
-
   void _onFilterTapped(String filter) {
     if (filter == 'Map') {
-      setState(() => _activeFilter = 'Map');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Map view coming soon')),
-      );
+      Navigator.pushNamed(context, '/map');
       return;
     }
 
@@ -592,12 +543,14 @@ class _FeedScreenState extends State<FeedScreen> {
     });
   }
 
-  /// Card height sized so exactly [_targetVisibleRows] two-column rows
-  /// fit in the feed viewport on a phone without scrolling.
+  /// Card height so exactly 8 single-column rows fit without scrolling.
   double _cardHeightForFeed(double feedViewportHeight) {
-    final rowStride = feedViewportHeight / _targetVisibleRows;
-    return math.max(44, rowStride - _gridGutter);
+    const rows = 8;
+    return (feedViewportHeight - (rows - 1) * _cardMarginBottom) / rows;
   }
+
+  double _headerHeight(BuildContext context) =>
+      MediaQuery.sizeOf(context).height * _heroHeightFraction;
 
   @override
   Widget build(BuildContext context) {
@@ -609,7 +562,6 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildHeroSection(),
-            _buildNearbyRow(),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -625,96 +577,98 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildHeroSection() {
-    final screen = MediaQuery.sizeOf(context);
-    final heroH = screen.height * _heroHeightFraction;
-    final scale = heroH / _heroDesignHeight;
-    final m = _HeroDesign.scaled(scale);
+    final headerHeight = _headerHeight(context);
 
     return SizedBox(
-      height: heroH,
+      height: headerHeight,
       width: double.infinity,
       child: Container(
         clipBehavior: Clip.antiAlias,
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: _T.blue,
           borderRadius: BorderRadius.only(
-            bottomLeft: Radius.circular(m.curveRadius),
-            bottomRight: Radius.circular(m.curveRadius),
+            bottomLeft: Radius.circular(20),
+            bottomRight: Radius.circular(20),
           ),
           boxShadow: [
             BoxShadow(
-              color: const Color(0x18000000),
-              offset: Offset(0, 2 * scale),
-              blurRadius: 6 * scale,
+              color: Color(0x18000000),
+              offset: Offset(0, 2),
+              blurRadius: 6,
             ),
           ],
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.max,
           children: [
-            SizedBox(
-              height: m.headerH,
+            Expanded(child: _buildHeaderBar()),
+            SizedBox(height: 44, child: _buildDealBanner()),
+            Expanded(
               child: Padding(
-                padding: EdgeInsets.fromLTRB(m.hPad, 0, m.hPad, m.headerBottomPad),
-                child: Align(
-                  alignment: Alignment.bottomCenter,
-                  child: _buildHeaderBar(m),
-                ),
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                child: _buildActionRow(),
               ),
             ),
-            SizedBox(height: m.dealH, child: _buildDealBanner(m)),
-            SizedBox(height: m.actionH, child: _buildActionRow(m)),
-            SizedBox(height: m.filterH, child: Center(child: _buildFilterRow(m))),
+            SizedBox(height: 36, child: _buildFilterAndMapRow()),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildHeaderBar(_HeroDesign m) {
-    return Row(
-      children: [
-        Expanded(child: _buildLocationChip(m)),
-        Text(
-          'peepl',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: m.logoSize,
-            fontWeight: FontWeight.w800,
-            height: 1.0,
-            letterSpacing: -0.3,
-          ),
-        ),
-        Expanded(
-          child: Align(
-            alignment: Alignment.centerRight,
-            child: GestureDetector(
-              onTap: () => Navigator.pushNamed(context, '/profile'),
-              behavior: HitTestBehavior.opaque,
-              child: Container(
-                width: m.profileSize,
-                height: m.profileSize,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.55),
-                    width: 1.2,
-                  ),
-                ),
-                child: Icon(
-                  Icons.person,
+  Widget _buildHeaderBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: Row(
+          children: [
+            Expanded(child: _buildLocationChip()),
+            Image.asset(
+              _logoAsset,
+              height: 34,
+              fit: BoxFit.contain,
+              errorBuilder: (_, __, ___) => const Text(
+                'peepl',
+                style: TextStyle(
                   color: Colors.white,
-                  size: m.profileSize * 0.55,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
                 ),
               ),
             ),
-          ),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, '/profile'),
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    width: 30,
+                    height: 30,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.55),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Icon(
+                      Icons.person,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 
-  Widget _buildLocationChip(_HeroDesign m) {
+  Widget _buildLocationChip() {
     return GestureDetector(
       onTap: () {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -725,95 +679,128 @@ class _FeedScreenState extends State<FeedScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.location_on, color: Colors.white, size: m.locationIcon),
-          SizedBox(width: 2 * m.scale),
+          const Icon(Icons.location_on, color: Colors.white, size: 12),
+          const SizedBox(width: 2),
           Flexible(
             child: Text(
               _areaLabel,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
-                fontSize: m.locationFont,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
           ),
-          Icon(Icons.keyboard_arrow_down, color: Colors.white, size: m.locationIcon),
+          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 12),
         ],
       ),
     );
   }
 
-  Widget _buildDealBanner(_HeroDesign m) {
+  void _onDealBannerTapped() {
+    final deal = _deals[_dealIndex];
+    final merchant = (deal['merchant'] ?? '').toString();
+    Map<String, dynamic>? match;
+    for (final post in _posts) {
+      final name = (post['locationName'] ?? '').toString();
+      if (name.isEmpty) continue;
+      final nameLower = name.toLowerCase();
+      final merchantLower = merchant.toLowerCase();
+      if (nameLower.contains(merchantLower) ||
+          merchantLower.contains(nameLower)) {
+        match = post;
+        break;
+      }
+    }
+    if (match != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LocationDetailScreen(postData: match!),
+        ),
+      );
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Deal details coming soon')),
+    );
+  }
+
+  Widget _buildDealBanner() {
     final deal = _deals[_dealIndex];
     return AnimatedSwitcher(
       duration: const Duration(milliseconds: 400),
-      child: Container(
+      child: GestureDetector(
         key: ValueKey(_dealIndex),
-        width: double.infinity,
-        height: m.dealH,
-        color: _T.dealGreen,
-        padding: EdgeInsets.symmetric(horizontal: m.hPad),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Icon(Icons.sell, size: m.dealIcon, color: _T.dealGreenText),
-            SizedBox(width: m.hPad * 0.5),
-            Text(
-              deal['offer']!,
-              style: TextStyle(
-                color: _T.dealGreenText,
-                fontSize: m.dealOfferFont,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            SizedBox(width: m.hPad * 0.5),
-            Expanded(
-              child: Text(
-                '${deal['merchant']}  ·  ${deal['distance']}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+        onTap: _onDealBannerTapped,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          width: double.infinity,
+          height: 44,
+          color: _T.dealGreen,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Icon(Icons.sell, size: 14, color: _T.dealGreenText),
+              const SizedBox(width: 6),
+              Text(
+                deal['offer']!,
+                style: const TextStyle(
                   color: _T.dealGreenText,
-                  fontSize: m.dealMetaFont,
-                  fontWeight: FontWeight.w500,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
-            ),
-            Text(
-              'View Deal',
-              style: TextStyle(
-                color: _T.dealGreenText,
-                fontSize: m.dealMetaFont,
-                fontWeight: FontWeight.w700,
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  '${deal['merchant']}  ·  ${deal['distance']}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _T.dealGreenText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-            Icon(Icons.chevron_right, color: _T.dealGreenText, size: m.dealIcon),
-          ],
+              const Text(
+                'View Deal',
+                style: TextStyle(
+                  color: _T.dealGreenText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Icon(Icons.chevron_right, color: _T.dealGreenText, size: 14),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildActionRow(_HeroDesign m) {
+  Widget _buildActionRow() {
     return Padding(
-      padding: EdgeInsets.symmetric(horizontal: m.hPad),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
-          _circleAction(Icons.search, 'Search', m, () {
+          _circleAction(Icons.search, 'Search', () {
             Navigator.pushNamed(context, '/search');
           }),
-          _circleAction(Icons.explore_outlined, 'Explore', m, () {
+          _circleAction(Icons.explore_outlined, 'Explore', () {
             Navigator.pushNamed(context, '/discover');
           }),
-          _peepButton(m),
-          _circleAction(Icons.local_offer_outlined, 'Deals', m, () {
+          _peepButton(),
+          _circleAction(Icons.local_offer_outlined, 'Deals', () {
             Navigator.pushNamed(context, '/deals');
           }),
-          _circleAction(Icons.menu, 'Menu', m, () {
+          _circleAction(Icons.menu, 'Menu', () {
             Navigator.pushNamed(context, '/settings');
           }),
         ],
@@ -824,7 +811,6 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _circleAction(
     IconData icon,
     String label,
-    _HeroDesign m,
     VoidCallback onTap,
   ) {
     return GestureDetector(
@@ -834,8 +820,8 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: m.actionCircle,
-            height: m.actionCircle,
+            width: 44,
+            height: 44,
             decoration: BoxDecoration(
               color: _T.white,
               shape: BoxShape.circle,
@@ -843,22 +829,22 @@ class _FeedScreenState extends State<FeedScreen> {
                 color: Colors.white.withValues(alpha: 0.85),
                 width: 1.2,
               ),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
-                  color: const Color(0x26000000),
-                  offset: Offset(0, 2 * m.scale),
-                  blurRadius: 4 * m.scale,
+                  color: Color(0x26000000),
+                  offset: Offset(0, 2),
+                  blurRadius: 4,
                 ),
               ],
             ),
-            child: Icon(icon, color: _T.blue, size: m.actionIcon),
+            child: Icon(icon, color: _T.blue, size: 18),
           ),
-          SizedBox(height: m.actionLabelGap),
+          const SizedBox(height: 3),
           Text(
             label,
-            style: TextStyle(
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: m.actionLabel,
+              fontSize: 9,
               fontWeight: FontWeight.w600,
               height: 1.0,
             ),
@@ -868,13 +854,13 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _peepButton(_HeroDesign m) {
+  Widget _peepButton() {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/post'),
       behavior: HitTestBehavior.opaque,
       child: Container(
-        width: m.peepCircle,
-        height: m.peepCircle,
+        width: 60,
+        height: 60,
         decoration: BoxDecoration(
           color: _T.yellow,
           shape: BoxShape.circle,
@@ -882,21 +868,21 @@ class _FeedScreenState extends State<FeedScreen> {
           boxShadow: [
             BoxShadow(
               color: _T.yellow.withValues(alpha: 0.35),
-              blurRadius: 6 * m.scale,
-              offset: Offset(0, 2 * m.scale),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.add, color: _T.blue, size: m.peepIcon),
-            Text(
-              'PEEPL',
+            Icon(Icons.add, color: _T.blue, size: 20),
+            const Text(
+              'PEEP',
               style: TextStyle(
                 color: _T.blue,
-                fontSize: m.peepFont,
-                fontWeight: FontWeight.w800,
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
                 height: 1.0,
                 letterSpacing: 0.2,
               ),
@@ -907,111 +893,45 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildFilterRow(_HeroDesign m) {
+  Widget _buildFilterAndMapRow() {
     const filters = <String, IconData>{
       'Newest': Icons.calendar_today_outlined,
       'Nearby': Icons.location_on_outlined,
       'Local': Icons.storefront_outlined,
-      'Map': Icons.map_outlined,
       'Region': Icons.public_outlined,
     };
 
-    return SizedBox(
-      height: m.filterPillH,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: EdgeInsets.symmetric(horizontal: m.hPad),
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => SizedBox(width: m.filterGap),
-        itemBuilder: (context, index) {
-          final entry = filters.entries.elementAt(index);
-          final isActive = _activeFilter == entry.key;
-          return GestureDetector(
-            onTap: () => _onFilterTapped(entry.key),
-            behavior: HitTestBehavior.opaque,
-            child: Container(
-              height: m.filterPillH,
-              padding: EdgeInsets.symmetric(horizontal: m.hPad * 0.85),
-              decoration: BoxDecoration(
-                color: isActive
-                    ? const Color(0xFF0046BE)
-                    : const Color(0xFF0046BE).withValues(alpha: 0.92),
-                borderRadius: BorderRadius.circular(m.filterPillH / 2),
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: isActive ? 0.55 : 0.35),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0x33000000),
-                    offset: Offset(0, 2 * m.scale),
-                    blurRadius: 4 * m.scale,
-                  ),
-                ],
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Center(
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(entry.value, size: m.filterIcon, color: Colors.white),
-                  SizedBox(width: m.hPad * 0.35),
-                  Text(
-                    entry.key,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: m.filterFont,
-                      fontWeight: FontWeight.w600,
-                      height: 1.0,
-                    ),
-                  ),
-                  if (entry.key == 'Newest') ...[
-                    SizedBox(width: m.hPad * 0.15),
-                    Icon(
-                      Icons.keyboard_arrow_down,
-                      size: m.filterIcon,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
+                  for (var i = 0; i < filters.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 6),
+                    _filterPill(filters.entries.elementAt(i)),
                   ],
                 ],
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildNearbyRow() {
-    return Container(
-      color: _T.white,
-      padding: const EdgeInsets.fromLTRB(16, 6, 16, 4),
-      child: Row(
-        children: [
-          const Text(
-            'Nearby',
-            style: TextStyle(
-              color: _T.primaryText,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              height: 1.0,
-            ),
           ),
-          const Spacer(),
           GestureDetector(
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Map view coming soon')),
-              );
-            },
+            onTap: () => Navigator.pushNamed(context, '/map'),
             behavior: HitTestBehavior.opaque,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: const [
-                Icon(Icons.map_outlined, size: 16, color: _T.blue),
+                Icon(Icons.map_outlined, size: 14, color: Colors.white),
                 SizedBox(width: 4),
                 Text(
                   'Map View',
                   style: TextStyle(
-                    color: _T.blue,
-                    fontSize: 13,
+                    color: Colors.white,
+                    fontSize: 11,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -1019,6 +939,51 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _filterPill(MapEntry<String, IconData> entry) {
+    final isActive = _activeFilter == entry.key;
+    return GestureDetector(
+      onTap: () => _onFilterTapped(entry.key),
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 28,
+        padding: const EdgeInsets.symmetric(horizontal: 10),
+        decoration: BoxDecoration(
+          color: isActive
+              ? const Color(0xFF0046BE)
+              : const Color(0xFF0046BE).withValues(alpha: 0.92),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: isActive ? 0.55 : 0.35),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(entry.value, size: 11, color: Colors.white),
+            const SizedBox(width: 4),
+            Text(
+              entry.key,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                height: 1.0,
+              ),
+            ),
+            if (entry.key == 'Newest') ...[
+              const SizedBox(width: 2),
+              Icon(
+                Icons.keyboard_arrow_down,
+                size: 11,
+                color: Colors.white.withValues(alpha: 0.9),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -1079,140 +1044,55 @@ class _FeedScreenState extends State<FeedScreen> {
       color: _T.blue,
       backgroundColor: _T.white,
       onRefresh: _onRefresh,
-      child: CustomScrollView(
+      child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        slivers: _buildFeedSlivers(context, cardHeight),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
+        itemCount: _feedItems.length,
+        itemBuilder: (context, index) {
+          final item = _feedItems[index];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: _cardMarginBottom),
+            child: SizedBox(
+              height: cardHeight,
+              child: _buildFeedCard(item),
+            ),
+          );
+        },
       ),
     );
   }
 
-  List<Widget> _buildFeedSlivers(BuildContext context, double cardHeight) {
-    final slivers = <Widget>[];
-    final postBuffer = <Map<String, dynamic>>[];
-
-    void flushRow() {
-      if (postBuffer.isEmpty) return;
-
-      final left = postBuffer.removeAt(0);
-      final right = postBuffer.isNotEmpty ? postBuffer.removeAt(0) : null;
-
-      slivers.add(
-        SliverPadding(
-          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-          sliver: SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: _gridGutter),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: SizedBox(
-                      height: cardHeight,
-                      child: _buildGridCard(left, cardHeight),
-                    ),
-                  ),
-                  const SizedBox(width: _gridGutter),
-                  Expanded(
-                    child: right == null
-                        ? SizedBox(height: cardHeight)
-                        : SizedBox(
-                            height: cardHeight,
-                            child: _buildGridCard(right, cardHeight),
-                          ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
+  Widget _buildFeedCard(Map<String, dynamic> item) {
+    if (item['type'] == 'ad') {
+      final content = _feedCardContentFromAd(item);
+      return _FeedAdCard(
+        name: content.name,
+        ctaLabel: content.ctaLabel,
+        onOpen: content.onOpen,
+        onCta: content.onCta,
+        onImpression: content.onImpression,
+        onViewable: content.onViewable,
       );
     }
 
-    for (final item in _feedItems) {
-      postBuffer.add(item);
-      if (postBuffer.length == 2) flushRow();
-    }
-    flushRow();
-
-    slivers.add(
-      const SliverPadding(
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 90),
-        sliver: SliverToBoxAdapter(child: SizedBox.shrink()),
-      ),
-    );
-
-    return slivers;
-  }
-
-  Widget _buildGridCard(Map<String, dynamic> item, double cardHeight) {
-    final content = _feedCardContent(item);
-    return _FeedListingCard(
-      cardHeight: cardHeight,
-      imageUrl: content.imageUrl,
-      name: content.name,
-      address: content.address,
-      distance: content.distance,
-      topMark: content.topMark,
-      ctaLabel: content.ctaLabel,
-      showSponsoredDisclosure: content.showSponsoredDisclosure,
-      onImpression: content.onImpression,
-      onViewable: content.onViewable,
-      onOpen: content.onOpen,
-      onExploreLive: content.onCta,
-    );
-  }
-
-  _FeedCardContent _feedCardContent(Map<String, dynamic> item) {
-    if (item['type'] == 'ad') {
-      return _feedCardContentFromAd(item);
-    }
-    return _feedCardContentFromPost(item);
-  }
-
-  _FeedCardContent _feedCardContentFromPost(Map<String, dynamic> post) {
+    final post = item;
     final name = (post['locationName'] ?? 'Unknown').toString();
-    return _FeedCardContent(
+    return _FeedPostCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
       name: name,
-      address: _addressLine(post),
-      distance: _distanceLabel(post),
-      topMark: _FeedTopMark.aiScore(
-        label: _scoreLabel(post),
-        color: _ringColor(
-          post['aiScore'] is num
-              ? post['aiScore'] as num
-              : ((post['crowdingLevel'] as num?) ?? 0),
-        ),
-      ),
-      ctaLabel: 'Explore Live',
-      showSponsoredDisclosure: false,
-      onOpen: () => Navigator.push(
+      subtitle: _subtitleLine(post),
+      crowdLevel: _crowdLevelInt(post),
+      crowdColor: _getCrowdingColor(_crowdLevelInt(post)),
+      onTap: () => Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => LocationDetailScreen(postData: post),
         ),
       ),
-      onCta: () => _onAskTapped(post),
     );
-  }
-
-  String? _sponsorSecondaryLine(Map<String, dynamic> ad) {
-    for (final key in [
-      'promotionalBadge',
-      'dealText',
-      'offerText',
-      'eventTitle',
-      'announcementText',
-      'subline',
-      'bodyText',
-    ]) {
-      final value = (ad[key] ?? '').toString().trim();
-      if (value.isNotEmpty) return value;
-    }
-    return null;
   }
 
   String _sponsorUserId() => FirebaseAuth.instance.currentUser?.uid ?? '';
@@ -1276,40 +1156,16 @@ class _FeedScreenState extends State<FeedScreen> {
         .toString();
     final headline =
         (ad['headline'] ?? ad['title'] ?? 'Sponsored offer').toString();
-    final subline = (ad['subline'] ?? ad['bodyText'] ?? '').toString();
     final ctaText = _normalizeSponsorCta(ad['ctaText'] as String?);
-    final logoUrl = (ad['logoUrl'] ??
-            ad['brandLogoUrl'] ??
-            ad['advertiserLogoUrl'] ??
-            '')
-        .toString();
     final adId = (ad['id'] ?? '').toString();
     final placement = (ad['feedPlacement'] as num?)?.toInt();
     final advertiserId = (ad['advertiserId'] ?? ad['advertiserName'] ?? '')
         .toString();
-
     final name = brandName.isNotEmpty ? brandName : headline;
-    final secondary = _sponsorSecondaryLine(ad);
-    String? address;
-    String? distance;
-    if (brandName.isNotEmpty && headline.isNotEmpty) {
-      address = headline;
-      distance = subline.isNotEmpty && subline != headline ? subline : secondary;
-    } else {
-      address = secondary;
-      distance = subline.isNotEmpty && subline != address ? subline : null;
-    }
 
     return _FeedCardContent(
-      imageUrl: (ad['imageAsset'] ?? ad['imageUrl'] ?? '').toString(),
       name: name,
-      address: address,
-      distance: distance,
-      topMark: logoUrl.isNotEmpty
-          ? _FeedTopMark.sponsorLogo(logoUrl)
-          : const _FeedTopMark.sponsorAd(),
       ctaLabel: ctaText,
-      showSponsoredDisclosure: true,
       onImpression: () {
         unawaited(_adsService.recordAdImpression(
           adId,
@@ -1332,99 +1188,192 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 }
 
-class _FeedTopMark {
-  const _FeedTopMark._({
-    required this.kind,
-    this.scoreLabel,
-    this.ringColor,
-    this.logoUrl,
-  });
-
-  const _FeedTopMark.aiScore({
-    required String label,
-    required Color color,
-  }) : this._(
-          kind: _FeedTopMarkKind.aiScore,
-          scoreLabel: label,
-          ringColor: color,
-        );
-
-  const _FeedTopMark.sponsorLogo(String url)
-      : this._(kind: _FeedTopMarkKind.sponsorLogo, logoUrl: url);
-
-  const _FeedTopMark.sponsorAd()
-      : this._(kind: _FeedTopMarkKind.sponsorAd);
-
-  final _FeedTopMarkKind kind;
-  final String? scoreLabel;
-  final Color? ringColor;
-  final String? logoUrl;
-}
-
-enum _FeedTopMarkKind { aiScore, sponsorLogo, sponsorAd }
-
 class _FeedCardContent {
   const _FeedCardContent({
-    required this.imageUrl,
     required this.name,
-    required this.address,
-    required this.distance,
-    required this.topMark,
     required this.ctaLabel,
-    required this.showSponsoredDisclosure,
     required this.onOpen,
     required this.onCta,
     this.onImpression,
     this.onViewable,
   });
 
-  final String imageUrl;
   final String name;
-  final String? address;
-  final String? distance;
-  final _FeedTopMark topMark;
   final String ctaLabel;
-  final bool showSponsoredDisclosure;
   final VoidCallback onOpen;
   final VoidCallback onCta;
   final VoidCallback? onImpression;
   final VoidCallback? onViewable;
 }
 
-class _FeedListingCard extends StatefulWidget {
-  const _FeedListingCard({
-    required this.cardHeight,
+class _FeedPostCard extends StatelessWidget {
+  const _FeedPostCard({
     required this.imageUrl,
     required this.name,
-    required this.address,
-    required this.distance,
-    required this.topMark,
+    required this.subtitle,
+    required this.crowdLevel,
+    required this.crowdColor,
+    required this.onTap,
+  });
+
+  final String imageUrl;
+  final String name;
+  final String? subtitle;
+  final int crowdLevel;
+  final Color crowdColor;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            _feedCardImage(imageUrl),
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.centerLeft,
+                    end: Alignment.centerRight,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.65),
+                      Colors.black.withValues(alpha: 0.0),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 14,
+              right: 72,
+              top: 0,
+              bottom: 0,
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        height: 1.1,
+                      ),
+                    ),
+                    if (subtitle != null && subtitle!.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          height: 1.0,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            Positioned(
+              right: 12,
+              top: 0,
+              bottom: 0,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: _CrowdBadge(
+                  level: crowdLevel,
+                  color: crowdColor,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CrowdBadge extends StatelessWidget {
+  const _CrowdBadge({
+    required this.level,
+    required this.color,
+  });
+
+  final int level;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 52,
+      height: 52,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.55),
+            blurRadius: 10,
+            spreadRadius: 2,
+          ),
+        ],
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: color,
+          border: Border.all(color: Colors.white, width: 2.5),
+        ),
+        alignment: Alignment.center,
+        child: Text(
+          '$level',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeedAdCard extends StatefulWidget {
+  const _FeedAdCard({
+    required this.name,
     required this.ctaLabel,
-    required this.showSponsoredDisclosure,
     required this.onOpen,
-    required this.onExploreLive,
+    required this.onCta,
     this.onImpression,
     this.onViewable,
   });
 
-  final double cardHeight;
-  final String imageUrl;
   final String name;
-  final String? address;
-  final String? distance;
-  final _FeedTopMark topMark;
   final String ctaLabel;
-  final bool showSponsoredDisclosure;
   final VoidCallback onOpen;
-  final VoidCallback onExploreLive;
+  final VoidCallback onCta;
   final VoidCallback? onImpression;
   final VoidCallback? onViewable;
 
   @override
-  State<_FeedListingCard> createState() => _FeedListingCardState();
+  State<_FeedAdCard> createState() => _FeedAdCardState();
 }
 
-class _FeedListingCardState extends State<_FeedListingCard> {
+class _FeedAdCardState extends State<_FeedAdCard> {
   bool _impressionFired = false;
   bool _viewabilityFired = false;
   Timer? _viewabilityTimer;
@@ -1460,150 +1409,99 @@ class _FeedListingCardState extends State<_FeedListingCard> {
 
   @override
   Widget build(BuildContext context) {
-    final h = widget.cardHeight;
-    final overlayH = (h * 0.54).clamp(22.0, 46.0);
-    final ringSize = (h * 0.30).clamp(22.0, 32.0);
-    final nameSize = (h * 0.13).clamp(8.0, 11.0);
-    final sponsoredLabelSize = (h * 0.12).clamp(10.0, 11.0);
-    final metaSize = (h * 0.11).clamp(7.0, 9.0);
-    final pad = (h * 0.06).clamp(4.0, 8.0);
-    final showAddress = h >= 56 && widget.address != null && !widget.showSponsoredDisclosure;
-    final showDistance = widget.distance != null && !widget.showSponsoredDisclosure;
-    final ctaHeight = (h * 0.22).clamp(16.0, 22.0);
+    const accent = Color(0xFF1565C0);
 
     final card = GestureDetector(
       onTap: widget.onOpen,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: widget.showSponsoredDisclosure
-              ? Border.all(color: Colors.white, width: 1.5)
-              : null,
-          boxShadow: const [_T.cardShadow],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(
-            widget.showSponsoredDisclosure ? 10.5 : 12,
-          ),
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              _feedCardImage(widget.imageUrl),
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: overlayH + 6,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.bottomCenter,
-                      end: Alignment.topCenter,
-                      colors: [
-                        Colors.black.withValues(alpha: 0.82),
-                        Colors.black.withValues(alpha: 0.35),
-                        Colors.transparent,
-                      ],
-                      stops: const [0.0, 0.65, 1.0],
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: pad * 0.5,
-                right: pad * 0.5,
-                child: _CardTopMark(mark: widget.topMark, size: ringSize),
-              ),
-              Positioned(
-                left: pad,
-                right: pad,
-                bottom: pad * 0.35,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (widget.showSponsoredDisclosure) ...[
-                            Text(
-                              'Sponsored',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.72),
-                                fontSize: sponsoredLabelSize,
-                                fontWeight: FontWeight.w600,
-                                height: 1.0,
-                              ),
-                            ),
-                            SizedBox(height: pad * 0.1),
-                          ],
-                          Text(
-                            widget.name,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Container(color: const Color(0xFFF5F7FA)),
+            const Positioned(
+              left: 0,
+              top: 0,
+              bottom: 0,
+              width: 4,
+              child: ColoredBox(color: accent),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 12, 10),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 4,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: accent,
+                            borderRadius: BorderRadius.circular(3),
+                          ),
+                          child: const Text(
+                            'SPONSORED',
                             style: TextStyle(
                               color: Colors.white,
-                              fontSize: nameSize,
-                              fontWeight: FontWeight.bold,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.0,
                               height: 1.0,
                             ),
                           ),
-                          if (showAddress) ...[
-                            SizedBox(height: pad * 0.12),
-                            Text(
-                              widget.address!,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withValues(alpha: 0.82),
-                                fontSize: metaSize,
-                                fontWeight: FontWeight.w500,
-                                height: 1.0,
-                              ),
-                            ),
-                          ],
-                          if (showDistance) ...[
-                            SizedBox(height: pad * 0.12),
-                            Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: metaSize,
-                                  color: Colors.white.withValues(alpha: 0.72),
-                                ),
-                                const SizedBox(width: 2),
-                                Text(
-                                  widget.distance!,
-                                  style: TextStyle(
-                                    color: Colors.white.withValues(alpha: 0.72),
-                                    fontSize: metaSize,
-                                    fontWeight: FontWeight.w500,
-                                    height: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          widget.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: accent,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: widget.onCta,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: accent,
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Text(
+                        widget.ctaLabel,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                        ),
                       ),
                     ),
-                    _ExploreLiveButton(
-                      onTap: widget.onExploreLive,
-                      height: ctaHeight,
-                      fontSize: (h * 0.09).clamp(6.0, 8.0),
-                      label: widget.ctaLabel,
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -1613,7 +1511,7 @@ class _FeedListingCardState extends State<_FeedListingCard> {
     }
 
     return VisibilityDetector(
-      key: Key('feed_card_${widget.name}_${widget.imageUrl.hashCode}'),
+      key: Key('feed_ad_${widget.name}_${widget.ctaLabel.hashCode}'),
       onVisibilityChanged: _onVisibilityChanged,
       child: card,
     );
@@ -1638,282 +1536,6 @@ Widget _feedCardImage(String source, {Alignment alignment = const Alignment(0, 0
     alignment: alignment,
     errorBuilder: (_, __, ___) => Container(color: _T.cardFallback),
   );
-}
-
-class _CardTopMark extends StatelessWidget {
-  const _CardTopMark({required this.mark, required this.size});
-
-  final _FeedTopMark mark;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    switch (mark.kind) {
-      case _FeedTopMarkKind.aiScore:
-        return _ScoreRing(
-          label: mark.scoreLabel ?? '0.0',
-          color: mark.ringColor ?? _T.ringGreen,
-          size: size,
-        );
-      case _FeedTopMarkKind.sponsorLogo:
-        return _SponsorMark(
-          size: size,
-          logoUrl: mark.logoUrl,
-        );
-      case _FeedTopMarkKind.sponsorAd:
-        return _SponsorMark(size: size);
-    }
-  }
-}
-
-/// Same footprint as [_ScoreRing]. Logo when provided, otherwise compact "AD".
-class _SponsorMark extends StatelessWidget {
-  const _SponsorMark({required this.size, this.logoUrl});
-
-  final double size;
-  final String? logoUrl;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.black.withValues(alpha: 0.42),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.45),
-          width: 2.5,
-        ),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x44000000),
-            offset: Offset(0, 2),
-            blurRadius: 6,
-          ),
-        ],
-      ),
-      clipBehavior: Clip.antiAlias,
-      child: logoUrl != null && logoUrl!.isNotEmpty
-          ? _feedCardImage(
-              logoUrl!,
-              alignment: Alignment.center,
-            )
-          : _adLabel(),
-    );
-  }
-
-  Widget _adLabel() {
-    return Center(
-      child: Text(
-        'AD',
-        style: TextStyle(
-          color: Colors.white,
-          fontSize: size * 0.28,
-          fontWeight: FontWeight.w800,
-          height: 1.0,
-          letterSpacing: 0.4,
-        ),
-      ),
-    );
-  }
-}
-
-class _ScoreRing extends StatelessWidget {
-  const _ScoreRing({
-    required this.label,
-    required this.color,
-    this.size = 32,
-  });
-
-  final String label;
-  final Color color;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.black.withValues(alpha: 0.42),
-        border: Border.all(color: color, width: 2.5),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x44000000),
-            offset: Offset(0, 2),
-            blurRadius: 6,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: size * 0.30,
-              fontWeight: FontWeight.w700,
-              height: 1.0,
-            ),
-          ),
-          Container(
-            margin: const EdgeInsets.only(top: 1),
-            padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
-            decoration: BoxDecoration(
-              color: _T.ringGreen,
-              borderRadius: BorderRadius.circular(3),
-            ),
-            child: Text(
-              'AI',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: size * 0.16,
-                fontWeight: FontWeight.w800,
-                height: 1.0,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ExploreLiveButton extends StatelessWidget {
-  const _ExploreLiveButton({
-    required this.onTap,
-    this.height = 22,
-    this.fontSize = 7,
-    this.label = 'Explore Live',
-  });
-
-  final VoidCallback onTap;
-  final double height;
-  final double fontSize;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: height,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: height * 0.3),
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          borderRadius: BorderRadius.circular(height / 2),
-          border: Border.all(color: Colors.white, width: 1),
-        ),
-        child: Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: fontSize,
-            fontWeight: FontWeight.w600,
-            height: 1.0,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Spec v1.0 mockup at 393×852 — every dimension × [scale] to fit 25% hero.
-class _HeroDesign {
-  const _HeroDesign({
-    required this.scale,
-    required this.headerH,
-    required this.dealH,
-    required this.actionH,
-    required this.filterH,
-    required this.headerBottomPad,
-    required this.hPad,
-    required this.curveRadius,
-    required this.logoSize,
-    required this.profileSize,
-    required this.locationFont,
-    required this.locationIcon,
-    required this.dealIcon,
-    required this.dealOfferFont,
-    required this.dealMetaFont,
-    required this.actionCircle,
-    required this.peepCircle,
-    required this.actionIcon,
-    required this.peepIcon,
-    required this.peepFont,
-    required this.actionLabel,
-    required this.actionLabelGap,
-    required this.filterPillH,
-    required this.filterFont,
-    required this.filterIcon,
-    required this.filterGap,
-  });
-
-  factory _HeroDesign.scaled(double scale) {
-    double s(double v) => v * scale;
-    return _HeroDesign(
-      scale: scale,
-      headerH: s(130),
-      dealH: s(36),
-      actionH: s(84),
-      filterH: s(34),
-      headerBottomPad: s(8),
-      hPad: s(12),
-      curveRadius: s(20),
-      logoSize: s(36),
-      profileSize: s(30),
-      locationFont: s(11),
-      locationIcon: s(12),
-      dealIcon: s(11),
-      dealOfferFont: s(10),
-      dealMetaFont: s(9),
-      actionCircle: s(58),
-      peepCircle: s(84),
-      actionIcon: s(22),
-      peepIcon: s(24),
-      peepFont: s(7),
-      actionLabel: s(9),
-      actionLabelGap: s(3),
-      filterPillH: s(34),
-      filterFont: s(10),
-      filterIcon: s(11),
-      filterGap: s(6),
-    );
-  }
-
-  final double scale;
-  final double headerH;
-  final double dealH;
-  final double actionH;
-  final double filterH;
-  final double headerBottomPad;
-  final double hPad;
-  final double curveRadius;
-  final double logoSize;
-  final double profileSize;
-  final double locationFont;
-  final double locationIcon;
-  final double dealIcon;
-  final double dealOfferFont;
-  final double dealMetaFont;
-  final double actionCircle;
-  final double peepCircle;
-  final double actionIcon;
-  final double peepIcon;
-  final double peepFont;
-  final double actionLabel;
-  final double actionLabelGap;
-  final double filterPillH;
-  final double filterFont;
-  final double filterIcon;
-  final double filterGap;
 }
 
 /// Debug/web preview host — mirrors [MainShell] bottom nav height so the
