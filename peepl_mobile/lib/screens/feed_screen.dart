@@ -68,12 +68,13 @@ class _FeedScreenState extends State<FeedScreen> {
   static const double _localRadiusMiles = 25.0;
   static const double _regionRadiusMiles = 100.0;
 
-  // Static deal placeholder until live merchant data lands.
-  final Map<String, String> _deal = const {
-    'offer': '20% OFF ENTREES',
-    'merchant': 'Cotto Italian Grill',
-    'distance': '0.4 mi',
-  };
+  final List<Map<String, String>> _deals = const [
+    {'offer': '20% OFF ENTREES', 'merchant': 'Cotto Italian Grill', 'distance': '0.4 mi'},
+    {'offer': 'FREE APPETIZER', 'merchant': 'NaiThai Dunwoody', 'distance': '1.2 mi'},
+    {'offer': 'HAPPY HOUR 4–7PM', 'merchant': 'Lamont\'s Lounge', 'distance': '0.8 mi'},
+  ];
+  int _dealIndex = 0;
+  Timer? _dealTimer;
 
   @override
   void initState() {
@@ -82,11 +83,16 @@ class _FeedScreenState extends State<FeedScreen> {
     _initLocation();
     _loadFeedData();
     _loadAds();
+    _dealTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted) return;
+      setState(() => _dealIndex = (_dealIndex + 1) % _deals.length);
+    });
   }
 
   @override
   void dispose() {
     _feedSub?.cancel();
+    _dealTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
   }
@@ -421,9 +427,9 @@ class _FeedScreenState extends State<FeedScreen> {
           _buildTopSection(),
           const SizedBox(height: 12),
           _buildFilterRow(),
-          const SizedBox(height: 16),
+          const SizedBox(height: 6),
           _buildResultsRow(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Expanded(child: _buildFeedContent()),
         ],
       ),
@@ -437,7 +443,7 @@ class _FeedScreenState extends State<FeedScreen> {
       alignment: Alignment.bottomCenter,
       children: [
         Padding(
-          padding: const EdgeInsets.only(bottom: 64),
+          padding: const EdgeInsets.only(bottom: 40),
           child: _buildHeader(),
         ),
         _buildActionRow(),
@@ -459,7 +465,7 @@ class _FeedScreenState extends State<FeedScreen> {
             colors: [_T.blueTop, _T.blueBottom],
           ),
         ),
-        padding: EdgeInsets.only(top: topInset + 10, bottom: 52),
+        padding: EdgeInsets.only(top: topInset + 10, bottom: 28),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -486,7 +492,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 'peepl',
                 style: TextStyle(
                   color: Colors.white,
-                  fontSize: 40,
+                  fontSize: 24,
                   fontWeight: FontWeight.w900,
                   letterSpacing: -1.2,
                   height: 1.1,
@@ -522,79 +528,67 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.location_on, color: Colors.white, size: 18),
+          const Icon(Icons.location_on, color: Colors.white, size: 13),
           const SizedBox(width: 6),
           Text(
             _areaLabel,
             style: const TextStyle(
               color: Colors.white,
-              fontSize: 16,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 4),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 20),
+          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 13),
         ],
       ),
     );
   }
 
   Widget _buildDealBanner() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: const BoxDecoration(
-              color: _T.yellow,
-              shape: BoxShape.circle,
+    final deal = _deals[_dealIndex];
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 400),
+      child: Container(
+        key: ValueKey(_dealIndex),
+        margin: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.star, size: 14, color: _T.yellow),
+            const SizedBox(width: 6),
+            Text(
+              deal['offer']!,
+              style: const TextStyle(
+                color: _T.title,
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+              ),
             ),
-            child: const Icon(Icons.star, size: 18, color: Colors.black87),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Row(
-              children: [
-                Text(
-                  _deal['offer']!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _T.title,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Flexible(
-                  child: Text(
-                    '${_deal['merchant']}  •  ${_deal['distance']}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _T.muted, fontSize: 12),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '${deal['merchant']}  ·  ${deal['distance']}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(color: _T.muted, fontSize: 11),
+              ),
             ),
-          ),
-          const SizedBox(width: 6),
-          const Text(
-            'View Deal',
-            style: TextStyle(
-              color: _T.blue,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
+            const Text(
+              'View Deal',
+              style: TextStyle(
+                color: _T.blue,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const Icon(Icons.chevron_right, color: _T.blue, size: 16),
-        ],
+            const Icon(Icons.chevron_right, color: _T.blue, size: 14),
+          ],
+        ),
       ),
     );
   }
@@ -637,8 +631,8 @@ class _FeedScreenState extends State<FeedScreen> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 62,
-            height: 62,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.circle,
@@ -650,14 +644,14 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ],
             ),
-            child: Icon(icon, color: iconColor, size: 26),
+            child: Icon(icon, color: iconColor, size: 18),
           ),
           const SizedBox(height: 8),
           Text(
             label,
             style: const TextStyle(
               color: _T.title,
-              fontSize: 13,
+              fontSize: 10,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -670,12 +664,12 @@ class _FeedScreenState extends State<FeedScreen> {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/post'),
       child: Container(
-        width: 96,
-        height: 96,
+        width: 64,
+        height: 64,
         decoration: BoxDecoration(
           color: _T.yellow,
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.white, width: 5),
+          border: Border.all(color: Colors.white, width: 3),
           boxShadow: [
             BoxShadow(
               color: _T.yellow.withValues(alpha: 0.45),
@@ -687,12 +681,12 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
-            Icon(Icons.add, color: _T.blue, size: 34),
+            Icon(Icons.add, color: _T.blue, size: 22),
             Text(
               'PEEP',
               style: TextStyle(
                 color: _T.blue,
-                fontSize: 13,
+                fontSize: 10,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.5,
               ),
@@ -718,11 +712,11 @@ class _FeedScreenState extends State<FeedScreen> {
         children: filters.entries.map((entry) {
           final isActive = _activeFilter == entry.key;
           return Padding(
-            padding: const EdgeInsets.only(right: 10),
+            padding: const EdgeInsets.only(right: 6),
             child: GestureDetector(
               onTap: () => _onFilterTapped(entry.key),
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
                   color: isActive ? _T.blue : Colors.white,
                   borderRadius: BorderRadius.circular(28),
@@ -736,7 +730,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   children: [
                     Icon(
                       entry.value,
-                      size: 18,
+                      size: 14,
                       color: isActive ? Colors.white : _T.blue,
                     ),
                     const SizedBox(width: 8),
@@ -744,14 +738,14 @@ class _FeedScreenState extends State<FeedScreen> {
                       entry.key,
                       style: TextStyle(
                         color: isActive ? Colors.white : _T.title,
-                        fontSize: 15,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                     if (isActive) ...[
                       const SizedBox(width: 4),
                       const Icon(Icons.keyboard_arrow_down,
-                          size: 18, color: Colors.white),
+                          size: 14, color: Colors.white),
                     ],
                   ],
                 ),
@@ -772,7 +766,7 @@ class _FeedScreenState extends State<FeedScreen> {
             _resultsLabel,
             style: const TextStyle(
               color: _T.title,
-              fontSize: 15,
+              fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
           ),
@@ -784,7 +778,7 @@ class _FeedScreenState extends State<FeedScreen> {
               );
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(22),
@@ -793,13 +787,13 @@ class _FeedScreenState extends State<FeedScreen> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: const [
-                  Icon(Icons.map_outlined, size: 18, color: _T.blue),
+                  Icon(Icons.map_outlined, size: 13, color: _T.blue),
                   SizedBox(width: 6),
                   Text(
                     'Map View',
                     style: TextStyle(
                       color: _T.blue,
-                      fontSize: 14,
+                      fontSize: 11,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -869,7 +863,7 @@ class _FeedScreenState extends State<FeedScreen> {
       child: ListView.builder(
         controller: _scrollController,
         // Bottom padding clears the bottom nav bar so the last card is reachable.
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 110),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 90),
         itemCount: _feedItems.length,
         itemBuilder: (context, index) {
           final item = _feedItems[index];
@@ -909,8 +903,8 @@ class _FeedScreenState extends State<FeedScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(10),
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.all(6),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
@@ -927,10 +921,10 @@ class _FeedScreenState extends State<FeedScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(8),
               child: SizedBox(
-                width: 108,
-                height: 110,
+                width: 70,
+                height: 72,
                 child: imageUrl.isEmpty
                     ? Container(
                         color: const Color(0xFFE6EAF0),
@@ -959,34 +953,34 @@ class _FeedScreenState extends State<FeedScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: _T.title,
-                      fontSize: 17,
+                      fontSize: 13,
                       fontWeight: FontWeight.w700,
                       height: 1.25,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 1),
                   Text(
                     username,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(color: _T.muted, fontSize: 13),
+                    style: const TextStyle(color: _T.muted, fontSize: 11),
                   ),
                   if (metaLine.isNotEmpty) ...[
-                    const SizedBox(height: 5),
+                    const SizedBox(height: 1),
                     Text(
                       metaLine,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _T.muted, fontSize: 13),
+                      style: const TextStyle(color: _T.muted, fontSize: 11),
                     ),
                   ],
                   if (ratios != null) ...[
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 1),
                     Text(
                       ratios,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: _T.muted, fontSize: 13),
+                      style: const TextStyle(color: _T.muted, fontSize: 11),
                     ),
                   ],
                 ],
@@ -997,7 +991,7 @@ class _FeedScreenState extends State<FeedScreen> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 _crowdRing(crowdingLevel),
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 _askButton(post),
               ],
             ),
@@ -1010,19 +1004,19 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _crowdRing(int level) {
     final color = _ringColor(level);
     return Container(
-      width: 54,
-      height: 54,
+      width: 40,
+      height: 40,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         color: Colors.white,
-        border: Border.all(color: color, width: 3),
+        border: Border.all(color: color, width: 2.5),
       ),
       child: Center(
         child: Text(
           '$level',
           style: TextStyle(
             color: color,
-            fontSize: 22,
+            fontSize: 16,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -1034,7 +1028,7 @@ class _FeedScreenState extends State<FeedScreen> {
     return GestureDetector(
       onTap: () => _onAskTapped(post),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
           color: _T.blue,
           borderRadius: BorderRadius.circular(20),
@@ -1042,13 +1036,13 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: const [
-            Icon(Icons.chat_bubble_outline, size: 14, color: Colors.white),
+            Icon(Icons.chat_bubble_outline, size: 11, color: Colors.white),
             SizedBox(width: 5),
             Text(
               'Ask',
               style: TextStyle(
                 color: Colors.white,
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -1157,7 +1151,7 @@ class _HeaderCurveClipper extends CustomClipper<Path> {
     path.lineTo(0, size.height);
     path.quadraticBezierTo(
       size.width / 2,
-      size.height - 46,
+      size.height - 20,
       size.width,
       size.height,
     );
