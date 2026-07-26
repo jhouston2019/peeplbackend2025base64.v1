@@ -672,22 +672,25 @@ class _FeedScreenState extends State<FeedScreen> {
             ],
           ),
           Center(
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('p', style: logoCharStyle),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('e', style: logoCharStyle),
-                    Transform.scale(
-                      scaleX: -1,
-                      child: Text('e', style: logoCharStyle),
-                    ),
-                  ],
-                ),
-                Text('pl', style: logoCharStyle),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('p', style: logoCharStyle),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text('e', style: logoCharStyle),
+                      Transform.scale(
+                        scaleX: -1,
+                        child: Text('e', style: logoCharStyle),
+                      ),
+                    ],
+                  ),
+                  Text('pl', style: logoCharStyle),
+                ],
+              ),
             ),
           ),
         ],
