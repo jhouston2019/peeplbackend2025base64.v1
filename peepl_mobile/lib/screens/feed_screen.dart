@@ -98,8 +98,8 @@ class _FeedScreenState extends State<FeedScreen> {
   static const double _localRadiusMiles = 25.0;
   static const double _regionRadiusMiles = 100.0;
 
-  /// Hero = 10% viewport. Mockup design 393×852, spec rows 130+36+84+34 = 284px.
-  static const double _heroHeightFraction = 0.10;
+  /// Hero = 25% viewport. Mockup design 393×852, spec rows 130+36+84+34 = 284px.
+  static const double _heroHeightFraction = 0.25;
   static const double _heroDesignHeight = 284.0;
   static const double _gridGutter = 8;
   static const int _targetVisibleRows = 8;
@@ -125,14 +125,13 @@ class _FeedScreenState extends State<FeedScreen> {
   /// beyond a compact AD / logo mark in the score-ring slot.
   static const List<Map<String, dynamic>> _dummyNativeAds = [
     {
-      'id': 'dummy_vrbo',
+      'id': 'dummy_cocacola',
       'isDummy': true,
-      'brandName': 'Vrbo',
-      'headline': 'Find your perfect getaway',
-      'subline': 'Whole homes for your whole group',
-      'ctaText': 'Book Now',
-      'imageUrl':
-          'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=240',
+      'brandName': 'Coca-Cola',
+      'headline': 'Taste the feeling',
+      'subline': 'Ice-cold refreshment',
+      'ctaText': 'Learn More',
+      'imageAsset': 'assets/ads/cocacola.png',
     },
     {
       'id': 'dummy_progressive',
@@ -141,8 +140,35 @@ class _FeedScreenState extends State<FeedScreen> {
       'headline': 'Save on auto insurance',
       'subline': 'Bundle and save today',
       'ctaText': 'Get Quote',
+      'imageAsset': 'assets/ads/progressive.png',
+    },
+    {
+      'id': 'dummy_chanel',
+      'isDummy': true,
+      'brandName': 'Chanel',
+      'headline': 'Bleu de Chanel',
+      'subline': 'Luxury collection',
+      'ctaText': 'Shop Now',
+      'imageAsset': 'assets/ads/chanel.png',
+    },
+    {
+      'id': 'dummy_stella_artois',
+      'isDummy': true,
+      'brandName': 'Stella Artois',
+      'headline': 'Make time for the life artois',
+      'subline': 'Premium lager',
+      'ctaText': 'Learn More',
+      'imageAsset': 'assets/ads/stella_artois.png',
+    },
+    {
+      'id': 'dummy_vrbo',
+      'isDummy': true,
+      'brandName': 'Vrbo',
+      'headline': 'Find your perfect getaway',
+      'subline': 'Whole homes for your whole group',
+      'ctaText': 'Book Now',
       'imageUrl':
-          'https://images.unsplash.com/photo-1449965408869-eaa3f722e40d?w=240',
+          'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=240',
     },
     {
       'id': 'dummy_cotto',
@@ -154,6 +180,16 @@ class _FeedScreenState extends State<FeedScreen> {
       'ctaText': 'Get Offer',
       'imageUrl':
           'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=240',
+    },
+    {
+      'id': 'dummy_nike',
+      'isDummy': true,
+      'brandName': 'Nike',
+      'headline': 'Just do it',
+      'subline': 'New arrivals in store',
+      'ctaText': 'Shop Now',
+      'imageUrl':
+          'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=240',
     },
   ];
 
@@ -1265,7 +1301,7 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     return _FeedCardContent(
-      imageUrl: (ad['imageUrl'] ?? '').toString(),
+      imageUrl: (ad['imageAsset'] ?? ad['imageUrl'] ?? '').toString(),
       name: name,
       address: address,
       distance: distance,
@@ -1441,23 +1477,19 @@ class _FeedListingCardState extends State<_FeedListingCard> {
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
+          border: widget.showSponsoredDisclosure
+              ? Border.all(color: Colors.white, width: 1.5)
+              : null,
           boxShadow: const [_T.cardShadow],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(
+            widget.showSponsoredDisclosure ? 10.5 : 12,
+          ),
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (widget.imageUrl.isNotEmpty)
-                Image.network(
-                  widget.imageUrl,
-                  fit: BoxFit.cover,
-                  alignment: const Alignment(0, 0.35),
-                  errorBuilder: (_, __, ___) =>
-                      Container(color: _T.cardFallback),
-                )
-              else
-                Container(color: _T.cardFallback),
+              _feedCardImage(widget.imageUrl),
               Positioned(
                 left: 0,
                 right: 0,
@@ -1588,6 +1620,26 @@ class _FeedListingCardState extends State<_FeedListingCard> {
   }
 }
 
+Widget _feedCardImage(String source, {Alignment alignment = const Alignment(0, 0.35)}) {
+  if (source.isEmpty) {
+    return Container(color: _T.cardFallback);
+  }
+  if (source.startsWith('assets/')) {
+    return Image.asset(
+      source,
+      fit: BoxFit.cover,
+      alignment: alignment,
+      errorBuilder: (_, __, ___) => Container(color: _T.cardFallback),
+    );
+  }
+  return Image.network(
+    source,
+    fit: BoxFit.cover,
+    alignment: alignment,
+    errorBuilder: (_, __, ___) => Container(color: _T.cardFallback),
+  );
+}
+
 class _CardTopMark extends StatelessWidget {
   const _CardTopMark({required this.mark, required this.size});
 
@@ -1643,10 +1695,9 @@ class _SponsorMark extends StatelessWidget {
       ),
       clipBehavior: Clip.antiAlias,
       child: logoUrl != null && logoUrl!.isNotEmpty
-          ? Image.network(
+          ? _feedCardImage(
               logoUrl!,
-              fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _adLabel(),
+              alignment: Alignment.center,
             )
           : _adLabel(),
     );
@@ -1774,7 +1825,7 @@ class _ExploreLiveButton extends StatelessWidget {
   }
 }
 
-/// Spec v1.0 mockup at 393×852 — every dimension × [scale] to fit 10% hero.
+/// Spec v1.0 mockup at 393×852 — every dimension × [scale] to fit 25% hero.
 class _HeroDesign {
   const _HeroDesign({
     required this.scale,
@@ -1816,7 +1867,7 @@ class _HeroDesign {
       headerBottomPad: s(8),
       hPad: s(12),
       curveRadius: s(20),
-      logoSize: s(18),
+      logoSize: s(36),
       profileSize: s(30),
       locationFont: s(11),
       locationIcon: s(12),
