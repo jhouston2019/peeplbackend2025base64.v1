@@ -133,7 +133,111 @@ exports.onCrowdsourceRequest = functions.firestore
     return null;
   });
 
-// ─── FUNCTION 2: onLikeCreated ──────────────────────────────────────────────
+// ─── FUNCTION 2: onPresenceCreated ─────────────────────────────────────────
+// Fires when a user checks in (presence doc created). Fulfills waiting
+// crowdsource_requests with status=waiting and notifyOnArrival=true nearby.
+//
+// FIRESTORE INDEX REQUIRED (create in Firebase Console if not auto-suggested):
+//   Collection: crowdsource_requests
+//   Fields: status ASC, notifyOnArrival ASC, latitude ASC
+exports.onPresenceCreated = functions.firestore
+  .document('presence/{presenceId}')
+  .onCreate(async (snap, context) => {
+    const presence = snap.data();
+    const { latitude, longitude, locationName, userId, uid } = presence;
+    const arrivedUserId = userId || uid || context.params.presenceId;
+
+    if (!latitude || !longitude) {
+      console.log('onPresenceCreated: missing coords, skipping');
+      return null;
+    }
+
+    // Find waiting crowdsource requests near this location
+    // within ~150 meters (0.00135 degrees)
+    const delta = 0.00135;
+    let waitingSnap;
+    try {
+      waitingSnap = await db.collection('crowdsource_requests')
+        .where('status', '==', 'waiting')
+        .where('notifyOnArrival', '==', true)
+        .where('latitude', '>=', latitude - delta)
+        .where('latitude', '<=', latitude + delta)
+        .get();
+    } catch (e) {
+      console.error('onPresenceCreated waiting query error:', e);
+      return null;
+    }
+
+    if (waitingSnap.empty) {
+      console.log('onPresenceCreated: no waiting requests near', locationName);
+      return null;
+    }
+
+    const batch = db.batch();
+    const fcmPromises = [];
+
+    for (const doc of waitingSnap.docs) {
+      const request = doc.data();
+
+      // Longitude check client-side (Firestore only allows one range filter)
+      const lngDiff = Math.abs((request.longitude || 0) - longitude);
+      if (lngDiff > delta) continue;
+
+      const requesterId = request.requesterId || request.requestedBy;
+      if (!requesterId) continue;
+
+      const fcmToken = await getFcmToken(requesterId);
+      if (!fcmToken) continue;
+
+      // Send FCM notification to requester
+      fcmPromises.push(
+        messaging.send({
+          token: fcmToken,
+          notification: {
+            title: '📍 Someone just arrived!',
+            body: `A user just checked in at ${locationName || request.locationName}. ` +
+                  'Tap to get a live crowd update.',
+          },
+          data: {
+            type: 'arrival_fulfilled',
+            locationName: locationName || request.locationName || '',
+            latitude: String(latitude),
+            longitude: String(longitude),
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: 'default',
+                badge: 1,
+              },
+            },
+          },
+        }).catch((err) =>
+          console.error('FCM send error for', requesterId, err),
+        ),
+      );
+
+      // Mark request as fulfilled
+      batch.update(doc.ref, {
+        status: 'fulfilled',
+        fulfilledAt: FieldValue.serverTimestamp(),
+        fulfilledByUserId: arrivedUserId || null,
+      });
+    }
+
+    await Promise.all(fcmPromises);
+    if (fcmPromises.length > 0) {
+      await batch.commit();
+    }
+
+    console.log(
+      `onPresenceCreated: fulfilled ${fcmPromises.length} waiting requests near`,
+      locationName,
+    );
+    return null;
+  });
+
+// ─── FUNCTION 3: onLikeCreated ──────────────────────────────────────────────
 // Fires when someone likes a post.
 // Notifies the post owner (unless they liked their own post).
 exports.onLikeCreated = functions.firestore
@@ -175,7 +279,7 @@ exports.onLikeCreated = functions.firestore
     return null;
   });
 
-// ─── FUNCTION 3: onNewPost ─────────────────────────────────────────────────
+// ─── FUNCTION 4: onNewPost ─────────────────────────────────────────────────
 // Fires when a client writes notification_triggers/{postId} after submitting a post.
 // Notifies users within 1 km (excluding the poster).
 function haversineKm(lat1, lon1, lat2, lon2) {

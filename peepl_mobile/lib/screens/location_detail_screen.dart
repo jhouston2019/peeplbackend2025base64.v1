@@ -6,10 +6,10 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
-import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/crowd_meter.dart';
@@ -32,6 +32,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
   bool _isLiked = false;
   bool _isSubmittingComment = false;
+  bool _isRequestingLive = false;
   late int _likesCount;
   List<Map<String, dynamic>> _availableAds = [];
 
@@ -569,7 +570,89 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   GestureDetector(
-                    onTap: _sendAskRequest,
+                    onTap: () async {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user == null) return;
+
+                      setState(() => _isRequestingLive = true);
+
+                      try {
+                        final latitude =
+                            (widget.postData['latitude'] as num?)?.toDouble() ??
+                                0.0;
+                        final longitude =
+                            (widget.postData['longitude'] as num?)?.toDouble() ??
+                                0.0;
+                        final locationName =
+                            widget.postData['locationName'] as String? ??
+                                'this location';
+
+                        final presence =
+                            await PresenceService.instance.getActivePresence(
+                          latitude,
+                          longitude,
+                        );
+
+                        if (presence.isNotEmpty) {
+                          await PresenceService.instance.sendCrowdsourceRequest(
+                            locationName: locationName,
+                            latitude: latitude,
+                            longitude: longitude,
+                          );
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '📍 Request sent to ${presence.length} '
+                                '${presence.length == 1 ? 'person' : 'people'} at '
+                                '$locationName!',
+                              ),
+                              backgroundColor: const Color(0xFF1565C0),
+                              duration: const Duration(seconds: 3),
+                            ),
+                          );
+                        } else {
+                          await FirebaseFirestore.instance
+                              .collection('crowdsource_requests')
+                              .add({
+                            'requesterId': user.uid,
+                            'locationName':
+                                widget.postData['locationName'] ?? '',
+                            'latitude': latitude,
+                            'longitude': longitude,
+                            'status': 'waiting',
+                            'createdAt': FieldValue.serverTimestamp(),
+                            'notifyOnArrival': true,
+                          });
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                '🔔 No one is there right now. '
+                                'We\'ll notify you when someone arrives at '
+                                '$locationName!',
+                              ),
+                              backgroundColor: Colors.orange[700],
+                              duration: const Duration(seconds: 4),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              'Could not send request. Please try again.',
+                            ),
+                            backgroundColor: Colors.red[700],
+                          ),
+                        );
+                      } finally {
+                        if (mounted) {
+                          setState(() => _isRequestingLive = false);
+                        }
+                      }
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 16, vertical: 8),
@@ -577,20 +660,33 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                         color: const Color(0xFF1565C0),
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      child: const Row(
+                      child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.campaign_outlined,
-                              color: Colors.white, size: 16),
-                          SizedBox(width: 6),
-                          Text(
-                            'Ask Here Now',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
+                          if (!_isRequestingLive) ...[
+                            const Icon(Icons.campaign_outlined,
+                                color: Colors.white, size: 16),
+                            const SizedBox(width: 6),
+                          ],
+                          _isRequestingLive
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.white,
+                                    ),
+                                  ),
+                                )
+                              : const Text(
+                                  'Explore Live',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
                         ],
                       ),
                     ),
@@ -616,46 +712,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _sendAskRequest() async {
-    final locationName =
-        widget.postData['locationName'] as String? ?? '';
-    final locationId =
-        widget.postData['id'] as String? ?? locationName;
-    final lat =
-        (widget.postData['latitude'] as num?)?.toDouble() ?? 0.0;
-    final lng =
-        (widget.postData['longitude'] as num?)?.toDouble() ?? 0.0;
-
-    if (locationName.isEmpty) return;
-
-    try {
-      final requestId = await CrowdsourceService.instance.createRequest(
-        locationId: locationId,
-        locationName: locationName,
-        latitude: lat,
-        longitude: lng,
-      );
-      if (mounted && requestId != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Asked everyone at $locationName to report crowd levels!',
-            ),
-            duration: const Duration(seconds: 3),
-            backgroundColor: const Color(0xFF1565C0),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text('Failed to send request. Try again.')),
-        );
-      }
-    }
   }
 
   /// Shows [NoPeepsEmptyState] when no other users have posted about this
