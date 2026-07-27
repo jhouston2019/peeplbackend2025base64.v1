@@ -16,6 +16,20 @@ import 'services/notification_service.dart';
 import 'services/presence_service.dart';
 import 'theme_notifier.dart';
 
+ThemeData _buildLightTheme() => ThemeData(
+      brightness: Brightness.light,
+      primaryColor: Color(0xFF1565C0),
+      scaffoldBackgroundColor: Color(0xFF1565C0),
+      colorScheme: ColorScheme.light(primary: Color(0xFF1565C0)),
+    );
+
+ThemeData _buildDarkTheme() => ThemeData(
+      brightness: Brightness.dark,
+      primaryColor: Color(0xFF0D47A1),
+      scaffoldBackgroundColor: Color(0xFF0D47A1),
+      colorScheme: ColorScheme.dark(primary: Color(0xFF0D47A1)),
+    );
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -89,10 +103,11 @@ class PeeplApp extends StatelessWidget {
           builder: (context, themeNotifier, _) {
             return MaterialApp(
               title: 'Peepl',
-              theme: ThemeData(
-                primaryColor: Color(0xFF1565C0),
-                scaffoldBackgroundColor: Color(0xFF1565C0),
-              ),
+              theme: _buildLightTheme(),
+              darkTheme: _buildDarkTheme(),
+              themeMode: themeNotifier.isDarkMode
+                  ? ThemeMode.dark
+                  : ThemeMode.light,
               routes: appRoutes,
               navigatorKey: navigatorKey,
               home: _AuthGate(),

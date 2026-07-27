@@ -27,21 +27,25 @@ if (!admin.apps.length) {
   }
 }
 
+const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+
 async function getFcmToken(uid) {
+  const firestorePath = `${USERS_COLLECTION}/${uid}`;
   try {
-    const doc = await admin.firestore().collection(uid).doc('profile').get();
+    console.log(`[FCM] Reading token from ${firestorePath}`);
+    const doc = await admin.firestore().collection(USERS_COLLECTION).doc(uid).get();
     if (!doc.exists) {
-      console.warn('[FCM] No profile document for uid', uid);
+      console.warn(`[FCM] No user document at ${firestorePath}`);
       return null;
     }
     const token = doc.data().fcmToken;
     if (!token) {
-      console.warn('[FCM] No FCM token stored for uid', uid);
+      console.warn(`[FCM] No FCM token stored at ${firestorePath}`);
       return null;
     }
     return token;
   } catch (err) {
-    console.warn('[FCM] getFcmToken error for', uid, ':', err.message);
+    console.warn('[FCM] getFcmToken error for', firestorePath, ':', err.message);
     return null;
   }
 }
@@ -158,7 +162,7 @@ app.post('/notifications/send', async (req, res) => {
       android: { notification: { channelId: 'peepl_high_importance', priority: 'high', color: '#1565C0' } },
       apns: { payload: { aps: { sound: 'default', badge: 1 } } },
     });
-    console.log(`[FCM] Sent to ${uid}: ${messageId}`);
+    console.log(`[FCM] Sent to ${uid} (${USERS_COLLECTION}/${uid}): ${messageId}`);
     res.json({ success: true, messageId });
   } catch (err) {
     console.warn('[FCM] Send error for', uid, ':', err.message);
@@ -185,7 +189,7 @@ app.post('/notifications/like', async (req, res) => {
       android: { notification: { channelId: 'peepl_high_importance', priority: 'high', color: '#1565C0' } },
       apns: { payload: { aps: { sound: 'default', badge: 1 } } },
     });
-    console.log(`[FCM] Like notification sent to ${postOwnerUid}: ${messageId}`);
+    console.log(`[FCM] Like notification sent to ${postOwnerUid} (${USERS_COLLECTION}/${postOwnerUid}): ${messageId}`);
     res.json({ success: true, messageId });
   } catch (err) {
     console.warn('[FCM] Send error for', postOwnerUid, ':', err.message);
@@ -212,6 +216,7 @@ app.post('/notifications/proximity', async (req, res) => {
       android: { notification: { channelId: 'peepl_high_importance', priority: 'high', color: '#1565C0' } },
       apns: { payload: { aps: { sound: 'default', badge: 1 } } },
     });
+    console.log(`[FCM] Proximity notification sent to ${targetUid} (${USERS_COLLECTION}/${targetUid}): ${messageId}`);
     res.json({ success: true, messageId });
   } catch (err) {
     console.warn('[FCM] Send error for', targetUid, ':', err.message);

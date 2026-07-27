@@ -1,15 +1,17 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:math' show atan2, cos, pi, sin, sqrt;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../constants/national_brand_ads.dart';
 import '../services/ad_cadence_service.dart';
-import '../services/feed_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
@@ -72,12 +74,11 @@ class FeedScreen extends StatefulWidget {
 }
 
 class _FeedScreenState extends State<FeedScreen> {
-  final FeedService _feedService = FeedService();
   final NativeAdsService _adsService = NativeAdsService();
   final AdCadenceService _cadence = AdCadenceService();
   final ScrollController _scrollController = ScrollController();
 
-  StreamSubscription<QuerySnapshot>? _feedSub;
+  StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _feedSub;
 
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _feedItems = [];
@@ -88,21 +89,17 @@ class _FeedScreenState extends State<FeedScreen> {
   String? _errorMessage;
 
   String _activeFilter = 'Newest';
-  bool _newestFirst = true;
 
-  final Map<String, String> _activeDeal = {
-    'advertiser': 'Cotto Italian Grill',
-    'discount': '20% OFF ENTREES',
-    'distance': '0.4 mi',
-  };
+  Map<String, dynamic>? _activeDeal;
 
   final String _areaLabel = 'Perimeter Mall Area';
 
   double? _userLat;
   double? _userLng;
+  double? _latitude;
+  double? _longitude;
 
-  static const double _localRadiusMiles = 25.0;
-  static const double _regionRadiusMiles = 100.0;
+  static const double _localRadiusMeters = 16000.0;
 
   static const double _heroHeightFraction = 0.20;
   static const double _cardMarginBottom = 6;
@@ -125,42 +122,8 @@ class _FeedScreenState extends State<FeedScreen> {
     'Download',
   ];
 
-  /// Inline fallback ads when Firestore native_ads is empty (or web preview).
-  static const List<Map<String, dynamic>> _fallbackAds = [
-    {
-      'type': 'ad',
-      'isDummy': true,
-      'id': 'fallback_cotto',
-      'advertiser': 'Cotto Italian Grill',
-      'tagline': '20% off all entrees today only',
-      'cta': 'View Deal',
-      'accentColor': 0xFF1565C0,
-      'initial': 'C',
-      'distance': '0.4 mi',
-    },
-    {
-      'type': 'ad',
-      'isDummy': true,
-      'id': 'fallback_naithai',
-      'advertiser': 'NaiThai — Dunwoody',
-      'tagline': 'Happy hour 4–7PM · half-price cocktails',
-      'cta': 'Learn More',
-      'accentColor': 0xFF6A1B9A,
-      'initial': 'N',
-      'distance': '1.2 mi',
-    },
-    {
-      'type': 'ad',
-      'isDummy': true,
-      'id': 'fallback_foundry',
-      'advertiser': 'The Foundry Grill',
-      'tagline': 'Live music every Friday night',
-      'cta': 'See Menu',
-      'accentColor': 0xFFBF360C,
-      'initial': 'F',
-      'distance': '2.1 mi',
-    },
-  ];
+  /// National brand inventory when Firestore native_ads is empty (or web preview).
+  static List<Map<String, dynamic>> get _fallbackAds => NationalBrandAds.all;
 
   @override
   void initState() {
@@ -169,8 +132,20 @@ class _FeedScreenState extends State<FeedScreen> {
       if (!mounted) return;
       setState(() => _feedItems = _rebuildFeedItems());
     }));
+    Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low)
+        .then((pos) {
+      if (!mounted) return;
+      setState(() {
+        _latitude = pos.latitude;
+        _longitude = pos.longitude;
+        _userLat = pos.latitude;
+        _userLng = pos.longitude;
+        _feedItems = _rebuildFeedItems();
+      });
+    }).catchError((_) {});
     _initLocation();
     _loadFeedData();
+    _loadActiveDeal();
     _loadAds();
   }
 
@@ -187,6 +162,8 @@ class _FeedScreenState extends State<FeedScreen> {
     setState(() {
       _userLat = pos.latitude;
       _userLng = pos.longitude;
+      _latitude = pos.latitude;
+      _longitude = pos.longitude;
       _feedItems = _rebuildFeedItems();
     });
     if (!kIsWeb) {
@@ -206,6 +183,41 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _buildFeedQuery() {
+    final base = FirebaseFirestore.instance.collection('location_posts');
+    switch (_activeFilter) {
+      case 'Nearby':
+        return base
+            .where('imageUrl', isNotEqualTo: '')
+            .orderBy('imageUrl')
+            .orderBy('timestamp', descending: true)
+            .limit(100)
+            .snapshots();
+      case 'Local':
+        return base
+            .where('imageUrl', isNotEqualTo: '')
+            .orderBy('imageUrl')
+            .orderBy('timestamp', descending: true)
+            .limit(100)
+            .snapshots();
+      case 'Region':
+        return base
+            .where('imageUrl', isNotEqualTo: '')
+            .orderBy('imageUrl')
+            .orderBy('timestamp', descending: true)
+            .limit(200)
+            .snapshots();
+      case 'Newest':
+      default:
+        return base
+            .where('imageUrl', isNotEqualTo: '')
+            .orderBy('imageUrl')
+            .orderBy('timestamp', descending: true)
+            .limit(50)
+            .snapshots();
+    }
+  }
+
   void _loadFeedData() {
     setState(() {
       _isLoading = true;
@@ -214,7 +226,7 @@ class _FeedScreenState extends State<FeedScreen> {
     });
 
     _feedSub?.cancel();
-    _feedSub = _feedService.getLocationFeedStream().listen(
+    _feedSub = _buildFeedQuery().listen(
       (snapshot) => _processFeedData(snapshot.docs),
       onError: (Object error) {
         if (!mounted) return;
@@ -225,6 +237,34 @@ class _FeedScreenState extends State<FeedScreen> {
         });
       },
     );
+  }
+
+  void _selectFilter(String label) {
+    if (_activeFilter == label) return;
+    setState(() => _activeFilter = label);
+    _loadFeedData();
+  }
+
+  Future<void> _loadActiveDeal() async {
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('native_ads')
+          .where('isActive', isEqualTo: true)
+          .where('endDate', isGreaterThan: Timestamp.now())
+          .orderBy('endDate')
+          .orderBy('priority', descending: true)
+          .limit(1)
+          .get();
+      if (snap.docs.isNotEmpty) {
+        if (!mounted) return;
+        setState(() => _activeDeal = {
+              'id': snap.docs.first.id,
+              ...snap.docs.first.data(),
+            });
+      }
+    } catch (e) {
+      print('Deal load error: $e');
+    }
   }
 
   Future<void> _loadAds() async {
@@ -248,10 +288,6 @@ class _FeedScreenState extends State<FeedScreen> {
       });
     }
   }
-
-  /// Demo brand inventory when Firestore is empty, or on web debug preview.
-  bool get _useDummyNativeAds =>
-      _availableAds.isEmpty || (kDebugMode && kIsWeb);
 
   void _processFeedData(List<QueryDocumentSnapshot> docs) {
     final posts = docs.map((doc) {
@@ -283,24 +319,19 @@ class _FeedScreenState extends State<FeedScreen> {
 
     _cadence.resetForMerge(postCount: posts.length);
     final items = <Map<String, dynamic>>[];
-    var liveAdIndex = 0;
-    var dummyAdIndex = 0;
+    var adIndex = 0;
     var patternIndex = 0;
     var peepCardsSinceAd = 0;
     var nextAdThreshold = _peepCardsBeforeAdPattern[0];
     var streamCardIndex = 0;
 
     Map<String, dynamic> pickAd() {
-      if (!_useDummyNativeAds) {
-        final ad = _availableAds[liveAdIndex % _availableAds.length];
-        liveAdIndex++;
-        return ad;
-      }
-      final dummy = Map<String, dynamic>.from(
-        _fallbackAds[dummyAdIndex % _fallbackAds.length],
+      final pool = _fallbackAds;
+      final ad = Map<String, dynamic>.from(
+        pool[adIndex % pool.length],
       );
-      dummyAdIndex++;
-      return dummy;
+      adIndex++;
+      return ad;
     }
 
     for (final post in posts) {
@@ -396,6 +427,32 @@ class _FeedScreenState extends State<FeedScreen> {
     return parts.isEmpty ? null : parts.join(' · ');
   }
 
+  double _haversine(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371000.0;
+    final phi1 = lat1 * pi / 180;
+    final phi2 = lat2 * pi / 180;
+    final dphi = (lat2 - lat1) * pi / 180;
+    final dlambda = (lon2 - lon1) * pi / 180;
+    final a = sin(dphi / 2) * sin(dphi / 2) +
+        cos(phi1) * cos(phi2) * sin(dlambda / 2) * sin(dlambda / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
+
+  double? _distanceMeters(Map<String, dynamic> post) {
+    final lat = post['latitude'];
+    final lng = post['longitude'];
+    final userLat = _latitude ?? _userLat;
+    final userLng = _longitude ?? _userLng;
+    if (userLat == null || userLng == null) return null;
+    if (lat is! num || lng is! num) return null;
+    return _haversine(
+      userLat,
+      userLng,
+      lat.toDouble(),
+      lng.toDouble(),
+    );
+  }
+
   double _deg2rad(double deg) => deg * math.pi / 180.0;
 
   double _haversineMiles(double lat1, double lon1, double lat2, double lon2) {
@@ -439,59 +496,44 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<Map<String, dynamic>> _applyFilter(List<Map<String, dynamic>> posts) {
-    final out = List<Map<String, dynamic>>.from(posts);
-
     switch (_activeFilter) {
       case 'Nearby':
-        out.sort((a, b) {
-          final da = _milesTo(a);
-          final db = _milesTo(b);
-          if (da == null && db == null) return 0;
-          if (da == null) return 1;
-          if (db == null) return -1;
-          return da.compareTo(db);
-        });
-        return out;
+        if (_latitude != null && _longitude != null) {
+          final out = List<Map<String, dynamic>>.from(posts);
+          out.sort((a, b) {
+            final da = _distanceMeters(a);
+            final db = _distanceMeters(b);
+            if (da == null && db == null) return 0;
+            if (da == null) return 1;
+            if (db == null) return -1;
+            return da.compareTo(db);
+          });
+          return out;
+        }
+        return posts;
 
       case 'Local':
-        return _withinRadius(out, _localRadiusMiles);
-
-      case 'Region':
-        return _withinRadius(out, _regionRadiusMiles);
-
-      case 'Map':
-      case 'Newest':
-      default:
-        out.sort((a, b) {
+        final filtered = posts.where((post) {
+          final meters = _distanceMeters(post);
+          return meters != null && meters <= _localRadiusMeters;
+        }).toList();
+        filtered.sort((a, b) {
           final ta = _postTimestamp(a);
           final tb = _postTimestamp(b);
           if (ta == null && tb == null) return 0;
           if (ta == null) return 1;
           if (tb == null) return -1;
-          return _newestFirst ? tb.compareTo(ta) : ta.compareTo(tb);
+          return tb.compareTo(ta);
         });
-        return out;
+        return filtered;
+
+      case 'Region':
+        return posts;
+
+      case 'Newest':
+      default:
+        return posts;
     }
-  }
-
-  List<Map<String, dynamic>> _withinRadius(
-    List<Map<String, dynamic>> posts,
-    double radiusMiles,
-  ) {
-    final known = <Map<String, dynamic>>[];
-    final unknown = <Map<String, dynamic>>[];
-
-    for (final post in posts) {
-      final miles = _milesTo(post);
-      if (miles == null) {
-        unknown.add(post);
-      } else if (miles <= radiusMiles) {
-        known.add(post);
-      }
-    }
-
-    known.sort((a, b) => _milesTo(a)!.compareTo(_milesTo(b)!));
-    return [...known, ...unknown];
   }
 
   String? _distanceLabel(Map<String, dynamic> post) {
@@ -519,7 +561,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildBlueHeader(),
-            SizedBox(height: 44, child: _buildDealBanner()),
+            _buildDealBanner(),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -801,29 +843,19 @@ class _FeedScreenState extends State<FeedScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _filterPill('Newest', Icons.calendar_today, () {
-                setState(() {
-                  _newestFirst = !_newestFirst;
-                  _activeFilter = 'Newest';
-                  _feedItems = _rebuildFeedItems();
-                });
+                _selectFilter('Newest');
               }),
               const SizedBox(width: 6),
               _filterPill('Nearby', Icons.location_on, () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Filter coming soon')),
-                );
+                _selectFilter('Nearby');
               }),
               const SizedBox(width: 6),
               _filterPill('Local', Icons.store, () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Filter coming soon')),
-                );
+                _selectFilter('Local');
               }),
               const SizedBox(width: 6),
               _filterPill('Region', Icons.public, () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Filter coming soon')),
-                );
+                _selectFilter('Region');
               }),
               const SizedBox(width: 6),
               _filterPill('Map View', Icons.map, () {
@@ -837,6 +869,7 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _filterPill(String label, IconData icon, VoidCallback onTap) {
+    final selected = _activeFilter == label;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -845,17 +878,17 @@ class _FeedScreenState extends State<FeedScreen> {
         decoration: BoxDecoration(
           border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
           borderRadius: BorderRadius.circular(20),
-          color: Colors.white.withOpacity(0.12),
+          color: selected ? Colors.white : Colors.white.withOpacity(0.12),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: Colors.white, size: 11),
+            Icon(icon, color: selected ? _T.blue : Colors.white, size: 11),
             const SizedBox(width: 4),
             Text(
               label,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: selected ? _T.blue : Colors.white,
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -898,20 +931,47 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildDealBanner() {
+    if (_activeDeal == null) {
+      return const SizedBox.shrink();
+    }
+
+    final deal = _activeDeal!;
+    final offerText =
+        (deal['discount'] ?? deal['tagline'] ?? '').toString();
+    final advertiser = (deal['advertiser'] ?? '').toString();
+    final bannerText = [
+      if (offerText.isNotEmpty) offerText,
+      if (advertiser.isNotEmpty) advertiser,
+    ].join(' · ');
+
     return GestureDetector(
       onTap: () {
         Map<String, dynamic>? match;
-        final advertiser =
-            (_activeDeal['advertiser'] ?? '').toString().toLowerCase();
+        final advertiserLower = advertiser.toLowerCase();
         for (final item in _feedItems) {
           if (item['type'] == 'ad') continue;
           final locationName =
               (item['locationName'] ?? '').toString().toLowerCase();
-          if (advertiser.isNotEmpty && locationName.contains(advertiser)) {
+          if (advertiserLower.isNotEmpty &&
+              locationName.contains(advertiserLower)) {
             match = item;
             break;
           }
         }
+
+        if (match == null) {
+          final dealId = (deal['id'] ?? '').toString();
+          if (dealId.isNotEmpty) {
+            for (final item in _feedItems) {
+              if (item['type'] == 'ad' &&
+                  (item['id'] ?? '').toString() == dealId) {
+                unawaited(_openSponsorDestination(item, tapKind: 'card'));
+                return;
+              }
+            }
+          }
+        }
+
         if (match != null) {
           Navigator.push(
             context,
@@ -936,9 +996,7 @@ class _FeedScreenState extends State<FeedScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                '${_activeDeal['discount'] ?? '20% OFF'} '
-                '${_activeDeal['advertiser'] ?? ''} · '
-                '${_activeDeal['distance'] ?? '0.4 mi'}',
+                bannerText,
                 style: const TextStyle(
                   color: Color(0xFF2E7D32),
                   fontSize: 13,
@@ -1047,6 +1105,7 @@ class _FeedScreenState extends State<FeedScreen> {
         distance: content.distance,
         initial: content.initial,
         accentColor: content.accentColor,
+        imageUrl: content.imageUrl,
         ctaLabel: content.ctaLabel,
         onOpen: content.onOpen,
         onCta: content.onCta,
@@ -1161,6 +1220,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final initial = initialRaw.isNotEmpty
         ? initialRaw
         : (name.isNotEmpty ? name.trim()[0].toUpperCase() : 'A');
+    final imageUrl = NationalBrandAds.imageSource(ad);
 
     return _FeedCardContent(
       name: name,
@@ -1168,6 +1228,7 @@ class _FeedScreenState extends State<FeedScreen> {
       distance: distance,
       initial: initial,
       accentColor: accentColor,
+      imageUrl: imageUrl,
       ctaLabel: ctaText.isNotEmpty ? ctaText : 'Learn More',
       onImpression: () {
         unawaited(_adsService.recordAdImpression(
@@ -1198,6 +1259,7 @@ class _FeedCardContent {
     required this.distance,
     required this.initial,
     required this.accentColor,
+    required this.imageUrl,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1210,6 +1272,7 @@ class _FeedCardContent {
   final String distance;
   final String initial;
   final Color accentColor;
+  final String imageUrl;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1320,6 +1383,7 @@ class _FeedAdCard extends StatefulWidget {
     required this.distance,
     required this.initial,
     required this.accentColor,
+    required this.imageUrl,
     required this.ctaLabel,
     required this.onOpen,
     required this.onCta,
@@ -1332,6 +1396,7 @@ class _FeedAdCard extends StatefulWidget {
   final String distance;
   final String initial;
   final Color accentColor;
+  final String imageUrl;
   final String ctaLabel;
   final VoidCallback onOpen;
   final VoidCallback onCta;
@@ -1378,6 +1443,129 @@ class _FeedAdCardState extends State<_FeedAdCard> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.imageUrl.isNotEmpty) {
+      return _wrapVisibility(
+        GestureDetector(
+          onTap: widget.onOpen,
+          behavior: HitTestBehavior.opaque,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                _feedCardImage(widget.imageUrl),
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.bottomCenter,
+                        end: Alignment.topCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.78),
+                          Colors.black.withValues(alpha: 0.08),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: 10,
+                  left: 12,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF1565C0),
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                    child: const Text(
+                      'SPONSORED',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 8,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.0,
+                        height: 1.0,
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 14,
+                  right: 14,
+                  bottom: 12,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              widget.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                height: 1.1,
+                              ),
+                            ),
+                            if (widget.tagline.isNotEmpty) ...[
+                              const SizedBox(height: 3),
+                              Text(
+                                widget.tagline,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.82),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: widget.onCta,
+                        behavior: HitTestBehavior.opaque,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 7,
+                          ),
+                          decoration: BoxDecoration(
+                            color: widget.accentColor,
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            widget.ctaLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w700,
+                              height: 1.0,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     const sponsoredBlue = Color(0xFF1565C0);
     final leadingTile = Container(
       width: 44,
@@ -1528,6 +1716,13 @@ class _FeedAdCardState extends State<_FeedAdCard> {
       return card;
     }
 
+    return _wrapVisibility(card);
+  }
+
+  Widget _wrapVisibility(Widget card) {
+    if (widget.onImpression == null && widget.onViewable == null) {
+      return card;
+    }
     return VisibilityDetector(
       key: Key('feed_ad_${widget.name}_${widget.ctaLabel.hashCode}'),
       onVisibilityChanged: _onVisibilityChanged,

@@ -565,53 +565,121 @@ class _StatsTabState extends State<_StatsTab> {
 }
 
 class _NativeAdsTab extends StatelessWidget {
+  const _NativeAdsTab();
+
+  static String _advertiserLabel(Map<String, dynamic> data) {
+    final advertiser = data['advertiser'] as String?;
+    if (advertiser != null && advertiser.trim().isNotEmpty) {
+      return advertiser.trim();
+    }
+    return (data['advertiserName'] as String?) ??
+        (data['headline'] as String?) ??
+        (data['title'] as String?) ??
+        'Untitled ad';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: FirebaseFirestore.instance.collection('native_ads').snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return _errorCenter('Failed to load ads: ${snapshot.error}');
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: _kPeeplBlue),
-          );
-        }
-        final docs = snapshot.data?.docs ?? [];
-        if (docs.isEmpty) {
-          return const Center(child: Text('No native ads.'));
-        }
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: docs.length,
-          itemBuilder: (context, i) {
-            final doc = docs[i];
-            final d = doc.data();
-            final title = d['title'] as String? ??
-                d['headline'] as String? ??
-                doc.id;
-            final active = d['isActive'] == true;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 8),
-              child: SwitchListTile(
-                title: Text(title,
-                    style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('ID: ${doc.id}'),
-                value: active,
-                activeThumbColor: _kPeeplBlue,
-                onChanged: (v) => _setAdActive(context, doc.id, v),
-              ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: FirebaseFirestore.instance.collection('native_ads').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return _errorCenter('Failed to load ads: ${snapshot.error}');
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(
+              child: CircularProgressIndicator(color: _kPeeplBlue),
             );
-          },
-        );
-      },
+          }
+          final docs = snapshot.data?.docs ?? [];
+          if (docs.isEmpty) {
+            return const Center(
+              child: Text('No native ads. Tap + to create one.'),
+            );
+          }
+          return ListView.builder(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 88),
+            itemCount: docs.length,
+            itemBuilder: (context, i) {
+              final doc = docs[i];
+              final d = doc.data();
+              final name = _advertiserLabel(d);
+              final active = d['isActive'] == true;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 8),
+                child: ListTile(
+                  title: Text(
+                    name,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                  subtitle: Text('ID: ${doc.id}'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Switch(
+                        value: active,
+                        activeThumbColor: _kPeeplBlue,
+                        onChanged: (v) => _setAdActive(context, doc.id, v),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined,
+                            color: _kPeeplBlue),
+                        tooltip: 'Edit',
+                        onPressed: () => _showAdForm(
+                          context,
+                          adId: doc.id,
+                          initialData: d,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline,
+                            color: Colors.red),
+                        tooltip: 'Delete',
+                        onPressed: () =>
+                            _confirmDeleteAd(context, doc.id, name),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          );
+        },
+      ),
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: _kPeeplBlue,
+        onPressed: () => _showAdForm(context),
+        child: const Icon(Icons.add),
+      ),
     );
   }
 
-  Future<void> _setAdActive(
-      BuildContext context, String adId, bool isActive) async {
+  static Future<void> _showAdForm(
+    BuildContext context, {
+    String? adId,
+    Map<String, dynamic>? initialData,
+  }) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => _AdFormSheet(
+        adId: adId,
+        initialData: initialData,
+      ),
+    );
+  }
+
+  static Future<void> _setAdActive(
+    BuildContext context,
+    String adId,
+    bool isActive,
+  ) async {
     try {
       await FirebaseFirestore.instance
           .collection('native_ads')
@@ -634,6 +702,371 @@ class _NativeAdsTab extends StatelessWidget {
         );
       }
     }
+  }
+
+  static Future<void> _confirmDeleteAd(
+    BuildContext context,
+    String adId,
+    String advertiserName,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete ad'),
+        content: Text('Permanently delete "$advertiserName"?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+    try {
+      await FirebaseFirestore.instance
+          .collection('native_ads')
+          .doc(adId)
+          .delete();
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Ad deleted.')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete ad: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+}
+
+class _AdFormSheet extends StatefulWidget {
+  const _AdFormSheet({this.adId, this.initialData});
+
+  final String? adId;
+  final Map<String, dynamic>? initialData;
+
+  bool get isEditing => adId != null && adId!.isNotEmpty;
+
+  @override
+  State<_AdFormSheet> createState() => _AdFormSheetState();
+}
+
+class _AdFormSheetState extends State<_AdFormSheet> {
+  final _advertiserCtrl = TextEditingController();
+  final _taglineCtrl = TextEditingController();
+  final _ctaCtrl = TextEditingController(text: 'Learn More');
+  final _discountCtrl = TextEditingController();
+  final _targetLocationCtrl = TextEditingController();
+
+  late DateTime _startDate;
+  late DateTime _endDate;
+  bool _isActive = true;
+  double _priority = 5;
+  bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    final data = widget.initialData;
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, now.day);
+    _endDate = _startDate.add(const Duration(days: 30));
+
+    if (data != null) {
+      _advertiserCtrl.text = (data['advertiser'] as String?) ??
+          (data['advertiserName'] as String?) ??
+          (data['headline'] as String?) ??
+          '';
+      _taglineCtrl.text = (data['tagline'] as String?) ??
+          (data['subline'] as String?) ??
+          (data['bodyText'] as String?) ??
+          '';
+      _ctaCtrl.text = (data['cta'] as String?) ??
+          (data['ctaText'] as String?) ??
+          'Learn More';
+      _discountCtrl.text = (data['discount'] as String?) ?? '';
+
+      final targets = data['targetLocations'];
+      if (targets is List && targets.isNotEmpty) {
+        _targetLocationCtrl.text = targets.first.toString();
+      } else if (targets is String) {
+        _targetLocationCtrl.text = targets;
+      }
+
+      final start = data['startDate'];
+      if (start is Timestamp) {
+        final d = start.toDate();
+        _startDate = DateTime(d.year, d.month, d.day);
+      }
+      final end = data['endDate'];
+      if (end is Timestamp) {
+        final d = end.toDate();
+        _endDate = DateTime(d.year, d.month, d.day);
+      }
+
+      _isActive = (data['isActive'] as bool?) ?? true;
+      _priority = ((data['priority'] as num?)?.toDouble() ?? 5).clamp(1, 10);
+    }
+  }
+
+  @override
+  void dispose() {
+    _advertiserCtrl.dispose();
+    _taglineCtrl.dispose();
+    _ctaCtrl.dispose();
+    _discountCtrl.dispose();
+    _targetLocationCtrl.dispose();
+    super.dispose();
+  }
+
+  String _formatDate(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  Future<void> _pickDate({required bool isStart}) async {
+    final initial = isStart ? _startDate : _endDate;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      if (isStart) {
+        _startDate = DateTime(picked.year, picked.month, picked.day);
+        if (!_endDate.isAfter(_startDate)) {
+          _endDate = _startDate.add(const Duration(days: 1));
+        }
+      } else {
+        _endDate = DateTime(picked.year, picked.month, picked.day);
+      }
+    });
+  }
+
+  Future<void> _save() async {
+    final advertiser = _advertiserCtrl.text.trim();
+    final tagline = _taglineCtrl.text.trim();
+    final cta = _ctaCtrl.text.trim().isEmpty ? 'Learn More' : _ctaCtrl.text.trim();
+    final discount = _discountCtrl.text.trim();
+    final targetLocation = _targetLocationCtrl.text.trim();
+
+    if (advertiser.isEmpty || tagline.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Advertiser name and tagline are required.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!_endDate.isAfter(_startDate)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('End date must be after start date.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _saving = true);
+
+    final payload = <String, dynamic>{
+      'advertiser': advertiser,
+      'tagline': tagline,
+      'cta': cta,
+      'discount': discount,
+      'startDate': Timestamp.fromDate(_startDate),
+      'endDate': Timestamp.fromDate(_endDate),
+      'isActive': _isActive,
+      'priority': _priority.round(),
+    };
+
+    if (targetLocation.isNotEmpty) {
+      payload['targetLocations'] = [targetLocation];
+    } else if (widget.isEditing) {
+      payload['targetLocations'] = FieldValue.delete();
+    }
+
+    try {
+      final collection =
+          FirebaseFirestore.instance.collection('native_ads');
+      if (widget.isEditing) {
+        await collection.doc(widget.adId).update(payload);
+      } else {
+        await collection.add({
+          ...payload,
+          'impressions': 0,
+          'clicks': 0,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (!mounted) return;
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            widget.isEditing ? 'Ad updated.' : 'Ad created.',
+          ),
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to save ad: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 16, 20, 16 + bottomInset),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Text(
+                  widget.isEditing ? 'Edit Ad' : 'New Ad',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: _kPeeplBlue,
+                  ),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _saving ? null : () => Navigator.pop(context),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _advertiserCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Advertiser name *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _taglineCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Tagline *',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _ctaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'CTA button text',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _discountCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Discount / offer',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _targetLocationCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Target location',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Start date'),
+              subtitle: Text(_formatDate(_startDate)),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: _saving ? null : () => _pickDate(isStart: true),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('End date *'),
+              subtitle: Text(_formatDate(_endDate)),
+              trailing: const Icon(Icons.calendar_today_outlined),
+              onTap: _saving ? null : () => _pickDate(isStart: false),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Is Active'),
+              value: _isActive,
+              activeThumbColor: _kPeeplBlue,
+              onChanged: _saving ? null : (v) => setState(() => _isActive = v),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Priority'),
+                Text('${_priority.round()}'),
+              ],
+            ),
+            Slider(
+              value: _priority,
+              min: 1,
+              max: 10,
+              divisions: 9,
+              label: '${_priority.round()}',
+              onChanged: _saving
+                  ? null
+                  : (v) => setState(() => _priority = v),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              height: 48,
+              child: FilledButton(
+                onPressed: _saving ? null : _save,
+                style: FilledButton.styleFrom(backgroundColor: _kPeeplBlue),
+                child: _saving
+                    ? const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(widget.isEditing ? 'Save Changes' : 'Create Ad'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 

@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -159,16 +157,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           _isLiked = true;
           _likesCount++;
         });
-
-        final postOwnerUid = widget.postData['userId'] as String?;
-        if (postOwnerUid != null && postOwnerUid != user.uid) {
-          _sendLikeNotification(
-            postOwnerUid: postOwnerUid,
-            likerUsername: user.displayName ?? user.email?.split('@')[0] ?? 'Someone',
-            postId: widget.postData['id'],
-            locationName: widget.postData['locationName'] ?? '',
-          );
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -176,28 +164,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           SnackBar(content: Text('Failed to update like: $e')),
         );
       }
-    }
-  }
-
-  void _sendLikeNotification({
-    required String postOwnerUid,
-    required String likerUsername,
-    required String postId,
-    required String locationName,
-  }) async {
-    try {
-      await http.post(
-        Uri.parse('https://peepl2025v1-production.up.railway.app/notifications/like'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'postOwnerUid': postOwnerUid,
-          'likerUsername': likerUsername,
-          'postId': postId,
-          'locationName': locationName,
-        }),
-      );
-    } catch (e) {
-      debugPrint('[Like notification] Failed: $e');
     }
   }
 
@@ -221,6 +187,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         'text': text,
         'timestamp': FieldValue.serverTimestamp(),
       });
+      await FirebaseFirestore.instance
+          .collection('location_posts')
+          .doc(widget.postData['id'])
+          .update({'commentsCount': FieldValue.increment(1)});
       _commentController.clear();
     } catch (e) {
       if (mounted) {

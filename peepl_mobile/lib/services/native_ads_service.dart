@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
+import '../constants/national_brand_ads.dart';
+
 class NativeAdsService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -96,10 +98,17 @@ class NativeAdsService {
         ads = _sortByScore(ads, userLat, userLng);
       }
 
+      if (ads.isEmpty ||
+          !ads.any(
+            (ad) => NationalBrandAds.imageSource(ad).isNotEmpty,
+          )) {
+        return NationalBrandAds.all.take(limit).toList();
+      }
+
       return ads.take(limit).toList();
     } catch (e) {
       debugPrint('NativeAdsService.getAdsForFeed error: $e');
-      return [];
+      return NationalBrandAds.all.take(limit).toList();
     }
   }
 
@@ -123,7 +132,9 @@ class NativeAdsService {
     String? advertiserId,
     String context = 'feed',
   }) async {
-    if (adId.isEmpty || adId.startsWith('dummy_')) return;
+    if (adId.isEmpty || adId.startsWith('dummy_') || adId.startsWith('brand_')) {
+      return;
+    }
     try {
       final payload = <String, dynamic>{
         'adId': adId,

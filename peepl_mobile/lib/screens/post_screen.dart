@@ -185,10 +185,10 @@ class _PostScreenState extends State<PostScreen> {
 
   double? _latitude;
   double? _longitude;
+  bool _locationReady = false;
   bool _isGeolocating = false;
   bool _locationPreFilled = false;
   bool _hasNotificationLocation = false;
-  bool _locationPermissionDenied = false;
 
   double _kidsPercentage = 0;
   double _femalePercentage = 50;
@@ -289,8 +289,20 @@ class _PostScreenState extends State<PostScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _resolveLocationAndGeocode();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_hasNotificationLocation &&
+          _latitude != null &&
+          _longitude != null) {
+        if (mounted) setState(() => _locationReady = true);
+        return;
+      }
+      final acquired = await _acquireLocation();
+      if (mounted) {
+        setState(() => _locationReady = acquired);
+      }
+      if (acquired && mounted && !_hasNotificationLocation) {
+        await _reverseGeocodeFromCoords();
+      }
     });
   }
 
@@ -307,6 +319,9 @@ class _PostScreenState extends State<PostScreen> {
         final lng = args['longitude'];
         if (lat is num) _latitude = lat.toDouble();
         if (lng is num) _longitude = lng.toDouble();
+        if (_latitude != null && _longitude != null) {
+          _locationReady = true;
+        }
       }
     }
   }
@@ -324,59 +339,59 @@ class _PostScreenState extends State<PostScreen> {
     return city;
   }
 
-  Future<void> _resolveLocationAndGeocode() async {
-    if (!mounted || _hasNotificationLocation) return;
-    setState(() => _isGeolocating = true);
+  Future<bool> _acquireLocation() async {
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
+      return false;
+    }
     try {
-      final serviceOn = await Geolocator.isLocationServiceEnabled();
-      if (!serviceOn) {
-        if (mounted) {
-          setState(() => _locationPermissionDenied = true);
-        }
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-      if (permission == LocationPermission.denied ||
-          permission == LocationPermission.deniedForever) {
-        if (mounted) {
-          setState(() => _locationPermissionDenied = true);
-        }
-        return;
-      }
-
       final pos = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium,
-        ),
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 10),
       );
-      if (!mounted) return;
       setState(() {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
-        _locationPermissionDenied = false;
       });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
-      try {
-        final placemarks =
-            await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (!mounted) return;
-        if (placemarks.isNotEmpty) {
-          final label = _formatPlacemark(placemarks.first);
-          if (label.isNotEmpty) {
-            _locationController.text = label;
-          }
+  Future<void> _reverseGeocodeFromCoords() async {
+    if (_latitude == null || _longitude == null) return;
+    try {
+      final placemarks =
+          await placemarkFromCoordinates(_latitude!, _longitude!);
+      if (!mounted) return;
+      if (placemarks.isNotEmpty) {
+        final label = _formatPlacemark(placemarks.first);
+        if (label.isNotEmpty) {
+          setState(() => _locationController.text = label);
         }
-      } catch (e) {
-        debugPrint('Reverse geocoding failed: $e');
       }
-    } catch (e, st) {
-      debugPrint('Geolocation/geocoding failed: $e\n$st');
-    } finally {
-      if (mounted) setState(() => _isGeolocating = false);
+    } catch (e) {
+      debugPrint('Reverse geocoding failed: $e');
+    }
+  }
+
+  Future<void> _refreshLocationAndGeocode() async {
+    if (!mounted || _hasNotificationLocation) return;
+    setState(() => _isGeolocating = true);
+    final acquired = await _acquireLocation();
+    if (mounted) {
+      setState(() {
+        _locationReady = acquired;
+        _isGeolocating = false;
+      });
+    }
+    if (acquired && mounted) {
+      await _reverseGeocodeFromCoords();
     }
   }
 
@@ -521,6 +536,24 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _submitPost() async {
+    if (_latitude == null || _longitude == null) {
+      final acquired = await _acquireLocation();
+      if (!acquired) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Location access is required to post. '
+              'Please enable location in Settings and try again.',
+            ),
+            duration: Duration(seconds: 4),
+            backgroundColor: Colors.red[700],
+          ),
+        );
+        return;
+      }
+      if (mounted) setState(() => _locationReady = true);
+    }
+
     if (_locationController.text.trim().isEmpty || _selectedImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Please add a location and photo')),
@@ -539,8 +572,8 @@ class _PostScreenState extends State<PostScreen> {
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: locationName,
-        latitude: _latitude ?? 40.7829,
-        longitude: _longitude ?? -73.9654,
+        latitude: _latitude!,
+        longitude: _longitude!,
         crowdingLevel: _crowdingLevel.round(),
         imageFile: _selectedImage!,
         description: _buildDescription(),
@@ -570,8 +603,8 @@ class _PostScreenState extends State<PostScreen> {
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: locationName,
-        latitude: _latitude ?? 40.7829,
-        longitude: _longitude ?? -73.9654,
+        latitude: _latitude!,
+        longitude: _longitude!,
         crowdingLevel: _crowdingLevel.round(),
       );
 
@@ -1227,49 +1260,74 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Widget _buildLocationField() {
-    return Container(
-      margin: const EdgeInsets.only(top: 8),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: TextFormField(
-        controller: _locationController,
-        validator: (v) => v == null || v.trim().isEmpty
-            ? 'Please enter a location name'
-            : null,
-        decoration: InputDecoration(
-          hintText: _locationPermissionDenied
-              ? 'Enter location name'
-              : 'e.g. Central Park, Hyde Park',
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 14,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          margin: const EdgeInsets.only(top: 8),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey[300]!),
+            borderRadius: BorderRadius.circular(12),
           ),
-          prefixIcon: _isGeolocating
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : null,
-          suffixIconConstraints: const BoxConstraints(
-            minHeight: 48,
-            minWidth: 48,
-          ),
-          suffixIcon: IconButton(
-            tooltip: 'Use current location',
-            icon: const Icon(Icons.location_pin),
-            onPressed: (_isGeolocating || _isLoading || _hasNotificationLocation)
-                ? null
-                : _resolveLocationAndGeocode,
+          child: TextFormField(
+            controller: _locationController,
+            validator: (v) => v == null || v.trim().isEmpty
+                ? 'Please enter a location name'
+                : null,
+            decoration: InputDecoration(
+              hintText: 'e.g. Central Park, Hyde Park',
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 14,
+              ),
+              prefixIcon: _isGeolocating
+                  ? const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
+              suffixIconConstraints: const BoxConstraints(
+                minHeight: 48,
+                minWidth: 48,
+              ),
+              suffixIcon: IconButton(
+                tooltip: 'Use current location',
+                icon: const Icon(Icons.location_pin),
+                onPressed:
+                    (_isGeolocating || _isLoading || _hasNotificationLocation)
+                        ? null
+                        : _refreshLocationAndGeocode,
+              ),
+            ),
           ),
         ),
-      ),
+        const SizedBox(height: 6),
+        if (_locationReady)
+          Row(
+            children: [
+              Icon(Icons.gps_fixed, size: 12, color: Colors.green[700]),
+              Text(
+                ' Location acquired',
+                style: TextStyle(fontSize: 11, color: Colors.green[700]),
+              ),
+            ],
+          )
+        else
+          Row(
+            children: [
+              Icon(Icons.gps_off, size: 12, color: Colors.orange[700]),
+              Text(
+                ' Acquiring location...',
+                style: TextStyle(fontSize: 11, color: Colors.orange[700]),
+              ),
+            ],
+          ),
+      ],
     );
   }
 
