@@ -11,6 +11,7 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import '../notifiers/active_filter_notifier.dart';
+import '../constants/local_deals.dart';
 import '../constants/national_brand_ads.dart';
 import '../services/ad_cadence_service.dart';
 import '../services/geofence_service.dart';
@@ -91,7 +92,11 @@ class _FeedScreenState extends State<FeedScreen> {
 
   String _activeFilter = 'Newest';
 
-  Map<String, dynamic>? _activeDeal;
+  List<Map<String, dynamic>> _dealBannerItems = LocalDeals.fallback
+      .map((deal) => Map<String, dynamic>.from(deal))
+      .toList();
+  int _dealBannerIndex = 0;
+  Timer? _dealRotationTimer;
 
   final String _areaLabel = 'Perimeter Mall Area';
 
@@ -148,7 +153,7 @@ class _FeedScreenState extends State<FeedScreen> {
     }).catchError((_) {});
     _initLocation();
     _loadFeedData();
-    _loadActiveDeal();
+    _loadDealBanner();
     _loadAds();
   }
 
@@ -160,6 +165,7 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void dispose() {
     activeFilterNotifier.removeListener(_onFilterChanged);
+    _dealRotationTimer?.cancel();
     _feedSub?.cancel();
     _scrollController.dispose();
     super.dispose();
@@ -244,34 +250,115 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Future<void> _loadActiveDeal() async {
+  Map<String, dynamic>? get _currentBannerDeal {
+    if (_dealBannerItems.isEmpty) return null;
+    return _dealBannerItems[_dealBannerIndex % _dealBannerItems.length];
+  }
+
+  Future<void> _loadDealBanner() async {
+    var deals = <Map<String, dynamic>>[];
+
     try {
-      final snap = await FirebaseFirestore.instance
+      final hasDealSnap = await FirebaseFirestore.instance
           .collection('native_ads')
           .where('isActive', isEqualTo: true)
-          .where('endDate', isGreaterThan: Timestamp.now())
-          .orderBy('endDate')
-          .orderBy('priority', descending: true)
-          .limit(1)
+          .where('hasDeal', isEqualTo: true)
+          .where('dealExpiry', isGreaterThan: Timestamp.now())
+          .orderBy('dealExpiry')
+          .limit(20)
           .get();
-      if (snap.docs.isNotEmpty) {
-        if (!mounted) return;
-        setState(() => _activeDeal = {
-              'id': snap.docs.first.id,
-              ...snap.docs.first.data(),
-            });
-      } else {
-        if (!mounted) return;
-        setState(() => _activeDeal = {
-              'advertiser': 'Local Merchants',
-              'discount': 'DEALS NEAR YOU',
-              'tagline': 'Tap to see offers from nearby businesses',
-              'distance': '',
-            });
-      }
+      deals = hasDealSnap.docs
+          .map((doc) => {'id': doc.id, ...doc.data()})
+          .toList();
     } catch (e) {
-      print('Deal load error: $e');
+      debugPrint('[feed] hasDeal banner query failed: $e');
     }
+
+    if (deals.isEmpty) {
+      try {
+        final activeSnap = await FirebaseFirestore.instance
+            .collection('native_ads')
+            .where('isActive', isEqualTo: true)
+            .where('endDate', isGreaterThan: Timestamp.now())
+            .orderBy('endDate')
+            .limit(20)
+            .get();
+        deals = activeSnap.docs
+            .map((doc) => {'id': doc.id, ...doc.data()})
+            .toList();
+      } catch (e) {
+        debugPrint('[feed] active ads banner query failed: $e');
+      }
+    }
+
+    if (deals.isEmpty) {
+      deals = LocalDeals.fallback
+          .map((deal) => Map<String, dynamic>.from(deal))
+          .toList();
+    }
+
+    deals.sort(_compareDealsByDistance);
+
+    if (!mounted) return;
+    setState(() {
+      _dealBannerItems = deals;
+      _dealBannerIndex = 0;
+    });
+    _startDealRotation();
+  }
+
+  int _compareDealsByDistance(Map<String, dynamic> a, Map<String, dynamic> b) {
+    final da = _dealDistanceMeters(a);
+    final db = _dealDistanceMeters(b);
+    if (da == null && db == null) return 0;
+    if (da == null) return 1;
+    if (db == null) return -1;
+    return da.compareTo(db);
+  }
+
+  double? _dealDistanceMeters(Map<String, dynamic> deal) {
+    final userLat = _latitude ?? _userLat;
+    final userLng = _longitude ?? _userLng;
+    if (userLat == null || userLng == null) return null;
+
+    final lat = (deal['venueLat'] as num?)?.toDouble() ??
+        (deal['latitude'] as num?)?.toDouble();
+    final lng = (deal['venueLng'] as num?)?.toDouble() ??
+        (deal['longitude'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+
+    return _haversine(userLat, userLng, lat, lng);
+  }
+
+  String _dealDistanceLabel(Map<String, dynamic> deal) {
+    final cached = deal['distance'] as String?;
+    if (cached != null && cached.trim().isNotEmpty) return cached.trim();
+
+    final meters = _dealDistanceMeters(deal);
+    if (meters == null) return '';
+    final miles = meters / 1609.344;
+    if (miles < 0.1) return 'nearby';
+    return '${miles.toStringAsFixed(1)} mi';
+  }
+
+  String _dealBannerText(Map<String, dynamic> deal) {
+    return [
+      LocalDeals.discount(deal),
+      LocalDeals.advertiser(deal),
+      _dealDistanceLabel(deal),
+    ].where((part) => part.isNotEmpty).join('  ·  ');
+  }
+
+  void _startDealRotation() {
+    _dealRotationTimer?.cancel();
+    if (_dealBannerItems.length <= 1) return;
+
+    _dealRotationTimer = Timer.periodic(const Duration(seconds: 4), (_) {
+      if (!mounted || _dealBannerItems.length <= 1) return;
+      setState(() {
+        _dealBannerIndex = (_dealBannerIndex + 1) % _dealBannerItems.length;
+      });
+    });
   }
 
   Future<void> _loadAds() async {
@@ -586,14 +673,28 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildBlueHeader() {
-    final totalHeader = MediaQuery.sizeOf(context).height * 0.17;
-    final slot1 = totalHeader * 0.32;
-    final slot2 = totalHeader * 0.40;
+    const logoRowHeight = 60.0;
+    const bannerGap = 14.0;
+    const dealBannerHeight = 22.0;
+    const iconRowHeight = 56.0;
+    const verticalInset = 8.0;
+    const iconRowGap = 6.0;
+    const minHeaderHeight = verticalInset +
+        logoRowHeight +
+        bannerGap +
+        dealBannerHeight +
+        iconRowGap +
+        iconRowHeight +
+        4;
+    final totalHeader = math.max(
+      MediaQuery.sizeOf(context).height * 0.20,
+      minHeaderHeight,
+    );
 
     return SizedBox(
       height: totalHeader,
       child: Stack(
-        clipBehavior: Clip.none,
+        clipBehavior: Clip.hardEdge,
         children: [
           Container(
             height: totalHeader,
@@ -615,11 +716,12 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           Column(
             children: [
-              SizedBox(height: slot1, child: _buildLogoBar(slot1)),
-              const SizedBox(height: 8),
+              const SizedBox(height: verticalInset),
+              SizedBox(height: logoRowHeight, child: _buildLogoBar()),
+              const SizedBox(height: bannerGap),
               _buildDealBanner(),
-              const SizedBox(height: 8),
-              SizedBox(height: slot2, child: _buildIconRow(slot2)),
+              const SizedBox(height: iconRowGap),
+              SizedBox(height: iconRowHeight, child: _buildIconRow(iconRowHeight)),
             ],
           ),
         ],
@@ -627,7 +729,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildLogoBar(double slotHeight) {
+  Widget _buildLogoBar() {
     final logoCharStyle = TextStyle(
       color: Colors.white,
       fontSize: 26,
@@ -637,8 +739,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Stack(
-        alignment: Alignment.center,
+      child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -667,28 +768,26 @@ class _FeedScreenState extends State<FeedScreen> {
               ),
             ],
           ),
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.only(top: 28),
-              child: Row(
+          const Spacer(),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Text('p', style: logoCharStyle),
+              Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text('p', style: logoCharStyle),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('e', style: logoCharStyle),
-                      Transform.scale(
-                        scaleX: -1,
-                        child: Text('e', style: logoCharStyle),
-                      ),
-                    ],
+                  Text('e', style: logoCharStyle),
+                  Transform.scale(
+                    scaleX: -1,
+                    child: Text('e', style: logoCharStyle),
                   ),
-                  Text('pl', style: logoCharStyle),
                 ],
               ),
-            ),
+              Text('pl', style: logoCharStyle),
+            ],
           ),
+          const SizedBox(height: 2),
         ],
       ),
     );
@@ -701,7 +800,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final peepSize = slotHeight * 0.62;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 12, left: 8, right: 8),
+      padding: const EdgeInsets.only(top: 2, left: 8, right: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -916,54 +1015,15 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildDealBanner() {
-    if (_activeDeal == null) {
+    final deal = _currentBannerDeal;
+    if (deal == null) {
       return const SizedBox.shrink();
     }
 
-    final deal = _activeDeal!;
+    final bannerText = _dealBannerText(deal);
 
     return GestureDetector(
-      onTap: () {
-        Map<String, dynamic>? match;
-        final advertiserLower =
-            (_activeDeal!['advertiser'] ?? '').toString().toLowerCase();
-        for (final item in _feedItems) {
-          if (item['type'] == 'ad') continue;
-          final locationName =
-              (item['locationName'] ?? '').toString().toLowerCase();
-          if (advertiserLower.isNotEmpty &&
-              locationName.contains(advertiserLower)) {
-            match = item;
-            break;
-          }
-        }
-
-        if (match == null) {
-          final dealId = (deal['id'] ?? '').toString();
-          if (dealId.isNotEmpty) {
-            for (final item in _feedItems) {
-              if (item['type'] == 'ad' &&
-                  (item['id'] ?? '').toString() == dealId) {
-                unawaited(_openSponsorDestination(item, tapKind: 'card'));
-                return;
-              }
-            }
-          }
-        }
-
-        if (match != null) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => LocationDetailScreen(postData: match!),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Deal details coming soon')),
-          );
-        }
-      },
+      onTap: () => Navigator.pushNamed(context, '/deals'),
       child: Container(
         width: double.infinity,
         height: 22,
@@ -974,20 +1034,20 @@ class _FeedScreenState extends State<FeedScreen> {
             const Icon(Icons.local_offer, color: Color(0xFF2E7D32), size: 12),
             const SizedBox(width: 8),
             Expanded(
-              child: Text(
-                [
-                  _activeDeal!['discount'] ?? '',
-                  _activeDeal!['advertiser'] ?? '',
-                  _activeDeal!['distance'] ?? '',
-                ]
-                    .where((s) => s.toString().isNotEmpty)
-                    .join('  ·  '),
-                style: const TextStyle(
-                  color: Color(0xFF2E7D32),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 350),
+                child: Text(
+                  bannerText,
+                  key: ValueKey<String>(
+                    '${_dealBannerIndex}_$bannerText',
+                  ),
+                  style: const TextStyle(
+                    color: Color(0xFF2E7D32),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                overflow: TextOverflow.ellipsis,
               ),
             ),
             const Text(
