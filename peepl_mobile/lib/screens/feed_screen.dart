@@ -91,6 +91,7 @@ class _FeedScreenState extends State<FeedScreen> {
   String? _errorMessage;
 
   String _activeFilter = 'Newest';
+  String _searchQuery = '';
 
   List<Map<String, dynamic>> _dealBannerItems = LocalDeals.fallback
       .map((deal) => Map<String, dynamic>.from(deal))
@@ -109,7 +110,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   static const double _heroHeightFraction = 0.17;
   static const double _cardMarginBottom = 6;
-  static const double _shellBottomNavHeight = 52;
+  static const double _shellBottomNavHeight = 44;
   static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
   /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
   static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
@@ -639,17 +640,91 @@ class _FeedScreenState extends State<FeedScreen> {
     return '${miles.toStringAsFixed(1)} mi';
   }
 
-  /// Card height so exactly 8 single-column rows fit without scrolling.
-  double _cardHeightForFeed(double feedViewportHeight) {
-    const rows = 8;
-    return (feedViewportHeight - (rows - 1) * _cardMarginBottom) / rows;
+  String _displayName(String? raw) {
+    if (raw == null || raw.isEmpty) return 'Unknown Venue';
+    final parts = raw.split(',');
+    final first = parts.first.trim();
+    if (RegExp(r'^\d+\s|^US-|^I-\d+').hasMatch(first)) {
+      return raw.trim();
+    }
+    return first;
   }
 
-  double _headerHeight(BuildContext context) =>
-      MediaQuery.sizeOf(context).height * _heroHeightFraction;
+  List<Map<String, dynamic>> get _visibleFeedItems {
+    if (_searchQuery.isEmpty) return _feedItems;
+    final q = _searchQuery.toLowerCase();
+    return _feedItems.where((item) {
+      if (item['type'] == 'ad') return false;
+      final name = (item['locationName'] ?? '').toString().toLowerCase();
+      return name.contains(q);
+    }).toList();
+  }
+
+  void _showSearchSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
+        ),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: 'Search venues...',
+                  prefixIcon: const Icon(Icons.search),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() => _searchQuery = value.trim());
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  double _headerHeight(BuildContext context) {
+    const logoRowHeight = 60.0;
+    const bannerGap = 14.0;
+    const dealBannerHeight = 22.0;
+    const iconRowHeight = 56.0;
+    const verticalInset = 8.0;
+    const iconRowGap = 6.0;
+    const minHeaderHeight = verticalInset +
+        logoRowHeight +
+        bannerGap +
+        dealBannerHeight +
+        iconRowGap +
+        iconRowHeight +
+        4;
+    return math.max(
+      MediaQuery.sizeOf(context).height * 0.20,
+      minHeaderHeight,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final screenHeight = MediaQuery.sizeOf(context).height;
+    final headerHeight = _headerHeight(context);
+    final feedHeight = screenHeight - headerHeight - 44;
+    final cardHeight = (feedHeight - (7 * 6)) / 8;
+
     return Scaffold(
       backgroundColor: _T.white,
       body: MediaQuery.removePadding(
@@ -659,12 +734,7 @@ class _FeedScreenState extends State<FeedScreen> {
           children: [
             _buildBlueHeader(),
             Expanded(
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final cardHeight = _cardHeightForFeed(constraints.maxHeight);
-                  return _buildFeedContent(cardHeight: cardHeight);
-                },
-              ),
+              child: _buildFeedContent(cardHeight: cardHeight),
             ),
           ],
         ),
@@ -811,11 +881,7 @@ class _FeedScreenState extends State<FeedScreen> {
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Search coming soon')),
-              );
-            },
+            onTap: _showSearchSheet,
           ),
           _headerAction(
             icon: Icons.notifications_outlined,
@@ -845,19 +911,15 @@ class _FeedScreenState extends State<FeedScreen> {
             labelSize: labelSize,
             circleColor: const Color(0xFFE8F5E9),
             iconColor: const Color(0xFF2E7D32),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Deals coming soon')),
-              );
-            },
+            onTap: () => Navigator.pushNamed(context, '/deals'),
           ),
           _headerAction(
             icon: Icons.map_outlined,
-            label: 'Discover',
+            label: 'Map',
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
-            onTap: () => Navigator.pushNamed(context, '/discover'),
+            onTap: () => Navigator.pushNamed(context, '/map'),
           ),
           _headerAction(
             icon: Icons.menu,
@@ -1107,10 +1169,14 @@ class _FeedScreenState extends State<FeedScreen> {
       );
     }
 
-    if (_feedItems.isEmpty) {
+    final items = _visibleFeedItems;
+
+    if (items.isEmpty) {
       return Center(
         child: Text(
-          'No peeps yet. Be the first.',
+          _searchQuery.isNotEmpty
+              ? 'No venues match your search.'
+              : 'No peeps yet. Be the first.',
           style: TextStyle(color: _T.secondaryText, fontSize: 15),
         ),
       );
@@ -1125,10 +1191,10 @@ class _FeedScreenState extends State<FeedScreen> {
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(6, 0, 6, 90),
-        itemCount: _feedItems.length,
+        padding: const EdgeInsets.fromLTRB(6, 0, 6, 50),
+        itemCount: items.length,
         itemBuilder: (context, index) {
-          final item = _feedItems[index];
+          final item = items[index];
           return Container(
             margin: const EdgeInsets.only(bottom: 6, left: 0, right: 0),
             child: SizedBox(
@@ -1160,7 +1226,7 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     final post = item;
-    final name = (post['locationName'] ?? 'Unknown').toString();
+    final name = _displayName(post['locationName']?.toString());
     return _FeedPostCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
       name: name,
