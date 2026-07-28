@@ -616,7 +616,9 @@ class _FeedScreenState extends State<FeedScreen> {
           Column(
             children: [
               SizedBox(height: slot1, child: _buildLogoBar(slot1)),
+              const SizedBox(height: 8),
               _buildDealBanner(),
+              const SizedBox(height: 8),
               SizedBox(height: slot2, child: _buildIconRow(slot2)),
             ],
           ),
@@ -699,7 +701,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final peepSize = slotHeight * 0.62;
 
     return Padding(
-      padding: const EdgeInsets.only(top: 6, left: 8, right: 8),
+      padding: const EdgeInsets.only(top: 12, left: 8, right: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -742,6 +744,8 @@ class _FeedScreenState extends State<FeedScreen> {
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
+            circleColor: const Color(0xFFE8F5E9),
+            iconColor: const Color(0xFF2E7D32),
             onTap: () {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Deals coming soon')),
@@ -776,6 +780,8 @@ class _FeedScreenState extends State<FeedScreen> {
     required double iconSize,
     required double labelSize,
     required VoidCallback onTap,
+    Color? circleColor,
+    Color? iconColor,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -788,7 +794,7 @@ class _FeedScreenState extends State<FeedScreen> {
             width: circleSize,
             height: circleSize,
             decoration: BoxDecoration(
-              color: _T.white,
+              color: circleColor ?? _T.white,
               shape: BoxShape.circle,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.85),
@@ -802,7 +808,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ],
             ),
-            child: Icon(icon, color: _T.blue, size: iconSize),
+            child: Icon(icon, color: iconColor ?? _T.blue, size: iconSize),
           ),
           SizedBox(height: circleSize * 0.06),
           Text(
