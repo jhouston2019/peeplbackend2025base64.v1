@@ -18,6 +18,7 @@ import 'screens/account_info_screen.dart';
 import 'screens/create_peep_screen.dart';
 import 'screens/deal_claimed_screen.dart';
 import 'screens/deals_screen.dart';
+import 'screens/explore_screen.dart';
 import 'screens/favorites_screen.dart';
 import 'screens/follow_list_screen.dart';
 import 'screens/get_peeps_screen.dart';
@@ -106,6 +107,7 @@ Map<String, WidgetBuilder> appRoutes = {
     return DealClaimedScreen(adData: adData);
   },
   '/deals': (_) => const DealsScreen(),
+  '/explore': (_) => const ExploreScreen(),
   '/favorites': (_) => const FavoritesScreen(),
   '/follow_list': (ctx) {
     final args = ModalRoute.of(ctx)?.settings.arguments;

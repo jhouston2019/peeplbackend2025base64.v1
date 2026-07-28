@@ -64,12 +64,12 @@ class _MainShellState extends State<MainShell> {
           return Container(
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             decoration: BoxDecoration(
-              color: isActive ? const Color(0xFF1565C0) : Colors.transparent,
+              color: isActive ? Colors.white : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isActive
-                    ? const Color(0xFF1565C0)
-                    : Colors.grey[400]!,
+                    ? Colors.white
+                    : Colors.white.withValues(alpha: 0.5),
                 width: 1,
               ),
             ),
@@ -79,7 +79,9 @@ class _MainShellState extends State<MainShell> {
                 Icon(
                   icon,
                   size: 11,
-                  color: isActive ? Colors.white : Colors.grey[600],
+                  color: isActive
+                      ? const Color(0xFF1565C0)
+                      : Colors.white,
                 ),
                 const SizedBox(width: 4),
                 Text(
@@ -88,7 +90,9 @@ class _MainShellState extends State<MainShell> {
                     fontSize: 11,
                     fontWeight:
                         isActive ? FontWeight.w700 : FontWeight.w500,
-                    color: isActive ? Colors.white : Colors.grey[600],
+                    color: isActive
+                        ? const Color(0xFF1565C0)
+                        : Colors.white,
                   ),
                 ),
               ],
@@ -110,7 +114,7 @@ class _MainShellState extends State<MainShell> {
       ),
       bottomNavigationBar: Container(
         height: 44,
-        color: Colors.white,
+        color: const Color(0xFF1565C0),
         child: Center(
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,

@@ -897,7 +897,7 @@ class _FeedScreenState extends State<FeedScreen> {
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
-            onTap: () => Navigator.pushNamed(context, '/discover'),
+            onTap: () => Navigator.pushNamed(context, '/explore'),
           ),
           _headerPeepAction(
             circleSize: peepSize,

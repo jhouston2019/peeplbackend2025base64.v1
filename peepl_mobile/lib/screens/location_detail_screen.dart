@@ -571,6 +571,16 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 children: [
                   GestureDetector(
                     onTap: () async {
+                      debugPrint('Explore Live tapped');
+                      debugPrint('Post data: ${widget.postData}');
+                      debugPrint(
+                        'Lat: ${widget.postData['latitude']}, '
+                        'Lng: ${widget.postData['longitude']}',
+                      );
+                      debugPrint(
+                        'User: ${FirebaseAuth.instance.currentUser?.uid}',
+                      );
+
                       final user = FirebaseAuth.instance.currentUser;
                       if (user == null) return;
 
@@ -587,11 +597,22 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             widget.postData['locationName'] as String? ??
                                 'this location';
 
-                        final presence =
-                            await PresenceService.instance.getActivePresence(
-                          latitude,
-                          longitude,
-                        );
+                        List<Map<String, dynamic>> presence;
+                        try {
+                          debugPrint('Calling getActivePresence...');
+                          presence =
+                              await PresenceService.instance.getActivePresence(
+                            latitude,
+                            longitude,
+                          );
+                          debugPrint(
+                            'getActivePresence returned: ${presence.length} results',
+                          );
+                          debugPrint('Presence result: $presence');
+                        } catch (presenceError) {
+                          debugPrint('getActivePresence FAILED: $presenceError');
+                          rethrow;
+                        }
 
                         if (presence.isNotEmpty) {
                           await PresenceService.instance.sendCrowdsourceRequest(
@@ -637,13 +658,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                             ),
                           );
                         }
-                      } catch (e) {
+                      } catch (e, stackTrace) {
+                        debugPrint('Explore Live error: $e');
+                        debugPrint('Stack: $stackTrace');
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: const Text(
-                              'Could not send request. Please try again.',
-                            ),
+                            content: Text('Error: ${e.toString()}'),
+                            duration: const Duration(seconds: 8),
                             backgroundColor: Colors.red[700],
                           ),
                         );
