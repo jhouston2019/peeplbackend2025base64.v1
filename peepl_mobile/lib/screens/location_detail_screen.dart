@@ -5,6 +5,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
+import '../services/debug_log_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
@@ -571,13 +572,18 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 children: [
                   GestureDetector(
                     onTap: () async {
-                      debugPrint('Explore Live tapped');
-                      debugPrint('Post data: ${widget.postData}');
-                      debugPrint(
+                      DebugLogService.log('EXPLORE_LIVE', 'Explore Live tapped');
+                      DebugLogService.log(
+                        'EXPLORE_LIVE',
+                        'Post data: ${widget.postData}',
+                      );
+                      DebugLogService.log(
+                        'EXPLORE_LIVE',
                         'Lat: ${widget.postData['latitude']}, '
                         'Lng: ${widget.postData['longitude']}',
                       );
-                      debugPrint(
+                      DebugLogService.log(
+                        'EXPLORE_LIVE',
                         'User: ${FirebaseAuth.instance.currentUser?.uid}',
                       );
 
@@ -599,18 +605,28 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
                         List<Map<String, dynamic>> presence;
                         try {
-                          debugPrint('Calling getActivePresence...');
+                          DebugLogService.log(
+                            'EXPLORE_LIVE',
+                            'Calling getActivePresence...',
+                          );
                           presence =
                               await PresenceService.instance.getActivePresence(
                             latitude,
                             longitude,
                           );
-                          debugPrint(
+                          DebugLogService.log(
+                            'EXPLORE_LIVE',
                             'getActivePresence returned: ${presence.length} results',
                           );
-                          debugPrint('Presence result: $presence');
+                          DebugLogService.log(
+                            'EXPLORE_LIVE',
+                            'Presence result: $presence',
+                          );
                         } catch (presenceError) {
-                          debugPrint('getActivePresence FAILED: $presenceError');
+                          DebugLogService.log(
+                            'EXPLORE_LIVE',
+                            'getActivePresence FAILED: $presenceError',
+                          );
                           rethrow;
                         }
 
@@ -659,8 +675,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                           );
                         }
                       } catch (e, stackTrace) {
-                        debugPrint('Explore Live error: $e');
-                        debugPrint('Stack: $stackTrace');
+                        DebugLogService.log(
+                          'EXPLORE_LIVE',
+                          'Explore Live error: $e — stack: $stackTrace',
+                        );
                         if (!mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
