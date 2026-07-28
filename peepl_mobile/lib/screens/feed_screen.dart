@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
+import '../notifiers/active_filter_notifier.dart';
 import '../constants/national_brand_ads.dart';
 import '../services/ad_cadence_service.dart';
 import '../services/geofence_service.dart';
@@ -128,6 +129,8 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void initState() {
     super.initState();
+    _activeFilter = activeFilterNotifier.value;
+    activeFilterNotifier.addListener(_onFilterChanged);
     unawaited(_cadence.init().then((_) {
       if (!mounted) return;
       setState(() => _feedItems = _rebuildFeedItems());
@@ -149,8 +152,14 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadAds();
   }
 
+  void _onFilterChanged() {
+    setState(() => _activeFilter = activeFilterNotifier.value);
+    _loadFeedData();
+  }
+
   @override
   void dispose() {
+    activeFilterNotifier.removeListener(_onFilterChanged);
     _feedSub?.cancel();
     _scrollController.dispose();
     super.dispose();
@@ -233,12 +242,6 @@ class _FeedScreenState extends State<FeedScreen> {
         });
       },
     );
-  }
-
-  void _selectFilter(String label) {
-    if (_activeFilter == label) return;
-    setState(() => _activeFilter = label);
-    _loadFeedData();
   }
 
   Future<void> _loadActiveDeal() async {
@@ -586,7 +589,6 @@ class _FeedScreenState extends State<FeedScreen> {
     final totalHeader = MediaQuery.sizeOf(context).height * 0.17;
     final slot1 = totalHeader * 0.32;
     final slot2 = totalHeader * 0.40;
-    final slot3 = totalHeader * 0.28;
 
     return SizedBox(
       height: totalHeader,
@@ -616,7 +618,6 @@ class _FeedScreenState extends State<FeedScreen> {
               SizedBox(height: slot1, child: _buildLogoBar(slot1)),
               _buildDealBanner(),
               SizedBox(height: slot2, child: _buildIconRow(slot2)),
-              SizedBox(height: slot3, child: _buildPillRow(slot3)),
             ],
           ),
         ],
@@ -692,11 +693,10 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildIconRow(double slotHeight) {
-    final outerSize = slotHeight * 0.52;
-    final peepSize = slotHeight * 0.68;
-    final iconSize = outerSize * 0.42;
-    final peepIconSize = peepSize * 0.34;
-    const labelSize = 8.0;
+    const iconSize = 14.0;
+    const labelSize = 7.0;
+    final outerSize = slotHeight * 0.42;
+    final peepSize = slotHeight * 0.62;
 
     return Padding(
       padding: const EdgeInsets.only(top: 6, left: 8, right: 8),
@@ -710,10 +710,22 @@ class _FeedScreenState extends State<FeedScreen> {
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
-            onTap: () => Navigator.pushNamed(context, '/search'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Search coming soon')),
+              );
+            },
           ),
           _headerAction(
-            icon: Icons.explore_outlined,
+            icon: Icons.notifications_outlined,
+            label: 'Alerts',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/alerts'),
+          ),
+          _headerAction(
+            icon: Icons.explore,
             label: 'Explore',
             circleSize: outerSize,
             iconSize: iconSize,
@@ -722,16 +734,27 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           _headerPeepAction(
             circleSize: peepSize,
-            iconSize: peepIconSize,
             labelSize: labelSize,
           ),
           _headerAction(
-            icon: Icons.local_offer_outlined,
+            icon: Icons.local_offer,
             label: 'Deals',
             circleSize: outerSize,
             iconSize: iconSize,
             labelSize: labelSize,
-            onTap: () => Navigator.pushNamed(context, '/deals'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Deals coming soon')),
+              );
+            },
+          ),
+          _headerAction(
+            icon: Icons.map_outlined,
+            label: 'Discover',
+            circleSize: outerSize,
+            iconSize: iconSize,
+            labelSize: labelSize,
+            onTap: () => Navigator.pushNamed(context, '/discover'),
           ),
           _headerAction(
             icon: Icons.menu,
@@ -800,7 +823,6 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _headerPeepAction({
     required double circleSize,
-    required double iconSize,
     required double labelSize,
   }) {
     return GestureDetector(
@@ -825,87 +847,33 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ],
             ),
-            child: const Center(
-              child: Text(
-                'PEEP',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
+            child: const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  '+',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
                 ),
-              ),
+                Text(
+                  'PEEP',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    height: 1.0,
+                  ),
+                ),
+              ],
             ),
           ),
           SizedBox(height: circleSize * 0.06),
           SizedBox(height: labelSize),
         ],
-      ),
-    );
-  }
-
-  Widget _buildPillRow(double slot3Height) {
-    return SizedBox(
-      height: slot3Height,
-      child: Center(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _filterPill('Newest', Icons.calendar_today, () {
-                _selectFilter('Newest');
-              }),
-              const SizedBox(width: 6),
-              _filterPill('Nearby', Icons.location_on, () {
-                _selectFilter('Nearby');
-              }),
-              const SizedBox(width: 6),
-              _filterPill('Local', Icons.store, () {
-                _selectFilter('Local');
-              }),
-              const SizedBox(width: 6),
-              _filterPill('Region', Icons.public, () {
-                _selectFilter('Region');
-              }),
-              const SizedBox(width: 6),
-              _filterPill('Map View', Icons.map, () {
-                Navigator.pushNamed(context, '/map');
-              }),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _filterPill(String label, IconData icon, VoidCallback onTap) {
-    final selected = _activeFilter == label;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          border: Border.all(color: Colors.white.withOpacity(0.6), width: 1),
-          borderRadius: BorderRadius.circular(20),
-          color: selected ? Colors.white : Colors.white.withOpacity(0.12),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: selected ? _T.blue : Colors.white, size: 11),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: selected ? _T.blue : Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -947,18 +915,12 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     final deal = _activeDeal!;
-    final offerText =
-        (deal['discount'] ?? deal['tagline'] ?? '').toString();
-    final advertiser = (deal['advertiser'] ?? '').toString();
-    final bannerText = [
-      if (offerText.isNotEmpty) offerText,
-      if (advertiser.isNotEmpty) advertiser,
-    ].join(' · ');
 
     return GestureDetector(
       onTap: () {
         Map<String, dynamic>? match;
-        final advertiserLower = advertiser.toLowerCase();
+        final advertiserLower =
+            (_activeDeal!['advertiser'] ?? '').toString().toLowerCase();
         for (final item in _feedItems) {
           if (item['type'] == 'ad') continue;
           final locationName =
@@ -998,19 +960,25 @@ class _FeedScreenState extends State<FeedScreen> {
       },
       child: Container(
         width: double.infinity,
-        height: 44,
+        height: 22,
         color: const Color(0xFFE8F5E9),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
         child: Row(
           children: [
-            const Icon(Icons.local_offer, color: Color(0xFF2E7D32), size: 16),
+            const Icon(Icons.local_offer, color: Color(0xFF2E7D32), size: 12),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                bannerText,
+                [
+                  _activeDeal!['discount'] ?? '',
+                  _activeDeal!['advertiser'] ?? '',
+                  _activeDeal!['distance'] ?? '',
+                ]
+                    .where((s) => s.toString().isNotEmpty)
+                    .join('  ·  '),
                 style: const TextStyle(
                   color: Color(0xFF2E7D32),
-                  fontSize: 13,
+                  fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
                 overflow: TextOverflow.ellipsis,
@@ -1020,7 +988,7 @@ class _FeedScreenState extends State<FeedScreen> {
               'View Deal >',
               style: TextStyle(
                 color: Color(0xFF2E7D32),
-                fontSize: 13,
+                fontSize: 11,
                 fontWeight: FontWeight.w700,
               ),
             ),
@@ -1346,11 +1314,18 @@ class _FeedPostCard extends StatelessWidget {
                       name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
+                      style: TextStyle(
+                        color: const Color(0xFFFFF9C4),
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
                         height: 1.1,
+                        shadows: [
+                          Shadow(
+                            offset: const Offset(0, 1),
+                            blurRadius: 4,
+                            color: Colors.black.withOpacity(0.6),
+                          ),
+                        ],
                       ),
                     ),
                     if (subtitle != null && subtitle!.isNotEmpty) ...[

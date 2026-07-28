@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../notifiers/active_filter_notifier.dart';
 import '../shell_tab_bus.dart';
+import 'alerts_screen.dart';
 import 'discover_screen.dart';
 import 'feed_screen.dart';
-import 'notifications_screen.dart';
 
 const Color _kSelectedBlue = Color(0xFF0A66FF);
 
@@ -11,7 +12,7 @@ class MainShell extends StatefulWidget {
   const MainShell({super.key, this.initialBodyIndex = 0});
 
   /// Legacy indices: 0 Feed, 1 Discover, 2 Post (opens /post), 3 Notifications, 4 Profile (menu).
-  /// Bottom bar indices: 0 Home, 1 Discover, 2 Notifications.
+  /// Bottom bar indices: 0 Home, 1 Discover, 2 Alerts.
   final int initialBodyIndex;
 
   @override
@@ -24,7 +25,7 @@ class _MainShellState extends State<MainShell> {
   static const List<Widget> _tabBodies = [
     FeedScreen(),
     DiscoverScreen(),
-    NotificationsScreen(),
+    AlertsScreen(),
   ];
 
   /// Maps legacy body indices (incl. Post=2 / Menu=4) onto the 3-tab bar.
@@ -84,6 +85,56 @@ class _MainShellState extends State<MainShell> {
     setState(() => _currentIndex = index);
   }
 
+  Widget _shellPill(String label, IconData icon) {
+    return GestureDetector(
+      onTap: () {
+        activeFilterNotifier.value = label;
+        if (label == 'Map') {
+          Navigator.pushNamed(context, '/map');
+        }
+      },
+      child: ValueListenableBuilder<String>(
+        valueListenable: activeFilterNotifier,
+        builder: (context, activeFilter, _) {
+          final isActive = activeFilter == label;
+          return Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+            decoration: BoxDecoration(
+              color: isActive ? const Color(0xFF1565C0) : Colors.transparent,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: isActive
+                    ? const Color(0xFF1565C0)
+                    : Colors.grey[400]!,
+                width: 1,
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 11,
+                  color: isActive ? Colors.white : Colors.grey[600],
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight:
+                        isActive ? FontWeight.w700 : FontWeight.w500,
+                    color: isActive ? Colors.white : Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final uid = FirebaseAuth.instance.currentUser?.uid;
@@ -94,37 +145,65 @@ class _MainShellState extends State<MainShell> {
         index: _currentIndex,
         children: _tabBodies,
       ),
-      bottomNavigationBar: SizedBox(
-        height: 52 + bottomInset,
-        child: Padding(
-          padding: EdgeInsets.only(bottom: bottomInset),
-          child: BottomNavigationBar(
-            type: BottomNavigationBarType.fixed,
-            backgroundColor: _kSelectedBlue,
-            elevation: 0,
-            iconSize: 20,
-            selectedFontSize: 10,
-            unselectedFontSize: 10,
-            selectedItemColor: Colors.white,
-            unselectedItemColor: Colors.white.withValues(alpha: 0.6),
-            currentIndex: _currentIndex,
-            onTap: _onBarTap,
-            items: [
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.home),
-                label: 'Home',
+      bottomNavigationBar: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 36,
+            color: Colors.white,
+            child: Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    _shellPill('Newest', Icons.calendar_today),
+                    const SizedBox(width: 6),
+                    _shellPill('Nearby', Icons.location_on),
+                    const SizedBox(width: 6),
+                    _shellPill('Local', Icons.store),
+                    const SizedBox(width: 6),
+                    _shellPill('Map', Icons.map),
+                    const SizedBox(width: 6),
+                    _shellPill('Region', Icons.public),
+                  ],
+                ),
               ),
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.explore),
-                label: 'Discover',
-              ),
-              BottomNavigationBarItem(
-                icon: _AlertsNavIcon(notificationUid: uid),
-                label: 'Alerts',
-              ),
-            ],
+            ),
           ),
-        ),
+          SizedBox(
+            height: 52 + bottomInset,
+            child: Padding(
+              padding: EdgeInsets.only(bottom: bottomInset),
+              child: BottomNavigationBar(
+                type: BottomNavigationBarType.fixed,
+                backgroundColor: _kSelectedBlue,
+                elevation: 0,
+                iconSize: 20,
+                selectedFontSize: 10,
+                unselectedFontSize: 10,
+                selectedItemColor: Colors.white,
+                unselectedItemColor: Colors.white.withValues(alpha: 0.6),
+                currentIndex: _currentIndex,
+                onTap: _onBarTap,
+                items: [
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.home),
+                    label: 'Home',
+                  ),
+                  const BottomNavigationBarItem(
+                    icon: Icon(Icons.explore),
+                    label: 'Discover',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: _AlertsNavIcon(notificationUid: uid),
+                    label: 'Alerts',
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -137,12 +216,12 @@ class _AlertsNavIcon extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final icon = const Icon(Icons.notifications_outlined, size: 20);
+    const icon = Icon(Icons.notifications_outlined, size: 20);
 
     if (notificationUid == null) return icon;
 
     return StreamBuilder<int>(
-      stream: NotificationsScreen.unreadCountStream(notificationUid!),
+      stream: AlertsScreen.unreadCountStream(notificationUid!),
       builder: (context, snap) {
         final count = snap.data ?? 0;
         if (count <= 0) return icon;
