@@ -101,7 +101,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   static const double _localRadiusMeters = 16000.0;
 
-  static const double _heroHeightFraction = 0.20;
+  static const double _heroHeightFraction = 0.17;
   static const double _cardMarginBottom = 6;
   static const double _shellBottomNavHeight = 52;
   static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
@@ -568,7 +568,6 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildBlueHeader(),
-            _buildDealBanner(),
             Expanded(
               child: LayoutBuilder(
                 builder: (context, constraints) {
@@ -584,38 +583,43 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildBlueHeader() {
-    final h = _headerHeight(context);
-    final slot1 = h * 0.32;
-    final slot2 = h * 0.40;
-    final slot3 = h * 0.28;
+    final totalHeader = MediaQuery.sizeOf(context).height * 0.17;
+    final slot1 = totalHeader * 0.32;
+    final slot2 = totalHeader * 0.40;
+    final slot3 = totalHeader * 0.28;
 
-    return ClipRect(
-      child: SizedBox(
-        height: h,
-        width: double.infinity,
-        child: Container(
-          decoration: const BoxDecoration(
-            color: _T.blue,
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(20),
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Color(0x18000000),
-                offset: Offset(0, 2),
-                blurRadius: 6,
+    return SizedBox(
+      height: totalHeader,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            height: totalHeader,
+            width: double.infinity,
+            decoration: const BoxDecoration(
+              color: _T.blue,
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
-            ],
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x18000000),
+                  offset: Offset(0, 2),
+                  blurRadius: 6,
+                ),
+              ],
+            ),
           ),
-          child: Column(
+          Column(
             children: [
               SizedBox(height: slot1, child: _buildLogoBar(slot1)),
+              _buildDealBanner(),
               SizedBox(height: slot2, child: _buildIconRow(slot2)),
               SizedBox(height: slot3, child: _buildPillRow(slot3)),
             ],
           ),
-        ),
+        ],
       ),
     );
   }
@@ -662,7 +666,7 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
           Center(
             child: Padding(
-              padding: const EdgeInsets.only(top: 20),
+              padding: const EdgeInsets.only(top: 28),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -695,7 +699,7 @@ class _FeedScreenState extends State<FeedScreen> {
     const labelSize = 8.0;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.only(top: 6, left: 8, right: 8),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.center,
