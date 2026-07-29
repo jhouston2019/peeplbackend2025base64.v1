@@ -5,7 +5,15 @@ import 'package:flutter/material.dart';
 class CrowdMeter extends StatelessWidget {
   final int level; // 0-10
   final double size; // outer diameter
-  const CrowdMeter({super.key, required this.level, this.size = 52});
+  final double strokeRatio;
+  final double fontScale;
+  const CrowdMeter({
+    super.key,
+    required this.level,
+    this.size = 52,
+    this.strokeRatio = 0.13,
+    this.fontScale = 0.44,
+  });
 
   Color get _color => levelColor(level);
 
@@ -35,14 +43,14 @@ class CrowdMeter extends StatelessWidget {
         painter: _RingPainter(
           progress: (level.clamp(0, 10)) / 10.0,
           color: _color,
-          stroke: size * 0.13,
+          stroke: size * strokeRatio,
         ),
         child: Center(
           child: Text(
             '$level',
             style: TextStyle(
               color: _color,
-              fontSize: size * 0.44,
+              fontSize: size * fontScale,
               fontWeight: FontWeight.w900,
               height: 1.0,
               shadows: const [

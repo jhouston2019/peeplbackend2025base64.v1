@@ -45,16 +45,40 @@ import 'location_detail_screen.dart';
 /// **6. Future slots** — optional promotionalBadge, eventTitle, dealText,
 ///   announcementText populate existing name/address/distance fields only.
 
-/// Peepl Home Screen Engineering Specification v1.0 design tokens.
+/// Peepl Home Screen — navy shell design tokens (screen-local).
 class _T {
-  static const blue = Color(0xFF0054D8);
+  static const navy = Color(0xFF153E75);
   static const yellow = Color(0xFFFFC107);
   static const dealGreen = Color(0xFFDCEFCB);
   static const dealGreenText = Color(0xFF1B5C2E);
   static const white = Color(0xFFFFFFFF);
+  static const feedBackground = Color(0xFFF4F6F8);
+  static const cardSeparator = Color(0xFFE5E9EF);
   static const primaryText = Color(0xFF111111);
   static const secondaryText = Color(0xFF6B7280);
   static const cardFallback = Color(0xFF0D47A1);
+
+  static const cardGap = 4.0;
+  static const headerToFeedGap = 0.0;
+
+  static const headerVerticalInset = 4.0;
+  static const logoRowHeight = 28.0;
+  static const bannerGap = 3.0;
+  static const dealBannerHeight = 36.0;
+  static const iconRowGap = 2.0;
+  static const iconRowHeight = 58.0;
+  static const headerBottomPadding = 14.0;
+  static const headerHeightFraction = 0.12;
+  static const actionCircleSize = 44.0;
+  static const peepCircleSize = 46.0;
+  static const actionIconSize = 16.0;
+  static const actionLabelSize = 10.0;
+  static const labelIconGap = 4.0;
+
+  static const cardTextLeft = 22.0;
+  static const cardTextBottom = 18.0;
+  static const scoreRingTop = 14.0;
+  static const scoreRingRight = 14.0;
 
   static const ringGreen = Color(0xFF34C759);
   static const ringAmber = Color(0xFFFF9F0A);
@@ -108,10 +132,9 @@ class _FeedScreenState extends State<FeedScreen> {
 
   static const double _localRadiusMeters = 16000.0;
 
-  static const double _heroHeightFraction = 0.17;
-  static const double _cardMarginBottom = 6;
   static const double _shellBottomNavHeight = 44;
   static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
+
   /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
   static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
 
@@ -137,21 +160,24 @@ class _FeedScreenState extends State<FeedScreen> {
     super.initState();
     _activeFilter = activeFilterNotifier.value;
     activeFilterNotifier.addListener(_onFilterChanged);
-    unawaited(_cadence.init().then((_) {
-      if (!mounted) return;
-      setState(() => _feedItems = _rebuildFeedItems());
-    }));
+    unawaited(
+      _cadence.init().then((_) {
+        if (!mounted) return;
+        setState(() => _feedItems = _rebuildFeedItems());
+      }),
+    );
     Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low)
         .then((pos) {
-      if (!mounted) return;
-      setState(() {
-        _latitude = pos.latitude;
-        _longitude = pos.longitude;
-        _userLat = pos.latitude;
-        _userLng = pos.longitude;
-        _feedItems = _rebuildFeedItems();
-      });
-    }).catchError((_) {});
+          if (!mounted) return;
+          setState(() {
+            _latitude = pos.latitude;
+            _longitude = pos.longitude;
+            _userLat = pos.latitude;
+            _userLng = pos.longitude;
+            _feedItems = _rebuildFeedItems();
+          });
+        })
+        .catchError((_) {});
     _initLocation();
     _loadFeedData();
     _loadDealBanner();
@@ -322,9 +348,11 @@ class _FeedScreenState extends State<FeedScreen> {
     final userLng = _longitude ?? _userLng;
     if (userLat == null || userLng == null) return null;
 
-    final lat = (deal['venueLat'] as num?)?.toDouble() ??
+    final lat =
+        (deal['venueLat'] as num?)?.toDouble() ??
         (deal['latitude'] as num?)?.toDouble();
-    final lng = (deal['venueLng'] as num?)?.toDouble() ??
+    final lng =
+        (deal['venueLng'] as num?)?.toDouble() ??
         (deal['longitude'] as num?)?.toDouble();
     if (lat == null || lng == null) return null;
 
@@ -393,8 +421,7 @@ class _FeedScreenState extends State<FeedScreen> {
       };
     }).toList();
 
-    posts.removeWhere((p) =>
-        (p['imageUrl'] ?? '').toString().trim().isEmpty);
+    posts.removeWhere((p) => (p['imageUrl'] ?? '').toString().trim().isEmpty);
 
     if (!mounted) return;
     setState(() {
@@ -425,9 +452,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
     Map<String, dynamic> pickAd() {
       final pool = _fallbackAds;
-      final ad = Map<String, dynamic>.from(
-        pool[adIndex % pool.length],
-      );
+      final ad = Map<String, dynamic>.from(pool[adIndex % pool.length]);
       adIndex++;
       return ad;
     }
@@ -445,8 +470,9 @@ class _FeedScreenState extends State<FeedScreen> {
           });
           peepCardsSinceAd = 0;
           patternIndex++;
-          nextAdThreshold = _peepCardsBeforeAdPattern[
-              patternIndex % _peepCardsBeforeAdPattern.length];
+          nextAdThreshold =
+              _peepCardsBeforeAdPattern[patternIndex %
+                  _peepCardsBeforeAdPattern.length];
         }
       }
 
@@ -531,7 +557,8 @@ class _FeedScreenState extends State<FeedScreen> {
     final phi2 = lat2 * pi / 180;
     final dphi = (lat2 - lat1) * pi / 180;
     final dlambda = (lon2 - lon1) * pi / 180;
-    final a = sin(dphi / 2) * sin(dphi / 2) +
+    final a =
+        sin(dphi / 2) * sin(dphi / 2) +
         cos(phi1) * cos(phi2) * sin(dlambda / 2) * sin(dlambda / 2);
     return r * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
@@ -543,12 +570,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final userLng = _longitude ?? _userLng;
     if (userLat == null || userLng == null) return null;
     if (lat is! num || lng is! num) return null;
-    return _haversine(
-      userLat,
-      userLng,
-      lat.toDouble(),
-      lng.toDouble(),
-    );
+    return _haversine(userLat, userLng, lat.toDouble(), lng.toDouble());
   }
 
   double _deg2rad(double deg) => deg * math.pi / 180.0;
@@ -557,7 +579,8 @@ class _FeedScreenState extends State<FeedScreen> {
     const double radiusMiles = 3958.8;
     final dLat = _deg2rad(lat2 - lat1);
     final dLon = _deg2rad(lon2 - lon1);
-    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+    final a =
+        math.sin(dLat / 2) * math.sin(dLat / 2) +
         math.cos(_deg2rad(lat1)) *
             math.cos(_deg2rad(lat2)) *
             math.sin(dLon / 2) *
@@ -698,44 +721,45 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  double _headerHeight(BuildContext context) {
-    const logoRowHeight = 60.0;
-    const bannerGap = 14.0;
-    const dealBannerHeight = 22.0;
-    const iconRowHeight = 56.0;
-    const verticalInset = 8.0;
-    const iconRowGap = 6.0;
-    const minHeaderHeight = verticalInset +
-        logoRowHeight +
-        bannerGap +
-        dealBannerHeight +
-        iconRowGap +
-        iconRowHeight +
-        4;
+  double _headerBodyHeight(BuildContext context) {
+    const contentHeight =
+        _T.headerVerticalInset +
+        _T.logoRowHeight +
+        _T.bannerGap +
+        _T.dealBannerHeight +
+        _T.iconRowGap +
+        _T.iconRowHeight +
+        _T.headerBottomPadding;
     return math.max(
-      MediaQuery.sizeOf(context).height * 0.20,
-      minHeaderHeight,
+      MediaQuery.sizeOf(context).height * _T.headerHeightFraction,
+      contentHeight,
     );
+  }
+
+  double _headerHeight(BuildContext context) {
+    return MediaQuery.paddingOf(context).top + _headerBodyHeight(context);
   }
 
   @override
   Widget build(BuildContext context) {
     final screenHeight = MediaQuery.sizeOf(context).height;
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     final headerHeight = _headerHeight(context);
-    final feedHeight = screenHeight - headerHeight - 44;
-    final cardHeight = (feedHeight - (7 * 6)) / 8;
+    final bottomBarHeight = _shellBottomNavHeight + bottomInset;
+    final feedHeight = screenHeight - headerHeight - bottomBarHeight;
+    final cardHeight = (feedHeight - (7 * _T.cardGap)) / 8;
 
     return Scaffold(
-      backgroundColor: _T.white,
+      backgroundColor: _T.feedBackground,
       body: MediaQuery.removePadding(
         context: context,
         removeTop: true,
+        removeLeft: true,
+        removeRight: true,
         child: Column(
           children: [
             _buildBlueHeader(),
-            Expanded(
-              child: _buildFeedContent(cardHeight: cardHeight),
-            ),
+            Expanded(child: _buildFeedContent(cardHeight: cardHeight)),
           ],
         ),
       ),
@@ -743,58 +767,31 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildBlueHeader() {
-    const logoRowHeight = 60.0;
-    const bannerGap = 14.0;
-    const dealBannerHeight = 22.0;
-    const iconRowHeight = 56.0;
-    const verticalInset = 8.0;
-    const iconRowGap = 6.0;
-    const minHeaderHeight = verticalInset +
-        logoRowHeight +
-        bannerGap +
-        dealBannerHeight +
-        iconRowGap +
-        iconRowHeight +
-        4;
-    final totalHeader = math.max(
-      MediaQuery.sizeOf(context).height * 0.20,
-      minHeaderHeight,
-    );
+    final topInset = MediaQuery.paddingOf(context).top;
+    final bodyHeight = _headerBodyHeight(context);
+    final totalHeader = topInset + bodyHeight;
 
     return SizedBox(
       height: totalHeader,
-      child: Stack(
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Container(
-            height: totalHeader,
-            width: double.infinity,
-            decoration: const BoxDecoration(
-              color: _T.blue,
-              borderRadius: BorderRadius.only(
-                bottomLeft: Radius.circular(20),
-                bottomRight: Radius.circular(20),
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Color(0x18000000),
-                  offset: Offset(0, 2),
-                  blurRadius: 6,
-                ),
-              ],
+      width: double.infinity,
+      child: ColoredBox(
+        color: _T.navy,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: EdgeInsets.only(top: topInset + _T.headerVerticalInset),
+              child: SizedBox(height: _T.logoRowHeight, child: _buildLogoBar()),
             ),
-          ),
-          Column(
-            children: [
-              const SizedBox(height: verticalInset),
-              SizedBox(height: logoRowHeight, child: _buildLogoBar()),
-              const SizedBox(height: bannerGap),
-              _buildDealBanner(),
-              const SizedBox(height: iconRowGap),
-              SizedBox(height: iconRowHeight, child: _buildIconRow(iconRowHeight)),
-            ],
-          ),
-        ],
+            SizedBox(height: _T.bannerGap),
+            _buildDealBanner(),
+            SizedBox(height: _T.iconRowGap),
+            Padding(
+              padding: const EdgeInsets.only(bottom: _T.headerBottomPadding),
+              child: SizedBox(height: _T.iconRowHeight, child: _buildIconRow()),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -809,19 +806,19 @@ class _FeedScreenState extends State<FeedScreen> {
     );
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Column(
+      child: Stack(
+        alignment: Alignment.center,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Flexible(child: _buildLocationChip()),
+              Expanded(child: _buildLocationChip()),
               GestureDetector(
                 onTap: () => Navigator.pushNamed(context, '/profile'),
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  width: 28,
-                  height: 28,
+                  width: 26,
+                  height: 26,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     border: Border.all(
@@ -832,83 +829,78 @@ class _FeedScreenState extends State<FeedScreen> {
                   child: const Icon(
                     Icons.person,
                     color: Colors.white,
-                    size: 15,
+                    size: 14,
                   ),
                 ),
               ),
             ],
           ),
-          const Spacer(),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.max,
-            children: [
-              Text('p', style: logoCharStyle),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('e', style: logoCharStyle),
-                  Transform.scale(
-                    scaleX: -1,
-                    child: Text('e', style: logoCharStyle),
-                  ),
-                ],
-              ),
-              Text('pl', style: logoCharStyle),
-            ],
+          IgnorePointer(
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('p', style: logoCharStyle),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('e', style: logoCharStyle),
+                    Transform.scale(
+                      scaleX: -1,
+                      child: Text('e', style: logoCharStyle),
+                    ),
+                  ],
+                ),
+                Text('pl', style: logoCharStyle),
+              ],
+            ),
           ),
-          const SizedBox(height: 2),
         ],
       ),
     );
   }
 
-  Widget _buildIconRow(double slotHeight) {
-    const iconSize = 14.0;
-    const labelSize = 7.0;
-    final outerSize = slotHeight * 0.42;
-    final peepSize = slotHeight * 0.62;
-
+  Widget _buildIconRow() {
     return Padding(
-      padding: const EdgeInsets.only(top: 2, left: 8, right: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _headerAction(
             icon: Icons.search,
             label: 'Search',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             onTap: _showSearchSheet,
           ),
           _headerAction(
             icon: Icons.notifications_outlined,
             label: 'Alerts',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             onTap: () => Navigator.pushNamed(context, '/alerts'),
           ),
           _headerAction(
             icon: Icons.explore,
             label: 'Explore',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             onTap: () => Navigator.pushNamed(context, '/explore'),
           ),
           _headerPeepAction(
-            circleSize: peepSize,
-            labelSize: labelSize,
+            circleSize: _T.peepCircleSize,
+            labelSize: _T.actionLabelSize,
           ),
           _headerAction(
             icon: Icons.local_offer,
             label: 'Deals',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             circleColor: const Color(0xFFE8F5E9),
             iconColor: const Color(0xFF2E7D32),
             onTap: () => Navigator.pushNamed(context, '/deals'),
@@ -916,17 +908,17 @@ class _FeedScreenState extends State<FeedScreen> {
           _headerAction(
             icon: Icons.map_outlined,
             label: 'Map',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             onTap: () => Navigator.pushNamed(context, '/map'),
           ),
           _headerAction(
             icon: Icons.menu,
             label: 'Menu',
-            circleSize: outerSize,
-            iconSize: iconSize,
-            labelSize: labelSize,
+            circleSize: _T.actionCircleSize,
+            iconSize: _T.actionIconSize,
+            labelSize: _T.actionLabelSize,
             onTap: () => Navigator.pushNamed(context, '/settings'),
           ),
         ],
@@ -949,7 +941,7 @@ class _FeedScreenState extends State<FeedScreen> {
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Container(
             width: circleSize,
@@ -969,9 +961,9 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
               ],
             ),
-            child: Icon(icon, color: iconColor ?? _T.blue, size: iconSize),
+            child: Icon(icon, color: iconColor ?? _T.navy, size: iconSize),
           ),
-          SizedBox(height: circleSize * 0.06),
+          SizedBox(height: _T.labelIconGap),
           Text(
             label,
             maxLines: 1,
@@ -997,7 +989,7 @@ class _FeedScreenState extends State<FeedScreen> {
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
           Container(
             width: circleSize,
@@ -1008,8 +1000,8 @@ class _FeedScreenState extends State<FeedScreen> {
               border: Border.all(color: _T.white, width: 2),
               boxShadow: [
                 BoxShadow(
-                  color: _T.yellow.withValues(alpha: 0.35),
-                  blurRadius: 6,
+                  color: _T.yellow.withValues(alpha: 0.22),
+                  blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -1021,7 +1013,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   '+',
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 11,
+                    fontSize: 12,
                     fontWeight: FontWeight.w800,
                     height: 1.0,
                   ),
@@ -1038,7 +1030,7 @@ class _FeedScreenState extends State<FeedScreen> {
               ],
             ),
           ),
-          SizedBox(height: circleSize * 0.06),
+          const SizedBox(height: _T.labelIconGap),
           SizedBox(height: labelSize),
         ],
       ),
@@ -1065,8 +1057,8 @@ class _FeedScreenState extends State<FeedScreen> {
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(
                 color: Colors.white,
-                fontSize: 11,
-                fontWeight: FontWeight.w600,
+                fontSize: 9,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -1086,41 +1078,48 @@ class _FeedScreenState extends State<FeedScreen> {
 
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/deals'),
-      child: Container(
-        width: double.infinity,
-        height: 22,
-        color: const Color(0xFFE8F5E9),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        child: Row(
-          children: [
-            const Icon(Icons.local_offer, color: Color(0xFF2E7D32), size: 12),
-            const SizedBox(width: 8),
-            Expanded(
-              child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 350),
-                child: Text(
-                  bannerText,
-                  key: ValueKey<String>(
-                    '${_dealBannerIndex}_$bannerText',
-                  ),
-                  style: const TextStyle(
-                    color: Color(0xFF2E7D32),
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overflow: TextOverflow.ellipsis,
+      behavior: HitTestBehavior.opaque,
+      child: ColoredBox(
+        color: _T.dealGreen,
+        child: SizedBox(
+          height: _T.dealBannerHeight,
+          width: double.infinity,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.local_offer,
+                  color: _T.dealGreenText,
+                  size: 13,
                 ),
-              ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 350),
+                    child: Text(
+                      bannerText,
+                      key: ValueKey<String>('${_dealBannerIndex}_$bannerText'),
+                      style: const TextStyle(
+                        color: _T.dealGreenText,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                const Text(
+                  'View Deal >',
+                  style: TextStyle(
+                    color: _T.dealGreenText,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
             ),
-            const Text(
-              'View Deal >',
-              style: TextStyle(
-                color: Color(0xFF2E7D32),
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1130,7 +1129,7 @@ class _FeedScreenState extends State<FeedScreen> {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(_T.blue),
+          valueColor: AlwaysStoppedAnimation<Color>(_T.navy),
         ),
       );
     }
@@ -1183,24 +1182,28 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     return RefreshIndicator(
-      color: _T.blue,
-      backgroundColor: _T.white,
+      color: _T.navy,
+      backgroundColor: _T.feedBackground,
       onRefresh: _onRefresh,
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(6, 0, 6, 50),
+        padding: EdgeInsets.fromLTRB(0, _T.headerToFeedGap, 0, 50),
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
-          return Container(
-            margin: const EdgeInsets.only(bottom: 6, left: 0, right: 0),
-            child: SizedBox(
-              height: cardHeight,
-              child: _buildFeedCard(item),
-            ),
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(height: cardHeight, child: _buildFeedCard(item)),
+              if (index < items.length - 1)
+                const ColoredBox(
+                  color: _T.cardSeparator,
+                  child: SizedBox(width: double.infinity, height: _T.cardGap),
+                ),
+            ],
           );
         },
       ),
@@ -1234,9 +1237,7 @@ class _FeedScreenState extends State<FeedScreen> {
       crowdLevel: _crowdLevelInt(post),
       onTap: () => Navigator.push(
         context,
-        MaterialPageRoute(
-          builder: (_) => LocationDetailScreen(postData: post),
-        ),
+        MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
       ),
     );
   }
@@ -1252,28 +1253,30 @@ class _FeedScreenState extends State<FeedScreen> {
     final advertiserId = (ad['advertiserId'] ?? ad['advertiserName'] ?? '')
         .toString();
     final uid = _sponsorUserId();
-    final destination = (ad['ctaUrl'] ??
-            ad['landingUrl'] ??
-            ad['destinationUrl'] ??
-            '')
-        .toString()
-        .trim();
+    final destination =
+        (ad['ctaUrl'] ?? ad['landingUrl'] ?? ad['destinationUrl'] ?? '')
+            .toString()
+            .trim();
     final isDummy = ad['isDummy'] == true;
 
     if (tapKind == 'card') {
-      unawaited(_adsService.recordAdCardTap(
-        adId,
-        uid,
-        feedPlacement: placement,
-        advertiserId: advertiserId.isEmpty ? null : advertiserId,
-      ));
+      unawaited(
+        _adsService.recordAdCardTap(
+          adId,
+          uid,
+          feedPlacement: placement,
+          advertiserId: advertiserId.isEmpty ? null : advertiserId,
+        ),
+      );
     } else {
-      unawaited(_adsService.recordAdCtaTap(
-        adId,
-        uid,
-        feedPlacement: placement,
-        advertiserId: advertiserId.isEmpty ? null : advertiserId,
-      ));
+      unawaited(
+        _adsService.recordAdCtaTap(
+          adId,
+          uid,
+          feedPlacement: placement,
+          advertiserId: advertiserId.isEmpty ? null : advertiserId,
+        ),
+      );
     }
 
     if (destination.isNotEmpty) {
@@ -1287,46 +1290,41 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!mounted || !isDummy) return;
     final headline = (ad['headline'] ?? ad['title'] ?? 'Sponsored').toString();
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$headline (demo ad)'),
-        backgroundColor: _T.blue,
-      ),
+      SnackBar(content: Text('$headline (demo ad)'), backgroundColor: _T.navy),
     );
   }
 
   _FeedCardContent _feedCardContentFromAd(Map<String, dynamic> ad) {
-    final advertiser = (ad['advertiser'] ??
-            ad['brandName'] ??
-            ad['advertiserName'] ??
-            ad['merchantName'] ??
-            ad['headline'] ??
-            ad['title'] ??
-            '')
+    final advertiser =
+        (ad['advertiser'] ??
+                ad['brandName'] ??
+                ad['advertiserName'] ??
+                ad['merchantName'] ??
+                ad['headline'] ??
+                ad['title'] ??
+                '')
+            .toString();
+    final headline = (ad['headline'] ?? ad['title'] ?? 'Sponsored offer')
         .toString();
-    final headline =
-        (ad['headline'] ?? ad['title'] ?? 'Sponsored offer').toString();
     final rawCta = (ad['cta'] ?? ad['ctaText'])?.toString().trim();
     final ctaText = (rawCta != null && rawCta.isNotEmpty)
         ? rawCta
         : _normalizeSponsorCta(rawCta);
     final adId = (ad['id'] ?? '').toString();
     final placement = (ad['feedPlacement'] as num?)?.toInt();
-    final advertiserId = (ad['advertiserId'] ??
-            ad['advertiserName'] ??
-            ad['advertiser'] ??
-            '')
-        .toString();
+    final advertiserId =
+        (ad['advertiserId'] ?? ad['advertiserName'] ?? ad['advertiser'] ?? '')
+            .toString();
     final name = advertiser.isNotEmpty ? advertiser : headline;
-    final tagline = (ad['tagline'] ??
-            ad['subline'] ??
-            ad['headline'] ??
-            ad['bodyText'] ??
-            '')
-        .toString();
+    final tagline =
+        (ad['tagline'] ??
+                ad['subline'] ??
+                ad['headline'] ??
+                ad['bodyText'] ??
+                '')
+            .toString();
     final distance = (ad['distance'] ?? '').toString();
-    final accentColor = Color(
-      (ad['accentColor'] as int?) ?? 0xFF1565C0,
-    );
+    final accentColor = Color((ad['accentColor'] as int?) ?? 0xFF1565C0);
     final initialRaw = (ad['initial'] ?? '').toString();
     final initial = initialRaw.isNotEmpty
         ? initialRaw
@@ -1342,20 +1340,24 @@ class _FeedScreenState extends State<FeedScreen> {
       imageUrl: imageUrl,
       ctaLabel: ctaText.isNotEmpty ? ctaText : 'Learn More',
       onImpression: () {
-        unawaited(_adsService.recordAdImpression(
-          adId,
-          _sponsorUserId(),
-          feedPlacement: placement,
-          advertiserId: advertiserId.isEmpty ? null : advertiserId,
-        ));
+        unawaited(
+          _adsService.recordAdImpression(
+            adId,
+            _sponsorUserId(),
+            feedPlacement: placement,
+            advertiserId: advertiserId.isEmpty ? null : advertiserId,
+          ),
+        );
       },
       onViewable: () {
-        unawaited(_adsService.recordAdViewability(
-          adId,
-          _sponsorUserId(),
-          feedPlacement: placement,
-          advertiserId: advertiserId.isEmpty ? null : advertiserId,
-        ));
+        unawaited(
+          _adsService.recordAdViewability(
+            adId,
+            _sponsorUserId(),
+            feedPlacement: placement,
+            advertiserId: advertiserId.isEmpty ? null : advertiserId,
+          ),
+        );
       },
       onOpen: () => unawaited(_openSponsorDestination(ad, tapKind: 'card')),
       onCta: () => unawaited(_openSponsorDestination(ad, tapKind: 'cta')),
@@ -1411,84 +1413,78 @@ class _FeedPostCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            _feedCardImage(imageUrl),
-            Positioned.fill(
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                    colors: [
-                      Colors.black.withValues(alpha: 0.65),
-                      Colors.black.withValues(alpha: 0.0),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-            Positioned(
-              left: 14,
-              right: 72,
-              top: 0,
-              bottom: 0,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: const Color(0xFFFFF9C4),
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
-                        height: 1.1,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(0, 1),
-                            blurRadius: 4,
-                            color: Colors.black.withOpacity(0.6),
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (subtitle != null && subtitle!.isNotEmpty) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.7),
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
-                          height: 1.0,
-                        ),
-                      ),
-                    ],
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          _feedCardImage(imageUrl),
+          Positioned.fill(
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomLeft,
+                  end: Alignment.topRight,
+                  colors: [
+                    Colors.black.withValues(alpha: 0.65),
+                    Colors.black.withValues(alpha: 0.0),
                   ],
                 ),
               ),
             ),
-            Positioned(
-              right: 12,
-              top: 0,
-              bottom: 0,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: CrowdMeter(level: crowdLevel, size: 52),
-              ),
+          ),
+          Positioned(
+            left: _T.cardTextLeft,
+            right: 72,
+            bottom: _T.cardTextBottom,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFFFFF9C4),
+                    fontSize: 21,
+                    fontWeight: FontWeight.w700,
+                    height: 1.1,
+                    shadows: [
+                      Shadow(
+                        offset: const Offset(0, 1),
+                        blurRadius: 4,
+                        color: Colors.black.withOpacity(0.6),
+                      ),
+                    ],
+                  ),
+                ),
+                if (subtitle != null && subtitle!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    subtitle!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.8),
+                      fontSize: 13.5,
+                      fontWeight: FontWeight.w500,
+                      height: 1.0,
+                    ),
+                  ),
+                ],
+              ],
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            top: _T.scoreRingTop,
+            right: _T.scoreRingRight,
+            child: CrowdMeter(
+              level: crowdLevel,
+              size: 44,
+              strokeRatio: 0.105,
+              fontScale: 0.40,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1566,84 +1562,98 @@ class _FeedAdCardState extends State<_FeedAdCard> {
         GestureDetector(
           onTap: widget.onOpen,
           behavior: HitTestBehavior.opaque,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(14),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                _feedCardImage(widget.imageUrl),
-                Positioned.fill(
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.centerLeft,
-                        end: Alignment.centerRight,
-                        colors: [
-                          Colors.black.withOpacity(0.72),
-                          Colors.black.withOpacity(0.15),
-                        ],
-                      ),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              _feedCardImage(widget.imageUrl),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Colors.black.withOpacity(0.72),
+                        Colors.black.withOpacity(0.15),
+                      ],
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: Container(
-                    height: 3,
-                    decoration: const BoxDecoration(
-                      borderRadius: BorderRadius.only(
-                        topLeft: Radius.circular(14),
-                        topRight: Radius.circular(14),
-                      ),
-                      color: Color(0xFF1565C0),
+              ),
+              const Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: SizedBox(
+                  height: 3,
+                  child: ColoredBox(color: Color(0xFF1565C0)),
+                ),
+              ),
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1565C0),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'SPONSORED',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: 1.2,
+                      height: 1.0,
                     ),
                   ),
                 ),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF1565C0),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: const Text(
-                      'SPONSORED',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w900,
-                        letterSpacing: 1.2,
-                        height: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-                Positioned(
-                  left: 14,
-                  right: 14,
-                  bottom: 12,
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
+              ),
+              Positioned(
+                left: _T.cardTextLeft,
+                right: _T.cardTextLeft,
+                bottom: _T.cardTextBottom,
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            widget.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 17,
+                              fontWeight: FontWeight.w900,
+                              height: 1.1,
+                              shadows: [
+                                Shadow(
+                                  offset: const Offset(0, 1),
+                                  blurRadius: 4,
+                                  color: Colors.black.withOpacity(0.6),
+                                ),
+                              ],
+                            ),
+                          ),
+                          if (widget.tagline.isNotEmpty) ...[
+                            const SizedBox(height: 3),
                             Text(
-                              widget.name,
+                              widget.tagline,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 17,
-                                fontWeight: FontWeight.w900,
-                                height: 1.1,
+                                color: Colors.white.withOpacity(0.9),
+                                fontSize: 12,
+                                fontWeight: FontWeight.w500,
+                                height: 1.0,
                                 shadows: [
                                   Shadow(
                                     offset: const Offset(0, 1),
@@ -1653,67 +1663,46 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                                 ],
                               ),
                             ),
-                            if (widget.tagline.isNotEmpty) ...[
-                              const SizedBox(height: 3),
-                              Text(
-                                widget.tagline,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.white.withOpacity(0.9),
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1.0,
-                                  shadows: [
-                                    Shadow(
-                                      offset: const Offset(0, 1),
-                                      blurRadius: 4,
-                                      color: Colors.black.withOpacity(0.6),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    GestureDetector(
+                      onTap: widget.onCta,
+                      behavior: HitTestBehavior.opaque,
+                      child: Container(
+                        height: 34,
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.25),
+                              blurRadius: 6,
+                              offset: const Offset(0, 2),
+                            ),
                           ],
                         ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: widget.onCta,
-                        behavior: HitTestBehavior.opaque,
-                        child: Container(
-                          height: 34,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.25),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            widget.ctaLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: widget.accentColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              height: 1.0,
-                            ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          widget.ctaLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: widget.accentColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w800,
+                            height: 1.0,
                           ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       );
@@ -1742,126 +1731,123 @@ class _FeedAdCardState extends State<_FeedAdCard> {
     final card = GestureDetector(
       onTap: widget.onOpen,
       behavior: HitTestBehavior.opaque,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Container(color: const Color(0xFFF5F7FA)),
-            const Positioned(
-              left: 0,
-              top: 0,
-              bottom: 0,
-              width: 4,
-              child: ColoredBox(color: sponsoredBlue),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  leadingTile,
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: sponsoredBlue,
-                            borderRadius: BorderRadius.circular(3),
-                          ),
-                          child: const Text(
-                            'SPONSORED',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 8,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1.0,
-                              height: 1.0,
-                            ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Container(color: _T.feedBackground),
+          const Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: 4,
+            child: ColoredBox(color: sponsoredBlue),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                leadingTile,
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: sponsoredBlue,
+                          borderRadius: BorderRadius.circular(3),
+                        ),
+                        child: const Text(
+                          'SPONSORED',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 8,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 1.0,
+                            height: 1.0,
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          widget.name,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: sponsoredBlue,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            height: 1.1,
-                          ),
-                        ),
-                        if (widget.tagline.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.tagline,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.black54,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              height: 1.1,
-                            ),
-                          ),
-                        ],
-                        if (widget.distance.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            widget.distance,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.black38,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                              height: 1.1,
-                            ),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  GestureDetector(
-                    onTap: widget.onCta,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 6,
                       ),
-                      decoration: BoxDecoration(
-                        color: widget.accentColor,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        widget.ctaLabel,
+                      const SizedBox(height: 4),
+                      Text(
+                        widget.name,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w600,
-                          height: 1.0,
+                          color: sponsoredBlue,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.1,
                         ),
+                      ),
+                      if (widget.tagline.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.tagline,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.black54,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                      if (widget.distance.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          widget.distance,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.black38,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                            height: 1.1,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: widget.onCta,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: widget.accentColor,
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Text(
+                      widget.ctaLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        height: 1.0,
                       ),
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
 
@@ -1884,7 +1870,10 @@ class _FeedAdCardState extends State<_FeedAdCard> {
   }
 }
 
-Widget _feedCardImage(String source, {Alignment alignment = const Alignment(0, 0.35)}) {
+Widget _feedCardImage(
+  String source, {
+  Alignment alignment = const Alignment(0, 0.35),
+}) {
   if (source.isEmpty) {
     return Container(color: _T.cardFallback);
   }
@@ -1913,20 +1902,24 @@ class FeedPreviewHost extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: _T.white,
+      backgroundColor: _T.feedBackground,
       body: Column(
         children: [
           const Expanded(child: FeedScreen()),
           Container(
             height: _FeedScreenState._shellBottomNavHeight + bottomInset,
             padding: EdgeInsets.only(bottom: bottomInset),
-            color: _T.blue,
+            color: _T.navy,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: const [
                 Icon(Icons.home, color: Colors.white, size: 16),
                 Icon(Icons.explore, color: Colors.white54, size: 16),
-                Icon(Icons.notifications_outlined, color: Colors.white54, size: 16),
+                Icon(
+                  Icons.notifications_outlined,
+                  color: Colors.white54,
+                  size: 16,
+                ),
               ],
             ),
           ),

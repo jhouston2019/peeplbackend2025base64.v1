@@ -12,6 +12,9 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => _MainShellState();
 }
 
+/// Home feed shell navy — matches feed header.
+const _kFeedShellNavy = Color(0xFF153E75);
+
 class _MainShellState extends State<MainShell> {
   @override
   void initState() {
@@ -61,41 +64,55 @@ class _MainShellState extends State<MainShell> {
         valueListenable: activeFilterNotifier,
         builder: (context, activeFilter, _) {
           final isActive = activeFilter == label;
-          return Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-            decoration: BoxDecoration(
-              color: isActive ? Colors.white : Colors.transparent,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: isActive
-                    ? Colors.white
-                    : Colors.white.withValues(alpha: 0.5),
-                width: 1,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  size: 11,
-                  color: isActive
-                      ? const Color(0xFF1565C0)
-                      : Colors.white,
+          return ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 44, minWidth: 44),
+            child: Center(
+              child: Container(
+                padding: EdgeInsets.symmetric(
+                  horizontal: isActive ? 8 : 6,
+                  vertical: isActive ? 4 : 2,
                 ),
-                const SizedBox(width: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight:
-                        isActive ? FontWeight.w700 : FontWeight.w500,
+                decoration: BoxDecoration(
+                  color: isActive ? Colors.white : Colors.transparent,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
                     color: isActive
-                        ? const Color(0xFF1565C0)
-                        : Colors.white,
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.45),
+                    width: 1,
                   ),
+                  boxShadow: isActive
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x18000000),
+                            offset: Offset(0, 1),
+                            blurRadius: 2,
+                          ),
+                        ]
+                      : null,
                 ),
-              ],
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 11,
+                      color: isActive ? _kFeedShellNavy : Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: isActive
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: isActive ? _kFeedShellNavy : Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
           );
         },
@@ -105,32 +122,33 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      body: IndexedStack(
-        index: 0,
-        children: const [
-          FeedScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
-        height: 44,
-        color: const Color(0xFF1565C0),
-        child: Center(
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                _shellPill('Newest', Icons.calendar_today),
-                const SizedBox(width: 6),
-                _shellPill('Nearby', Icons.location_on),
-                const SizedBox(width: 6),
-                _shellPill('Local', Icons.store),
-                const SizedBox(width: 6),
-                _shellPill('Map', Icons.map),
-                const SizedBox(width: 6),
-                _shellPill('Region', Icons.public),
-              ],
+      body: IndexedStack(index: 0, children: const [FeedScreen()]),
+      bottomNavigationBar: ColoredBox(
+        color: _kFeedShellNavy,
+        child: Padding(
+          padding: EdgeInsets.only(bottom: bottomInset),
+          child: SizedBox(
+            height: 44,
+            child: Center(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _shellPill('Newest', Icons.calendar_today),
+                    const SizedBox(width: 6),
+                    _shellPill('Nearby', Icons.location_on),
+                    const SizedBox(width: 6),
+                    _shellPill('Local', Icons.store),
+                    const SizedBox(width: 6),
+                    _shellPill('Map', Icons.map),
+                    const SizedBox(width: 6),
+                    _shellPill('Region', Icons.public),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
