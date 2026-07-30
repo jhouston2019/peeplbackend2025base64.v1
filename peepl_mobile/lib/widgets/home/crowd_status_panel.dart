@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/crowd_display_mapper.dart';
+import 'peepl_home_tokens.dart';
 
 class TenSegmentCrowdBar extends StatelessWidget {
   const TenSegmentCrowdBar({
@@ -52,15 +53,15 @@ class CrowdStatusPanel extends StatelessWidget {
         label: data.semanticLabel,
         child: DecoratedBox(
           decoration: BoxDecoration(
-            gradient: LinearGradient(
+            gradient: const LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Colors.black.withValues(alpha: 0.72),
-                Colors.black.withValues(alpha: 0.45),
-                Colors.transparent,
+                PeeplHomeTokens.crowdOverlayLeft,
+                PeeplHomeTokens.crowdOverlayMid,
+                PeeplHomeTokens.crowdOverlayRight,
               ],
-              stops: const [0.0, 0.75, 1.0],
+              stops: [0.0, 0.55, 1.0],
             ),
           ),
           child: Padding(

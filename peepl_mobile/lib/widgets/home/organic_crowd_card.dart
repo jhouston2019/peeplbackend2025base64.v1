@@ -32,11 +32,16 @@ class OrganicCrowdCard extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
-          child: SizedBox(
-            height: PeeplHomeTokens.cardHeight,
-            child: Stack(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+            border: Border.all(color: PeeplHomeTokens.organicCardBorder),
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+            child: SizedBox(
+              height: PeeplHomeTokens.cardHeight,
+              child: Stack(
               fit: StackFit.expand,
               children: [
                 FeedCardImage(source: imageUrl),

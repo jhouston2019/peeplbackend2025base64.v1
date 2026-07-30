@@ -24,9 +24,7 @@ class PeeplSearchBar extends StatelessWidget {
           decoration: BoxDecoration(
             color: PeeplHomeTokens.searchField,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(
-              color: PeeplHomeTokens.white.withValues(alpha: 0.12),
-            ),
+            border: Border.all(color: PeeplHomeTokens.chipBorder),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(

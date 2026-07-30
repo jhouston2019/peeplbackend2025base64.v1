@@ -665,7 +665,7 @@ class _FeedScreenState extends State<FeedScreen> {
   void _showFilterSheet() {
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: PeeplHomeTokens.navyHeader,
+      backgroundColor: PeeplHomeTokens.shellNavy,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -891,7 +891,7 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget _buildHomeShellHeader() {
     final topInset = MediaQuery.paddingOf(context).top;
     return ColoredBox(
-      color: PeeplHomeTokens.navyHeader,
+      color: PeeplHomeTokens.shellNavy,
       child: Padding(
         padding: EdgeInsets.only(top: topInset + 6, bottom: 8),
         child: Column(
@@ -912,7 +912,11 @@ class _FeedScreenState extends State<FeedScreen> {
               onFilterTap: _showFilterSheet,
             ),
             QuickFilterRow(
-              chips: const [],
+              onDealsTap: () => Navigator.pushNamed(context, '/deals'),
+              onMapTap: () {
+                activeFilterNotifier.value = 'Map';
+                Navigator.pushNamed(context, '/map');
+              },
               onMoreTap: _showFilterSheet,
             ),
             HappeningNowTicker(

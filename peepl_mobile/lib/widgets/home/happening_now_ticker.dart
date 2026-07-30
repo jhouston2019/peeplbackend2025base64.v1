@@ -32,14 +32,14 @@ class HappeningNowTicker extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.local_offer_outlined,
-                    color: PeeplHomeTokens.tickerGreen,
+                    color: PeeplHomeTokens.dealsGreen,
                     size: 14,
                   ),
                   const SizedBox(width: 6),
                   const Text(
                     'HAPPENING NOW',
                     style: TextStyle(
-                      color: PeeplHomeTokens.tickerGreen,
+                      color: PeeplHomeTokens.dealsGreen,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,

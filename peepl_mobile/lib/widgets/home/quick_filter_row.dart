@@ -3,65 +3,61 @@ import 'package:flutter/material.dart';
 import '../../notifiers/active_filter_notifier.dart';
 import 'peepl_home_tokens.dart';
 
-class QuickFilterChipData {
-  const QuickFilterChipData({
-    required this.label,
-    required this.icon,
-    required this.iconColor,
-    required this.filterValue,
-  });
-
-  final String label;
-  final IconData icon;
-  final Color iconColor;
-  final String filterValue;
-}
-
 class QuickFilterRow extends StatelessWidget {
   const QuickFilterRow({
     super.key,
-    required this.chips,
+    required this.onDealsTap,
+    required this.onMapTap,
     required this.onMoreTap,
   });
 
-  final List<QuickFilterChipData> chips;
+  final VoidCallback onDealsTap;
+  final VoidCallback onMapTap;
   final VoidCallback onMoreTap;
 
-  static const _supportedChips = [
-    QuickFilterChipData(
+  static const _filterChips = [
+    _ChipSpec(
       label: 'Nearby',
       icon: Icons.near_me_outlined,
       iconColor: Color(0xFF34C759),
       filterValue: 'Nearby',
     ),
-    QuickFilterChipData(
+    _ChipSpec(
       label: 'Local',
       icon: Icons.store_outlined,
       iconColor: Color(0xFFFF9500),
       filterValue: 'Local',
     ),
-    QuickFilterChipData(
+    _ChipSpec(
       label: 'Newest',
       icon: Icons.schedule,
       iconColor: Color(0xFF64B5F6),
       filterValue: 'Newest',
     ),
-    QuickFilterChipData(
-      label: 'Region',
-      icon: Icons.public,
-      iconColor: Color(0xFFBA68C8),
-      filterValue: 'Region',
-    ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final visibleChips = chips.isEmpty ? _supportedChips : chips;
-    final chipWidgets = <Widget>[];
+    final chipWidgets = <Widget>[
+      _FilterChip(
+        label: 'Deals',
+        icon: Icons.local_offer_outlined,
+        iconColor: PeeplHomeTokens.dealsGreen,
+        labelColor: PeeplHomeTokens.dealsGreen,
+        emphasized: true,
+        onTap: onDealsTap,
+      ),
+      const SizedBox(width: 8),
+      _FilterChip(
+        label: 'Map',
+        icon: Icons.map_outlined,
+        iconColor: PeeplHomeTokens.white,
+        onTap: onMapTap,
+      ),
+    ];
 
-    for (var i = 0; i < visibleChips.length; i++) {
-      if (i > 0) chipWidgets.add(const SizedBox(width: 8));
-      final chip = visibleChips[i];
+    for (final chip in _filterChips) {
+      chipWidgets.add(const SizedBox(width: 8));
       chipWidgets.add(
         ValueListenableBuilder<String>(
           valueListenable: activeFilterNotifier,
@@ -77,13 +73,13 @@ class QuickFilterRow extends StatelessWidget {
         ),
       );
     }
+
     chipWidgets.add(const SizedBox(width: 8));
     chipWidgets.add(
       _FilterChip(
         label: 'More',
         icon: Icons.more_horiz,
         iconColor: PeeplHomeTokens.white,
-        selected: false,
         onTap: onMoreTap,
       ),
     );
@@ -103,23 +99,42 @@ class QuickFilterRow extends StatelessWidget {
   }
 }
 
-class _FilterChip extends StatelessWidget {
-  const _FilterChip({
+class _ChipSpec {
+  const _ChipSpec({
     required this.label,
     required this.icon,
     required this.iconColor,
-    required this.selected,
-    required this.onTap,
+    required this.filterValue,
   });
 
   final String label;
   final IconData icon;
   final Color iconColor;
+  final String filterValue;
+}
+
+class _FilterChip extends StatelessWidget {
+  const _FilterChip({
+    required this.label,
+    required this.icon,
+    required this.iconColor,
+    required this.onTap,
+    this.labelColor,
+    this.emphasized = false,
+    this.selected = false,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color iconColor;
+  final Color? labelColor;
+  final bool emphasized;
   final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    final textColor = labelColor ?? PeeplHomeTokens.white;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -127,14 +142,18 @@ class _FilterChip extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: selected
-              ? PeeplHomeTokens.white.withValues(alpha: 0.16)
-              : PeeplHomeTokens.chipBackground,
+          color: emphasized
+              ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.12)
+              : selected
+                  ? PeeplHomeTokens.white.withValues(alpha: 0.14)
+                  : PeeplHomeTokens.chipSurface.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: selected
-                ? PeeplHomeTokens.white.withValues(alpha: 0.45)
-                : PeeplHomeTokens.chipBorder,
+            color: emphasized
+                ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.45)
+                : selected
+                    ? PeeplHomeTokens.white.withValues(alpha: 0.35)
+                    : PeeplHomeTokens.chipBorder,
           ),
         ),
         child: Row(
@@ -145,9 +164,9 @@ class _FilterChip extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: PeeplHomeTokens.white,
+                color: textColor,
                 fontSize: 12,
-                fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                fontWeight: emphasized || selected ? FontWeight.w700 : FontWeight.w500,
               ),
             ),
           ],

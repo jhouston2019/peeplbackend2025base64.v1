@@ -25,7 +25,7 @@ class PeeplBottomNavigation extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return ColoredBox(
-      color: PeeplHomeTokens.navyHeader,
+      color: PeeplHomeTokens.shellNavy,
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
         child: SizedBox(
