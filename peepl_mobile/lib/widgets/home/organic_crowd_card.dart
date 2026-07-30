@@ -118,6 +118,7 @@ class OrganicCrowdCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
