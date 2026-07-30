@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -48,6 +50,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   bool _isRequestingLive = false;
   late int _likesCount;
   List<Map<String, dynamic>> _availableAds = [];
+  List<Map<String, dynamic>> _venuePeeps = [];
+  bool _loadingVenuePeeps = true;
 
   @override
   void initState() {
@@ -55,7 +59,62 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
     _initAds();
+    _loadVenuePeeps();
   }
+
+  Future<void> _loadVenuePeeps() async {
+    final peeps = await _fetchPeepsForVenue();
+    if (!mounted) return;
+    setState(() {
+      _venuePeeps = peeps;
+      _loadingVenuePeeps = false;
+    });
+  }
+
+  Future<List<Map<String, dynamic>>> _fetchPeepsForVenue() async {
+    final latitude = (widget.postData['latitude'] as num?)?.toDouble();
+    final longitude = (widget.postData['longitude'] as num?)?.toDouble();
+    if (latitude == null || longitude == null) return [];
+
+    final snapshot = await FirebaseFirestore.instance
+        .collection('location_posts')
+        .orderBy('timestamp', descending: true)
+        .limit(50)
+        .get();
+
+    const radiusKm = 0.2; // 200 metres — same venue threshold
+
+    return snapshot.docs
+        .map((doc) => {'id': doc.id, ...doc.data() as Map<String, dynamic>})
+        .where((post) {
+          final postLat = (post['latitude'] as num?)?.toDouble();
+          final postLng = (post['longitude'] as num?)?.toDouble();
+          if (postLat == null || postLng == null) return false;
+          return _haversineKm(
+                latitude,
+                longitude,
+                postLat,
+                postLng,
+              ) <=
+              radiusKm;
+        })
+        .toList();
+  }
+
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_deg2rad(lat1)) *
+            cos(_deg2rad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
+
+  double _deg2rad(double deg) => deg * pi / 180;
 
   Future<void> _initAds() async {
     // Uniform every-3rd-slot spacing; overrides the irregular feed pattern.
@@ -738,55 +797,42 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final currentPostId = post['id'] as String?;
     if (locationName.isEmpty) return const SizedBox.shrink();
 
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('location_posts')
-          .where('locationName', isEqualTo: locationName)
-          .limit(10)
-          .snapshots(),
-      builder: (context, snap) {
-        if (snap.hasError) return const SizedBox.shrink();
-        if (snap.connectionState == ConnectionState.waiting) {
-          return const SizedBox.shrink();
-        }
-        final docs = snap.data?.docs ?? [];
-        final othersExist =
-            docs.any((d) => d.id != currentPostId);
+    if (_loadingVenuePeeps) return const SizedBox.shrink();
 
-        if (!othersExist) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 8),
-            child: NoPeepsEmptyState(locationName: locationName),
-          );
-        }
+    final othersExist =
+        _venuePeeps.any((p) => p['id'] != currentPostId);
 
-        final others = docs.where((d) => d.id != currentPostId).toList();
-        final usernames = others
-            .map(
-              (d) =>
-                  (d.data() as Map<String, dynamic>)['username'] as String? ??
-                  'Anonymous',
-            )
-            .toList();
+    if (!othersExist) {
+      return Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 8),
+        child: NoPeepsEmptyState(locationName: locationName),
+      );
+    }
 
-        String? activityText;
-        if (others.isNotEmpty) {
-          final latest = others.last.data() as Map<String, dynamic>;
-          final name = latest['username'] as String? ?? 'Someone';
-          activityText = '$name posted';
-        }
+    final others =
+        _venuePeeps.where((p) => p['id'] != currentPostId).toList();
+    final usernames = others
+        .map(
+          (p) => p['username'] as String? ?? 'Anonymous',
+        )
+        .toList();
 
-        return Column(
-          children: [
-            if (activityText != null) DetailActivityTicker(text: activityText),
-            if (usernames.isNotEmpty)
-              DetailLivePeepsRow(
-                usernames: usernames,
-                totalCount: docs.length,
-              ),
-          ],
-        );
-      },
+    String? activityText;
+    if (others.isNotEmpty) {
+      final latest = others.last;
+      final name = latest['username'] as String? ?? 'Someone';
+      activityText = '$name posted';
+    }
+
+    return Column(
+      children: [
+        if (activityText != null) DetailActivityTicker(text: activityText),
+        if (usernames.isNotEmpty)
+          DetailLivePeepsRow(
+            usernames: usernames,
+            totalCount: _venuePeeps.length,
+          ),
+      ],
     );
   }
 
