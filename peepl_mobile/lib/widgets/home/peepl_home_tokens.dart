@@ -14,7 +14,8 @@ class PeeplHomeTokens {
 
   static const chipBackground = Color(0x1AFFFFFF);
   static const chipBorder = Color(0x14FFFFFF);
-  static const organicCardBorder = Color(0x14FFFFFF);
+  static const organicCardBorder = Color(0x80FFFFFF); // 50% soft white
+  static const organicCardBorderWidth = 1.5;
   static const sponsoredBorder = Color(0x24FFFFFF);
 
   static const tickerBackground = Color(0xFF0D2340);
