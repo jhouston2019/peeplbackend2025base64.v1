@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:math' show atan2, cos, pi, sin, sqrt;
 
@@ -6,6 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
 import '../notifiers/active_filter_notifier.dart';
@@ -99,6 +101,12 @@ class _FeedScreenState extends State<FeedScreen> {
   double? _longitude;
   String _areaLabel = 'Nearby';
   bool _locationResolved = false;
+  double? _searchedLat;
+  double? _searchedLng;
+  String? _searchedCityName;
+  final TextEditingController _citySearchController = TextEditingController();
+  List<Map<String, dynamic>> _citySuggestions = [];
+  bool _isSearchingCity = false;
 
   static const _radiusOptions = [
     {'label': '¼ mi', 'miles': 0.25},
@@ -107,6 +115,10 @@ class _FeedScreenState extends State<FeedScreen> {
     {'label': '3 mi', 'miles': 3.0},
     {'label': '5 mi', 'miles': 5.0},
     {'label': '10 mi', 'miles': 10.0},
+    {'label': '50 mi', 'miles': 50.0},
+    {'label': '100 mi', 'miles': 100.0},
+    {'label': '500 mi', 'miles': 500.0},
+    {'label': '1000 mi', 'miles': 1000.0},
   ];
 
   static const double _localRadiusMeters = 16000.0;
@@ -159,6 +171,7 @@ class _FeedScreenState extends State<FeedScreen> {
     _dealRotationTimer?.cancel();
     _feedSub?.cancel();
     _scrollController.dispose();
+    _citySearchController.dispose();
     super.dispose();
   }
 
@@ -185,7 +198,9 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   void _applyAreaFilter() {
-    if (_userLat == null || _userLng == null) {
+    final centerLat = _searchedLat ?? _userLat;
+    final centerLng = _searchedLng ?? _userLng;
+    if (centerLat == null || centerLng == null) {
       setState(
         () => _feedItems = _mergeAdsIntoFeed(_applyFilter(_allPosts)),
       );
@@ -196,87 +211,275 @@ class _FeedScreenState extends State<FeedScreen> {
       final lat = (post['latitude'] as num?)?.toDouble();
       final lng = (post['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null) return true;
-      return _haversineKm(_userLat!, _userLng!, lat, lng) <= radiusKm;
+      return _haversineKm(centerLat, centerLng, lat, lng) <= radiusKm;
     }).toList();
     setState(() => _feedItems = _mergeAdsIntoFeed(_applyFilter(filtered)));
+  }
+
+  Future<void> _searchCity(String query) async {
+    if (query.trim().length < 3) {
+      setState(() => _citySuggestions = []);
+      return;
+    }
+    setState(() => _isSearchingCity = true);
+    try {
+      final encoded = Uri.encodeComponent(query);
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/geocode/json'
+        '?address=$encoded'
+        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
+      );
+      final response = await http.get(url);
+      final data = json.decode(response.body);
+      if (data['status'] == 'OK') {
+        final results = (data['results'] as List).take(5).map((r) {
+          return {
+            'name': r['formatted_address'] as String,
+            'lat': (r['geometry']['location']['lat'] as num).toDouble(),
+            'lng': (r['geometry']['location']['lng'] as num).toDouble(),
+          };
+        }).toList();
+        setState(
+          () => _citySuggestions = List<Map<String, dynamic>>.from(results),
+        );
+      } else {
+        setState(() => _citySuggestions = []);
+      }
+    } catch (_) {
+      setState(() => _citySuggestions = []);
+    } finally {
+      setState(() => _isSearchingCity = false);
+    }
+  }
+
+  void _selectCity(Map<String, dynamic> city) {
+    final name = city['name'] as String;
+    final lat = city['lat'] as double;
+    final lng = city['lng'] as double;
+    setState(() {
+      _searchedLat = lat;
+      _searchedLng = lng;
+      _searchedCityName = name;
+      _citySuggestions = [];
+      _citySearchController.clear();
+      _areaLabel = '$name • ${_selectedRadiusMiles == 0.25
+          ? "¼ mi"
+          : _selectedRadiusMiles == 0.5
+              ? "½ mi"
+              : _selectedRadiusMiles >= 1000
+                  ? "1000 mi"
+                  : "${_selectedRadiusMiles % 1 == 0
+                      ? _selectedRadiusMiles.toInt()
+                      : _selectedRadiusMiles} mi"}';
+    });
+    _applyAreaFilter();
+  }
+
+  void _resetToMyLocation() {
+    setState(() {
+      _searchedLat = null;
+      _searchedLng = null;
+      _searchedCityName = null;
+      _citySearchController.clear();
+      _citySuggestions = [];
+      _areaLabel = _locationResolved
+          ? '${_selectedRadiusMiles == 0.25 ? "¼ mi" : _selectedRadiusMiles == 0.5 ? "½ mi" : "${_selectedRadiusMiles % 1 == 0 ? _selectedRadiusMiles.toInt() : _selectedRadiusMiles} mi"} radius'
+          : 'Nearby';
+    });
+    _applyAreaFilter();
   }
 
   void _showAreaPicker() {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+      builder: (_) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
-            const SizedBox(height: 20),
-            const Text(
-              'Show peeps within...',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 16),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
-              children: _radiusOptions.map((opt) {
-                final miles = opt['miles'] as double;
-                final label = opt['label'] as String;
-                final selected = miles == _selectedRadiusMiles;
-                return GestureDetector(
-                  onTap: () {
-                    Navigator.pop(context);
-                    setState(() {
-                      _selectedRadiusMiles = miles;
-                      _areaLabel = '$label radius';
-                    });
-                    _applyAreaFilter();
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
-                    ),
-                    decoration: BoxDecoration(
-                      color: selected ? const Color(0xFF1565C0) : Colors.grey[100],
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: Text(
-                      label,
-                      style: TextStyle(
-                        color: selected ? Colors.white : Colors.black87,
-                        fontWeight:
-                            selected ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 15,
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(2),
                       ),
                     ),
                   ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 16),
-            if (!_locationResolved)
-              Text(
-                'Enable location access to filter by distance.',
-                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                  const SizedBox(height: 20),
+                  TextField(
+                    controller: _citySearchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search city, region, or country...',
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey),
+                      suffixIcon: _isSearchingCity
+                          ? const Padding(
+                              padding: EdgeInsets.all(12),
+                              child: SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              ),
+                            )
+                          : _citySearchController.text.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear, color: Colors.grey),
+                                  onPressed: () {
+                                    _citySearchController.clear();
+                                    setSheetState(() => _citySuggestions = []);
+                                  },
+                                )
+                              : null,
+                      filled: true,
+                      fillColor: Colors.grey[100],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    onChanged: (val) {
+                      setSheetState(() {});
+                      _searchCity(val).then((_) => setSheetState(() {}));
+                    },
+                  ),
+                  if (_citySuggestions.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(top: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.08),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: _citySuggestions.map((city) {
+                          return ListTile(
+                            leading: const Icon(
+                              Icons.location_on_outlined,
+                              color: Color(0xFF1565C0),
+                              size: 20,
+                            ),
+                            title: Text(
+                              city['name'] as String,
+                              style: const TextStyle(fontSize: 14),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            onTap: () {
+                              Navigator.pop(context);
+                              _selectCity(city);
+                            },
+                            dense: true,
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  if (_searchedCityName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          _resetToMyLocation();
+                        },
+                        child: const Row(
+                          children: [
+                            Icon(
+                              Icons.my_location,
+                              size: 16,
+                              color: Color(0xFF1565C0),
+                            ),
+                            SizedBox(width: 6),
+                            Text(
+                              'Use my location',
+                              style: TextStyle(
+                                color: Color(0xFF1565C0),
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Show peeps within...',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: _radiusOptions.map((opt) {
+                      final miles = opt['miles'] as double;
+                      final label = opt['label'] as String;
+                      final selected = miles == _selectedRadiusMiles;
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.pop(context);
+                          setState(() {
+                            _selectedRadiusMiles = miles;
+                            _areaLabel = _searchedCityName != null
+                                ? '$_searchedCityName • $label'
+                                : '$label radius';
+                          });
+                          _applyAreaFilter();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 12,
+                          ),
+                          decoration: BoxDecoration(
+                            color: selected
+                                ? const Color(0xFF1565C0)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Text(
+                            label,
+                            style: TextStyle(
+                              color: selected ? Colors.white : Colors.black87,
+                              fontWeight:
+                                  selected ? FontWeight.w700 : FontWeight.w500,
+                              fontSize: 15,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                  const SizedBox(height: 16),
+                  if (!_locationResolved && _searchedCityName == null)
+                    Text(
+                      'Enable location access to filter by distance.',
+                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                    ),
+                ],
               ),
-          ],
-        ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -515,7 +718,9 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<Map<String, dynamic>> _rebuildFeedItems() {
-    if (_userLat == null || _userLng == null) {
+    final centerLat = _searchedLat ?? _userLat;
+    final centerLng = _searchedLng ?? _userLng;
+    if (centerLat == null || centerLng == null) {
       return _mergeAdsIntoFeed(_applyFilter(_allPosts));
     }
     final radiusKm = _selectedRadiusMiles * 1.60934;
@@ -523,7 +728,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final lat = (post['latitude'] as num?)?.toDouble();
       final lng = (post['longitude'] as num?)?.toDouble();
       if (lat == null || lng == null) return true;
-      return _haversineKm(_userLat!, _userLng!, lat, lng) <= radiusKm;
+      return _haversineKm(centerLat, centerLng, lat, lng) <= radiusKm;
     }).toList();
     return _mergeAdsIntoFeed(_applyFilter(filtered));
   }
