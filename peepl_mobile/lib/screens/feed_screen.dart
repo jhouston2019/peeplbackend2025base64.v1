@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:math' show atan2, cos, pi, sin, sqrt;
-import 'dart:ui' show ImageFilter;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,7 +8,6 @@ import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
-import 'package:visibility_detector/visibility_detector.dart';
 
 import '../notifiers/active_filter_notifier.dart';
 import '../constants/local_deals.dart';
@@ -18,7 +16,15 @@ import '../services/ad_cadence_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../widgets/crowd_meter.dart';
+import '../utils/crowd_display_mapper.dart';
+import '../widgets/home/happening_now_ticker.dart';
+import '../widgets/home/organic_crowd_card.dart';
+import '../widgets/home/peepl_home_header.dart';
+import '../widgets/home/peepl_home_tokens.dart';
+import '../widgets/home/peepl_search_bar.dart';
+import '../widgets/home/quick_filter_row.dart';
+import '../widgets/home/peepl_bottom_navigation.dart';
+import '../widgets/home/sponsored_native_card.dart';
 import 'location_detail_screen.dart';
 
 /// Peepl Home Feed — Sponsored Card Specification
@@ -46,71 +52,12 @@ import 'location_detail_screen.dart';
 /// **6. Future slots** — optional promotionalBadge, eventTitle, dealText,
 ///   announcementText populate existing name/address/distance fields only.
 
-/// Peepl Home Screen — navy shell design tokens (screen-local).
+/// Legacy screen-local tokens retained for error/loading states only.
 class _T {
-  static const navy = Color(0xFF153E75);
-  static const yellow = Color(0xFFFFC107);
-  static const dealGreen = Color(0xFFDCEFCB);
-  static const dealGreenText = Color(0xFF1B5C2E);
-  static const white = Color(0xFFFFFFFF);
-  static const feedBackground = Color(0xFFF4F6F8);
-  static const cardSeparator = Color(0xFFE5E9EF);
-  static const primaryText = Color(0xFF111111);
-  static const secondaryText = Color(0xFF6B7280);
-  static const cardFallback = Color(0xFF0D47A1);
-
-  static const cardGap = 4.0;
-  static const headerToFeedGap = 0.0;
-
-  static const headerVerticalInset = 4.0;
-  static const logoRowHeight = 28.0;
-  static const bannerGap = 3.0;
-  static const dealBannerHeight = 36.0;
-  static const iconRowGap = 2.0;
-  static const iconRowHeight = 49.0;
-  static const headerBottomPadding = 12.0;
-  static const headerHeightFraction = 0.12;
-  static const actionCircleSize = 36.0;
-  static const peepCircleSize = 40.0;
-  static const actionIconSize = 14.0;
-  static const actionLabelSize = 10.0;
-  static const labelIconGap = 1.0;
-  static const headerActionMinTouch = 44.0;
-
-  static const cardTextLeft = 22.0;
-  static const cardTextBottom = 18.0;
-  static const scoreRingSize = 36.0;
-  static const scoreRingTop = 21.0;
-  static const scoreRingRight = 21.0;
-  static const scoreRingStrokeRatio = 0.09;
-  static const scoreRingFontScale = 0.46;
-  static const scoreRingTrackAlpha = 0.18;
-
-  static const organicTitleSize = 21.0;
-  static const featuredTitleSize = 24.0;
-  static const metadataSize = 13.0;
-  static const metadataOpacity = 0.72;
-
-  static const featuredCardScale = 1.45;
-  static const featuredOrganicFirstIndex = 5;
-  static const featuredOrganicInterval = 6;
-
-  static const sponsorBlurSigma = 2.0;
-  static const sponsorBadgeFontSize = 7.0;
-  static const sponsorBadgeLetterSpacing = 0.9;
-  static const sponsorCtaHeight = 30.0;
-  static const sponsorCtaHorizontalPadding = 12.0;
-
-  static const ringGreen = Color(0xFF34C759);
-  static const ringAmber = Color(0xFFFF9F0A);
-  static const ringOrange = Color(0xFFFF6B35);
-  static const ringRed = Color(0xFFFF3B30);
-
-  static const cardShadow = BoxShadow(
-    color: Color(0x24000000),
-    offset: Offset(0, 4),
-    blurRadius: 12,
-  );
+  static const navy = PeeplHomeTokens.navyHeader;
+  static const feedBackground = PeeplHomeTokens.feedBackground;
+  static const primaryText = PeeplHomeTokens.white;
+  static const secondaryText = PeeplHomeTokens.mutedWhite;
 }
 
 class FeedScreen extends StatefulWidget {
@@ -152,9 +99,6 @@ class _FeedScreenState extends State<FeedScreen> {
   double? _longitude;
 
   static const double _localRadiusMeters = 16000.0;
-
-  static const double _shellBottomNavHeight = 44;
-  static const String _logoAsset = 'assets/images/peepl_logo_mirrored.png';
 
   /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
   static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
@@ -392,11 +336,25 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   String _dealBannerText(Map<String, dynamic> deal) {
-    return [
-      LocalDeals.discount(deal),
-      LocalDeals.advertiser(deal),
-      _dealDistanceLabel(deal),
-    ].where((part) => part.isNotEmpty).join('  ·  ');
+    final discount = LocalDeals.discount(deal);
+    final advertiser = LocalDeals.advertiser(deal);
+    if (discount.isNotEmpty && advertiser.isNotEmpty) {
+      return '$discount @ $advertiser';
+    }
+    return [discount, advertiser]
+        .where((part) => part.isNotEmpty)
+        .join('  ·  ');
+  }
+
+  String _happeningNowTickerText() {
+    if (_dealBannerItems.isEmpty) return '';
+    final parts = <String>[];
+    for (var i = 0; i < _dealBannerItems.length && i < 5; i++) {
+      final index = (_dealBannerIndex + i) % _dealBannerItems.length;
+      final text = _dealBannerText(_dealBannerItems[index]);
+      if (text.isNotEmpty) parts.add(text);
+    }
+    return parts.join('  •  ');
   }
 
   void _startDealRotation() {
@@ -704,6 +662,83 @@ class _FeedScreenState extends State<FeedScreen> {
     }).toList();
   }
 
+  void _showFilterSheet() {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: PeeplHomeTokens.navyHeader,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        const filters = ['Newest', 'Nearby', 'Local', 'Region'];
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text(
+                  'Feed filters',
+                  style: TextStyle(
+                    color: PeeplHomeTokens.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ...filters.map((filter) {
+                  return ValueListenableBuilder<String>(
+                    valueListenable: activeFilterNotifier,
+                    builder: (context, active, _) {
+                      final selected = active == filter;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          filter,
+                          style: TextStyle(
+                            color: PeeplHomeTokens.white,
+                            fontWeight:
+                                selected ? FontWeight.w700 : FontWeight.w400,
+                          ),
+                        ),
+                        trailing: selected
+                            ? const Icon(
+                                Icons.check,
+                                color: PeeplHomeTokens.yellow,
+                              )
+                            : null,
+                        onTap: () {
+                          activeFilterNotifier.value = filter;
+                          Navigator.pop(sheetContext);
+                        },
+                      );
+                    },
+                  );
+                }),
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Map',
+                    style: TextStyle(color: PeeplHomeTokens.white),
+                  ),
+                  trailing: const Icon(
+                    Icons.map_outlined,
+                    color: PeeplHomeTokens.white,
+                  ),
+                  onTap: () {
+                    Navigator.pop(sheetContext);
+                    Navigator.pushNamed(context, '/map');
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   void _showSearchSheet() {
     showModalBottomSheet(
       context: context,
@@ -742,436 +777,22 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  double _headerBodyHeight(BuildContext context) {
-    const contentHeight =
-        _T.headerVerticalInset +
-        _T.logoRowHeight +
-        _T.bannerGap +
-        _T.dealBannerHeight +
-        _T.iconRowGap +
-        _T.iconRowHeight +
-        _T.headerBottomPadding;
-    return math.max(
-      MediaQuery.sizeOf(context).height * _T.headerHeightFraction,
-      contentHeight,
-    );
-  }
-
-  double _headerHeight(BuildContext context) {
-    return MediaQuery.paddingOf(context).top + _headerBodyHeight(context);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final screenHeight = MediaQuery.sizeOf(context).height;
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
-    final headerHeight = _headerHeight(context);
-    final bottomBarHeight = _shellBottomNavHeight + bottomInset;
-    final feedHeight = screenHeight - headerHeight - bottomBarHeight;
-    final cardHeight = (feedHeight - (7 * _T.cardGap)) / 8;
-
-    return Scaffold(
-      backgroundColor: _T.feedBackground,
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        removeLeft: true,
-        removeRight: true,
-        child: Column(
-          children: [
-            _buildBlueHeader(),
-            Expanded(child: _buildFeedContent(cardHeight: cardHeight)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildBlueHeader() {
-    final topInset = MediaQuery.paddingOf(context).top;
-    final bodyHeight = _headerBodyHeight(context);
-    final totalHeader = topInset + bodyHeight;
-
-    return SizedBox(
-      height: totalHeader,
-      width: double.infinity,
-      child: ColoredBox(
-        color: _T.navy,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(top: topInset + _T.headerVerticalInset),
-              child: SizedBox(height: _T.logoRowHeight, child: _buildLogoBar()),
-            ),
-            SizedBox(height: _T.bannerGap),
-            _buildDealBanner(),
-            SizedBox(height: _T.iconRowGap),
-            Padding(
-              padding: const EdgeInsets.only(bottom: _T.headerBottomPadding),
-              child: SizedBox(height: _T.iconRowHeight, child: _buildIconRow()),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLogoBar() {
-    final logoCharStyle = TextStyle(
-      color: Colors.white,
-      fontSize: 26,
-      fontWeight: FontWeight.w900,
-      height: 1.0,
-      fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-    );
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(child: _buildLocationChip()),
-              GestureDetector(
-                onTap: () => Navigator.pushNamed(context, '/profile'),
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.55),
-                      width: 1.2,
-                    ),
-                  ),
-                  child: const Icon(
-                    Icons.person,
-                    color: Colors.white,
-                    size: 14,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          IgnorePointer(
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('p', style: logoCharStyle),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('e', style: logoCharStyle),
-                    Transform.scale(
-                      scaleX: -1,
-                      child: Text('e', style: logoCharStyle),
-                    ),
-                  ],
-                ),
-                Text('pl', style: logoCharStyle),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIconRow() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _headerAction(
-            icon: Icons.search,
-            label: 'Search',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            onTap: _showSearchSheet,
-          ),
-          _headerAction(
-            icon: Icons.notifications_outlined,
-            label: 'Alerts',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            onTap: () => Navigator.pushNamed(context, '/alerts'),
-          ),
-          _headerAction(
-            icon: Icons.explore,
-            label: 'Explore',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            onTap: () => Navigator.pushNamed(context, '/explore'),
-          ),
-          _headerPeepAction(
-            circleSize: _T.peepCircleSize,
-            labelSize: _T.actionLabelSize,
-          ),
-          _headerAction(
-            icon: Icons.local_offer,
-            label: 'Deals',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            circleColor: const Color(0xFFE8F5E9),
-            iconColor: const Color(0xFF2E7D32),
-            onTap: () => Navigator.pushNamed(context, '/deals'),
-          ),
-          _headerAction(
-            icon: Icons.map_outlined,
-            label: 'Map',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            onTap: () => Navigator.pushNamed(context, '/map'),
-          ),
-          _headerAction(
-            icon: Icons.menu,
-            label: 'Menu',
-            circleSize: _T.actionCircleSize,
-            iconSize: _T.actionIconSize,
-            labelSize: _T.actionLabelSize,
-            onTap: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _headerAction({
-    required IconData icon,
-    required String label,
-    required double circleSize,
-    required double iconSize,
-    required double labelSize,
-    required VoidCallback onTap,
-    Color? circleColor,
-    Color? iconColor,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: _T.headerActionMinTouch,
-          minHeight: _T.headerActionMinTouch,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Container(
-              width: circleSize,
-              height: circleSize,
-              decoration: BoxDecoration(
-                color: circleColor ?? _T.white,
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.85),
-                  width: 1.2,
-                ),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x26000000),
-                    offset: Offset(0, 2),
-                    blurRadius: 4,
-                  ),
-                ],
-              ),
-              child: Icon(icon, color: iconColor ?? _T.navy, size: iconSize),
-            ),
-            SizedBox(height: _T.labelIconGap),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: labelSize,
-                fontWeight: FontWeight.w600,
-                height: 1.0,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _headerPeepAction({
-    required double circleSize,
-    required double labelSize,
-  }) {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/post'),
-      behavior: HitTestBehavior.opaque,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(
-          minWidth: _T.headerActionMinTouch,
-          minHeight: _T.headerActionMinTouch,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            Container(
-              width: circleSize,
-              height: circleSize,
-              decoration: BoxDecoration(
-                color: _T.yellow,
-                shape: BoxShape.circle,
-                border: Border.all(color: _T.white, width: 2),
-                boxShadow: [
-                  BoxShadow(
-                    color: _T.yellow.withValues(alpha: 0.28),
-                    blurRadius: 5,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    '+',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
-                    ),
-                  ),
-                  Text(
-                    'PEEP',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 8,
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: _T.labelIconGap),
-            SizedBox(height: labelSize),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLocationChip() {
-    return GestureDetector(
-      onTap: () {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Area selector coming soon')),
-        );
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.location_on, color: Colors.white, size: 12),
-          const SizedBox(width: 2),
-          Flexible(
-            child: Text(
-              _areaLabel,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 9,
-                fontWeight: FontWeight.w400,
-              ),
-            ),
-          ),
-          const Icon(Icons.keyboard_arrow_down, color: Colors.white, size: 12),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDealBanner() {
-    final deal = _currentBannerDeal;
-    if (deal == null) {
-      return const SizedBox.shrink();
-    }
-
-    final bannerText = _dealBannerText(deal);
-
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/deals'),
-      behavior: HitTestBehavior.opaque,
-      child: ColoredBox(
-        color: _T.dealGreen,
-        child: SizedBox(
-          height: _T.dealBannerHeight,
-          width: double.infinity,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.local_offer,
-                  color: _T.dealGreenText,
-                  size: 13,
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 350),
-                    child: Text(
-                      bannerText,
-                      key: ValueKey<String>('${_dealBannerIndex}_$bannerText'),
-                      style: const TextStyle(
-                        color: _T.dealGreenText,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-                const Text(
-                  'View Deal >',
-                  style: TextStyle(
-                    color: _T.dealGreenText,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   /// Deterministic featured organic cadence — does not alter ad merge logic.
   Set<int> _featuredFeedIndices(List<Map<String, dynamic>> items) {
     final featured = <int>{};
     var organicIndex = 0;
     var previousWasFeatured = false;
+    const featuredOrganicFirstIndex = 5;
+    const featuredOrganicInterval = 6;
     for (var i = 0; i < items.length; i++) {
       if (items[i]['type'] == 'ad') {
         previousWasFeatured = false;
         continue;
       }
       final eligible =
-          organicIndex >= _T.featuredOrganicFirstIndex &&
-          (organicIndex - _T.featuredOrganicFirstIndex) %
-                  _T.featuredOrganicInterval ==
+          organicIndex >= featuredOrganicFirstIndex &&
+          (organicIndex - featuredOrganicFirstIndex) %
+                  featuredOrganicInterval ==
               0;
       if (eligible && !previousWasFeatured) {
         featured.add(i);
@@ -1184,20 +805,127 @@ class _FeedScreenState extends State<FeedScreen> {
     return featured;
   }
 
-  double _feedItemHeight(
-    Map<String, dynamic> item,
-    int index,
-    double standardHeight,
-    Set<int> featuredIndices,
-  ) {
-    if (item['type'] == 'ad') return standardHeight;
-    if (featuredIndices.contains(index)) {
-      return standardHeight * _T.featuredCardScale;
-    }
-    return standardHeight;
+  double _feedItemHeight(Map<String, dynamic> item) {
+    if (item['type'] == 'ad') return PeeplHomeTokens.sponsoredCardHeight;
+    return PeeplHomeTokens.cardHeight;
   }
 
-  Widget _buildFeedContent({required double cardHeight}) {
+  String? _categoryLine(Map<String, dynamic> post) {
+    final parts = <String>[];
+    final venueType = post['venueType']?.toString().trim();
+    if (venueType != null && venueType.isNotEmpty) parts.add(venueType);
+
+    final rawName = post['locationName']?.toString().trim() ?? '';
+    if (rawName.contains(',')) {
+      final area = rawName.split(',').skip(1).join(',').trim();
+      if (area.isNotEmpty) parts.add(area);
+    }
+    if (parts.isEmpty) return null;
+    return parts.join(' • ');
+  }
+
+  List<OrganicMetaItem> _organicMetaItems(Map<String, dynamic> post) {
+    final items = <OrganicMetaItem>[];
+    final distance = _distanceLabel(post);
+    if (distance != null) {
+      items.add(OrganicMetaItem(label: distance, icon: Icons.near_me_outlined));
+    }
+
+    final price = post['priceLevel']?.toString().trim();
+    if (price != null && price.isNotEmpty) {
+      items.add(OrganicMetaItem(label: price));
+    }
+
+    if (post['hasDeals'] == true) {
+      items.add(
+        const OrganicMetaItem(
+          label: 'Live deal',
+          icon: Icons.local_offer_outlined,
+          color: PeeplHomeTokens.tickerGreen,
+        ),
+      );
+    }
+
+    final wait = post['waitTime'];
+    if (wait != null && '$wait'.trim().isNotEmpty) {
+      items.add(
+        OrganicMetaItem(
+          label: 'Wait $wait',
+          icon: Icons.schedule,
+          color: Colors.orange.shade300,
+        ),
+      );
+    }
+
+    if (post['hasMusic'] == true) {
+      items.add(
+        const OrganicMetaItem(
+          label: 'Live music',
+          icon: Icons.music_note_outlined,
+        ),
+      );
+    }
+
+    return items;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PeeplHomeTokens.feedBackground,
+      body: MediaQuery.removePadding(
+        context: context,
+        removeTop: true,
+        removeLeft: true,
+        removeRight: true,
+        child: Column(
+          children: [
+            _buildHomeShellHeader(),
+            Expanded(child: _buildFeedContent()),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildHomeShellHeader() {
+    final topInset = MediaQuery.paddingOf(context).top;
+    return ColoredBox(
+      color: PeeplHomeTokens.navyHeader,
+      child: Padding(
+        padding: EdgeInsets.only(top: topInset + 6, bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PeeplHomeHeader(
+              areaLabel: _areaLabel,
+              onLocationTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Area selector coming soon')),
+                );
+              },
+              onProfileTap: () => Navigator.pushNamed(context, '/profile'),
+              onMenuTap: () => Navigator.pushNamed(context, '/settings'),
+            ),
+            PeeplSearchBar(
+              onTap: _showSearchSheet,
+              onFilterTap: _showFilterSheet,
+            ),
+            QuickFilterRow(
+              chips: const [],
+              onMoreTap: _showFilterSheet,
+            ),
+            HappeningNowTicker(
+              text: _happeningNowTickerText(),
+              onTap: () => Navigator.pushNamed(context, '/deals'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFeedContent() {
     if (_isLoading) {
       return const Center(
         child: CircularProgressIndicator(
@@ -1241,7 +969,6 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     final items = _visibleFeedItems;
-    final featuredIndices = _featuredFeedIndices(items);
 
     if (items.isEmpty) {
       return Center(
@@ -1255,53 +982,44 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     return RefreshIndicator(
-      color: _T.navy,
-      backgroundColor: _T.feedBackground,
+      color: PeeplHomeTokens.yellow,
+      backgroundColor: PeeplHomeTokens.feedBackground,
       onRefresh: _onRefresh,
       child: ListView.builder(
         controller: _scrollController,
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: EdgeInsets.fromLTRB(0, _T.headerToFeedGap, 0, 50),
+        padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
-          final itemHeight = _feedItemHeight(
-            item,
-            index,
-            cardHeight,
-            featuredIndices,
-          );
-          return Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: itemHeight,
-                child: _buildFeedCard(
-                  item,
-                  featured: featuredIndices.contains(index),
-                ),
-              ),
-              if (index < items.length - 1)
-                const ColoredBox(
-                  color: _T.cardSeparator,
-                  child: SizedBox(width: double.infinity, height: _T.cardGap),
-                ),
-            ],
+          return Padding(
+            padding: EdgeInsets.only(
+              bottom: index < items.length - 1
+                  ? PeeplHomeTokens.cardVerticalGap
+                  : 0,
+            ),
+            child: SizedBox(
+              height: _feedItemHeight(item),
+              child: _buildFeedCard(item),
+            ),
           );
         },
       ),
     );
   }
 
-  Widget _buildFeedCard(Map<String, dynamic> item, {bool featured = false}) {
+  Widget _buildFeedCard(Map<String, dynamic> item) {
     if (item['type'] == 'ad') {
       final content = _feedCardContentFromAd(item);
-      return _FeedAdCard(
+      final offerLine = content.tagline.isNotEmpty
+          ? content.tagline
+          : (item['headline'] ?? item['title'] ?? '').toString();
+      return SponsoredNativeCard(
         name: content.name,
         tagline: content.tagline,
-        distance: content.distance,
+        offerLine: offerLine,
         initial: content.initial,
         accentColor: content.accentColor,
         imageUrl: content.imageUrl,
@@ -1315,12 +1033,12 @@ class _FeedScreenState extends State<FeedScreen> {
 
     final post = item;
     final name = _displayName(post['locationName']?.toString());
-    return _FeedPostCard(
+    return OrganicCrowdCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
       name: name,
-      subtitle: _subtitleLine(post),
-      crowdLevel: _crowdLevelInt(post),
-      featured: featured,
+      categoryLine: _categoryLine(post),
+      metaItems: _organicMetaItems(post),
+      crowdData: CrowdDisplayMapper.fromPost(post),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
@@ -1479,547 +1197,23 @@ class _FeedCardContent {
   final VoidCallback? onViewable;
 }
 
-class _FeedPostCard extends StatelessWidget {
-  const _FeedPostCard({
-    required this.imageUrl,
-    required this.name,
-    required this.subtitle,
-    required this.crowdLevel,
-    required this.onTap,
-    this.featured = false,
-  });
-
-  final String imageUrl;
-  final String name;
-  final String? subtitle;
-  final int crowdLevel;
-  final VoidCallback onTap;
-  final bool featured;
-
-  @override
-  Widget build(BuildContext context) {
-    final titleSize = featured ? _T.featuredTitleSize : _T.organicTitleSize;
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          _feedCardImage(imageUrl),
-          Positioned.fill(child: DecoratedBox(decoration: _organicGradient)),
-          Positioned(
-            left: _T.cardTextLeft,
-            right: 68,
-            bottom: _T.cardTextBottom,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: const Color(0xFFFFF9C4),
-                    fontSize: titleSize,
-                    fontWeight: FontWeight.w700,
-                    height: 1.1,
-                    shadows: [
-                      Shadow(
-                        offset: const Offset(0, 1),
-                        blurRadius: 4,
-                        color: Colors.black.withValues(alpha: 0.6),
-                      ),
-                    ],
-                  ),
-                ),
-                if (subtitle != null && subtitle!.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: _T.metadataOpacity),
-                      fontSize: _T.metadataSize,
-                      fontWeight: FontWeight.w400,
-                      height: 1.0,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          Positioned(
-            top: _T.scoreRingTop,
-            right: _T.scoreRingRight,
-            child: CrowdMeter(
-              level: crowdLevel,
-              size: _T.scoreRingSize,
-              strokeRatio: _T.scoreRingStrokeRatio,
-              fontScale: _T.scoreRingFontScale,
-              trackAlpha: _T.scoreRingTrackAlpha,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FeedAdCard extends StatefulWidget {
-  const _FeedAdCard({
-    required this.name,
-    required this.tagline,
-    required this.distance,
-    required this.initial,
-    required this.accentColor,
-    required this.imageUrl,
-    required this.ctaLabel,
-    required this.onOpen,
-    required this.onCta,
-    this.onImpression,
-    this.onViewable,
-  });
-
-  final String name;
-  final String tagline;
-  final String distance;
-  final String initial;
-  final Color accentColor;
-  final String imageUrl;
-  final String ctaLabel;
-  final VoidCallback onOpen;
-  final VoidCallback onCta;
-  final VoidCallback? onImpression;
-  final VoidCallback? onViewable;
-
-  @override
-  State<_FeedAdCard> createState() => _FeedAdCardState();
-}
-
-class _FeedAdCardState extends State<_FeedAdCard> {
-  bool _impressionFired = false;
-  bool _viewabilityFired = false;
-  Timer? _viewabilityTimer;
-
-  @override
-  void dispose() {
-    _viewabilityTimer?.cancel();
-    super.dispose();
-  }
-
-  void _onVisibilityChanged(VisibilityInfo info) {
-    if (widget.onImpression == null && widget.onViewable == null) return;
-
-    if (info.visibleFraction >= 0.5) {
-      if (!_impressionFired && widget.onImpression != null) {
-        _impressionFired = true;
-        widget.onImpression!();
-      }
-      if (!_viewabilityFired &&
-          widget.onViewable != null &&
-          _viewabilityTimer == null) {
-        _viewabilityTimer = Timer(const Duration(seconds: 1), () {
-          if (!mounted || _viewabilityFired) return;
-          _viewabilityFired = true;
-          widget.onViewable?.call();
-        });
-      }
-    } else {
-      _viewabilityTimer?.cancel();
-      _viewabilityTimer = null;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (widget.imageUrl.isNotEmpty) {
-      return _wrapVisibility(
-        GestureDetector(
-          onTap: widget.onOpen,
-          behavior: HitTestBehavior.opaque,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              ImageFiltered(
-                imageFilter: ImageFilter.blur(
-                  sigmaX: _T.sponsorBlurSigma,
-                  sigmaY: _T.sponsorBlurSigma,
-                ),
-                child: _feedCardImage(widget.imageUrl),
-              ),
-              Positioned.fill(
-                child: DecoratedBox(decoration: _sponsorGradient),
-              ),
-              const Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                child: SizedBox(
-                  height: 3,
-                  child: ColoredBox(color: Color(0xFF1565C0)),
-                ),
-              ),
-              Positioned(
-                top: 10,
-                left: 10,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    'SPONSORED',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: _T.sponsorBadgeFontSize,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: _T.sponsorBadgeLetterSpacing,
-                      height: 1.0,
-                    ),
-                  ),
-                ),
-              ),
-              Positioned(
-                left: _T.cardTextLeft,
-                right: _T.cardTextLeft,
-                bottom: _T.cardTextBottom,
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            widget.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 17,
-                              fontWeight: FontWeight.w900,
-                              height: 1.1,
-                              shadows: [
-                                Shadow(
-                                  offset: const Offset(0, 1),
-                                  blurRadius: 4,
-                                  color: Colors.black.withOpacity(0.6),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (widget.tagline.isNotEmpty) ...[
-                            const SizedBox(height: 3),
-                            Text(
-                              widget.tagline,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 12,
-                                fontWeight: FontWeight.w500,
-                                height: 1.0,
-                                shadows: [
-                                  Shadow(
-                                    offset: const Offset(0, 1),
-                                    blurRadius: 4,
-                                    color: Colors.black.withOpacity(0.6),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: widget.onCta,
-                      behavior: HitTestBehavior.opaque,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(
-                          minHeight: 44,
-                          minWidth: 44,
-                        ),
-                        child: Container(
-                          height: _T.sponsorCtaHeight,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: _T.sponsorCtaHorizontalPadding,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.25),
-                                blurRadius: 6,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            widget.ctaLabel,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: widget.accentColor,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w800,
-                              height: 1.0,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    const sponsoredBlue = Color(0xFF1565C0);
-    final leadingTile = Container(
-      width: 44,
-      height: 44,
-      decoration: BoxDecoration(
-        color: widget.accentColor,
-        borderRadius: BorderRadius.circular(8),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        widget.initial,
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 20,
-          fontWeight: FontWeight.w900,
-          height: 1.0,
-        ),
-      ),
-    );
-
-    final card = GestureDetector(
-      onTap: widget.onOpen,
-      behavior: HitTestBehavior.opaque,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Container(color: _T.feedBackground),
-          const Positioned(
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: 4,
-            child: ColoredBox(color: sponsoredBlue),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                leadingTile,
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: sponsoredBlue,
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'SPONSORED',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 1.0,
-                            height: 1.0,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        widget.name,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: sponsoredBlue,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          height: 1.1,
-                        ),
-                      ),
-                      if (widget.tagline.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.tagline,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                      if (widget.distance.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          widget.distance,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.black38,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
-                            height: 1.1,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: widget.onCta,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: widget.accentColor,
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: Text(
-                      widget.ctaLabel,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        height: 1.0,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-
-    if (widget.onImpression == null && widget.onViewable == null) {
-      return card;
-    }
-
-    return _wrapVisibility(card);
-  }
-
-  Widget _wrapVisibility(Widget card) {
-    if (widget.onImpression == null && widget.onViewable == null) {
-      return card;
-    }
-    return VisibilityDetector(
-      key: Key('feed_ad_${widget.name}_${widget.ctaLabel.hashCode}'),
-      onVisibilityChanged: _onVisibilityChanged,
-      child: card,
-    );
-  }
-}
-
-const _organicGradient = BoxDecoration(
-  gradient: LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0x14000000), Color(0x40000000), Color(0xA0000000)],
-    stops: [0.0, 0.45, 1.0],
-  ),
-);
-
-const _sponsorGradient = BoxDecoration(
-  gradient: LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0x1A000000), Color(0x45000000), Color(0xB0000000)],
-    stops: [0.0, 0.5, 1.0],
-  ),
-);
-
-Widget _feedCardImage(
-  String source, {
-  Alignment alignment = const Alignment(0, 0.35),
-}) {
-  if (source.isEmpty) {
-    return Container(color: _T.cardFallback);
-  }
-  if (source.startsWith('assets/')) {
-    return Image.asset(
-      source,
-      fit: BoxFit.cover,
-      alignment: alignment,
-      errorBuilder: (_, __, ___) => Container(color: _T.cardFallback),
-    );
-  }
-  return Image.network(
-    source,
-    fit: BoxFit.cover,
-    alignment: alignment,
-    errorBuilder: (_, __, ___) => Container(color: _T.cardFallback),
-  );
-}
-
-/// Debug/web preview host — mirrors [MainShell] bottom nav height so the
-/// 8-row feed math matches a real phone viewport.
+/// Debug/web preview host — mirrors [MainShell] bottom navigation shell.
 class FeedPreviewHost extends StatelessWidget {
   const FeedPreviewHost({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.paddingOf(context).bottom;
     return Scaffold(
-      backgroundColor: _T.feedBackground,
+      backgroundColor: PeeplHomeTokens.feedBackground,
       body: Column(
         children: [
           const Expanded(child: FeedScreen()),
-          Container(
-            height: _FeedScreenState._shellBottomNavHeight + bottomInset,
-            padding: EdgeInsets.only(bottom: bottomInset),
-            color: _T.navy,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: const [
-                Icon(Icons.home, color: Colors.white, size: 16),
-                Icon(Icons.explore, color: Colors.white54, size: 16),
-                Icon(
-                  Icons.notifications_outlined,
-                  color: Colors.white54,
-                  size: 16,
-                ),
-              ],
-            ),
+          PeeplBottomNavigation(
+            onExploreTap: () {},
+            onSearchTap: () {},
+            onPostTap: () {},
+            onAlertsTap: () {},
+            onProfileTap: () {},
           ),
         ],
       ),
