@@ -78,15 +78,15 @@ class _MainShellState extends State<MainShell> {
                   border: Border.all(
                     color: isActive
                         ? Colors.white
-                        : Colors.white.withValues(alpha: 0.45),
+                        : Colors.white.withValues(alpha: 0.55),
                     width: 1,
                   ),
                   boxShadow: isActive
                       ? const [
                           BoxShadow(
-                            color: Color(0x18000000),
-                            offset: Offset(0, 1),
-                            blurRadius: 2,
+                            color: Color(0x28000000),
+                            offset: Offset(0, 2),
+                            blurRadius: 4,
                           ),
                         ]
                       : null,

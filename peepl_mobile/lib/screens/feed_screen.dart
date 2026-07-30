@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'dart:math' show atan2, cos, pi, sin, sqrt;
+import 'dart:ui' show ImageFilter;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -66,19 +67,39 @@ class _T {
   static const bannerGap = 3.0;
   static const dealBannerHeight = 36.0;
   static const iconRowGap = 2.0;
-  static const iconRowHeight = 58.0;
-  static const headerBottomPadding = 14.0;
+  static const iconRowHeight = 49.0;
+  static const headerBottomPadding = 12.0;
   static const headerHeightFraction = 0.12;
-  static const actionCircleSize = 44.0;
-  static const peepCircleSize = 46.0;
-  static const actionIconSize = 16.0;
+  static const actionCircleSize = 36.0;
+  static const peepCircleSize = 40.0;
+  static const actionIconSize = 14.0;
   static const actionLabelSize = 10.0;
-  static const labelIconGap = 4.0;
+  static const labelIconGap = 1.0;
+  static const headerActionMinTouch = 44.0;
 
   static const cardTextLeft = 22.0;
   static const cardTextBottom = 18.0;
-  static const scoreRingTop = 14.0;
-  static const scoreRingRight = 14.0;
+  static const scoreRingSize = 36.0;
+  static const scoreRingTop = 21.0;
+  static const scoreRingRight = 21.0;
+  static const scoreRingStrokeRatio = 0.09;
+  static const scoreRingFontScale = 0.46;
+  static const scoreRingTrackAlpha = 0.18;
+
+  static const organicTitleSize = 21.0;
+  static const featuredTitleSize = 24.0;
+  static const metadataSize = 13.0;
+  static const metadataOpacity = 0.72;
+
+  static const featuredCardScale = 1.45;
+  static const featuredOrganicFirstIndex = 5;
+  static const featuredOrganicInterval = 6;
+
+  static const sponsorBlurSigma = 2.0;
+  static const sponsorBadgeFontSize = 7.0;
+  static const sponsorBadgeLetterSpacing = 0.9;
+  static const sponsorCtaHeight = 30.0;
+  static const sponsorCtaHorizontalPadding = 12.0;
 
   static const ringGreen = Color(0xFF34C759);
   static const ringAmber = Color(0xFFFF9F0A);
@@ -862,7 +883,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildIconRow() {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -939,43 +960,49 @@ class _FeedScreenState extends State<FeedScreen> {
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            width: circleSize,
-            height: circleSize,
-            decoration: BoxDecoration(
-              color: circleColor ?? _T.white,
-              shape: BoxShape.circle,
-              border: Border.all(
-                color: Colors.white.withValues(alpha: 0.85),
-                width: 1.2,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x26000000),
-                  offset: Offset(0, 2),
-                  blurRadius: 4,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: _T.headerActionMinTouch,
+          minHeight: _T.headerActionMinTouch,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              width: circleSize,
+              height: circleSize,
+              decoration: BoxDecoration(
+                color: circleColor ?? _T.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withValues(alpha: 0.85),
+                  width: 1.2,
                 ),
-              ],
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x26000000),
+                    offset: Offset(0, 2),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+              child: Icon(icon, color: iconColor ?? _T.navy, size: iconSize),
             ),
-            child: Icon(icon, color: iconColor ?? _T.navy, size: iconSize),
-          ),
-          SizedBox(height: _T.labelIconGap),
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: labelSize,
-              fontWeight: FontWeight.w600,
-              height: 1.0,
+            SizedBox(height: _T.labelIconGap),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: labelSize,
+                fontWeight: FontWeight.w600,
+                height: 1.0,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -987,52 +1014,58 @@ class _FeedScreenState extends State<FeedScreen> {
     return GestureDetector(
       onTap: () => Navigator.pushNamed(context, '/post'),
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.start,
-        children: [
-          Container(
-            width: circleSize,
-            height: circleSize,
-            decoration: BoxDecoration(
-              color: _T.yellow,
-              shape: BoxShape.circle,
-              border: Border.all(color: _T.white, width: 2),
-              boxShadow: [
-                BoxShadow(
-                  color: _T.yellow.withValues(alpha: 0.22),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: const Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  '+',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minWidth: _T.headerActionMinTouch,
+          minHeight: _T.headerActionMinTouch,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            Container(
+              width: circleSize,
+              height: circleSize,
+              decoration: BoxDecoration(
+                color: _T.yellow,
+                shape: BoxShape.circle,
+                border: Border.all(color: _T.white, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: _T.yellow.withValues(alpha: 0.28),
+                    blurRadius: 5,
+                    offset: const Offset(0, 2),
                   ),
-                ),
-                Text(
-                  'PEEP',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w800,
-                    height: 1.0,
+                ],
+              ),
+              child: const Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '+',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                    ),
                   ),
-                ),
-              ],
+                  Text(
+                    'PEEP',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 8,
+                      fontWeight: FontWeight.w800,
+                      height: 1.0,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(height: _T.labelIconGap),
-          SizedBox(height: labelSize),
-        ],
+            SizedBox(height: _T.labelIconGap),
+            SizedBox(height: labelSize),
+          ],
+        ),
       ),
     );
   }
@@ -1125,6 +1158,45 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
+  /// Deterministic featured organic cadence — does not alter ad merge logic.
+  Set<int> _featuredFeedIndices(List<Map<String, dynamic>> items) {
+    final featured = <int>{};
+    var organicIndex = 0;
+    var previousWasFeatured = false;
+    for (var i = 0; i < items.length; i++) {
+      if (items[i]['type'] == 'ad') {
+        previousWasFeatured = false;
+        continue;
+      }
+      final eligible =
+          organicIndex >= _T.featuredOrganicFirstIndex &&
+          (organicIndex - _T.featuredOrganicFirstIndex) %
+                  _T.featuredOrganicInterval ==
+              0;
+      if (eligible && !previousWasFeatured) {
+        featured.add(i);
+        previousWasFeatured = true;
+      } else {
+        previousWasFeatured = false;
+      }
+      organicIndex++;
+    }
+    return featured;
+  }
+
+  double _feedItemHeight(
+    Map<String, dynamic> item,
+    int index,
+    double standardHeight,
+    Set<int> featuredIndices,
+  ) {
+    if (item['type'] == 'ad') return standardHeight;
+    if (featuredIndices.contains(index)) {
+      return standardHeight * _T.featuredCardScale;
+    }
+    return standardHeight;
+  }
+
   Widget _buildFeedContent({required double cardHeight}) {
     if (_isLoading) {
       return const Center(
@@ -1169,6 +1241,7 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     final items = _visibleFeedItems;
+    final featuredIndices = _featuredFeedIndices(items);
 
     if (items.isEmpty) {
       return Center(
@@ -1194,10 +1267,22 @@ class _FeedScreenState extends State<FeedScreen> {
         itemCount: items.length,
         itemBuilder: (context, index) {
           final item = items[index];
+          final itemHeight = _feedItemHeight(
+            item,
+            index,
+            cardHeight,
+            featuredIndices,
+          );
           return Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              SizedBox(height: cardHeight, child: _buildFeedCard(item)),
+              SizedBox(
+                height: itemHeight,
+                child: _buildFeedCard(
+                  item,
+                  featured: featuredIndices.contains(index),
+                ),
+              ),
               if (index < items.length - 1)
                 const ColoredBox(
                   color: _T.cardSeparator,
@@ -1210,7 +1295,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildFeedCard(Map<String, dynamic> item) {
+  Widget _buildFeedCard(Map<String, dynamic> item, {bool featured = false}) {
     if (item['type'] == 'ad') {
       final content = _feedCardContentFromAd(item);
       return _FeedAdCard(
@@ -1235,6 +1320,7 @@ class _FeedScreenState extends State<FeedScreen> {
       name: name,
       subtitle: _subtitleLine(post),
       crowdLevel: _crowdLevelInt(post),
+      featured: featured,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
@@ -1400,6 +1486,7 @@ class _FeedPostCard extends StatelessWidget {
     required this.subtitle,
     required this.crowdLevel,
     required this.onTap,
+    this.featured = false,
   });
 
   final String imageUrl;
@@ -1407,9 +1494,11 @@ class _FeedPostCard extends StatelessWidget {
   final String? subtitle;
   final int crowdLevel;
   final VoidCallback onTap;
+  final bool featured;
 
   @override
   Widget build(BuildContext context) {
+    final titleSize = featured ? _T.featuredTitleSize : _T.organicTitleSize;
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -1417,23 +1506,10 @@ class _FeedPostCard extends StatelessWidget {
         fit: StackFit.expand,
         children: [
           _feedCardImage(imageUrl),
-          Positioned.fill(
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomLeft,
-                  end: Alignment.topRight,
-                  colors: [
-                    Colors.black.withValues(alpha: 0.65),
-                    Colors.black.withValues(alpha: 0.0),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          Positioned.fill(child: DecoratedBox(decoration: _organicGradient)),
           Positioned(
             left: _T.cardTextLeft,
-            right: 72,
+            right: 68,
             bottom: _T.cardTextBottom,
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -1445,28 +1521,28 @@ class _FeedPostCard extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: const Color(0xFFFFF9C4),
-                    fontSize: 21,
+                    fontSize: titleSize,
                     fontWeight: FontWeight.w700,
                     height: 1.1,
                     shadows: [
                       Shadow(
                         offset: const Offset(0, 1),
                         blurRadius: 4,
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withValues(alpha: 0.6),
                       ),
                     ],
                   ),
                 ),
                 if (subtitle != null && subtitle!.isNotEmpty) ...[
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 4),
                   Text(
                     subtitle!,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.8),
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w500,
+                      color: Colors.white.withValues(alpha: _T.metadataOpacity),
+                      fontSize: _T.metadataSize,
+                      fontWeight: FontWeight.w400,
                       height: 1.0,
                     ),
                   ),
@@ -1479,9 +1555,10 @@ class _FeedPostCard extends StatelessWidget {
             right: _T.scoreRingRight,
             child: CrowdMeter(
               level: crowdLevel,
-              size: 44,
-              strokeRatio: 0.105,
-              fontScale: 0.40,
+              size: _T.scoreRingSize,
+              strokeRatio: _T.scoreRingStrokeRatio,
+              fontScale: _T.scoreRingFontScale,
+              trackAlpha: _T.scoreRingTrackAlpha,
             ),
           ),
         ],
@@ -1565,20 +1642,15 @@ class _FeedAdCardState extends State<_FeedAdCard> {
           child: Stack(
             fit: StackFit.expand,
             children: [
-              _feedCardImage(widget.imageUrl),
-              Positioned.fill(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      colors: [
-                        Colors.black.withOpacity(0.72),
-                        Colors.black.withOpacity(0.15),
-                      ],
-                    ),
-                  ),
+              ImageFiltered(
+                imageFilter: ImageFilter.blur(
+                  sigmaX: _T.sponsorBlurSigma,
+                  sigmaY: _T.sponsorBlurSigma,
                 ),
+                child: _feedCardImage(widget.imageUrl),
+              ),
+              Positioned.fill(
+                child: DecoratedBox(decoration: _sponsorGradient),
               ),
               const Positioned(
                 top: 0,
@@ -1594,20 +1666,20 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                 left: 10,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
+                    horizontal: 6,
+                    vertical: 2,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1565C0),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     'SPONSORED',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 9,
+                      fontSize: _T.sponsorBadgeFontSize,
                       fontWeight: FontWeight.w900,
-                      letterSpacing: 1.2,
+                      letterSpacing: _T.sponsorBadgeLetterSpacing,
                       height: 1.0,
                     ),
                   ),
@@ -1671,30 +1743,38 @@ class _FeedAdCardState extends State<_FeedAdCard> {
                     GestureDetector(
                       onTap: widget.onCta,
                       behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        height: 34,
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(20),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.25),
-                              blurRadius: 6,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(
+                          minHeight: 44,
+                          minWidth: 44,
                         ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          widget.ctaLabel,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: widget.accentColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w800,
-                            height: 1.0,
+                        child: Container(
+                          height: _T.sponsorCtaHeight,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: _T.sponsorCtaHorizontalPadding,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(20),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.25),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            widget.ctaLabel,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: widget.accentColor,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                            ),
                           ),
                         ),
                       ),
@@ -1869,6 +1949,24 @@ class _FeedAdCardState extends State<_FeedAdCard> {
     );
   }
 }
+
+const _organicGradient = BoxDecoration(
+  gradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x14000000), Color(0x40000000), Color(0xA0000000)],
+    stops: [0.0, 0.45, 1.0],
+  ),
+);
+
+const _sponsorGradient = BoxDecoration(
+  gradient: LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [Color(0x1A000000), Color(0x45000000), Color(0xB0000000)],
+    stops: [0.0, 0.5, 1.0],
+  ),
+);
 
 Widget _feedCardImage(
   String source, {

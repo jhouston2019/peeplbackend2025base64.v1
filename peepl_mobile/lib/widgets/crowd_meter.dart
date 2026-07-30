@@ -7,12 +7,14 @@ class CrowdMeter extends StatelessWidget {
   final double size; // outer diameter
   final double strokeRatio;
   final double fontScale;
+  final double trackAlpha;
   const CrowdMeter({
     super.key,
     required this.level,
     this.size = 52,
     this.strokeRatio = 0.13,
     this.fontScale = 0.44,
+    this.trackAlpha = 0.28,
   });
 
   Color get _color => levelColor(level);
@@ -44,6 +46,7 @@ class CrowdMeter extends StatelessWidget {
           progress: (level.clamp(0, 10)) / 10.0,
           color: _color,
           stroke: size * strokeRatio,
+          trackAlpha: trackAlpha,
         ),
         child: Center(
           child: Text(
@@ -72,10 +75,12 @@ class _RingPainter extends CustomPainter {
   final double progress;
   final Color color;
   final double stroke;
+  final double trackAlpha;
   _RingPainter({
     required this.progress,
     required this.color,
     required this.stroke,
+    required this.trackAlpha,
   });
 
   @override
@@ -86,7 +91,7 @@ class _RingPainter extends CustomPainter {
 
     // faint track so the ring reads on any photo
     final track = Paint()
-      ..color = Colors.white.withValues(alpha: 0.28)
+      ..color = Colors.white.withValues(alpha: trackAlpha)
       ..style = PaintingStyle.stroke
       ..strokeWidth = stroke
       ..strokeCap = StrokeCap.round;
@@ -102,5 +107,8 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter old) =>
-      old.progress != progress || old.color != color || old.stroke != stroke;
+      old.progress != progress ||
+      old.color != color ||
+      old.stroke != stroke ||
+      old.trackAlpha != trackAlpha;
 }
