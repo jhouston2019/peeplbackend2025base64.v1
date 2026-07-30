@@ -13,7 +13,19 @@ import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
-import '../widgets/crowd_meter.dart';
+import '../widgets/detail/detail_activity_ticker.dart';
+import '../widgets/detail/detail_comment_input.dart';
+import '../widgets/detail/detail_comment_tile.dart';
+import '../widgets/detail/detail_crowd_score_card.dart';
+import '../widgets/detail/detail_deals_card.dart';
+import '../widgets/detail/detail_explore_live_button.dart';
+import '../widgets/detail/detail_hero_header.dart';
+import '../widgets/detail/detail_live_peeps_row.dart';
+import '../widgets/detail/detail_metrics_grid.dart';
+import '../widgets/detail/detail_peep_card.dart';
+import '../widgets/detail/detail_section_card.dart';
+import '../widgets/detail/detail_social_bar.dart';
+import '../widgets/detail/peepl_detail_tokens.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> postData;
@@ -205,10 +217,88 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
-  Color _getCrowdingColor(int level) {
-    if (level <= 4) return const Color(0xFF4CAF50);
-    if (level <= 6) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
+  static String _relativeTime(dynamic timestamp) {
+    if (timestamp == null) return '';
+    DateTime? dt;
+    if (timestamp is Timestamp) {
+      dt = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      dt = timestamp;
+    } else {
+      try {
+        dt = (timestamp as dynamic).toDate() as DateTime;
+      } catch (_) {
+        return '';
+      }
+    }
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
+  }
+
+  static IconData _metricIconForKey(String key) {
+    switch (key) {
+      case 'M/F':
+        return Icons.people_outline_rounded;
+      case 'A/K':
+        return Icons.family_restroom_outlined;
+      case 'Noise':
+        return Icons.volume_up_outlined;
+      case 'Wait':
+        return Icons.hourglass_empty_outlined;
+      case 'Staff':
+        return Icons.support_agent_outlined;
+      case 'Vibe':
+        return Icons.emoji_emotions_outlined;
+      case 'Venue type':
+        return Icons.storefront_outlined;
+      case 'Age range':
+        return Icons.cake_outlined;
+      case 'Pets':
+        return Icons.pets_outlined;
+      case 'Crowd':
+        return Icons.groups_outlined;
+      case 'Dress':
+        return Icons.checkroom_outlined;
+      case 'Music':
+        return Icons.music_note_outlined;
+      case 'Wheelchair':
+        return Icons.accessible_outlined;
+      case 'Stroller':
+        return Icons.stroller_outlined;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
+
+  List<DetailMetricItem> _primaryMetrics(Map<String, String> details) {
+    const primaryKeys = ['M/F', 'A/K', 'Noise', 'Wait', 'Staff', 'Vibe'];
+    return primaryKeys
+        .where((key) => details.containsKey(key))
+        .map(
+          (key) => DetailMetricItem(
+            icon: _metricIconForKey(key),
+            title: key,
+            value: details[key]!,
+          ),
+        )
+        .toList();
+  }
+
+  List<DetailMetricItem> _secondaryMetrics(Map<String, String> details) {
+    const primaryKeys = {'M/F', 'A/K', 'Noise', 'Wait', 'Staff', 'Vibe', 'Deals'};
+    return details.entries
+        .where((e) => !primaryKeys.contains(e.key))
+        .map(
+          (e) => DetailMetricItem(
+            icon: _metricIconForKey(e.key),
+            title: e.key,
+            value: e.value,
+          ),
+        )
+        .toList();
   }
 
   /// True when post has usable GPS (not missing and not placeholder 0,0).
@@ -280,7 +370,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           icon: const Icon(Icons.map_outlined),
           label: const Text('Open in Maps'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF1565C0),
+            foregroundColor: PeeplDetailTokens.accentBlue,
+            side: const BorderSide(color: PeeplDetailTokens.border),
             padding: const EdgeInsets.symmetric(vertical: 12),
           ),
         ),
@@ -335,148 +426,84 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     if (post['hasDeals'] == true) details['Deals'] = 'Available';
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
-      body: SafeArea(
-        child: Column(
-          children: [
-            _buildImageHeader(context, post, crowdingLevel),
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
+      backgroundColor: PeeplDetailTokens.background,
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeroSection(context, post, crowdingLevel),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: _buildContent(post, postId, details),
                   ),
-                ),
-                child: _buildContent(post, postId, details),
+                ],
               ),
             ),
-          ],
-        ),
+          ),
+          DetailCommentInput(
+            controller: _commentController,
+            isSubmitting: _isSubmittingComment,
+            onSubmit: _submitComment,
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildDetailsGrid(Map<String, String> details) {
-    if (details.isEmpty) return const SizedBox.shrink();
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: details.entries
-          .map(
-            (e) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1565C0).withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF1565C0).withOpacity(0.2),
-                ),
-              ),
-              child: RichText(
-                text: TextSpan(
-                  style: const TextStyle(fontSize: 14, color: Colors.black87),
-                  children: [
-                    TextSpan(
-                      text: '${e.key}: ',
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    TextSpan(text: e.value),
-                  ],
-                ),
-              ),
-            ),
-          )
-          .toList(),
-    );
-  }
-
-  Widget _buildImageHeader(
+  Widget _buildHeroSection(
     BuildContext context,
     Map<String, dynamic> post,
     int crowdingLevel,
   ) {
+    final imageUrl = post['imageUrl'] as String?;
+    final locationName = post['locationName'] as String? ?? 'Unknown Location';
+    final username = post['username'] as String? ?? 'Unknown';
+    final timeLabel = _relativeTime(post['timestamp']);
+    final address = post['address'] as String? ?? post['formattedAddress'] as String?;
+    final trendRaw = (post['crowdTrend'] ?? post['trend'])?.toString();
+
     return Stack(
+      clipBehavior: Clip.none,
       children: [
-        SizedBox(
-          height: 240,
-          width: double.infinity,
-          child: post['imageUrl'] != null &&
-                  (post['imageUrl'] as String).isNotEmpty
-              ? Image.network(
-                  post['imageUrl'] as String,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Container(color: Colors.grey[300]),
-                )
-              : Container(
-                  color: Colors.grey[300],
-                  child: const Icon(Icons.image, size: 80, color: Colors.grey),
-                ),
-        ),
-        Positioned(
-          top: 16,
-          left: 16,
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.black.withOpacity(0.4),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.arrow_back, color: Colors.white),
-            ),
+        DetailHeroHeader(
+          imageUrl: imageUrl,
+          locationName: locationName,
+          username: username,
+          timeLabel: timeLabel,
+          peepCountLabel: null,
+          address: address,
+          onBack: () => Navigator.pop(context),
+          onShare: () {
+            Navigator.pushNamed(
+              context,
+              '/share',
+              arguments: {
+                ...post,
+                'postId': post['id'] as String? ?? post['postId'] as String?,
+                'locationName': post['locationName'] as String?,
+                'crowdingLevel': crowdingLevel,
+              },
+            );
+          },
+          onMenu: () => Navigator.pushNamed(
+            context,
+            '/report',
+            arguments: {
+              'postId': post['id'] as String? ?? '',
+              'reportedUserId': post['userId'] as String? ?? '',
+            },
           ),
         ),
         Positioned(
-          top: 8,
-          right: 8,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Material(
-                color: Colors.black.withOpacity(0.4),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: 'Share',
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  onPressed: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/share',
-                      arguments: {
-                        ...post,
-                        'postId': post['id'] as String? ?? post['postId'] as String?,
-                        'locationName': post['locationName'] as String?,
-                        'crowdingLevel': crowdingLevel,
-                      },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 4),
-              Material(
-                color: Colors.black.withOpacity(0.4),
-                shape: const CircleBorder(),
-                child: IconButton(
-                  tooltip: 'Report',
-                  icon: const Icon(Icons.flag_outlined, color: Colors.white),
-                  onPressed: () => Navigator.pushNamed(
-                    context,
-                    '/report',
-                    arguments: {
-                      'postId': post['id'] as String? ?? '',
-                      'reportedUserId': post['userId'] as String? ?? '',
-                    },
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              CrowdMeter(level: crowdingLevel, size: 56),
-            ],
+          left: 16,
+          right: 16,
+          top: 272,
+          child: DetailCrowdScoreCard(
+            crowdingLevel: crowdingLevel,
+            trendRaw: trendRaw,
           ),
         ),
       ],
@@ -488,275 +515,225 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     String? postId,
     Map<String, String> details,
   ) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            post['locationName'] ?? 'Unknown Location',
-            style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF1565C0)),
+    final primaryMetrics = _primaryMetrics(details);
+    final secondaryMetrics = _secondaryMetrics(details);
+    final description = post['description'] as String? ?? '';
+    final imageUrl = post['imageUrl'] as String?;
+    final username = post['username'] as String? ?? 'Unknown';
+    final timeLabel = _relativeTime(post['timestamp']);
+    final hasDeals = post['hasDeals'] == true;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const SizedBox(height: 56),
+        if (primaryMetrics.isNotEmpty || secondaryMetrics.isNotEmpty)
+          DetailMetricsGrid(
+            metrics: primaryMetrics,
+            secondaryMetrics: secondaryMetrics,
           ),
+        if (primaryMetrics.isNotEmpty || secondaryMetrics.isNotEmpty)
           const SizedBox(height: 4),
-          Text(
-            'Posted by ${post['username'] ?? 'Unknown'}',
-            style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+        _buildVenuePeepsSection(post),
+        DetailExploreLiveButton(
+          isLoading: _isRequestingLive,
+          onTap: () => _onExploreLiveTap(),
+        ),
+        DetailSocialBar(
+          isLiked: _isLiked,
+          likesCount: _likesCount,
+          commentsCount: (post['commentsCount'] as num?)?.toInt() ?? 0,
+          onLikeTap: _toggleLike,
+          onLikesCountTap: () {
+            final id = widget.postData['id'] as String?;
+            if (id != null && id.isNotEmpty) {
+              Navigator.pushNamed(
+                context,
+                '/likers',
+                arguments: {
+                  'postId': id,
+                  'locationName':
+                      widget.postData['locationName'] as String? ?? '',
+                },
+              );
+            }
+          },
+          onShareTap: () {
+            Navigator.pushNamed(
+              context,
+              '/share',
+              arguments: {
+                ...widget.postData,
+                'postId': widget.postData['id'] as String? ??
+                    widget.postData['postId'] as String?,
+                'locationName': widget.postData['locationName'] as String?,
+                'crowdingLevel':
+                    (widget.postData['crowdingLevel'] as num?)?.toInt() ?? 0,
+              },
+            );
+          },
+          onReportTap: () => Navigator.pushNamed(
+            context,
+            '/report',
+            arguments: {
+              'postId': widget.postData['id'] as String? ?? '',
+              'reportedUserId': widget.postData['userId'] as String? ?? '',
+            },
           ),
-          const SizedBox(height: 16),
-          _buildDetailsGrid(details),
-          if (details.isNotEmpty) const SizedBox(height: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  Row(
-                    children: [
-                      GestureDetector(
-                        onTap: _toggleLike,
-                        child: Icon(
-                          _isLiked ? Icons.favorite : Icons.favorite_border,
-                          color: _isLiked ? Colors.red : Colors.grey,
-                          size: 24,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      GestureDetector(
-                        onTap: () {
-                          final postId =
-                              widget.postData['id'] as String?;
-                          if (postId != null && postId.isNotEmpty) {
-                            Navigator.pushNamed(
-                              context,
-                              '/likers',
-                              arguments: {
-                                'postId': postId,
-                                'locationName':
-                                    widget.postData['locationName'] as String? ??
-                                        '',
-                              },
-                            );
-                          }
-                        },
-                        child: Text(
-                          '$_likesCount',
-                          style: TextStyle(
-                            color: Colors.grey[700],
-                            decoration: TextDecoration.underline,
-                            decorationColor: Colors.grey[400],
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  Row(
-                    children: [
-                      const Icon(Icons.comment_outlined,
-                          color: Colors.grey, size: 24),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${post['commentsCount'] ?? 0}',
-                        style: TextStyle(color: Colors.grey[700]),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                children: [
-                  GestureDetector(
-                    onTap: () async {
-                      DebugLogService.log('EXPLORE_LIVE', 'Explore Live tapped');
-                      DebugLogService.log(
-                        'EXPLORE_LIVE',
-                        'Post data: ${widget.postData}',
-                      );
-                      DebugLogService.log(
-                        'EXPLORE_LIVE',
-                        'Lat: ${widget.postData['latitude']}, '
-                        'Lng: ${widget.postData['longitude']}',
-                      );
-                      DebugLogService.log(
-                        'EXPLORE_LIVE',
-                        'User: ${FirebaseAuth.instance.currentUser?.uid}',
-                      );
-
-                      final user = FirebaseAuth.instance.currentUser;
-                      if (user == null) return;
-
-                      setState(() => _isRequestingLive = true);
-
-                      try {
-                        final latitude =
-                            (widget.postData['latitude'] as num?)?.toDouble() ??
-                                0.0;
-                        final longitude =
-                            (widget.postData['longitude'] as num?)?.toDouble() ??
-                                0.0;
-                        final locationName =
-                            widget.postData['locationName'] as String? ??
-                                'this location';
-
-                        List<Map<String, dynamic>> presence;
-                        try {
-                          DebugLogService.log(
-                            'EXPLORE_LIVE',
-                            'Calling getActivePresence...',
-                          );
-                          presence =
-                              await PresenceService.instance.getActivePresence(
-                            latitude,
-                            longitude,
-                          );
-                          DebugLogService.log(
-                            'EXPLORE_LIVE',
-                            'getActivePresence returned: ${presence.length} results',
-                          );
-                          DebugLogService.log(
-                            'EXPLORE_LIVE',
-                            'Presence result: $presence',
-                          );
-                        } catch (presenceError) {
-                          DebugLogService.log(
-                            'EXPLORE_LIVE',
-                            'getActivePresence FAILED: $presenceError',
-                          );
-                          rethrow;
-                        }
-
-                        if (presence.isNotEmpty) {
-                          await PresenceService.instance.sendCrowdsourceRequest(
-                            locationName: locationName,
-                            latitude: latitude,
-                            longitude: longitude,
-                          );
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '📍 Request sent to ${presence.length} '
-                                '${presence.length == 1 ? 'person' : 'people'} at '
-                                '$locationName!',
-                              ),
-                              backgroundColor: const Color(0xFF1565C0),
-                              duration: const Duration(seconds: 3),
-                            ),
-                          );
-                        } else {
-                          await FirebaseFirestore.instance
-                              .collection('crowdsource_requests')
-                              .add({
-                            'requesterId': user.uid,
-                            'locationName':
-                                widget.postData['locationName'] ?? '',
-                            'latitude': latitude,
-                            'longitude': longitude,
-                            'status': 'waiting',
-                            'createdAt': FieldValue.serverTimestamp(),
-                            'notifyOnArrival': true,
-                          });
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                '🔔 No one is there right now. '
-                                'We\'ll notify you when someone arrives at '
-                                '$locationName!',
-                              ),
-                              backgroundColor: Colors.orange[700],
-                              duration: const Duration(seconds: 4),
-                            ),
-                          );
-                        }
-                      } catch (e, stackTrace) {
-                        DebugLogService.log(
-                          'EXPLORE_LIVE',
-                          'Explore Live error: $e — stack: $stackTrace',
-                        );
-                        if (!mounted) return;
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Error: ${e.toString()}'),
-                            duration: const Duration(seconds: 8),
-                            backgroundColor: Colors.red[700],
-                          ),
-                        );
-                      } finally {
-                        if (mounted) {
-                          setState(() => _isRequestingLive = false);
-                        }
-                      }
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 8),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1565C0),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (!_isRequestingLive) ...[
-                            const Icon(Icons.campaign_outlined,
-                                color: Colors.white, size: 16),
-                            const SizedBox(width: 6),
-                          ],
-                          _isRequestingLive
-                              ? const SizedBox(
-                                  width: 18,
-                                  height: 18,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      Colors.white,
-                                    ),
-                                  ),
-                                )
-                              : const Text(
-                                  'Explore Live',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        ),
+        if (description.isNotEmpty || (imageUrl != null && imageUrl.isNotEmpty))
+          DetailPeepCard(
+            imageUrl: imageUrl,
+            caption: description,
+            author: username,
+            timeLabel: timeLabel,
+            isLiked: _isLiked,
+            onLikeTap: _toggleLike,
           ),
-          if (_hasValidMapCoords(post)) ...[
-            const SizedBox(height: 20),
-            _buildLocationMapSection(post),
-          ],
-          _buildOtherPeepsSection(post),
-          const Divider(height: 32),
-          const Text('Comments',
-              style:
-                  TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          if (postId != null) _buildCommentsStream(postId),
-          const SizedBox(height: 16),
-          _buildCommentInput(),
-          const SizedBox(height: 8),
+        const Padding(
+          padding: EdgeInsets.only(bottom: 12),
+          child: Text(
+            'Comments',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: PeeplDetailTokens.textPrimary,
+            ),
+          ),
+        ),
+        if (postId != null) _buildCommentsStream(postId),
+        if (_hasValidMapCoords(post)) ...[
+          DetailSectionCard(
+            title: 'Location',
+            child: _buildLocationMapSection(post),
+          ),
         ],
-      ),
+        if (hasDeals)
+          DetailDealsCard(onTap: () {}),
+        const SizedBox(height: 8),
+      ],
     );
   }
 
-  /// Shows [NoPeepsEmptyState] when no other users have posted about this
-  /// location — encouraging the viewer to be the first (or add another Peep).
-  Widget _buildOtherPeepsSection(Map<String, dynamic> post) {
+  Future<void> _onExploreLiveTap() async {
+    DebugLogService.log('EXPLORE_LIVE', 'Explore Live tapped');
+    DebugLogService.log(
+      'EXPLORE_LIVE',
+      'Post data: ${widget.postData}',
+    );
+    DebugLogService.log(
+      'EXPLORE_LIVE',
+      'Lat: ${widget.postData['latitude']}, '
+      'Lng: ${widget.postData['longitude']}',
+    );
+    DebugLogService.log(
+      'EXPLORE_LIVE',
+      'User: ${FirebaseAuth.instance.currentUser?.uid}',
+    );
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isRequestingLive = true);
+
+    try {
+      final latitude =
+          (widget.postData['latitude'] as num?)?.toDouble() ?? 0.0;
+      final longitude =
+          (widget.postData['longitude'] as num?)?.toDouble() ?? 0.0;
+      final locationName =
+          widget.postData['locationName'] as String? ?? 'this location';
+
+      List<Map<String, dynamic>> presence;
+      try {
+        DebugLogService.log(
+          'EXPLORE_LIVE',
+          'Calling getActivePresence...',
+        );
+        presence = await PresenceService.instance.getActivePresence(
+          latitude,
+          longitude,
+        );
+        DebugLogService.log(
+          'EXPLORE_LIVE',
+          'getActivePresence returned: ${presence.length} results',
+        );
+        DebugLogService.log(
+          'EXPLORE_LIVE',
+          'Presence result: $presence',
+        );
+      } catch (presenceError) {
+        DebugLogService.log(
+          'EXPLORE_LIVE',
+          'getActivePresence FAILED: $presenceError',
+        );
+        rethrow;
+      }
+
+      if (presence.isNotEmpty) {
+        await PresenceService.instance.sendCrowdsourceRequest(
+          locationName: locationName,
+          latitude: latitude,
+          longitude: longitude,
+        );
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '📍 Request sent to ${presence.length} '
+              '${presence.length == 1 ? 'person' : 'people'} at '
+              '$locationName!',
+            ),
+            backgroundColor: PeeplDetailTokens.accentBlue,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      } else {
+        await FirebaseFirestore.instance
+            .collection('crowdsource_requests')
+            .add({
+          'requesterId': user.uid,
+          'locationName': widget.postData['locationName'] ?? '',
+          'latitude': latitude,
+          'longitude': longitude,
+          'status': 'waiting',
+          'createdAt': FieldValue.serverTimestamp(),
+          'notifyOnArrival': true,
+        });
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '🔔 No one is there right now. '
+              'We\'ll notify you when someone arrives at '
+              '$locationName!',
+            ),
+            backgroundColor: Colors.orange[700],
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } catch (e, stackTrace) {
+      DebugLogService.log(
+        'EXPLORE_LIVE',
+        'Explore Live error: $e — stack: $stackTrace',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          duration: const Duration(seconds: 8),
+          backgroundColor: Colors.red[700],
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRequestingLive = false);
+      }
+    }
+  }
+
+  Widget _buildVenuePeepsSection(Map<String, dynamic> post) {
     final locationName = post['locationName'] as String? ?? '';
     final currentPostId = post['id'] as String?;
     if (locationName.isEmpty) return const SizedBox.shrink();
@@ -772,12 +749,42 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         if (snap.connectionState == ConnectionState.waiting) {
           return const SizedBox.shrink();
         }
-        final othersExist = (snap.data?.docs ?? [])
-            .any((d) => d.id != currentPostId);
-        if (othersExist) return const SizedBox.shrink();
-        return Padding(
-          padding: const EdgeInsets.only(top: 16),
-          child: NoPeepsEmptyState(locationName: locationName),
+        final docs = snap.data?.docs ?? [];
+        final othersExist =
+            docs.any((d) => d.id != currentPostId);
+
+        if (!othersExist) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 8, bottom: 8),
+            child: NoPeepsEmptyState(locationName: locationName),
+          );
+        }
+
+        final others = docs.where((d) => d.id != currentPostId).toList();
+        final usernames = others
+            .map(
+              (d) =>
+                  (d.data() as Map<String, dynamic>)['username'] as String? ??
+                  'Anonymous',
+            )
+            .toList();
+
+        String? activityText;
+        if (others.isNotEmpty) {
+          final latest = others.last.data() as Map<String, dynamic>;
+          final name = latest['username'] as String? ?? 'Someone';
+          activityText = '$name posted';
+        }
+
+        return Column(
+          children: [
+            if (activityText != null) DetailActivityTicker(text: activityText),
+            if (usernames.isNotEmpty)
+              DetailLivePeepsRow(
+                usernames: usernames,
+                totalCount: docs.length,
+              ),
+          ],
         );
       },
     );
@@ -794,108 +801,47 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return Center(
-            child: Text('Could not load comments',
-                style: TextStyle(color: Colors.grey[500])));
+            child: Text(
+              'Could not load comments',
+              style: TextStyle(
+                color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.8),
+              ),
+            ),
+          );
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(
+            child: CircularProgressIndicator(color: PeeplDetailTokens.accentBlue),
+          );
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Text('No comments yet. Be the first!',
-              style: TextStyle(color: Colors.grey[500]));
+          return Text(
+            'No comments yet. Be the first!',
+            style: TextStyle(
+              color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.8),
+            ),
+          );
         }
 
         final items = _interleaveAdsIntoComments(snapshot.data!.docs);
 
         return Column(
           children: items.map((item) {
-            // Ad slot
             if (item is Map<String, dynamic> && item['_isAd'] == true) {
               return _buildAdCard(item);
             }
 
-            // Comment row
             final data =
                 (item as QueryDocumentSnapshot).data() as Map<String, dynamic>;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CircleAvatar(
-                    radius: 16,
-                    backgroundColor: const Color(0xFF1565C0),
-                    child: Text(
-                      (data['username'] ?? 'A')[0].toUpperCase(),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data['username'] ?? 'Anonymous',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w600, fontSize: 14),
-                        ),
-                        Text(
-                          data['text'] ?? '',
-                          style: const TextStyle(
-                              fontSize: 14, color: Colors.black87),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+            final commentUser = data['username'] as String? ?? 'Anonymous';
+            return DetailCommentTile(
+              username: commentUser,
+              text: data['text'] ?? '',
+              timeLabel: _relativeTime(data['timestamp']),
             );
           }).toList(),
         );
       },
-    );
-  }
-
-  Widget _buildCommentInput() {
-    return Row(
-      children: [
-        Expanded(
-          child: TextField(
-            controller: _commentController,
-            decoration: InputDecoration(
-              hintText: 'Add a comment...',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(24),
-              ),
-              contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16, vertical: 12),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        GestureDetector(
-          onTap: _isSubmittingComment ? null : _submitComment,
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: const BoxDecoration(
-              color: Color(0xFF1565C0),
-              shape: BoxShape.circle,
-            ),
-            child: _isSubmittingComment
-                ? const Padding(
-                    padding: EdgeInsets.all(12),
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2),
-                  )
-                : const Icon(Icons.send, color: Colors.white, size: 20),
-          ),
-        ),
-      ],
     );
   }
 

@@ -9,11 +9,13 @@ class QuickFilterRow extends StatelessWidget {
     required this.onDealsTap,
     required this.onMapTap,
     required this.onMoreTap,
+    this.onRegionTap,
   });
 
   final VoidCallback onDealsTap;
   final VoidCallback onMapTap;
   final VoidCallback onMoreTap;
+  final VoidCallback? onRegionTap;
 
   static const _filterChips = [
     _ChipSpec(
@@ -73,6 +75,22 @@ class QuickFilterRow extends StatelessWidget {
         ),
       );
     }
+
+    chipWidgets.add(const SizedBox(width: 8));
+    chipWidgets.add(
+      ValueListenableBuilder<String>(
+        valueListenable: activeFilterNotifier,
+        builder: (context, active, _) {
+          return _FilterChip(
+            label: 'Region',
+            icon: Icons.public_outlined,
+            iconColor: const Color(0xFFAB47BC),
+            selected: active == 'Region',
+            onTap: () => onRegionTap?.call(),
+          );
+        },
+      ),
+    );
 
     chipWidgets.add(const SizedBox(width: 8));
     chipWidgets.add(

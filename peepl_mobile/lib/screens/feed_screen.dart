@@ -6,7 +6,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../notifiers/active_filter_notifier.dart';
@@ -78,6 +77,7 @@ class _FeedScreenState extends State<FeedScreen> {
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _feedItems = [];
   List<Map<String, dynamic>> _availableAds = [];
+  List<Map<String, dynamic>> _allPosts = [];
 
   bool _isLoading = true;
   bool _hasError = false;
@@ -92,12 +92,22 @@ class _FeedScreenState extends State<FeedScreen> {
   int _dealBannerIndex = 0;
   Timer? _dealRotationTimer;
 
-  final String _areaLabel = 'Perimeter Mall Area';
-
+  double _selectedRadiusMiles = 1.0;
   double? _userLat;
   double? _userLng;
   double? _latitude;
   double? _longitude;
+  String _areaLabel = 'Nearby';
+  bool _locationResolved = false;
+
+  static const _radiusOptions = [
+    {'label': '¼ mi', 'miles': 0.25},
+    {'label': '½ mi', 'miles': 0.5},
+    {'label': '1 mi', 'miles': 1.0},
+    {'label': '3 mi', 'miles': 3.0},
+    {'label': '5 mi', 'miles': 5.0},
+    {'label': '10 mi', 'miles': 10.0},
+  ];
 
   static const double _localRadiusMeters = 16000.0;
 
@@ -132,19 +142,7 @@ class _FeedScreenState extends State<FeedScreen> {
         setState(() => _feedItems = _rebuildFeedItems());
       }),
     );
-    Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.low)
-        .then((pos) {
-          if (!mounted) return;
-          setState(() {
-            _latitude = pos.latitude;
-            _longitude = pos.longitude;
-            _userLat = pos.latitude;
-            _userLng = pos.longitude;
-            _feedItems = _rebuildFeedItems();
-          });
-        })
-        .catchError((_) {});
-    _initLocation();
+    _resolveLocation();
     _loadFeedData();
     _loadDealBanner();
     _loadAds();
@@ -164,19 +162,123 @@ class _FeedScreenState extends State<FeedScreen> {
     super.dispose();
   }
 
-  Future<void> _initLocation() async {
-    final pos = await LocationService.getCurrentLocation();
-    if (!mounted || pos == null) return;
-    setState(() {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-      _latitude = pos.latitude;
-      _longitude = pos.longitude;
-      _feedItems = _rebuildFeedItems();
-    });
-    if (!kIsWeb) {
-      unawaited(_startGeofencingIfPermitted());
+  Future<void> _resolveLocation() async {
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (pos != null && mounted) {
+        setState(() {
+          _userLat = pos.latitude;
+          _userLng = pos.longitude;
+          _latitude = pos.latitude;
+          _longitude = pos.longitude;
+          _locationResolved = true;
+          _areaLabel = '1 mi radius';
+        });
+        _applyAreaFilter();
+        if (!kIsWeb) {
+          unawaited(_startGeofencingIfPermitted());
+        }
+      }
+    } catch (_) {
+      // no GPS — show all posts
     }
+  }
+
+  void _applyAreaFilter() {
+    if (_userLat == null || _userLng == null) {
+      setState(
+        () => _feedItems = _mergeAdsIntoFeed(_applyFilter(_allPosts)),
+      );
+      return;
+    }
+    final radiusKm = _selectedRadiusMiles * 1.60934;
+    final filtered = _allPosts.where((post) {
+      final lat = (post['latitude'] as num?)?.toDouble();
+      final lng = (post['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null) return true;
+      return _haversineKm(_userLat!, _userLng!, lat, lng) <= radiusKm;
+    }).toList();
+    setState(() => _feedItems = _mergeAdsIntoFeed(_applyFilter(filtered)));
+  }
+
+  void _showAreaPicker() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Show peeps within...',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: _radiusOptions.map((opt) {
+                final miles = opt['miles'] as double;
+                final label = opt['label'] as String;
+                final selected = miles == _selectedRadiusMiles;
+                return GestureDetector(
+                  onTap: () {
+                    Navigator.pop(context);
+                    setState(() {
+                      _selectedRadiusMiles = miles;
+                      _areaLabel = '$label radius';
+                    });
+                    _applyAreaFilter();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: selected ? const Color(0xFF1565C0) : Colors.grey[100],
+                      borderRadius: BorderRadius.circular(25),
+                    ),
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: selected ? Colors.white : Colors.black87,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            if (!_locationResolved)
+              Text(
+                'Enable location access to filter by distance.',
+                style: TextStyle(color: Colors.grey[500], fontSize: 13),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _startGeofencingIfPermitted() async {
@@ -406,13 +508,24 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!mounted) return;
     setState(() {
       _posts = posts;
-      _feedItems = _rebuildFeedItems();
+      _allPosts = posts;
       _isLoading = false;
     });
+    _applyAreaFilter();
   }
 
   List<Map<String, dynamic>> _rebuildFeedItems() {
-    return _mergeAdsIntoFeed(_applyFilter(_posts));
+    if (_userLat == null || _userLng == null) {
+      return _mergeAdsIntoFeed(_applyFilter(_allPosts));
+    }
+    final radiusKm = _selectedRadiusMiles * 1.60934;
+    final filtered = _allPosts.where((post) {
+      final lat = (post['latitude'] as num?)?.toDouble();
+      final lng = (post['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null) return true;
+      return _haversineKm(_userLat!, _userLng!, lat, lng) <= radiusKm;
+    }).toList();
+    return _mergeAdsIntoFeed(_applyFilter(filtered));
   }
 
   List<Map<String, dynamic>> _mergeAdsIntoFeed(
@@ -489,7 +602,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _onRefresh() async {
     _loadFeedData();
-    await _initLocation();
+    await _resolveLocation();
     await _loadAds();
   }
 
@@ -553,7 +666,20 @@ class _FeedScreenState extends State<FeedScreen> {
     return _haversine(userLat, userLng, lat.toDouble(), lng.toDouble());
   }
 
-  double _deg2rad(double deg) => deg * math.pi / 180.0;
+  double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
+    const r = 6371.0;
+    final dLat = _deg2rad(lat2 - lat1);
+    final dLon = _deg2rad(lon2 - lon1);
+    final a =
+        sin(dLat / 2) * sin(dLat / 2) +
+        cos(_deg2rad(lat1)) *
+            cos(_deg2rad(lat2)) *
+            sin(dLon / 2) *
+            sin(dLon / 2);
+    return r * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
+
+  double _deg2rad(double deg) => deg * pi / 180;
 
   double _haversineMiles(double lat1, double lon1, double lat2, double lon2) {
     const double radiusMiles = 3958.8;
@@ -893,11 +1019,7 @@ class _FeedScreenState extends State<FeedScreen> {
           children: [
             PeeplHomeHeader(
               areaLabel: _areaLabel,
-              onLocationTap: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Area selector coming soon')),
-                );
-              },
+              onLocationTap: _showAreaPicker,
               onProfileTap: () => Navigator.pushNamed(context, '/profile'),
               onMenuTap: () => Navigator.pushNamed(context, '/settings'),
             ),
@@ -912,6 +1034,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 Navigator.pushNamed(context, '/map');
               },
               onMoreTap: _showFilterSheet,
+              onRegionTap: _showAreaPicker,
             ),
             HappeningNowTicker(
               text: _happeningNowTickerText(),
