@@ -17,6 +17,7 @@ import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../utils/crowd_display_mapper.dart';
+import '../widgets/home/editorial_feed_layout.dart';
 import '../widgets/home/happening_now_ticker.dart';
 import '../widgets/home/organic_crowd_card.dart';
 import '../widgets/home/peepl_home_header.dart';
@@ -777,96 +778,89 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  /// Deterministic featured organic cadence — does not alter ad merge logic.
-  Set<int> _featuredFeedIndices(List<Map<String, dynamic>> items) {
-    final featured = <int>{};
-    var organicIndex = 0;
-    var previousWasFeatured = false;
-    const featuredOrganicFirstIndex = 5;
-    const featuredOrganicInterval = 6;
-    for (var i = 0; i < items.length; i++) {
-      if (items[i]['type'] == 'ad') {
-        previousWasFeatured = false;
-        continue;
-      }
-      final eligible =
-          organicIndex >= featuredOrganicFirstIndex &&
-          (organicIndex - featuredOrganicFirstIndex) %
-                  featuredOrganicInterval ==
-              0;
-      if (eligible && !previousWasFeatured) {
-        featured.add(i);
-        previousWasFeatured = true;
-      } else {
-        previousWasFeatured = false;
-      }
-      organicIndex++;
-    }
-    return featured;
-  }
-
-  double _feedItemHeight(Map<String, dynamic> item) {
-    if (item['type'] == 'ad') return PeeplHomeTokens.sponsoredCardHeight;
-    return PeeplHomeTokens.cardHeight;
-  }
-
-  String? _categoryLine(Map<String, dynamic> post) {
-    final parts = <String>[];
-    final venueType = post['venueType']?.toString().trim();
-    if (venueType != null && venueType.isNotEmpty) parts.add(venueType);
-
-    final rawName = post['locationName']?.toString().trim() ?? '';
-    if (rawName.contains(',')) {
-      final area = rawName.split(',').skip(1).join(',').trim();
-      if (area.isNotEmpty) parts.add(area);
-    }
-    if (parts.isEmpty) return null;
-    return parts.join(' • ');
-  }
-
-  List<OrganicMetaItem> _organicMetaItems(Map<String, dynamic> post) {
-    final items = <OrganicMetaItem>[];
-    final distance = _distanceLabel(post);
-    if (distance != null) {
-      items.add(OrganicMetaItem(label: distance, icon: Icons.near_me_outlined));
-    }
-
-    final price = post['priceLevel']?.toString().trim();
-    if (price != null && price.isNotEmpty) {
-      items.add(OrganicMetaItem(label: price));
-    }
-
-    if (post['hasDeals'] == true) {
-      items.add(
-        const OrganicMetaItem(
-          label: 'Live deal',
-          icon: Icons.local_offer_outlined,
-          color: PeeplHomeTokens.tickerGreen,
-        ),
-      );
-    }
-
+  String? _waitLabel(Map<String, dynamic> post) {
     final wait = post['waitTime'];
-    if (wait != null && '$wait'.trim().isNotEmpty) {
-      items.add(
-        OrganicMetaItem(
-          label: 'Wait $wait',
-          icon: Icons.schedule,
-          color: Colors.orange.shade300,
-        ),
-      );
-    }
+    if (wait == null || '$wait'.trim().isEmpty) return null;
+    return 'Wait $wait';
+  }
 
-    if (post['hasMusic'] == true) {
-      items.add(
-        const OrganicMetaItem(
-          label: 'Live music',
-          icon: Icons.music_note_outlined,
-        ),
-      );
-    }
+  Widget _buildOrganicCard(
+    Map<String, dynamic> post, {
+    required OrganicCardSize size,
+    double? marginHorizontal,
+  }) {
+    final name = _displayName(post['locationName']?.toString());
+    return OrganicCrowdCard(
+      imageUrl: (post['imageUrl'] ?? '').toString(),
+      name: name,
+      crowdData: CrowdDisplayMapper.fromPost(post),
+      distanceLabel: _distanceLabel(post),
+      waitLabel: _waitLabel(post),
+      size: size,
+      marginHorizontal: marginHorizontal,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
+      ),
+    );
+  }
 
-    return items;
+  Widget _buildSponsoredCard(Map<String, dynamic> item) {
+    final content = _feedCardContentFromAd(item);
+    final offerLine = content.tagline.isNotEmpty
+        ? content.tagline
+        : (item['headline'] ?? item['title'] ?? '').toString();
+    return SponsoredNativeCard(
+      name: content.name,
+      tagline: content.tagline,
+      offerLine: offerLine,
+      initial: content.initial,
+      accentColor: content.accentColor,
+      imageUrl: content.imageUrl,
+      ctaLabel: content.ctaLabel,
+      onOpen: content.onOpen,
+      onCta: content.onCta,
+      onImpression: content.onImpression,
+      onViewable: content.onViewable,
+    );
+  }
+
+  Widget _buildEditorialRow(EditorialFeedRow row) {
+    switch (row.kind) {
+      case EditorialRowKind.featuredOrganic:
+        return _buildOrganicCard(
+          row.items.first,
+          size: OrganicCardSize.featured,
+        );
+      case EditorialRowKind.halfOrganicPair:
+        return Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: PeeplHomeTokens.cardHorizontalMargin,
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: _buildOrganicCard(
+                  row.items[0],
+                  size: OrganicCardSize.half,
+                  marginHorizontal: 0,
+                ),
+              ),
+              const SizedBox(width: PeeplHomeTokens.halfCardGap),
+              Expanded(
+                child: _buildOrganicCard(
+                  row.items[1],
+                  size: OrganicCardSize.half,
+                  marginHorizontal: 0,
+                ),
+              ),
+            ],
+          ),
+        );
+      case EditorialRowKind.sponsored:
+        return _buildSponsoredCard(row.items.first);
+    }
   }
 
   @override
@@ -893,7 +887,7 @@ class _FeedScreenState extends State<FeedScreen> {
     return ColoredBox(
       color: PeeplHomeTokens.shellNavy,
       child: Padding(
-        padding: EdgeInsets.only(top: topInset + 6, bottom: 8),
+        padding: EdgeInsets.only(top: topInset + 4, bottom: 6),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -985,6 +979,8 @@ class _FeedScreenState extends State<FeedScreen> {
       );
     }
 
+    final rows = EditorialFeedLayout.rowsFromItems(items);
+
     return RefreshIndicator(
       color: PeeplHomeTokens.yellow,
       backgroundColor: PeeplHomeTokens.feedBackground,
@@ -994,58 +990,23 @@ class _FeedScreenState extends State<FeedScreen> {
         physics: const AlwaysScrollableScrollPhysics(
           parent: BouncingScrollPhysics(),
         ),
-        padding: const EdgeInsets.fromLTRB(0, 8, 0, 24),
-        itemCount: items.length,
+        padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+        itemCount: rows.length,
         itemBuilder: (context, index) {
-          final item = items[index];
+          final row = rows[index];
           return Padding(
             padding: EdgeInsets.only(
-              bottom: index < items.length - 1
-                  ? PeeplHomeTokens.cardVerticalGap
+              bottom: index < rows.length - 1
+                  ? PeeplHomeTokens.rowVerticalGap
                   : 0,
             ),
             child: SizedBox(
-              height: _feedItemHeight(item),
-              child: _buildFeedCard(item),
+              key: ValueKey('feed_row_$index'),
+              height: EditorialFeedLayout.rowHeight(row),
+              child: _buildEditorialRow(row),
             ),
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildFeedCard(Map<String, dynamic> item) {
-    if (item['type'] == 'ad') {
-      final content = _feedCardContentFromAd(item);
-      final offerLine = content.tagline.isNotEmpty
-          ? content.tagline
-          : (item['headline'] ?? item['title'] ?? '').toString();
-      return SponsoredNativeCard(
-        name: content.name,
-        tagline: content.tagline,
-        offerLine: offerLine,
-        initial: content.initial,
-        accentColor: content.accentColor,
-        imageUrl: content.imageUrl,
-        ctaLabel: content.ctaLabel,
-        onOpen: content.onOpen,
-        onCta: content.onCta,
-        onImpression: content.onImpression,
-        onViewable: content.onViewable,
-      );
-    }
-
-    final post = item;
-    final name = _displayName(post['locationName']?.toString());
-    return OrganicCrowdCard(
-      imageUrl: (post['imageUrl'] ?? '').toString(),
-      name: name,
-      categoryLine: _categoryLine(post),
-      metaItems: _organicMetaItems(post),
-      crowdData: CrowdDisplayMapper.fromPost(post),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
       ),
     );
   }

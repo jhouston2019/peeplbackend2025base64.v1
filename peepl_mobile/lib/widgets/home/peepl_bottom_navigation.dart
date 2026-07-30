@@ -50,27 +50,49 @@ class PeeplBottomNavigation extends StatelessWidget {
               ),
               Expanded(
                 child: Center(
-                  child: GestureDetector(
-                    onTap: onPostTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Container(
-                      width: 52,
-                      height: 52,
-                      decoration: BoxDecoration(
-                        color: PeeplHomeTokens.yellow,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: PeeplHomeTokens.yellow.withValues(alpha: 0.35),
-                            blurRadius: 8,
-                            offset: const Offset(0, 2),
+                  child: Semantics(
+                    label: 'Peep',
+                    button: true,
+                    child: GestureDetector(
+                      onTap: onPostTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Container(
+                          height: 36,
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: PeeplHomeTokens.yellow,
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: PeeplHomeTokens.yellow.withValues(alpha: 0.35),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.add,
-                        color: Color(0xFF111111),
-                        size: 28,
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.add,
+                                color: Color(0xFF111111),
+                                size: 18,
+                              ),
+                              SizedBox(width: 4),
+                              Text(
+                                'Peep',
+                                style: TextStyle(
+                                  color: Color(0xFF111111),
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),

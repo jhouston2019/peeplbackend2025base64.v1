@@ -85,7 +85,7 @@ class QuickFilterRow extends StatelessWidget {
     );
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
       child: Center(
         child: FittedBox(
           fit: BoxFit.scaleDown,

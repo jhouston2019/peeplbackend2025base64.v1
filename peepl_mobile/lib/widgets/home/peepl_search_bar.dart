@@ -15,12 +15,12 @@ class PeeplSearchBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          height: 42,
+          height: 40,
           decoration: BoxDecoration(
             color: PeeplHomeTokens.searchField,
             borderRadius: BorderRadius.circular(24),

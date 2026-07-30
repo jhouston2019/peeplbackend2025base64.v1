@@ -9,11 +9,13 @@ class TenSegmentCrowdBar extends StatelessWidget {
     required this.filledSegments,
     required this.fillColor,
     this.segmentCount = 10,
+    this.compact = false,
   });
 
   final int filledSegments;
   final Color fillColor;
   final int segmentCount;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -22,7 +24,7 @@ class TenSegmentCrowdBar extends StatelessWidget {
         final filled = index < filledSegments;
         return Expanded(
           child: Container(
-            height: 4,
+            height: compact ? 3 : 4,
             margin: EdgeInsets.only(right: index < segmentCount - 1 ? 2 : 0),
             decoration: BoxDecoration(
               color: filled
@@ -41,19 +43,26 @@ class CrowdStatusPanel extends StatelessWidget {
   const CrowdStatusPanel({
     super.key,
     required this.data,
+    this.compact = false,
+    this.showTrend = true,
   });
 
   final CrowdDisplayData data;
+  final bool compact;
+  final bool showTrend;
 
   @override
   Widget build(BuildContext context) {
+    final scoreSize = compact ? 14.0 : 17.0;
+    final labelSize = compact ? 7.0 : 8.0;
+
     return Expanded(
-      flex: 3,
+      flex: compact ? 4 : 3,
       child: Semantics(
         label: data.semanticLabel,
         child: DecoratedBox(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
@@ -65,39 +74,46 @@ class CrowdStatusPanel extends StatelessWidget {
             ),
           ),
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(10, 10, 6, 10),
+            padding: EdgeInsets.fromLTRB(
+              compact ? 5 : 6,
+              compact ? 5 : 6,
+              compact ? 3 : 4,
+              compact ? 5 : 6,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   data.scoreText,
                   style: TextStyle(
                     color: data.color,
-                    fontSize: 22,
+                    fontSize: scoreSize,
                     fontWeight: FontWeight.w900,
                     height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 2),
+                SizedBox(height: compact ? 0 : 1),
                 Text(
                   data.label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     color: data.color,
-                    fontSize: 10,
+                    fontSize: labelSize,
                     fontWeight: FontWeight.w700,
-                    height: 1.1,
+                    height: 1.0,
                   ),
                 ),
-                const SizedBox(height: 6),
+                SizedBox(height: compact ? 2 : 3),
                 TenSegmentCrowdBar(
                   filledSegments: data.filledSegments,
                   fillColor: data.color,
+                  compact: compact,
                 ),
-                if (data.trendLabel != null) ...[
-                  const SizedBox(height: 5),
+                if (showTrend && !compact && data.trendLabel != null) ...[
+                  const SizedBox(height: 4),
                   Row(
                     children: [
                       _TrendIcon(
@@ -112,7 +128,7 @@ class CrowdStatusPanel extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: data.color.withValues(alpha: 0.9),
-                            fontSize: 8,
+                            fontSize: 7,
                             fontWeight: FontWeight.w600,
                             height: 1.0,
                           ),
@@ -148,6 +164,6 @@ class _TrendIcon extends StatelessWidget {
       case null:
         icon = Icons.arrow_forward;
     }
-    return Icon(icon, size: 10, color: color);
+    return Icon(icon, size: 9, color: color);
   }
 }

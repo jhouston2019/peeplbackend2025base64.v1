@@ -29,7 +29,7 @@ class PeeplHomeHeader extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       child: SizedBox(
-        height: 36,
+        height: 34,
         child: Stack(
           alignment: Alignment.center,
           children: [

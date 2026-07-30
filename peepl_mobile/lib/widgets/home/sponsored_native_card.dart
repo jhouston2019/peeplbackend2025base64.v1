@@ -92,6 +92,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: 1,
               ),
+              boxShadow: const [PeeplHomeTokens.sponsoredShadow],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -117,9 +118,10 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+                  padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
@@ -140,7 +142,6 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                           ),
                         ),
                       ),
-                      const Spacer(),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -161,7 +162,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
                                     color: PeeplHomeTokens.white,
-                                    fontSize: 16,
+                                    fontSize: 14,
                                     fontWeight: FontWeight.w800,
                                     height: 1.1,
                                   ),
@@ -206,13 +207,13 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                               behavior: HitTestBehavior.opaque,
                               child: ConstrainedBox(
                                 constraints: const BoxConstraints(
-                                  minHeight: 44,
-                                  minWidth: 44,
+                                  minHeight: 36,
+                                  minWidth: 36,
                                 ),
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
+                                    horizontal: 10,
+                                    vertical: 6,
                                   ),
                                   decoration: BoxDecoration(
                                     color: PeeplHomeTokens.white,
@@ -279,8 +280,8 @@ class _LogoTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 40,
-      height: 40,
+      width: 28,
+      height: 28,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8),

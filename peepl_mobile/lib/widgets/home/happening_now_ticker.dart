@@ -17,14 +17,14 @@ class HappeningNowTicker extends StatelessWidget {
     if (text.trim().isEmpty) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.only(top: 8),
       child: GestureDetector(
         onTap: onTap,
         behavior: HitTestBehavior.opaque,
         child: ColoredBox(
           color: PeeplHomeTokens.tickerBackground,
           child: SizedBox(
-            height: 34,
+            height: 30,
             width: double.infinity,
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 14),
