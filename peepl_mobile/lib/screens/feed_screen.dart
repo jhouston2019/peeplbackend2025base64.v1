@@ -127,7 +127,7 @@ class _FeedScreenState extends State<FeedScreen> {
   static const double _localRadiusMeters = 16000.0;
 
   /// Ad gap pattern: ad after 2 posts, then 3, then 2, then 3, repeating.
-  static const List<int> _peepCardsBeforeAdPattern = [2, 3, 2, 3];
+  static const List<int> _peepCardsBeforeAdPattern = [3, 2, 3];
 
   /// Approved sponsor CTA labels — keeps pill size/typography consistent with Peepl cards.
   static const List<String> _approvedSponsorCtas = [

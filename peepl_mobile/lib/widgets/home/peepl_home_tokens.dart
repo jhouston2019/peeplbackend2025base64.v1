@@ -16,9 +16,9 @@ class PeeplHomeTokens {
 
   static const chipBackground = Color(0x1AFFFFFF);
   static const chipBorder = Color(0x0AFFFFFF);
-  static const organicCardBorder = Color(0x80FFFFFF); // legacy — organic cards are borderless
-  static const organicCardBorderWidth = 1.5;
-  static const sponsoredBorder = Color(0xB3FFFFFF);
+  static const organicCardBorder = Color(0x2EFFFFFF);
+  static const organicCardBorderWidth = 2.0;
+  static const sponsoredBorder = Color(0xFF2D7BFF);
   static const sponsoredBorderWidth = 2.0;
 
   /// Same translucent green fill as the footer Deals pill.
@@ -32,25 +32,25 @@ class PeeplHomeTokens {
   static const crowdOverlayRight = Color(0x00081A2F);
 
   static const organicShadow = BoxShadow(
-    color: Color(0x28000000),
-    offset: Offset(0, 6),
-    blurRadius: 22,
+    color: Color(0x59000000),
+    offset: Offset(0, 4),
+    blurRadius: 12,
     spreadRadius: 0,
   );
 
-  /// Thin white highlight cast to the right edge of organic cards.
-  static const organicWhiteShadowRight = BoxShadow(
-    color: Color(0x55FFFFFF),
-    offset: Offset(2, 0),
-    blurRadius: 10,
+  /// Subtle blue edge glow for sponsored hero cards.
+  static const sponsoredGlowEdge = BoxShadow(
+    color: Color(0x262D7BFF),
+    offset: Offset(0, 0),
+    blurRadius: 1,
     spreadRadius: 0,
   );
 
-  /// Thin white highlight cast to the bottom edge of organic cards.
-  static const organicWhiteShadowBottom = BoxShadow(
-    color: Color(0x55FFFFFF),
-    offset: Offset(0, 2),
-    blurRadius: 10,
+  /// Soft blue drop shadow for sponsored hero cards.
+  static const sponsoredGlowDrop = BoxShadow(
+    color: Color(0x1A2D7BFF),
+    offset: Offset(0, 8),
+    blurRadius: 24,
     spreadRadius: 0,
   );
 
@@ -69,12 +69,13 @@ class PeeplHomeTokens {
   );
 
   static const cardHorizontalMargin = 12.0;
+  static const sponsoredHorizontalMargin = 16.0;
   static const halfCardGap = 6.0;
-  static const rowVerticalGap = 5.0;
-  static const cardRadius = 16.0;
+  static const rowVerticalGap = 12.0;
+  static const cardRadius = 14.0;
   static const featuredCardHeight = 64.0;
   static const halfCardHeight = 64.0;
-  static const sponsoredCardHeight = 64.0;
+  static const sponsoredCardHeight = 140.0;
   static const bottomNavHeight = 56.0;
 
   // Legacy aliases

@@ -77,7 +77,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
   Widget build(BuildContext context) {
     final card = Padding(
       padding: const EdgeInsets.symmetric(
-        horizontal: PeeplHomeTokens.cardHorizontalMargin,
+        horizontal: PeeplHomeTokens.sponsoredHorizontalMargin,
       ),
       child: Semantics(
         label: 'Sponsored advertisement for ${widget.name}',
@@ -92,6 +92,10 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,
               ),
+              boxShadow: const [
+                PeeplHomeTokens.sponsoredGlowEdge,
+                PeeplHomeTokens.sponsoredGlowDrop,
+              ],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -117,7 +121,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                   ),
                 ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(8, 5, 8, 6),
+                  padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -253,8 +257,8 @@ class _SponsoredBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 12,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+      height: 14,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
@@ -263,29 +267,15 @@ class _SponsoredBadge extends StatelessWidget {
         ),
       ),
       alignment: Alignment.center,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Container(
-            width: 3,
-            height: 3,
-            decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.55),
-              shape: BoxShape.circle,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Text(
-            'SPONSORED',
-            style: TextStyle(
-              color: PeeplHomeTokens.white.withValues(alpha: 0.92),
-              fontSize: 7,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.0,
-              height: 1.0,
-            ),
-          ),
-        ],
+      child: Text(
+        '★ SPONSORED',
+        style: TextStyle(
+          color: PeeplHomeTokens.white.withValues(alpha: 0.92),
+          fontSize: 8,
+          fontWeight: FontWeight.w800,
+          letterSpacing: 0.8,
+          height: 1.0,
+        ),
       ),
     );
   }

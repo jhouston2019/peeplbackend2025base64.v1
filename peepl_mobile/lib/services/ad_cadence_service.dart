@@ -7,7 +7,7 @@ import 'debug_log_service.dart';
 /// Session-level ad cadence engine with frequency caps and deduplication.
 ///
 /// ─── Cadence ────────────────────────────────────────────────────────────────
-/// Pattern [2, 3, 2, 3]: show post×2 → AD, post×3 → AD, post×2 → AD …
+/// Pattern [3, 2, 3]: show post×3 → AD, post×2 → AD, post×3 → AD …
 /// With the min-3 hard floor, effective average ≈ 1 ad per 3.5 posts.
 ///
 /// ─── Frequency caps ─────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ import 'debug_log_service.dart';
 /// merge. [_seenAdIds] and [_adsShownThisSession] survive merges/rebuilds.
 class AdCadenceService {
   /// How many posts to show before each successive ad (regular sessions).
-  static const List<int> adPattern = [2, 3, 2, 3];
+  static const List<int> adPattern = [3, 2, 3];
 
   /// More conservative cadence for brand-new users.
   static const List<int> firstSessionPattern = [3, 3, 3, 3];

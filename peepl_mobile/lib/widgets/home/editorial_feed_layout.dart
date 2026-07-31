@@ -72,8 +72,9 @@ class EditorialFeedLayout {
   static double rowHeight(EditorialFeedRow row) {
     switch (row.kind) {
       case EditorialRowKind.featuredOrganic:
-      case EditorialRowKind.sponsored:
         return PeeplHomeTokens.featuredCardHeight;
+      case EditorialRowKind.sponsored:
+        return PeeplHomeTokens.sponsoredCardHeight;
       case EditorialRowKind.halfOrganicPair:
         return PeeplHomeTokens.halfCardHeight;
     }

@@ -74,7 +74,7 @@ class _SkeletonRow extends StatelessWidget {
       case _SkeletonRowKind.sponsored:
         return Padding(
           padding: const EdgeInsets.symmetric(
-            horizontal: PeeplHomeTokens.cardHorizontalMargin,
+            horizontal: PeeplHomeTokens.sponsoredHorizontalMargin,
           ),
           child: _SkeletonCard(
             height: PeeplHomeTokens.sponsoredCardHeight,
@@ -106,12 +106,16 @@ class _SkeletonCard extends StatelessWidget {
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,
               )
-            : null,
-        boxShadow: sponsored ? null : const [
-          PeeplHomeTokens.organicShadow,
-          PeeplHomeTokens.organicWhiteShadowRight,
-          PeeplHomeTokens.organicWhiteShadowBottom,
-        ],
+            : Border.all(
+                color: PeeplHomeTokens.organicCardBorder,
+                width: PeeplHomeTokens.organicCardBorderWidth,
+              ),
+        boxShadow: sponsored
+            ? const [
+                PeeplHomeTokens.sponsoredGlowEdge,
+                PeeplHomeTokens.sponsoredGlowDrop,
+              ]
+            : const [PeeplHomeTokens.organicShadow],
       ),
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Row(

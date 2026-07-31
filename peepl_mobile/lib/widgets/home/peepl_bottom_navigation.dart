@@ -13,6 +13,14 @@ class PeeplBottomNavigation extends StatelessWidget {
     this.showAlertDot = false,
   });
 
+  static const _dealsButtonHeight = 54.0;
+  static const _dealsButtonRadius = 27.0;
+  static const _dealsHorizontalPadding = 21.0;
+  static const _dealsIconSize = 27.0;
+  static const _dealsFontSize = 19.5;
+  static const _dealsCenterReserve = 136.0;
+  static const _navGroupInset = 10.0;
+
   final VoidCallback onExploreTap;
   final VoidCallback onSearchTap;
   final VoidCallback onDealsTap;
@@ -34,41 +42,56 @@ class PeeplBottomNavigation extends StatelessWidget {
           children: [
             SizedBox(
               height: PeeplHomeTokens.bottomNavHeight,
-              child: Row(
-                children: [
-                  Expanded(
-                    child: _NavItem(
-                      label: 'Explore',
-                      icon: Icons.home_rounded,
-                      selected: true,
-                      accentColor: PeeplHomeTokens.yellow,
-                      onTap: onExploreTap,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: _navGroupInset),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _NavItem(
+                              label: 'Explore',
+                              icon: Icons.home_rounded,
+                              selected: true,
+                              accentColor: PeeplHomeTokens.yellow,
+                              onTap: onExploreTap,
+                            ),
+                            _NavItem(
+                              label: 'Search',
+                              icon: Icons.search,
+                              onTap: onSearchTap,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      label: 'Search',
-                      icon: Icons.search,
-                      onTap: onSearchTap,
+                    const SizedBox(width: _dealsCenterReserve),
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(left: _navGroupInset),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            _NavItem(
+                              label: 'Alerts',
+                              icon: Icons.notifications_outlined,
+                              onTap: onAlertsTap,
+                              showDot: showAlertDot,
+                            ),
+                            _NavItem(
+                              label: 'Profile',
+                              icon: Icons.person_outline,
+                              onTap: onProfileTap,
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
-                  ),
-                  const Expanded(child: SizedBox.shrink()),
-                  Expanded(
-                    child: _NavItem(
-                      label: 'Alerts',
-                      icon: Icons.notifications_outlined,
-                      onTap: onAlertsTap,
-                      showDot: showAlertDot,
-                    ),
-                  ),
-                  Expanded(
-                    child: _NavItem(
-                      label: 'Profile',
-                      icon: Icons.person_outline,
-                      onTap: onProfileTap,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Semantics(
@@ -78,11 +101,13 @@ class PeeplBottomNavigation extends StatelessWidget {
                 onTap: onDealsTap,
                 behavior: HitTestBehavior.opaque,
                 child: Container(
-                  height: 72,
-                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  height: _dealsButtonHeight,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: _dealsHorizontalPadding,
+                  ),
                   decoration: BoxDecoration(
                     color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.14),
-                    borderRadius: BorderRadius.circular(36),
+                    borderRadius: BorderRadius.circular(_dealsButtonRadius),
                     border: Border.all(
                       color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.55),
                     ),
@@ -93,14 +118,14 @@ class PeeplBottomNavigation extends StatelessWidget {
                       Icon(
                         Icons.local_offer_outlined,
                         color: PeeplHomeTokens.dealsGreen,
-                        size: 36,
+                        size: _dealsIconSize,
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Text(
                         'Deals',
                         style: TextStyle(
                           color: PeeplHomeTokens.dealsGreen,
-                          fontSize: 26,
+                          fontSize: _dealsFontSize,
                           fontWeight: FontWeight.w800,
                           height: 1.0,
                         ),

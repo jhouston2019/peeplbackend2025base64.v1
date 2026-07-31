@@ -142,7 +142,7 @@ List<Map<String, dynamic>> _mockFeedItems({required int organicCount}) {
   var organic = 0;
   var patternIndex = 0;
   var sinceAd = 0;
-  const pattern = [2, 3, 2, 3];
+  const pattern = [3, 2, 3];
   var nextThreshold = pattern[0];
   var adIndex = 0;
 
