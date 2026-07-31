@@ -7,6 +7,7 @@ class PeeplAppTokens {
   static const background = Color(0xFF071522);
   static const shellNavy = Color(0xFF0D2340);
   static const card = Color(0xFF102748);
+  static const card0 = Color(0xFF102748);
   static const cardElevated = Color(0xFF17345C);
   static const searchField = Color(0xFF1A2F47);
   static const chipSurface = Color(0xFF132538);
