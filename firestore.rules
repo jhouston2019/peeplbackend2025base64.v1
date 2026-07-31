@@ -169,5 +169,10 @@ service cloud.firestore {
       allow read: if request.auth.uid == 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
       allow update, delete: if false;
     }
+
+    match /crowdsource_requests/{requestId} {
+      allow create: if request.auth != null;
+      allow read, update: if isAppAdmin();
+    }
   }
 }
