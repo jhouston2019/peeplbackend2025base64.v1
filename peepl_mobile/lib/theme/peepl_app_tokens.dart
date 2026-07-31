@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
-/// App-wide premium navy design system for Peepl.class PeeplAppTokens {
+/// App-wide premium navy design system for Peepl.
+class PeeplAppTokens {
   PeeplAppTokens._();
 
   static const background = Color(0xFF071522);
