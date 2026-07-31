@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/merchant_pricing_service.dart';
 import '../../widgets/merchant/merchant_empty_state.dart';
 import '../../widgets/merchant/merchant_campaign_card.dart';
 import '../../widgets/merchant/merchant_glass_text_field.dart';
@@ -246,27 +247,8 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     }
   }
 
-  static double _estimateAdSpend(Map<String, dynamic> ad) {
-    final tier = (ad['tier'] as String? ?? 'standard').toLowerCase();
-    final monthlyRate = tier.contains('prime')
-        ? 299.0
-        : tier.contains('premium')
-            ? 299.0
-            : 99.0;
-
-    final start = ad['startDate'] is Timestamp
-        ? (ad['startDate'] as Timestamp).toDate()
-        : null;
-    final end = ad['endDate'] is Timestamp
-        ? (ad['endDate'] as Timestamp).toDate()
-        : null;
-
-    if (start != null && end != null && end.isAfter(start)) {
-      final months = (end.difference(start).inDays / 30).ceil().clamp(1, 24);
-      return monthlyRate * months;
-    }
-    return monthlyRate;
-  }
+  static double _estimateAdSpend(Map<String, dynamic> ad) =>
+      MerchantPricingService.estimateAdSpend(ad);
 
   static String _adStatus(Map<String, dynamic> ad) {
     final endDate = ad['endDate'];

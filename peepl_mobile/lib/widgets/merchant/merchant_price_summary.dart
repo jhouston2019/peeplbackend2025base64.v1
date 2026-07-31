@@ -96,13 +96,19 @@ class MerchantPriceSummary extends StatelessWidget {
                           99,
                     ),
                   ),
-                ] else if (quote.lineItems.isNotEmpty)
+                ] else if (quote.lineItems.isNotEmpty) ...[
+                  _SummaryRow('Total hours', '${quote.hours}'),
                   _SummaryRow(
-                    'Hourly rate (avg)',
+                    'Subtotal',
+                    MerchantPricingService.formatCurrency(quote.subtotal),
+                  ),
+                  _SummaryRow(
+                    'Avg hourly rate',
                     MerchantPricingService.formatCurrency(
                       quote.subtotal / quote.lineItems.length,
                     ),
                   ),
+                ],
                 if (quote.packageDiscountAmount > 0)
                   _SummaryRow(
                     quote.packageLabel,

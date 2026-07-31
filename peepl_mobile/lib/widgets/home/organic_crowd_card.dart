@@ -55,7 +55,11 @@ class OrganicCrowdCard extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
-              boxShadow: const [PeeplHomeTokens.organicShadow],
+              boxShadow: const [
+                PeeplHomeTokens.organicShadow,
+                PeeplHomeTokens.organicWhiteShadowRight,
+                PeeplHomeTokens.organicWhiteShadowBottom,
+              ],
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),

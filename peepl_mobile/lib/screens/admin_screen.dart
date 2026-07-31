@@ -1135,14 +1135,14 @@ class _ScreensTab extends StatelessWidget {
   ];
 
   static final List<Map<String, String>> _merchantRoutes = [
-    {'label': 'How To Advertise', 'route': '/how_to_advertise'},
+    {'label': 'Merchant Portal', 'route': '/merchant_portal'},
     {'label': 'Merchant Account Info', 'route': '/merchant_account_info'},
     {'label': 'Merchant Account Number', 'route': '/merchant_account_number'},
     {'label': 'Merchant Activity', 'route': '/merchant_activity'},
     {'label': 'Merchant Portal', 'route': '/merchant_portal'},
     {'label': 'Merchant Setup Step 1', 'route': '/merchant_setup_step1'},
     {'label': 'Merchant Setup Step 2', 'route': '/merchant_setup_step2'},
-    {'label': 'Merchant Setup Step 3', 'route': '/merchant_setup_step3'},
+    {'label': 'Create Campaign', 'route': '/merchant_setup_step2'},
     {'label': 'Merchant Sign In', 'route': '/merchant_sign_in'},
   ];
 

@@ -51,73 +51,111 @@ async function sendFcm(token, title, body, data = {}) {
 }
 
 // ─── FUNCTION 1: onCrowdsourceRequest ──────────────────────────────────────
-// Fires when User A writes to crowdsource_requests.
-// Finds all presence docs within ~150m with expiresAt > now.
+// Fires when a client writes to crowdsource_requests/{requestId}.
+// Finds nearby users via haversine on lastKnown* or lastLocation coords.
 // Sends FCM to each matched user (excluding the requester).
+function getUserCoords(userData) {
+  if (userData.lastKnownLatitude != null && userData.lastKnownLongitude != null) {
+    return {
+      latitude: userData.lastKnownLatitude,
+      longitude: userData.lastKnownLongitude,
+    };
+  }
+  const lastLoc = userData.lastLocation;
+  if (lastLoc?.latitude != null && lastLoc?.longitude != null) {
+    return {
+      latitude: lastLoc.latitude,
+      longitude: lastLoc.longitude,
+    };
+  }
+  return null;
+}
+
 exports.onCrowdsourceRequest = functions.firestore
   .document('crowdsource_requests/{requestId}')
   .onCreate(async (snap, context) => {
     const data = snap.data();
-    const { requestedBy, locationName, latitude, longitude } = data;
+    const {
+      requestedBy,
+      locationName,
+      latitude,
+      longitude,
+      radiusKm = 0.2,
+      message,
+    } = data;
 
-    if (!latitude || !longitude || !locationName) {
+    if (latitude == null || longitude == null || !locationName) {
       console.log('Missing required fields, skipping.');
       return null;
     }
 
-    const DELTA = 0.00135; // ~150m in degrees
-    const now = Timestamp.now();
+    const latDelta = radiusKm / 111;
+    const body =
+      message ||
+      `Someone is curious about ${locationName}, would you mind sharing a peep?`;
 
-    let presenceSnap;
+    let usersSnap;
+    let lastKnownSnap;
     try {
-      presenceSnap = await db.collection('presence')
-        .where('latitude', '>=', latitude - DELTA)
-        .where('latitude', '<=', latitude + DELTA)
-        .where('expiresAt', '>', now)
-        .limit(50)
-        .get();
+      [usersSnap, lastKnownSnap] = await Promise.all([
+        db
+          .collection(USERS_COLLECTION)
+          .where('lastLocation.latitude', '>=', latitude - latDelta)
+          .where('lastLocation.latitude', '<=', latitude + latDelta)
+          .limit(200)
+          .get(),
+        db
+          .collection(USERS_COLLECTION)
+          .where('lastKnownLatitude', '>=', latitude - latDelta)
+          .where('lastKnownLatitude', '<=', latitude + latDelta)
+          .limit(200)
+          .get(),
+      ]);
     } catch (e) {
-      console.error('Presence query error:', e);
+      console.error('User query error:', e);
       return null;
     }
 
-    if (presenceSnap.empty) {
-      console.log('No active presence found near', locationName);
-      await snap.ref.update({ status: 'no_targets' });
-      return null;
+    const candidateDocs = new Map();
+    for (const doc of [...usersSnap.docs, ...lastKnownSnap.docs]) {
+      candidateDocs.set(doc.id, doc);
     }
 
-    // Filter longitude in-memory + exclude requester
-    const targets = presenceSnap.docs.filter(doc => {
-      const d = doc.data();
-      const lngOk = d.longitude >= longitude - DELTA &&
-                    d.longitude <= longitude + DELTA;
-      const notSelf = doc.id !== requestedBy;
-      return lngOk && notSelf;
+    const targets = [...candidateDocs.values()].filter((doc) => {
+      if (doc.id === requestedBy) return false;
+
+      const coords = getUserCoords(doc.data());
+      if (!coords) return false;
+
+      const dist = haversineKm(
+        latitude,
+        longitude,
+        coords.latitude,
+        coords.longitude,
+      );
+      return dist <= radiusKm;
     });
 
     if (targets.length === 0) {
-      console.log('No targets after filtering for', locationName);
+      console.log('No nearby users found for', locationName);
       await snap.ref.update({ status: 'no_targets' });
       return null;
     }
 
-    // Send FCM to each target
     const sends = targets.map(async (doc) => {
-      const uid = doc.id;
-      const token = await getFcmToken(uid);
+      const token = doc.data().fcmToken || (await getFcmToken(doc.id));
       if (!token) return;
       await sendFcm(
         token,
-        `How crowded is ${locationName}?`,
-        'Someone nearby wants to know — tap to report crowd levels.',
+        'Peep Request Nearby',
+        body,
         {
           type: 'crowdsource_request',
           locationName,
           latitude: String(latitude),
           longitude: String(longitude),
           requestId: context.params.requestId,
-        }
+        },
       );
     });
 
@@ -129,7 +167,9 @@ exports.onCrowdsourceRequest = functions.firestore
       sentAt: FieldValue.serverTimestamp(),
     });
 
-    console.log(`Sent crowdsource request for ${locationName} to ${targets.length} users.`);
+    console.log(
+      `Sent crowdsource request for ${locationName} to ${targets.length} users.`,
+    );
     return null;
   });
 

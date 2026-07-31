@@ -99,14 +99,6 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
         _ => PeeplMerchantTokens.warning,
       };
 
-  static String _tierLabel(String? tier) {
-    final value = (tier ?? 'standard').toLowerCase();
-    if (value.contains('prime')) return 'Prime';
-    if (value.contains('premium')) return 'Premium';
-    if (value.contains('standard')) return 'Standard';
-    return tier ?? 'Standard';
-  }
-
   static bool _isAdActive(Map<String, dynamic> ad) {
     if (ad['isActive'] != true) return false;
     final endDate = ad['endDate'];
@@ -126,22 +118,8 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
     return '${diff.inMinutes}m left';
   }
 
-  static double _estimateSpend(Map<String, dynamic> ad) {
-    final tier = (ad['tier'] as String? ?? 'standard').toLowerCase();
-    final monthly = MerchantPricingService.subscriptionTiers[tier] ??
-        MerchantPricingService.subscriptionTiers['standard']!;
-    final start = ad['startDate'] is Timestamp
-        ? (ad['startDate'] as Timestamp).toDate()
-        : null;
-    final end = ad['endDate'] is Timestamp
-        ? (ad['endDate'] as Timestamp).toDate()
-        : null;
-    if (start != null && end != null && end.isAfter(start)) {
-      final months = (end.difference(start).inDays / 30).ceil().clamp(1, 24);
-      return monthly * months;
-    }
-    return monthly;
-  }
+  static double _estimateSpend(Map<String, dynamic> ad) =>
+      MerchantPricingService.estimateAdSpend(ad);
 
   @override
   Widget build(BuildContext context) {
@@ -165,7 +143,6 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
             (merchantData?['businessName'] as String?) ?? 'Your Business';
         final logoUrl = merchantData?['logoUrl'] as String?;
         final accountStatus = _accountStatus(merchantData);
-        final tier = _tierLabel(merchantData?['tier'] as String?);
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
@@ -195,7 +172,7 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
                       logoUrl: logoUrl,
                       merchantId: _uid,
                       isVerified: accountStatus == 'Active',
-                      subscriptionLabel: '$tier Plan',
+                      subscriptionLabel: 'Hourly Advertising',
                       onBack: () => Navigator.pop(context),
                       onSettings: () => setState(
                         () => _section = MerchantShellSection.account,

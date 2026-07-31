@@ -33,8 +33,6 @@ class MerchantSetupStep2Screen extends StatefulWidget {
 
 class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
   static const _ctaPresets = ['Get Deal', 'Visit Us', 'Order Now'];
-  static const _tierPrices = {'standard': 99, 'prime': 299};
-  static const _durationMonths = {'1': 1, '3': 3, '6': 6};
 
   static const _campaignTypes = [
     _CampaignType('Happy Hour', Icons.local_bar_rounded, '🍻',
@@ -70,8 +68,7 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
   String? _advertiserName;
   String? _campaignType;
   String _selectedCta = 'Get Deal';
-  String _tier = 'standard';
-  String _duration = '1';
+  String _duration = '3';
   double _radiusMiles = 1.0;
   final Set<DateTime> _selectedSlots = {};
   bool _loadingMerchant = true;
@@ -102,13 +99,24 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
     return custom.isNotEmpty ? custom : _selectedCta;
   }
 
-  int get _monthlyPrice => _tierPrices[_tier] ?? 99;
-  int get _totalCost => _monthlyPrice * (_durationMonths[_duration] ?? 1);
+  CampaignQuote get _quote {
+    final sorted = _selectedSlots.toList()..sort();
+    final demandBySlot = {
+      for (final slot in sorted)
+        slot: MerchantPricingService.demandForSlot(slot),
+    };
+    return MerchantPricingService.quoteHourlySlots(
+      slots: sorted,
+      radiusMiles: _radiusMiles,
+      demandBySlot: demandBySlot,
+      package: MerchantPricingService.packageForKey(_duration),
+    );
+  }
 
-  CampaignQuote get _quote => MerchantPricingService.quoteSubscription(
-        tier: _tier,
-        months: _durationMonths[_duration] ?? 1,
-      );
+  String get _durationLabel => MerchantPricingService.packageKeyLabel(_duration);
+
+  String get _scheduleLabel =>
+      MerchantPricingService.formatScheduleRange(_selectedSlots);
 
   void _applyTemplate(MerchantCampaignTemplate template) {
     setState(() {
@@ -117,7 +125,6 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
       _bodyCtrl.text = template.bodyText;
       _selectedCta = template.ctaText;
       _ctaUrlCtrl.text = template.ctaUrl;
-      _tier = template.tier;
       _duration = template.duration;
       _radiusMiles = template.radiusMiles;
       _targetLocationCtrl.text = template.targetLocation;
@@ -137,20 +144,12 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
         bodyText: _bodyCtrl.text.trim(),
         ctaText: _ctaText,
         ctaUrl: _ctaUrlCtrl.text.trim(),
-        tier: _tier,
         duration: _duration,
         radiusMiles: _radiusMiles,
         targetLocation: _targetLocationCtrl.text.trim(),
       ),
     );
   }
-
-  String get _durationLabel => switch (_duration) {
-        '1' => '1 Month',
-        '3' => '3 Months',
-        '6' => '6 Months',
-        _ => _duration,
-      };
 
   void _showSnackBar(String message, {bool isError = true}) {
     if (!mounted) return;
@@ -220,6 +219,10 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
       _showSnackBar('Please add a CTA URL.');
       return;
     }
+    if (_selectedSlots.isEmpty) {
+      _showSnackBar('Please select at least one time slot.');
+      return;
+    }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) {
@@ -230,9 +233,10 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
     setState(() => _launching = true);
     try {
       final imageUrl = await _uploadAdImage(uid);
-      final now = DateTime.now();
-      final months = _durationMonths[_duration] ?? 1;
-      final endDate = DateTime(now.year, now.month + months, now.day);
+      final sortedSlots = _selectedSlots.toList()..sort();
+      final campaignStart = sortedSlots.first;
+      final campaignEnd = sortedSlots.last.add(const Duration(hours: 1));
+      final quote = _quote;
       final radiusLabel = '${_radiusMiles.toStringAsFixed(_radiusMiles == 1 ? 0 : 1)} mile radius';
       final targetLocation = _targetLocationCtrl.text.trim().isNotEmpty
           ? _targetLocationCtrl.text.trim()
@@ -246,12 +250,16 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
         'bodyText': _bodyCtrl.text.trim(),
         'ctaText': _ctaText,
         'ctaUrl': _ctaUrlCtrl.text.trim(),
-        'tier': _tier,
+        'tier': 'hourly',
+        'billingModel': 'hourly_slots',
+        'estimatedTotal': quote.total,
+        'scheduledHours': sortedSlots.length,
+        'packageDuration': _duration,
         'isActive': false,
         'impressions': 0,
         'clicks': 0,
-        'startDate': Timestamp.fromDate(now),
-        'endDate': Timestamp.fromDate(endDate),
+        'startDate': Timestamp.fromDate(campaignStart),
+        'endDate': Timestamp.fromDate(campaignEnd),
         'priority': 1,
         'targetLocation': targetLocation,
         'createdAt': FieldValue.serverTimestamp(),
@@ -264,11 +272,10 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
           MaterialPageRoute<void>(
             builder: (_) => MerchantCampaignSuccessScreen(
               campaignTitle: _headlineCtrl.text.trim(),
-              scheduleLabel: _durationLabel,
+              scheduleLabel: _scheduleLabel,
               radiusLabel:
                   '${_radiusMiles.toStringAsFixed(_radiusMiles == 1 ? 0 : 1)} miles',
-              packageLabel:
-                  '${_tier == 'prime' ? 'Prime' : 'Standard'} · $_durationLabel',
+              packageLabel: _durationLabel,
               onViewCampaign: () => Navigator.pushNamedAndRemoveUntil(
                 context,
                 '/merchant_portal',
@@ -303,7 +310,7 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
           _headlineCtrl.text.trim().isNotEmpty &&
               _bodyCtrl.text.trim().isNotEmpty &&
               _adImageFile != null,
-        3 => true,
+        3 => _selectedSlots.isNotEmpty,
         4 => true,
         5 => _ctaUrlCtrl.text.trim().isNotEmpty,
         _ => false,
@@ -446,9 +453,8 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
         campaignType: _campaignType,
         radiusMiles: _radiusMiles,
         duration: _duration,
-        tier: _tier,
+        scheduleLabel: _scheduleLabel,
         ctaUrlCtrl: _ctaUrlCtrl,
-        onTierChanged: (t) => setState(() => _tier = t),
         onDurationChanged: (d) => setState(() => _duration = d),
         onLaunch: _launchCampaign,
         launching: _launching,
@@ -844,9 +850,8 @@ class _StepReview extends StatelessWidget {
     this.campaignType,
     required this.radiusMiles,
     required this.duration,
-    required this.tier,
+    required this.scheduleLabel,
     required this.ctaUrlCtrl,
-    required this.onTierChanged,
     required this.onDurationChanged,
     required this.onLaunch,
     required this.launching,
@@ -857,42 +862,22 @@ class _StepReview extends StatelessWidget {
   final String? campaignType;
   final double radiusMiles;
   final String duration;
-  final String tier;
+  final String scheduleLabel;
   final TextEditingController ctaUrlCtrl;
-  final ValueChanged<String> onTierChanged;
   final ValueChanged<String> onDurationChanged;
   final VoidCallback onLaunch;
   final bool launching;
 
-  static const _durationLabels = {'1': '1 Month', '3': '3 Months', '6': '6 Months'};
-
   @override
   Widget build(BuildContext context) {
-    final packageLabel = tier == 'prime' ? 'Prime Plan' : 'Standard Plan';
-    final durationLabel = _durationLabels[duration] ?? duration;
+    final durationLabel = MerchantPricingService.packageKeyLabel(duration);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         MerchantSectionCard(
-          title: 'Package',
+          title: 'Package & checkout',
           children: [
-            _TierOption(
-              label: 'Standard',
-              price: '\$99/mo',
-              description: 'Appears every 3rd post in the feed',
-              selected: tier == 'standard',
-              onTap: () => onTierChanged('standard'),
-            ),
-            const SizedBox(height: 10),
-            _TierOption(
-              label: 'Prime',
-              price: '\$299/mo',
-              description: 'First post every user sees',
-              selected: tier == 'prime',
-              onTap: () => onTierChanged('prime'),
-            ),
-            const SizedBox(height: 16),
             MerchantPackageSelector(
               selectedDuration: duration,
               onChanged: onDurationChanged,
@@ -911,121 +896,15 @@ class _StepReview extends StatelessWidget {
           quote: quote,
           promotionTitle:
               promotionTitle.isNotEmpty ? promotionTitle : campaignType,
-          packageLabel: '$packageLabel · $durationLabel',
+          packageLabel: durationLabel,
+          dateLabel: scheduleLabel,
           radiusLabel:
               '${radiusMiles.toStringAsFixed(radiusMiles == 1 ? 0 : 1)} miles',
-          timeLabel: durationLabel,
           paymentMethodLabel: 'Beta — no charge during beta period',
           onLaunch: onLaunch,
           isLaunching: launching,
         ),
       ],
-    );
-  }
-}
-
-class _TierOption extends StatelessWidget {
-  const _TierOption({
-    required this.label,
-    required this.price,
-    required this.description,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String price;
-  final String description;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(16),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          padding: const EdgeInsets.all(16),
-          decoration: selected
-              ? PeeplMerchantTokens.gradientCardDecoration()
-              : PeeplMerchantTokens.cardDecoration(),
-          child: Row(
-            children: [
-              Icon(
-                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                color: selected
-                    ? PeeplMerchantTokens.accentBlue
-                    : PeeplMerchantTokens.textMuted,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(label,
-                        style: const TextStyle(
-                          color: PeeplMerchantTokens.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        )),
-                    Text(description,
-                        style: const TextStyle(
-                          color: PeeplMerchantTokens.textSecondary,
-                          fontSize: 12,
-                        )),
-                  ],
-                ),
-              ),
-              Text(price,
-                  style: const TextStyle(
-                    color: PeeplMerchantTokens.accentBlue,
-                    fontWeight: FontWeight.w800,
-                  )),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _DurationChip extends StatelessWidget {
-  const _DurationChip({
-    required this.label,
-    required this.value,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final String value;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelected = selected;
-    return Material(
-      color: isSelected ? PeeplMerchantTokens.accentBlue : PeeplMerchantTokens.glassFill,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : PeeplMerchantTokens.textPrimary,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

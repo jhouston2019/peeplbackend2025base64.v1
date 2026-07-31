@@ -18,8 +18,8 @@ class PeeplHomeTokens {
   static const chipBorder = Color(0x0AFFFFFF);
   static const organicCardBorder = Color(0x80FFFFFF); // legacy — organic cards are borderless
   static const organicCardBorderWidth = 1.5;
-  static const sponsoredBorder = Color(0x4AFFFFFF);
-  static const sponsoredBorderWidth = 2.0;
+  static const sponsoredBorder = Color(0xB3FFFFFF);
+  static const sponsoredBorderWidth = 1.5;
 
   static const tickerBackground = Color(0xFF0D2340);
   static const white = Color(0xFFFFFFFF);
@@ -34,6 +34,22 @@ class PeeplHomeTokens {
     color: Color(0x28000000),
     offset: Offset(0, 6),
     blurRadius: 22,
+    spreadRadius: 0,
+  );
+
+  /// Thin white highlight cast to the right edge of organic cards.
+  static const organicWhiteShadowRight = BoxShadow(
+    color: Color(0x38FFFFFF),
+    offset: Offset(2, 0),
+    blurRadius: 4,
+    spreadRadius: 0,
+  );
+
+  /// Thin white highlight cast to the bottom edge of organic cards.
+  static const organicWhiteShadowBottom = BoxShadow(
+    color: Color(0x38FFFFFF),
+    offset: Offset(0, 2),
+    blurRadius: 4,
     spreadRadius: 0,
   );
 

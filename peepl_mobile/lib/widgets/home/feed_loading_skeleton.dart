@@ -103,16 +103,15 @@ class _SkeletonCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
         border: sponsored
             ? Border.all(
-                color: PeeplHomeTokens.sponsoredBorder.withValues(alpha: 0.45),
+                color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,
               )
             : null,
-        boxShadow: sponsored
-            ? const [
-                PeeplHomeTokens.sponsoredShadow,
-                PeeplHomeTokens.sponsoredGlow,
-              ]
-            : const [PeeplHomeTokens.organicShadow],
+        boxShadow: sponsored ? null : const [
+          PeeplHomeTokens.organicShadow,
+          PeeplHomeTokens.organicWhiteShadowRight,
+          PeeplHomeTokens.organicWhiteShadowBottom,
+        ],
       ),
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Row(

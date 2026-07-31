@@ -253,7 +253,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       icon: Icons.storefront_outlined,
                       title: 'Merchant Portal',
                       onTap: () =>
-                          Navigator.pushNamed(context, '/how_to_advertise'),
+                          Navigator.pushNamed(context, '/merchant_portal'),
                     ),
                     _tile(
                       icon: Icons.edit_outlined,

@@ -7,12 +7,10 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
-import '../services/debug_log_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../services/presence_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/detail/detail_activity_ticker.dart';
@@ -20,7 +18,6 @@ import '../widgets/detail/detail_comment_input.dart';
 import '../widgets/detail/detail_comment_tile.dart';
 import '../widgets/detail/detail_crowd_score_card.dart';
 import '../widgets/detail/detail_deals_card.dart';
-import '../widgets/detail/detail_explore_live_button.dart';
 import '../widgets/detail/detail_hero_header.dart';
 import '../widgets/detail/detail_live_peeps_row.dart';
 import '../widgets/detail/detail_metrics_grid.dart';
@@ -47,7 +44,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
   bool _isLiked = false;
   bool _isSubmittingComment = false;
-  bool _isRequestingLive = false;
+  bool _isSubmittingCrowdsource = false;
   late int _likesCount;
   List<Map<String, dynamic>> _availableAds = [];
   List<Map<String, dynamic>> _venuePeeps = [];
@@ -594,9 +591,39 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         if (primaryMetrics.isNotEmpty || secondaryMetrics.isNotEmpty)
           const SizedBox(height: 4),
         _buildVenuePeepsSection(post),
-        DetailExploreLiveButton(
-          isLoading: _isRequestingLive,
-          onTap: () => _onExploreLiveTap(),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: ElevatedButton(
+            onPressed:
+                _isSubmittingCrowdsource ? null : _sendExploreLiveRequest,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PeeplDetailTokens.accentBlue,
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(52),
+              shape: RoundedRectangleBorder(
+                borderRadius:
+                    BorderRadius.circular(PeeplDetailTokens.cardRadius),
+              ),
+              elevation: 0,
+            ),
+            child: _isSubmittingCrowdsource
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.cell_tower, size: 18),
+                      SizedBox(width: 8),
+                      Text('Explore Live'),
+                    ],
+                  ),
+          ),
         ),
         DetailSocialBar(
           isLiked: _isLiked,
@@ -674,121 +701,56 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
-  Future<void> _onExploreLiveTap() async {
-    DebugLogService.log('EXPLORE_LIVE', 'Explore Live tapped');
-    DebugLogService.log(
-      'EXPLORE_LIVE',
-      'Post data: ${widget.postData}',
-    );
-    DebugLogService.log(
-      'EXPLORE_LIVE',
-      'Lat: ${widget.postData['latitude']}, '
-      'Lng: ${widget.postData['longitude']}',
-    );
-    DebugLogService.log(
-      'EXPLORE_LIVE',
-      'User: ${FirebaseAuth.instance.currentUser?.uid}',
-    );
-
+  Future<void> _sendExploreLiveRequest() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    setState(() => _isRequestingLive = true);
+    final locationName =
+        widget.postData['locationName'] as String? ?? 'this location';
+    final latitude = (widget.postData['latitude'] as num?)?.toDouble();
+    final longitude = (widget.postData['longitude'] as num?)?.toDouble();
+
+    if (latitude == null || longitude == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Location data not available')),
+      );
+      return;
+    }
+
+    setState(() => _isSubmittingCrowdsource = true);
 
     try {
-      final latitude =
-          (widget.postData['latitude'] as num?)?.toDouble() ?? 0.0;
-      final longitude =
-          (widget.postData['longitude'] as num?)?.toDouble() ?? 0.0;
-      final locationName =
-          widget.postData['locationName'] as String? ?? 'this location';
+      await FirebaseFirestore.instance
+          .collection('crowdsource_requests')
+          .add({
+        'requestedBy': user.uid,
+        'locationName': locationName,
+        'latitude': latitude,
+        'longitude': longitude,
+        'radiusKm': 0.2,
+        'message':
+            'Someone is curious about $locationName, would you mind sharing a peep?',
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'pending',
+      });
 
-      List<Map<String, dynamic>> presence;
-      try {
-        DebugLogService.log(
-          'EXPLORE_LIVE',
-          'Calling getActivePresence...',
-        );
-        presence = await PresenceService.instance.getActivePresence(
-          latitude,
-          longitude,
-        );
-        DebugLogService.log(
-          'EXPLORE_LIVE',
-          'getActivePresence returned: ${presence.length} results',
-        );
-        DebugLogService.log(
-          'EXPLORE_LIVE',
-          'Presence result: $presence',
-        );
-      } catch (presenceError) {
-        DebugLogService.log(
-          'EXPLORE_LIVE',
-          'getActivePresence FAILED: $presenceError',
-        );
-        rethrow;
-      }
-
-      if (presence.isNotEmpty) {
-        await PresenceService.instance.sendCrowdsourceRequest(
-          locationName: locationName,
-          latitude: latitude,
-          longitude: longitude,
-        );
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '📍 Request sent to ${presence.length} '
-              '${presence.length == 1 ? 'person' : 'people'} at '
-              '$locationName!',
-            ),
-            backgroundColor: PeeplDetailTokens.accentBlue,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      } else {
-        await FirebaseFirestore.instance
-            .collection('crowdsource_requests')
-            .add({
-          'requesterId': user.uid,
-          'locationName': widget.postData['locationName'] ?? '',
-          'latitude': latitude,
-          'longitude': longitude,
-          'status': 'waiting',
-          'createdAt': FieldValue.serverTimestamp(),
-          'notifyOnArrival': true,
-        });
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '🔔 No one is there right now. '
-              'We\'ll notify you when someone arrives at '
-              '$locationName!',
-            ),
-            backgroundColor: Colors.orange[700],
-            duration: const Duration(seconds: 4),
-          ),
-        );
-      }
-    } catch (e, stackTrace) {
-      DebugLogService.log(
-        'EXPLORE_LIVE',
-        'Explore Live error: $e — stack: $stackTrace',
-      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          duration: const Duration(seconds: 8),
-          backgroundColor: Colors.red[700],
+        const SnackBar(
+          content: Text('Request sent! Nearby users will be notified.'),
+          backgroundColor: Color(0xFF1565C0),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send request. Please try again.'),
+          backgroundColor: Colors.red,
         ),
       );
     } finally {
-      if (mounted) {
-        setState(() => _isRequestingLive = false);
-      }
+      if (mounted) setState(() => _isSubmittingCrowdsource = false);
     }
   }
 
@@ -799,27 +761,29 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
     if (_loadingVenuePeeps) return const SizedBox.shrink();
 
-    final othersExist =
-        _venuePeeps.any((p) => p['id'] != currentPostId);
-
-    if (!othersExist) {
+    // Show empty state only when NO posts exist at this venue at all
+    if (_venuePeeps.isEmpty) {
       return Padding(
         padding: const EdgeInsets.only(top: 8, bottom: 8),
         child: NoPeepsEmptyState(locationName: locationName),
       );
     }
-
+    // Include all venue peeps; current post shown first if present
     final others =
         _venuePeeps.where((p) => p['id'] != currentPostId).toList();
-    final usernames = others
+    final currentInVenue = _venuePeeps
+        .where((p) => p['id'] == currentPostId)
+        .toList();
+    final displayPeeps = [...currentInVenue, ...others];
+    final usernames = displayPeeps
         .map(
           (p) => p['username'] as String? ?? 'Anonymous',
         )
         .toList();
 
     String? activityText;
-    if (others.isNotEmpty) {
-      final latest = others.last;
+    if (displayPeeps.isNotEmpty) {
+      final latest = displayPeeps.last;
       final name = latest['username'] as String? ?? 'Someone';
       activityText = '$name posted';
     }

@@ -37,7 +37,7 @@ class HappeningNowTicker extends StatelessWidget {
                   ),
                   const SizedBox(width: 6),
                   const Text(
-                    'HAPPENING NOW',
+                    'CURRENT DEALS',
                     style: TextStyle(
                       color: PeeplHomeTokens.dealsGreen,
                       fontSize: 11,

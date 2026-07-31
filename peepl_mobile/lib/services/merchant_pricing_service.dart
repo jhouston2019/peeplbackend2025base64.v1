@@ -1,5 +1,3 @@
-import 'merchant_service.dart';
-
 /// Merchant Rate Card — single source of truth for advertising pricing.
 ///
 /// All UI pricing displays and campaign cost estimates must go through this
@@ -15,7 +13,7 @@ class MerchantPricingService {
   static const eventBoostHourly = 39.99;
   static const pioneerLaunchHourly = 9.99;
 
-  /// Legacy subscription tiers (monthly) — preserved for existing campaign flow.
+  /// Legacy subscription tiers (monthly) — used only when displaying old ads.
   static const subscriptionTiers = {
     'standard': 99.0,
     'prime': 299.0,
@@ -209,9 +207,50 @@ class MerchantPricingService {
     );
   }
 
-  /// Bridges legacy [MerchantService] flat-rate tiers for step-3 flow.
-  static double legacyFlatRateTotal(String tier, int durationHours) =>
-      MerchantService.estimateFlatRate(tier, durationHours);
+  static PackageDuration packageForKey(String key) => switch (key) {
+        '1' => PackageDuration.weekly,
+        '3' => PackageDuration.monthly,
+        '6' => PackageDuration.quarterly,
+        _ => PackageDuration.none,
+      };
+
+  static String packageKeyLabel(String key) => packageLabel(packageForKey(key));
+
+  static String formatScheduleRange(Set<DateTime> slots) {
+    if (slots.isEmpty) return 'No slots selected';
+    final sorted = slots.toList()..sort();
+    if (sorted.length == 1) return _formatSlot(sorted.first);
+    return '${_formatSlot(sorted.first)} – ${_formatSlot(sorted.last)} (${sorted.length} hrs)';
+  }
+
+  /// Reads stored campaign total or estimates legacy subscription ads.
+  static double estimateAdSpend(Map<String, dynamic> ad) {
+    final stored = ad['estimatedTotal'];
+    if (stored is num && stored > 0) return stored.toDouble();
+
+    final billingModel = ad['billingModel'] as String?;
+    if (billingModel == 'hourly_slots') {
+      final hours = ad['scheduledHours'] as int? ?? 0;
+      if (hours > 0) return hours * standardWeekdayHourly;
+      return 0;
+    }
+
+    final tier = (ad['tier'] as String? ?? 'standard').toLowerCase();
+    if (tier == 'hourly') return 0;
+
+    final monthly =
+        subscriptionTiers[tier] ?? subscriptionTiers['standard']!;
+    final start = ad['startDate'];
+    final end = ad['endDate'];
+    final startDate = _firestoreDate(start);
+    final endDate = _firestoreDate(end);
+    if (startDate != null && endDate != null && endDate.isAfter(startDate)) {
+      final months =
+          (endDate.difference(startDate).inDays / 30).ceil().clamp(1, 24);
+      return monthly * months;
+    }
+    return monthly;
+  }
 
   static double packageDiscountRate(PackageDuration package) => switch (package) {
         PackageDuration.weekly => weeklyPackageDiscount,
@@ -236,6 +275,15 @@ class MerchantPricingService {
     final hour = slot.hour % 12 == 0 ? 12 : slot.hour % 12;
     final period = slot.hour >= 12 ? 'PM' : 'AM';
     return '$day $hour$period';
+  }
+
+  static DateTime? _firestoreDate(dynamic value) {
+    if (value == null) return null;
+    try {
+      return (value as dynamic).toDate() as DateTime;
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Simulated demand for calendar display — replace with live inventory API.

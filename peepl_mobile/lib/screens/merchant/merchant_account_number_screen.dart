@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../services/merchant_pricing_service.dart';
 import '../../widgets/merchant/merchant_billing_card.dart';
 import '../../widgets/merchant/merchant_empty_state.dart';
 import '../../widgets/merchant/merchant_glass_text_field.dart';
@@ -64,18 +65,11 @@ class _MerchantAccountNumberScreenState
     }
   }
 
-  String get _tierLabel {
-    final value = (_tier ?? 'standard').toLowerCase();
-    if (value.contains('prime')) return 'Prime';
-    if (value.contains('premium')) return 'Premium';
-    return 'Standard';
-  }
+  String get _planLabel => 'Hourly slot advertising';
 
-  int get _monthlyCost {
-    final value = (_tier ?? 'standard').toLowerCase();
-    if (value.contains('prime') || value.contains('premium')) return 299;
-    return 99;
-  }
+  String get _planPricing =>
+      '\$${MerchantPricingService.pioneerLaunchHourly.toStringAsFixed(2)}–'
+      '\$${MerchantPricingService.eventBoostHourly.toStringAsFixed(2)}/hr';
 
   void _showStripeComingSoon() {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -212,7 +206,7 @@ class _MerchantAccountNumberScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _tierLabel,
+                  _planLabel,
                   style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -220,7 +214,7 @@ class _MerchantAccountNumberScreenState
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '\$$_monthlyCost/month',
+                  _planPricing,
                   style: TextStyle(
                     fontSize: 14,
                     color: Colors.grey.shade600,

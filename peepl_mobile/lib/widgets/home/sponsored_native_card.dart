@@ -92,10 +92,6 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,
               ),
-              boxShadow: const [
-                PeeplHomeTokens.sponsoredShadow,
-                PeeplHomeTokens.sponsoredGlow,
-              ],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
