@@ -24,7 +24,6 @@ import '../widgets/home/happening_now_ticker.dart';
 import '../widgets/home/organic_crowd_card.dart';
 import '../widgets/home/peepl_home_header.dart';
 import '../widgets/home/peepl_home_tokens.dart';
-import '../widgets/home/peepl_search_bar.dart';
 import '../widgets/home/quick_filter_row.dart';
 import '../widgets/home/peepl_bottom_navigation.dart';
 import '../widgets/home/sponsored_native_card.dart';
@@ -87,7 +86,6 @@ class _FeedScreenState extends State<FeedScreen> {
   String? _errorMessage;
 
   String _activeFilter = 'Newest';
-  String _searchQuery = '';
 
   List<Map<String, dynamic>> _dealBannerItems = LocalDeals.fallback
       .map((deal) => Map<String, dynamic>.from(deal))
@@ -1008,16 +1006,6 @@ class _FeedScreenState extends State<FeedScreen> {
     return first;
   }
 
-  List<Map<String, dynamic>> get _visibleFeedItems {
-    if (_searchQuery.isEmpty) return _feedItems;
-    final q = _searchQuery.toLowerCase();
-    return _feedItems.where((item) {
-      if (item['type'] == 'ad') return false;
-      final name = (item['locationName'] ?? '').toString().toLowerCase();
-      return name.contains(q);
-    }).toList();
-  }
-
   void _showFilterSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -1092,44 +1080,6 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         );
       },
-    );
-  }
-
-  void _showSearchSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(sheetContext).viewInsets.bottom,
-        ),
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                autofocus: true,
-                decoration: InputDecoration(
-                  hintText: 'Search venues...',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                onChanged: (value) {
-                  setState(() => _searchQuery = value.trim());
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
     );
   }
 
@@ -1251,10 +1201,8 @@ class _FeedScreenState extends State<FeedScreen> {
               onLocationTap: _showAreaPicker,
               onProfileTap: () => Navigator.pushNamed(context, '/profile'),
               onMenuTap: () => Navigator.pushNamed(context, '/settings'),
-            ),
-            PeeplSearchBar(
-              onTap: _showSearchSheet,
-              onFilterTap: _showFilterSheet,
+              onPostTap: () => Navigator.pushNamed(context, '/post'),
+              onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
             ),
             QuickFilterRow(
               onDealsTap: () => Navigator.pushNamed(context, '/deals'),
@@ -1314,14 +1262,12 @@ class _FeedScreenState extends State<FeedScreen> {
       );
     }
 
-    final items = _visibleFeedItems;
+    final items = _feedItems;
 
     if (items.isEmpty) {
       return Center(
         child: Text(
-          _searchQuery.isNotEmpty
-              ? 'No venues match your search.'
-              : 'No peeps yet. Be the first.',
+          'No peeps yet. Be the first.',
           style: TextStyle(color: _T.secondaryText, fontSize: 15),
         ),
       );

@@ -37,6 +37,7 @@ import 'screens/permissions_screen.dart';
 import 'screens/pioneer_congrat_screen.dart';
 import 'screens/pioneers_screen.dart';
 import 'screens/report_screen.dart';
+import 'screens/request_peep_screen.dart';
 import 'screens/search_screen.dart';
 import 'screens/search_results_screen.dart';
 import 'screens/share_screen.dart';
@@ -160,6 +161,7 @@ Map<String, WidgetBuilder> appRoutes = {
     final postId = args is String ? args : '';
     return ReportScreen(postId: postId);
   },
+  '/request-peep': (_) => const RequestPeepScreen(),
   '/search_results': (ctx) {
     final args = ModalRoute.of(ctx)?.settings.arguments;
     final query = args is String ? args : '';

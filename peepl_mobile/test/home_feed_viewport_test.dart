@@ -8,7 +8,6 @@ import 'package:peepl_mobile/widgets/home/organic_crowd_card.dart';
 import 'package:peepl_mobile/widgets/home/peepl_bottom_navigation.dart';
 import 'package:peepl_mobile/widgets/home/peepl_home_header.dart';
 import 'package:peepl_mobile/widgets/home/peepl_home_tokens.dart';
-import 'package:peepl_mobile/widgets/home/peepl_search_bar.dart';
 import 'package:peepl_mobile/widgets/home/quick_filter_row.dart';
 import 'package:peepl_mobile/widgets/home/sponsored_native_card.dart';
 
@@ -39,8 +38,9 @@ class _HomeFeedViewportHarness extends StatelessWidget {
                     onLocationTap: () {},
                     onProfileTap: () {},
                     onMenuTap: () {},
+                    onPostTap: () {},
+                    onRequestPeepTap: () {},
                   ),
-                  PeeplSearchBar(onTap: () {}, onFilterTap: () {}),
                   QuickFilterRow(
                     onDealsTap: () {},
                     onMapTap: () {},

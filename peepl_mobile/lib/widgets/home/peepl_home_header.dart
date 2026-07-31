@@ -9,12 +9,16 @@ class PeeplHomeHeader extends StatelessWidget {
     required this.onLocationTap,
     required this.onProfileTap,
     required this.onMenuTap,
+    required this.onPostTap,
+    required this.onRequestPeepTap,
   });
 
   final String areaLabel;
   final VoidCallback onLocationTap;
   final VoidCallback onProfileTap;
   final VoidCallback onMenuTap;
+  final VoidCallback onPostTap;
+  final VoidCallback onRequestPeepTap;
 
   @override
   Widget build(BuildContext context) {
@@ -28,108 +32,175 @@ class PeeplHomeHeader extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14),
-      child: SizedBox(
-        height: 34,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(
+            height: 34,
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: GestureDetector(
-                      onTap: onLocationTap,
-                      behavior: HitTestBehavior.opaque,
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.location_on,
-                            color: PeeplHomeTokens.white,
-                            size: 16,
-                          ),
-                          const SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              areaLabel,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
+                Row(
+                  children: [
+                    Expanded(
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: GestureDetector(
+                          onTap: onLocationTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(
+                                Icons.location_on,
                                 color: PeeplHomeTokens.white,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
+                                size: 16,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  areaLabel,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: PeeplHomeTokens.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const Icon(
+                                Icons.keyboard_arrow_down,
+                                color: PeeplHomeTokens.white,
+                                size: 18,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        GestureDetector(
+                          onTap: onProfileTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Container(
+                            width: 30,
+                            height: 30,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: PeeplHomeTokens.white.withValues(alpha: 0.34),
+                                width: 1.2,
                               ),
                             ),
-                          ),
-                          const Icon(
-                            Icons.keyboard_arrow_down,
-                            color: PeeplHomeTokens.white,
-                            size: 18,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    GestureDetector(
-                      onTap: onProfileTap,
-                      behavior: HitTestBehavior.opaque,
-                      child: Container(
-                        width: 30,
-                        height: 30,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          border: Border.all(
-                            color: PeeplHomeTokens.white.withValues(alpha: 0.34),
-                            width: 1.2,
+                            child: const Icon(
+                              Icons.person,
+                              color: PeeplHomeTokens.white,
+                              size: 16,
+                            ),
                           ),
                         ),
-                        child: const Icon(
-                          Icons.person,
-                          color: PeeplHomeTokens.white,
-                          size: 16,
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: onMenuTap,
+                          behavior: HitTestBehavior.opaque,
+                          child: Icon(
+                            Icons.menu,
+                            color: PeeplHomeTokens.white.withValues(alpha: 0.88),
+                            size: 24,
+                          ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    GestureDetector(
-                      onTap: onMenuTap,
-                      behavior: HitTestBehavior.opaque,
-                      child: Icon(
-                        Icons.menu,
-                        color: PeeplHomeTokens.white.withValues(alpha: 0.88),
-                        size: 24,
-                      ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-            IgnorePointer(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text('p', style: wordmarkStyle),
-                  Row(
+                IgnorePointer(
+                  child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text('e', style: wordmarkStyle),
-                      Transform.scale(
-                        scaleX: -1,
-                        child: Text('e', style: wordmarkStyle),
+                      Text('p', style: wordmarkStyle),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text('e', style: wordmarkStyle),
+                          Transform.scale(
+                            scaleX: -1,
+                            child: Text('e', style: wordmarkStyle),
+                          ),
+                        ],
                       ),
+                      Text('pl', style: wordmarkStyle),
                     ],
                   ),
-                  Text('pl', style: wordmarkStyle),
-                ],
-              ),
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: GestureDetector(
+                  onTap: onPostTap,
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'POST',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: GestureDetector(
+                  onTap: onRequestPeepTap,
+                  child: Container(
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Color(0xFFFFC107),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.cell_tower, color: Colors.black, size: 20),
+                        SizedBox(width: 6),
+                        Text(
+                          'REQUEST A PEEP',
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
