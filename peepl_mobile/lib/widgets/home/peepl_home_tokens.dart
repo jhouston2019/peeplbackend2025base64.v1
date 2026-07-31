@@ -21,7 +21,8 @@ class PeeplHomeTokens {
   static const sponsoredBorder = Color(0xB3FFFFFF);
   static const sponsoredBorderWidth = 2.0;
 
-  static const tickerBackground = Color(0xFF0D2340);
+  /// Same translucent green fill as the footer Deals pill.
+  static const tickerBackground = Color(0x2466E38D);
   static const white = Color(0xFFFFFFFF);
   static const mutedWhite = Color(0xB3FFFFFF);
   static const cardFallback = Color(0xFF0D2340);

@@ -28,89 +28,89 @@ class PeeplBottomNavigation extends StatelessWidget {
       color: PeeplHomeTokens.shellNavy,
       child: Padding(
         padding: EdgeInsets.only(bottom: bottomInset),
-        child: SizedBox(
-          height: PeeplHomeTokens.bottomNavHeight,
-          child: Row(
-            children: [
-              Expanded(
-                child: _NavItem(
-                  label: 'Explore',
-                  icon: Icons.home_rounded,
-                  selected: true,
-                  accentColor: PeeplHomeTokens.yellow,
-                  onTap: onExploreTap,
-                ),
+        child: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.center,
+          children: [
+            SizedBox(
+              height: PeeplHomeTokens.bottomNavHeight,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: _NavItem(
+                      label: 'Explore',
+                      icon: Icons.home_rounded,
+                      selected: true,
+                      accentColor: PeeplHomeTokens.yellow,
+                      onTap: onExploreTap,
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      label: 'Search',
+                      icon: Icons.search,
+                      onTap: onSearchTap,
+                    ),
+                  ),
+                  const Expanded(child: SizedBox.shrink()),
+                  Expanded(
+                    child: _NavItem(
+                      label: 'Alerts',
+                      icon: Icons.notifications_outlined,
+                      onTap: onAlertsTap,
+                      showDot: showAlertDot,
+                    ),
+                  ),
+                  Expanded(
+                    child: _NavItem(
+                      label: 'Profile',
+                      icon: Icons.person_outline,
+                      onTap: onProfileTap,
+                    ),
+                  ),
+                ],
               ),
-              Expanded(
-                child: _NavItem(
-                  label: 'Search',
-                  icon: Icons.search,
-                  onTap: onSearchTap,
-                ),
-              ),
-              Expanded(
-                child: Center(
-                  child: Semantics(
-                    label: 'Deals',
-                    button: true,
-                    child: GestureDetector(
-                      onTap: onDealsTap,
-                      behavior: HitTestBehavior.opaque,
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: Container(
-                          height: 36,
-                          padding: const EdgeInsets.symmetric(horizontal: 14),
-                          decoration: BoxDecoration(
-                            color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.14),
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(
-                              color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.55),
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.local_offer_outlined,
-                                color: PeeplHomeTokens.dealsGreen,
-                                size: 18,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                'Deals',
-                                style: TextStyle(
-                                  color: PeeplHomeTokens.dealsGreen,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1.0,
-                                ),
-                              ),
-                            ],
-                          ),
+            ),
+            Semantics(
+              label: 'Deals',
+              button: true,
+              child: GestureDetector(
+                onTap: onDealsTap,
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  height: 72,
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  decoration: BoxDecoration(
+                    color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(36),
+                    border: Border.all(
+                      color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.55),
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.local_offer_outlined,
+                        color: PeeplHomeTokens.dealsGreen,
+                        size: 36,
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        'Deals',
+                        style: TextStyle(
+                          color: PeeplHomeTokens.dealsGreen,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          height: 1.0,
                         ),
                       ),
-                    ),
+                    ],
                   ),
                 ),
               ),
-              Expanded(
-                child: _NavItem(
-                  label: 'Alerts',
-                  icon: Icons.notifications_outlined,
-                  onTap: onAlertsTap,
-                  showDot: showAlertDot,
-                ),
-              ),
-              Expanded(
-                child: _NavItem(
-                  label: 'Profile',
-                  icon: Icons.person_outline,
-                  onTap: onProfileTap,
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
