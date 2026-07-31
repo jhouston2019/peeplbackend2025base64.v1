@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../utils/crowd_display_mapper.dart';
 import 'crowd_status_panel.dart';
 import 'feed_card_image.dart';
+import 'feed_card_tap_scale.dart';
 import 'peepl_home_tokens.dart';
 
 enum OrganicCardSize { featured, half }
@@ -42,124 +43,116 @@ class OrganicCrowdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = size == OrganicCardSize.half;
-    final titleSize = compact ? 12.0 : 14.0;
-    final metaSize = compact ? 8.0 : 9.0;
-
-    final borderWidth = PeeplHomeTokens.organicCardBorderWidth;
-    final innerRadius = PeeplHomeTokens.cardRadius - borderWidth;
+    final titleSize = compact ? 13.0 : 15.0;
+    final metaSize = compact ? 7.5 : 8.5;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: _horizontalMargin),
-      child: GestureDetector(
+      child: FeedCardTapScale(
         onTap: onTap,
-        behavior: HitTestBehavior.opaque,
         child: SizedBox(
           height: _height,
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
-              color: PeeplHomeTokens.organicCardBorder,
               boxShadow: const [PeeplHomeTokens.organicShadow],
             ),
-            child: Padding(
-              padding: EdgeInsets.all(borderWidth),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(innerRadius),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    FeedCardImage(source: imageUrl),
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.centerRight,
-                            end: Alignment.centerLeft,
-                            colors: [
-                              Colors.black.withValues(alpha: 0.06),
-                              Colors.black.withValues(alpha: 0.22),
-                            ],
-                          ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  FeedCardImage(source: imageUrl),
+                  Positioned.fill(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.centerRight,
+                          end: Alignment.centerLeft,
+                          colors: [
+                            Colors.black.withValues(alpha: 0.06),
+                            Colors.black.withValues(alpha: 0.22),
+                          ],
                         ),
                       ),
                     ),
-                    Positioned.fill(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          CrowdStatusPanel(
-                            data: crowdData,
-                            compact: compact,
-                            showTrend: false,
-                          ),
-                          Expanded(
-                            flex: 7,
-                            child: Padding(
-                              padding: EdgeInsets.fromLTRB(
-                                4,
-                                compact ? 5 : 6,
-                                compact ? 6 : 8,
-                                compact ? 5 : 6,
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: PeeplHomeTokens.white,
-                                      fontSize: titleSize,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.0,
-                                    ),
+                  ),
+                  Positioned.fill(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        CrowdStatusPanel(
+                          data: crowdData,
+                          compact: compact,
+                          showTrend: false,
+                        ),
+                        Expanded(
+                          flex: 7,
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              4,
+                              compact ? 5 : 6,
+                              compact ? 6 : 8,
+                              compact ? 5 : 6,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  name,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: PeeplHomeTokens.white,
+                                    fontSize: titleSize,
+                                    fontWeight: FontWeight.w900,
+                                    height: 1.0,
+                                    letterSpacing: -0.2,
                                   ),
-                                  Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (distanceLabel != null &&
-                                          distanceLabel!.isNotEmpty)
-                                        Text(
-                                          distanceLabel!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: PeeplHomeTokens.white
-                                                .withValues(alpha: 0.78),
-                                            fontSize: metaSize,
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.0,
-                                          ),
+                                ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    if (distanceLabel != null &&
+                                        distanceLabel!.isNotEmpty)
+                                      Text(
+                                        distanceLabel!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: PeeplHomeTokens.white
+                                              .withValues(alpha: 0.58),
+                                          fontSize: metaSize,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.0,
                                         ),
-                                      if (waitLabel != null &&
-                                          waitLabel!.isNotEmpty)
-                                        Text(
-                                          waitLabel!,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Colors.orange.shade300,
-                                            fontSize: metaSize,
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.0,
-                                          ),
+                                      ),
+                                    if (waitLabel != null &&
+                                        waitLabel!.isNotEmpty)
+                                      Text(
+                                        waitLabel!,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: Colors.orange.shade300
+                                              .withValues(alpha: 0.82),
+                                          fontSize: metaSize,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.0,
                                         ),
-                                    ],
-                                  ),
-                                ],
-                              ),
+                                      ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           ),

@@ -168,9 +168,9 @@ class _FilterChip extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: emphasized
-                ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.45)
+                ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.25)
                 : selected
-                    ? PeeplHomeTokens.white.withValues(alpha: 0.35)
+                    ? PeeplHomeTokens.white.withValues(alpha: 0.20)
                     : PeeplHomeTokens.chipBorder,
           ),
         ),

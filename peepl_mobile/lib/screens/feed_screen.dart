@@ -19,6 +19,7 @@ import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../utils/crowd_display_mapper.dart';
 import '../widgets/home/editorial_feed_layout.dart';
+import '../widgets/home/feed_loading_skeleton.dart';
 import '../widgets/home/happening_now_ticker.dart';
 import '../widgets/home/organic_crowd_card.dart';
 import '../widgets/home/peepl_home_header.dart';
@@ -94,12 +95,14 @@ class _FeedScreenState extends State<FeedScreen> {
   int _dealBannerIndex = 0;
   Timer? _dealRotationTimer;
 
-  double _selectedRadiusMiles = 1.0;
+  static const double _everywhereRadiusMiles = -1.0;
+
+  double _selectedRadiusMiles = _everywhereRadiusMiles;
   double? _userLat;
   double? _userLng;
   double? _latitude;
   double? _longitude;
-  String _areaLabel = 'Nearby';
+  String _areaLabel = 'Everywhere';
   bool _locationResolved = false;
   double? _searchedLat;
   double? _searchedLng;
@@ -119,6 +122,7 @@ class _FeedScreenState extends State<FeedScreen> {
     {'label': '100 mi', 'miles': 100.0},
     {'label': '500 mi', 'miles': 500.0},
     {'label': '1000 mi', 'miles': 1000.0},
+    {'label': 'Everywhere', 'miles': _everywhereRadiusMiles},
   ];
 
   static const double _localRadiusMeters = 16000.0;
@@ -185,7 +189,7 @@ class _FeedScreenState extends State<FeedScreen> {
           _latitude = pos.latitude;
           _longitude = pos.longitude;
           _locationResolved = true;
-          _areaLabel = '1 mi radius';
+          _areaLabel = _radiusLabel(withRadiusSuffix: true);
         });
         _applyAreaFilter();
         if (!kIsWeb) {
@@ -197,7 +201,27 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  bool get _isEverywhereRadius => _selectedRadiusMiles < 0;
+
+  String _radiusLabel({bool withRadiusSuffix = false}) {
+    if (_isEverywhereRadius) return 'Everywhere';
+    if (_selectedRadiusMiles == 0.25) return '¼ mi';
+    if (_selectedRadiusMiles == 0.5) return '½ mi';
+    if (_selectedRadiusMiles >= 1000) return '1000 mi';
+    final miles = _selectedRadiusMiles % 1 == 0
+        ? '${_selectedRadiusMiles.toInt()}'
+        : '$_selectedRadiusMiles';
+    return withRadiusSuffix ? '$miles mi radius' : '$miles mi';
+  }
+
   void _applyAreaFilter() {
+    if (_isEverywhereRadius) {
+      setState(
+        () => _feedItems = _mergeAdsIntoFeed(_applyFilter(_allPosts)),
+      );
+      return;
+    }
+
     final centerLat = _searchedLat ?? _userLat;
     final centerLng = _searchedLng ?? _userLng;
     if (centerLat == null || centerLng == null) {
@@ -262,15 +286,7 @@ class _FeedScreenState extends State<FeedScreen> {
       _searchedCityName = name;
       _citySuggestions = [];
       _citySearchController.clear();
-      _areaLabel = '$name • ${_selectedRadiusMiles == 0.25
-          ? "¼ mi"
-          : _selectedRadiusMiles == 0.5
-              ? "½ mi"
-              : _selectedRadiusMiles >= 1000
-                  ? "1000 mi"
-                  : "${_selectedRadiusMiles % 1 == 0
-                      ? _selectedRadiusMiles.toInt()
-                      : _selectedRadiusMiles} mi"}';
+      _areaLabel = '$name • ${_radiusLabel()}';
     });
     _applyAreaFilter();
   }
@@ -283,8 +299,10 @@ class _FeedScreenState extends State<FeedScreen> {
       _citySearchController.clear();
       _citySuggestions = [];
       _areaLabel = _locationResolved
-          ? '${_selectedRadiusMiles == 0.25 ? "¼ mi" : _selectedRadiusMiles == 0.5 ? "½ mi" : "${_selectedRadiusMiles % 1 == 0 ? _selectedRadiusMiles.toInt() : _selectedRadiusMiles} mi"} radius'
-          : 'Nearby';
+          ? _radiusLabel(withRadiusSuffix: true)
+          : _isEverywhereRadius
+              ? 'Everywhere'
+              : 'Nearby';
     });
     _applyAreaFilter();
   }
@@ -441,7 +459,9 @@ class _FeedScreenState extends State<FeedScreen> {
                             _selectedRadiusMiles = miles;
                             _areaLabel = _searchedCityName != null
                                 ? '$_searchedCityName • $label'
-                                : '$label radius';
+                                : miles < 0
+                                    ? 'Everywhere'
+                                    : '$label radius';
                           });
                           _applyAreaFilter();
                         },
@@ -718,6 +738,10 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   List<Map<String, dynamic>> _rebuildFeedItems() {
+    if (_isEverywhereRadius) {
+      return _mergeAdsIntoFeed(_applyFilter(_allPosts));
+    }
+
     final centerLat = _searchedLat ?? _userLat;
     final centerLng = _searchedLng ?? _userLng;
     if (centerLat == null || centerLng == null) {
@@ -1253,11 +1277,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildFeedContent() {
     if (_isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(_T.navy),
-        ),
-      );
+      return const FeedLoadingSkeleton();
     }
 
     if (_hasError) {

@@ -84,7 +84,7 @@ class PeeplHomeHeader extends StatelessWidget {
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           border: Border.all(
-                            color: PeeplHomeTokens.white.withValues(alpha: 0.6),
+                            color: PeeplHomeTokens.white.withValues(alpha: 0.34),
                             width: 1.2,
                           ),
                         ),
@@ -99,9 +99,9 @@ class PeeplHomeHeader extends StatelessWidget {
                     GestureDetector(
                       onTap: onMenuTap,
                       behavior: HitTestBehavior.opaque,
-                      child: const Icon(
+                      child: Icon(
                         Icons.menu,
-                        color: PeeplHomeTokens.white,
+                        color: PeeplHomeTokens.white.withValues(alpha: 0.88),
                         size: 24,
                       ),
                     ),

@@ -1,7 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+
+import '../../widgets/merchant/merchant_empty_state.dart';
+import '../../widgets/merchant/merchant_campaign_card.dart';
+import '../../widgets/merchant/merchant_glass_text_field.dart';
+import '../../widgets/merchant/merchant_analytics_chart.dart';
+import '../../widgets/merchant/merchant_metric_card.dart';
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
 
 class MerchantActivityScreen extends StatefulWidget {
   const MerchantActivityScreen({super.key});
@@ -11,8 +18,7 @@ class MerchantActivityScreen extends StatefulWidget {
 }
 
 class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
-  static const Color _blue = Color(0xFF1565C0);
-  static const Color _orange = Color(0xFFFF9800);
+  static const Color _chartOrange = Color(0xFFFF9F43);
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -285,57 +291,36 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _buildTopBar(),
-            _buildDateRangeSelector(),
-            Expanded(
-              child: _loading
-                  ? const Center(
-                      child: CircularProgressIndicator(color: _blue),
-                    )
-                  : _error != null
-                      ? _buildError()
-                      : _buildBody(),
-            ),
-          ],
+    return MerchantScreenScaffold(
+      title: 'Analytics',
+      onBack: () => Navigator.pop(context),
+      padding: EdgeInsets.zero,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.file_download_outlined,
+              color: PeeplMerchantTokens.textPrimary),
+          tooltip: 'Export CSV',
+          onPressed: _export,
         ),
-      ),
-    );
-  }
-
-  Widget _buildTopBar() {
-    return Container(
-      color: _blue,
-      padding: const EdgeInsets.fromLTRB(4, 12, 8, 12),
-      child: Row(
+        IconButton(
+          icon: const Icon(Icons.refresh_rounded,
+              color: PeeplMerchantTokens.textPrimary),
+          onPressed: _load,
+        ),
+      ],
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: _buildDateRangeSelector(),
           ),
-          const Expanded(
-            child: Text(
-              'Ad Analytics',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.file_download_outlined, color: Colors.white),
-            tooltip: 'Export',
-            onPressed: _export,
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _load,
+          Expanded(
+            child: _loading
+                ? const MerchantLoadingView()
+                : _error != null
+                    ? _buildError()
+                    : _buildBody(),
           ),
         ],
       ),
@@ -344,8 +329,8 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
 
   Widget _buildDateRangeSelector() {
     return Container(
-      color: Colors.white,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.all(4),
+      decoration: PeeplMerchantTokens.glassDecoration(radius: 14),
       child: Row(
         children: [
           _rangeChip(7, 'Last 7 Days'),
@@ -371,10 +356,14 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
-            color: selected ? _blue : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+            color: selected
+                ? PeeplMerchantTokens.accentBlue
+                : PeeplMerchantTokens.glassFill,
+            borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected ? _blue : Colors.grey.shade300,
+              color: selected
+                  ? PeeplMerchantTokens.accentBlue
+                  : PeeplMerchantTokens.glassBorder,
             ),
           ),
           child: Text(
@@ -383,7 +372,9 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
             style: TextStyle(
               fontSize: 11,
               fontWeight: FontWeight.w600,
-              color: selected ? Colors.white : Colors.black87,
+              color: selected
+                  ? PeeplMerchantTokens.textPrimary
+                  : PeeplMerchantTokens.textSecondary,
             ),
           ),
         ),
@@ -396,9 +387,13 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(_error!, style: const TextStyle(color: Colors.black54)),
+          Text(_error!,
+              style: const TextStyle(color: PeeplMerchantTokens.textSecondary)),
           const SizedBox(height: 12),
-          TextButton(onPressed: _load, child: const Text('Retry')),
+          TextButton(
+            onPressed: _load,
+            child: const Text('Retry'),
+          ),
         ],
       ),
     );
@@ -413,51 +408,101 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     final ctr = data.totalImpressions > 0
         ? (data.totalClicks / data.totalImpressions) * 100
         : 0.0;
+    final campaignCount = data.adBreakdowns.length;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       children: [
         Row(
           children: [
-            _MetricCard(
-              label: 'Total Impressions',
-              value: _formatCount(data.totalImpressions),
+            MerchantMetricCard(
+              label: 'Spend',
+              value: merchantFormatCurrency(data.totalSpend),
+              animate: false,
             ),
-            const SizedBox(width: 8),
-            _MetricCard(
-              label: 'Total Clicks',
-              value: _formatCount(data.totalClicks),
+            const SizedBox(width: 12),
+            MerchantMetricCard(
+              label: 'Reach',
+              value: merchantFormatCount(data.totalImpressions),
+              animate: false,
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         Row(
           children: [
-            _MetricCard(
-              label: 'CTR',
-              value: '${ctr.toStringAsFixed(1)}%',
+            MerchantMetricCard(
+              label: 'Views',
+              value: merchantFormatCount(data.totalImpressions),
+              animate: false,
             ),
-            const SizedBox(width: 8),
-            _MetricCard(
-              label: 'Total Spend',
-              value: '\$${data.totalSpend.toStringAsFixed(0)}',
+            const SizedBox(width: 12),
+            MerchantMetricCard(
+              label: 'Clicks',
+              value: merchantFormatCount(data.totalClicks),
+              animate: false,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            MerchantMetricCard(
+              label: 'CTR',
+              value: merchantFormatPercent(ctr),
+              animate: false,
+            ),
+            const SizedBox(width: 12),
+            MerchantMetricCard(
+              label: 'Campaigns',
+              value: campaignCount.toString(),
+              animate: false,
             ),
           ],
         ),
         const SizedBox(height: 24),
-        _sectionTitle('Daily Performance'),
+        MerchantAnalyticsChart(
+          title: 'Daily Performance',
+          labels: data.dailySeries
+              .map((d) => '${d.date.month}/${d.date.day}')
+              .toList(),
+          values: data.dailySeries
+              .map((d) => d.impressions.toDouble())
+              .toList(),
+          secondaryValues:
+              data.dailySeries.map((d) => d.clicks.toDouble()).toList(),
+          primaryLabel: 'Impressions',
+          secondaryLabel: 'Clicks',
+          secondaryColor: _chartOrange,
+        ),
         if (!data.hasDailyAnalytics)
           Padding(
-            padding: const EdgeInsets.only(top: 6, bottom: 8),
+            padding: const EdgeInsets.only(top: 8),
             child: Text(
               'Using aggregate totals — daily breakdown will appear once analytics sync.',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade600),
+              style: TextStyle(
+                fontSize: 12,
+                color: PeeplMerchantTokens.textMuted.withValues(alpha: 0.9),
+              ),
             ),
           ),
-        const SizedBox(height: 8),
-        _buildLineChart(data),
-        const SizedBox(height: 8),
-        _buildChartLegend(),
+        const SizedBox(height: 24),
+        MerchantHeatmapChart(
+          title: 'Engagement Heatmap',
+          data: _buildHeatmapData(data),
+        ),
+        const SizedBox(height: 24),
+        _sectionTitle('Top Campaigns'),
+        const SizedBox(height: 12),
+        _buildTopCampaigns(data.adBreakdowns),
+        const SizedBox(height: 24),
+        _sectionTitle('Recent Activity'),
+        const SizedBox(height: 12),
+        _buildRecentActivity(data.adBreakdowns),
+        const SizedBox(height: 24),
+        _sectionTitle('Best Performing Promotions'),
+        const SizedBox(height: 12),
+        _buildBestPromotions(data.adBreakdowns),
         const SizedBox(height: 24),
         _sectionTitle('Per-Ad Breakdown'),
         const SizedBox(height: 8),
@@ -471,147 +516,163 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     );
   }
 
-  Widget _buildLineChart(_AnalyticsData data) {
-    final series = data.dailySeries;
-    if (series.isEmpty) {
-      return _emptyPanel('No performance data for this period.');
+  Widget _buildTopCampaigns(List<_AdBreakdown> ads) {
+    if (ads.isEmpty) {
+      return _emptyPanel('No campaigns to rank yet.');
     }
 
-    final impressionSpots = <FlSpot>[];
-    final clickSpots = <FlSpot>[];
-    var maxY = 1.0;
+    final sorted = [...ads]..sort((a, b) => b.impressions.compareTo(a.impressions));
 
-    for (var i = 0; i < series.length; i++) {
-      final point = series[i];
-      impressionSpots.add(FlSpot(i.toDouble(), point.impressions.toDouble()));
-      clickSpots.add(FlSpot(i.toDouble(), point.clicks.toDouble()));
-      maxY = [
-        maxY,
-        point.impressions.toDouble(),
-        point.clicks.toDouble(),
-      ].reduce((a, b) => a > b ? a : b);
+    return Column(
+      children: sorted.take(3).map((ad) {
+        final ctr = ad.impressions > 0 ? (ad.clicks / ad.impressions) * 100 : 0.0;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 12),
+          child: MerchantCampaignCard(
+            compact: true,
+            title: ad.headline,
+            imageUrl: ad.imageUrl,
+            isLive: ad.status == 'Active',
+            views: ad.impressions,
+            clicks: ad.clicks,
+            ctr: ctr,
+            spend: '—',
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildRecentActivity(List<_AdBreakdown> ads) {
+    if (ads.isEmpty) {
+      return _emptyPanel('Activity will appear once campaigns run.');
     }
 
-    return Container(
-      height: 220,
-      padding: const EdgeInsets.fromLTRB(8, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: LineChart(
-        LineChartData(
-          minX: 0,
-          maxX: (series.length - 1).toDouble(),
-          minY: 0,
-          maxY: maxY <= 0 ? 1 : maxY * 1.2,
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: maxY <= 5 ? 1 : (maxY / 4).ceilToDouble(),
-            getDrawingHorizontalLine: (value) => FlLine(
-              color: Colors.grey.shade200,
-              strokeWidth: 1,
-            ),
-          ),
-          borderData: FlBorderData(show: false),
-          titlesData: FlTitlesData(
-            topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 36,
-                getTitlesWidget: (value, meta) => Text(
-                  value.toInt().toString(),
-                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
-                ),
+    return Column(
+      children: ads.take(5).map((ad) {
+        final message = switch (ad.status) {
+          'Active' => 'Campaign running',
+          'Expired' => 'Campaign ended',
+          _ => 'Campaign pending review',
+        };
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: PeeplMerchantTokens.cardDecoration(),
+          child: Row(
+            children: [
+              Icon(
+                ad.status == 'Active'
+                    ? Icons.play_circle_outline_rounded
+                    : ad.status == 'Expired'
+                        ? Icons.flag_outlined
+                        : Icons.schedule_rounded,
+                color: PeeplMerchantTokens.accentBlue,
+                size: 22,
               ),
-            ),
-            bottomTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                reservedSize: 28,
-                interval: series.length <= 7
-                    ? 1
-                    : (series.length / 5).ceilToDouble(),
-                getTitlesWidget: (value, meta) {
-                  final index = value.toInt();
-                  if (index < 0 || index >= series.length) {
-                    return const SizedBox.shrink();
-                  }
-                  final date = series[index].date;
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 6),
-                    child: Text(
-                      '${date.month}/${date.day}',
-                      style: TextStyle(
-                        fontSize: 9,
-                        color: Colors.grey.shade600,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      message,
+                      style: const TextStyle(
+                        color: PeeplMerchantTokens.textMuted,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                  );
-                },
+                    const SizedBox(height: 2),
+                    Text(
+                      ad.headline,
+                      style: const TextStyle(
+                        color: PeeplMerchantTokens.textPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-            ),
+              Text(
+                merchantFormatCount(ad.impressions),
+                style: const TextStyle(
+                  color: PeeplMerchantTokens.textSecondary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
-          lineBarsData: [
-            LineChartBarData(
-              spots: impressionSpots,
-              isCurved: true,
-              color: _blue,
-              barWidth: 2.5,
-              dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(
-                show: true,
-                color: _blue.withValues(alpha: 0.08),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildBestPromotions(List<_AdBreakdown> ads) {
+    if (ads.isEmpty) {
+      return _emptyPanel('Promotion performance appears after impressions.');
+    }
+
+    final withImpressions = ads.where((ad) => ad.impressions > 0).toList()
+      ..sort((a, b) {
+        final aCtr = a.clicks / a.impressions;
+        final bCtr = b.clicks / b.impressions;
+        return bCtr.compareTo(aCtr);
+      });
+
+    if (withImpressions.isEmpty) {
+      return _emptyPanel('Not enough engagement data yet.');
+    }
+
+    return Column(
+      children: withImpressions.take(3).map((ad) {
+        final ctr = (ad.clicks / ad.impressions) * 100;
+        return Container(
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(16),
+          decoration: PeeplMerchantTokens.cardDecoration(),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  ad.headline,
+                  style: const TextStyle(
+                    color: PeeplMerchantTokens.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
-            LineChartBarData(
-              spots: clickSpots,
-              isCurved: true,
-              color: _orange,
-              barWidth: 2.5,
-              dotData: const FlDotData(show: false),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildChartLegend() {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        _legendDot(_blue, 'Impressions'),
-        const SizedBox(width: 20),
-        _legendDot(_orange, 'Clicks'),
-      ],
-    );
-  }
-
-  Widget _legendDot(Color color, String label) {
-    return Row(
-      children: [
-        Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
-        ),
-      ],
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    merchantFormatPercent(ctr),
+                    style: const TextStyle(
+                      color: PeeplMerchantTokens.accentBlue,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 16,
+                    ),
+                  ),
+                  Text(
+                    '${merchantFormatCount(ad.clicks)} clicks',
+                    style: const TextStyle(
+                      color: PeeplMerchantTokens.textMuted,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 
@@ -621,17 +682,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: PeeplMerchantTokens.cardDecoration(),
       child: Column(
         children: [
           _tableHeaderRow(),
@@ -647,7 +698,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.grey.shade50,
+        color: PeeplMerchantTokens.glassFill,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
       ),
       child: Row(
@@ -829,8 +880,8 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
                   child: LinearProgressIndicator(
                     value: fraction,
                     minHeight: 6,
-                    backgroundColor: Colors.grey.shade200,
-                    color: _blue,
+                    backgroundColor: PeeplMerchantTokens.cardElevated,
+                    color: PeeplMerchantTokens.accentBlue,
                   ),
                 ),
               ],
@@ -842,29 +893,31 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
   }
 
   Widget _emptyPanel(String message) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-      ),
-      child: Text(
-        message,
-        textAlign: TextAlign.center,
-        style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
-      ),
+    return MerchantEmptyState(
+      variant: MerchantEmptyStateVariant.noAnalytics,
     );
+  }
+
+  List<List<double>> _buildHeatmapData(_AnalyticsData data) {
+    if (data.dailySeries.isEmpty) {
+      return List.generate(4, (_) => List.filled(7, 0.2));
+    }
+    final maxImp = data.dailySeries
+        .map((d) => d.impressions)
+        .fold<int>(1, (a, b) => a > b ? a : b);
+    return [
+      for (final bucket in data.dailySeries.take(4))
+        [bucket.impressions / maxImp, bucket.clicks / maxImp, 0.5, 0.3],
+    ];
   }
 
   Widget _sectionTitle(String text) {
     return Text(
       text,
       style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
+        fontSize: 18,
+        fontWeight: FontWeight.w700,
+        color: PeeplMerchantTokens.textPrimary,
       ),
     );
   }
@@ -926,49 +979,4 @@ class _AnalyticsData {
   final List<_AdBreakdown> adBreakdowns;
   final List<MapEntry<String, int>> topLocations;
   final bool hasDailyAnalytics;
-}
-
-class _MetricCard extends StatelessWidget {
-  const _MetricCard({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1565C0),
-              ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 10, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

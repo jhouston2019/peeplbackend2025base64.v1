@@ -4,19 +4,22 @@ import 'package:flutter/material.dart';
 class PeeplHomeTokens {
   PeeplHomeTokens._();
 
-  static const feedBackground = Color(0xFF081A2F);
+  static const feedBackground = Color(0xFF071522);
   static const shellNavy = Color(0xFF0D2340);
   static const searchField = Color(0xFF1A2F47);
   static const chipSurface = Color(0xFF132538);
+  static const skeletonSurface = Color(0xFF0C1A2C);
+  static const skeletonHighlight = Color(0xFF132538);
 
   static const yellow = Color(0xFFFFC107);
   static const dealsGreen = Color(0xFF66E38D);
 
   static const chipBackground = Color(0x1AFFFFFF);
-  static const chipBorder = Color(0x14FFFFFF);
-  static const organicCardBorder = Color(0x80FFFFFF); // 50% soft white
+  static const chipBorder = Color(0x0AFFFFFF);
+  static const organicCardBorder = Color(0x80FFFFFF); // legacy — organic cards are borderless
   static const organicCardBorderWidth = 1.5;
-  static const sponsoredBorder = Color(0x24FFFFFF);
+  static const sponsoredBorder = Color(0x4AFFFFFF);
+  static const sponsoredBorderWidth = 2.0;
 
   static const tickerBackground = Color(0xFF0D2340);
   static const white = Color(0xFFFFFFFF);
@@ -28,22 +31,29 @@ class PeeplHomeTokens {
   static const crowdOverlayRight = Color(0x00081A2F);
 
   static const organicShadow = BoxShadow(
-    color: Color(0x47000000),
-    offset: Offset(0, 2),
-    blurRadius: 12,
+    color: Color(0x28000000),
+    offset: Offset(0, 6),
+    blurRadius: 22,
     spreadRadius: 0,
   );
 
   static const sponsoredShadow = BoxShadow(
-    color: Color(0x52000000),
-    offset: Offset(0, 2),
-    blurRadius: 14,
+    color: Color(0x62000000),
+    offset: Offset(0, 4),
+    blurRadius: 18,
+    spreadRadius: 0,
+  );
+
+  static const sponsoredGlow = BoxShadow(
+    color: Color(0x120D2340),
+    offset: Offset(0, 0),
+    blurRadius: 10,
     spreadRadius: 0,
   );
 
   static const cardHorizontalMargin = 12.0;
   static const halfCardGap = 6.0;
-  static const rowVerticalGap = 3.0;
+  static const rowVerticalGap = 5.0;
   static const cardRadius = 16.0;
   static const featuredCardHeight = 64.0;
   static const halfCardHeight = 64.0;

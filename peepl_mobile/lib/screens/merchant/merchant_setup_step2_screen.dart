@@ -6,6 +6,23 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../services/merchant_pricing_service.dart';
+import '../../services/merchant_template_service.dart';
+import '../../widgets/merchant/merchant_campaign_success_screen.dart';
+import '../../widgets/merchant/merchant_interactions.dart';
+import '../../widgets/merchant/merchant_package_pricing_card.dart';
+import '../../widgets/merchant/merchant_skeleton.dart';
+import '../../widgets/merchant/merchant_empty_state.dart';
+import '../../widgets/merchant/merchant_glass_text_field.dart';
+import '../../widgets/merchant/merchant_ai_card.dart';
+import '../../widgets/merchant/merchant_calendar.dart';
+import '../../widgets/merchant/merchant_campaign_stepper.dart';
+import '../../widgets/merchant/merchant_offer_editor.dart';
+import '../../widgets/merchant/merchant_price_summary.dart';
+import '../../widgets/merchant/merchant_radius_slider.dart';
+import '../../widgets/merchant/merchant_time_selector.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class MerchantSetupStep2Screen extends StatefulWidget {
   const MerchantSetupStep2Screen({super.key});
 
@@ -15,44 +32,56 @@ class MerchantSetupStep2Screen extends StatefulWidget {
 }
 
 class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
-  static const Color _blue = Color(0xFF1565C0);
-
   static const _ctaPresets = ['Get Deal', 'Visit Us', 'Order Now'];
+  static const _tierPrices = {'standard': 99, 'prime': 299};
+  static const _durationMonths = {'1': 1, '3': 3, '6': 6};
 
-  static const _tierPrices = {
-    'standard': 99,
-    'prime': 299,
-  };
-
-  static const _durationMonths = {
-    '1': 1,
-    '3': 3,
-    '6': 6,
-  };
+  static const _campaignTypes = [
+    _CampaignType('Happy Hour', Icons.local_bar_rounded, '🍻',
+        'Drive traffic during slow hours'),
+    _CampaignType('Live Music', Icons.music_note_rounded, '🎵',
+        'Promote tonight\'s performers'),
+    _CampaignType('Trivia Night', Icons.quiz_rounded, '🧠',
+        'Fill seats on weekday nights'),
+    _CampaignType('Game Day', Icons.sports_football_rounded, '🏈',
+        'Capitalize on sports crowds'),
+    _CampaignType('Ladies Night', Icons.celebration_rounded, '💃',
+        'Target weekend nightlife'),
+    _CampaignType('Lunch Special', Icons.lunch_dining_rounded, '🥗',
+        'Reach the nearby lunch crowd'),
+    _CampaignType('Weekend Special', Icons.weekend_rounded, '✨',
+        'Stand out on busy weekends'),
+    _CampaignType('Holiday Event', Icons.card_giftcard_rounded, '🎁',
+        'Seasonal promotions that convert'),
+    _CampaignType('Custom Promotion', Icons.edit_rounded, '⭐',
+        'Build your own offer from scratch'),
+  ];
 
   final _formKey = GlobalKey<FormState>();
   final _imagePicker = ImagePicker();
-
   final _headlineCtrl = TextEditingController();
   final _bodyCtrl = TextEditingController();
   final _customCtaCtrl = TextEditingController();
   final _ctaUrlCtrl = TextEditingController();
   final _targetLocationCtrl = TextEditingController();
 
+  int _step = 0;
   File? _adImageFile;
   String? _advertiserName;
+  String? _campaignType;
   String _selectedCta = 'Get Deal';
   String _tier = 'standard';
   String _duration = '1';
+  double _radiusMiles = 1.0;
+  final Set<DateTime> _selectedSlots = {};
   bool _loadingMerchant = true;
   bool _launching = false;
 
   @override
   void initState() {
     super.initState();
-    _headlineCtrl.addListener(_onFieldsChanged);
-    _bodyCtrl.addListener(_onFieldsChanged);
-    _customCtaCtrl.addListener(_onFieldsChanged);
+    _headlineCtrl.addListener(_refresh);
+    _bodyCtrl.addListener(_refresh);
     _loadMerchantName();
   }
 
@@ -66,7 +95,7 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
     super.dispose();
   }
 
-  void _onFieldsChanged() => setState(() {});
+  void _refresh() => setState(() {});
 
   String get _ctaText {
     final custom = _customCtaCtrl.text.trim();
@@ -74,15 +103,63 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
   }
 
   int get _monthlyPrice => _tierPrices[_tier] ?? 99;
-
   int get _totalCost => _monthlyPrice * (_durationMonths[_duration] ?? 1);
+
+  CampaignQuote get _quote => MerchantPricingService.quoteSubscription(
+        tier: _tier,
+        months: _durationMonths[_duration] ?? 1,
+      );
+
+  void _applyTemplate(MerchantCampaignTemplate template) {
+    setState(() {
+      _campaignType = template.campaignType;
+      _headlineCtrl.text = template.headline;
+      _bodyCtrl.text = template.bodyText;
+      _selectedCta = template.ctaText;
+      _ctaUrlCtrl.text = template.ctaUrl;
+      _tier = template.tier;
+      _duration = template.duration;
+      _radiusMiles = template.radiusMiles;
+      _targetLocationCtrl.text = template.targetLocation;
+      _step = 2;
+    });
+  }
+
+  Future<void> _saveCurrentAsTemplate() async {
+    final name = _campaignType ?? _headlineCtrl.text.trim();
+    if (name.isEmpty) return;
+    await MerchantTemplateService.saveTemplate(
+      MerchantCampaignTemplate(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        name: name,
+        campaignType: _campaignType,
+        headline: _headlineCtrl.text.trim(),
+        bodyText: _bodyCtrl.text.trim(),
+        ctaText: _ctaText,
+        ctaUrl: _ctaUrlCtrl.text.trim(),
+        tier: _tier,
+        duration: _duration,
+        radiusMiles: _radiusMiles,
+        targetLocation: _targetLocationCtrl.text.trim(),
+      ),
+    );
+  }
+
+  String get _durationLabel => switch (_duration) {
+        '1' => '1 Month',
+        '3' => '3 Months',
+        '6' => '6 Months',
+        _ => _duration,
+      };
 
   void _showSnackBar(String message, {bool isError = true}) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        backgroundColor: isError ? Colors.red.shade700 : _blue,
+        backgroundColor:
+            isError ? PeeplMerchantTokens.danger : PeeplMerchantTokens.accentBlue,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }
@@ -93,12 +170,9 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
       if (mounted) setState(() => _loadingMerchant = false);
       return;
     }
-
     try {
-      final doc = await FirebaseFirestore.instance
-          .collection('merchants')
-          .doc(uid)
-          .get();
+      final doc =
+          await FirebaseFirestore.instance.collection('merchants').doc(uid).get();
       if (doc.exists && mounted) {
         _advertiserName = doc.data()?['businessName'] as String?;
       }
@@ -127,22 +201,23 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
 
   Future<String> _uploadAdImage(String uid) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final ref =
-        FirebaseStorage.instance.ref('ad_images/$uid/$timestamp.jpg');
+    final ref = FirebaseStorage.instance.ref('ad_images/$uid/$timestamp.jpg');
     await ref.putFile(_adImageFile!);
     return ref.getDownloadURL();
   }
 
   Future<void> _launchCampaign() async {
     if (_launching) return;
-
     if (_adImageFile == null) {
-      _showSnackBar('Please upload an ad image.');
+      _showSnackBar('Please upload a promotion image.');
       return;
     }
-
-    if (!_formKey.currentState!.validate()) {
-      _showSnackBar('Please fill in all required fields.');
+    if (_headlineCtrl.text.trim().isEmpty || _bodyCtrl.text.trim().isEmpty) {
+      _showSnackBar('Please complete your offer copy.');
+      return;
+    }
+    if (_ctaUrlCtrl.text.trim().isEmpty) {
+      _showSnackBar('Please add a CTA URL.');
       return;
     }
 
@@ -158,8 +233,10 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
       final now = DateTime.now();
       final months = _durationMonths[_duration] ?? 1;
       final endDate = DateTime(now.year, now.month + months, now.day);
-
-      final targetLocation = _targetLocationCtrl.text.trim();
+      final radiusLabel = '${_radiusMiles.toStringAsFixed(_radiusMiles == 1 ? 0 : 1)} mile radius';
+      final targetLocation = _targetLocationCtrl.text.trim().isNotEmpty
+          ? _targetLocationCtrl.text.trim()
+          : radiusLabel;
 
       await FirebaseFirestore.instance.collection('native_ads').add({
         'advertiserId': uid,
@@ -176,26 +253,41 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
         'startDate': Timestamp.fromDate(now),
         'endDate': Timestamp.fromDate(endDate),
         'priority': 1,
-        if (targetLocation.isNotEmpty) 'targetLocation': targetLocation,
+        'targetLocation': targetLocation,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Ad submitted for review!'),
-            backgroundColor: _blue,
-            duration: Duration(seconds: 3),
+        await _saveCurrentAsTemplate();
+        if (!mounted) return;
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute<void>(
+            builder: (_) => MerchantCampaignSuccessScreen(
+              campaignTitle: _headlineCtrl.text.trim(),
+              scheduleLabel: _durationLabel,
+              radiusLabel:
+                  '${_radiusMiles.toStringAsFixed(_radiusMiles == 1 ? 0 : 1)} miles',
+              packageLabel:
+                  '${_tier == 'prime' ? 'Prime' : 'Standard'} · $_durationLabel',
+              onViewCampaign: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/merchant_portal',
+                (_) => false,
+              ),
+              onCreateAnother: () => Navigator.pushReplacement(
+                context,
+                MaterialPageRoute<void>(
+                  builder: (_) => const MerchantSetupStep2Screen(),
+                ),
+              ),
+              onReturnDashboard: () => Navigator.pushNamedAndRemoveUntil(
+                context,
+                '/merchant_portal',
+                (_) => false,
+              ),
+            ),
           ),
         );
-        await Future<void>.delayed(const Duration(milliseconds: 800));
-        if (mounted) {
-          Navigator.pushNamedAndRemoveUntil(
-            context,
-            '/merchant_portal',
-            (_) => false,
-          );
-        }
       }
     } catch (_) {
       _showSnackBar('Could not launch campaign. Please try again.');
@@ -204,683 +296,735 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
     }
   }
 
+  bool get _canContinue => switch (_step) {
+        0 => false,
+        1 => _campaignType != null,
+        2 =>
+          _headlineCtrl.text.trim().isNotEmpty &&
+              _bodyCtrl.text.trim().isNotEmpty &&
+              _adImageFile != null,
+        3 => true,
+        4 => true,
+        5 => _ctaUrlCtrl.text.trim().isNotEmpty,
+        _ => false,
+      };
+
+  void _nextStep() {
+    if (_step < 5) {
+      setState(() => _step++);
+    } else {
+      _launchCampaign();
+    }
+  }
+
+  void _startNewCampaign() => setState(() => _step = 1);
+
+  void _prevStep() {
+    if (_step > 1) {
+      setState(() => _step--);
+    } else if (_step == 1) {
+      setState(() => _step = 0);
+    } else {
+      Navigator.pop(context);
+    }
+  }
+
+  void _applyCampaignType(_CampaignType type) {
+    setState(() {
+      _campaignType = type.label;
+      if (_headlineCtrl.text.trim().isEmpty) {
+        _headlineCtrl.text = type.label;
+      }
+      if (_bodyCtrl.text.trim().isEmpty) {
+        _bodyCtrl.text =
+            '${type.emoji} ${type.label} at ${_advertiserName ?? 'your venue'} — tap for details!';
+      }
+    });
+  }
+
+  void _aiImproveCopy() {
+    final current = _bodyCtrl.text.trim();
+    if (current.isEmpty) return;
+    setState(() {
+      _bodyCtrl.text =
+          '$current Limited time only — show this Peepl offer to redeem.';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: _blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Create Ad',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: PeeplMerchantTokens.background,
       body: _loadingMerchant
-          ? const Center(child: CircularProgressIndicator(color: _blue))
-          : GestureDetector(
-              onTap: () => FocusScope.of(context).unfocus(),
-              child: Column(
-                children: [
-                  Container(
-                    color: _blue,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: _buildProgressIndicator(),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(20),
-                      child: Form(
-                        key: _formKey,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            const Text(
-                              'Create your first ad',
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              'Preview how your ad will appear in the Peepl feed.',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey.shade600,
-                                height: 1.4,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _buildAdPreview(),
-                            const SizedBox(height: 24),
-                            _sectionLabel('AD IMAGE'),
-                            const SizedBox(height: 8),
-                            _buildImagePicker(),
-                            const SizedBox(height: 20),
-                            _sectionLabel('HEADLINE'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _headlineCtrl,
-                              maxLength: 50,
-                              decoration: _inputDeco(
-                                hint: 'Catchy headline for your ad',
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Headline is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionLabel('BODY TEXT'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _bodyCtrl,
-                              maxLength: 100,
-                              maxLines: 2,
-                              decoration: _inputDeco(
-                                hint: 'Short description of your offer',
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'Body text is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionLabel('CTA BUTTON TEXT'),
-                            const SizedBox(height: 10),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _ctaPresets.map((cta) {
-                                final selected =
-                                    _customCtaCtrl.text.trim().isEmpty &&
-                                        _selectedCta == cta;
-                                return ChoiceChip(
-                                  label: Text(cta),
-                                  selected: selected,
-                                  selectedColor: _blue.withValues(alpha: 0.15),
-                                  labelStyle: TextStyle(
-                                    color: selected ? _blue : Colors.black87,
-                                    fontWeight: selected
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                  ),
-                                  side: BorderSide(
-                                    color: selected
-                                        ? _blue
-                                        : Colors.grey.shade300,
-                                  ),
-                                  onSelected: (_) {
-                                    setState(() {
-                                      _selectedCta = cta;
-                                      _customCtaCtrl.clear();
-                                    });
-                                  },
-                                );
-                              }).toList(),
-                            ),
-                            const SizedBox(height: 10),
-                            TextFormField(
-                              controller: _customCtaCtrl,
-                              decoration: _inputDeco(
-                                hint: 'Or enter custom CTA text',
-                              ),
-                              onChanged: (_) => setState(() {}),
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionLabel('CTA URL'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _ctaUrlCtrl,
-                              keyboardType: TextInputType.url,
-                              decoration: _inputDeco(
-                                hint: 'https://yourbusiness.com/deal',
-                                prefixIcon: Icons.link,
-                              ),
-                              validator: (v) => v == null || v.trim().isEmpty
-                                  ? 'CTA URL is required'
-                                  : null,
-                            ),
-                            const SizedBox(height: 12),
-                            _sectionLabel('TARGET LOCATION (OPTIONAL)'),
-                            const SizedBox(height: 8),
-                            TextFormField(
-                              controller: _targetLocationCtrl,
-                              textCapitalization: TextCapitalization.words,
-                              decoration: _inputDeco(
-                                hint: 'City or neighborhood to target',
-                                prefixIcon: Icons.location_on_outlined,
-                              ),
-                            ),
-                            const SizedBox(height: 20),
-                            _sectionLabel('AD TIER'),
-                            const SizedBox(height: 10),
-                            _buildTierCard(
-                              value: 'standard',
-                              label: 'Standard',
-                              price: '\$99/mo',
-                              description:
-                                  'Appears every 3rd post in the feed',
-                            ),
-                            const SizedBox(height: 10),
-                            _buildTierCard(
-                              value: 'prime',
-                              label: 'Prime',
-                              price: '\$299/mo',
-                              description:
-                                  'First post every user sees — maximum visibility',
-                            ),
-                            const SizedBox(height: 20),
-                            _sectionLabel('CAMPAIGN DURATION'),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                _durationChip('1', '1 Month'),
-                                const SizedBox(width: 8),
-                                _durationChip('3', '3 Months'),
-                                const SizedBox(width: 8),
-                                _durationChip('6', '6 Months'),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            _buildCostSummary(),
-                            const SizedBox(height: 28),
-                            SizedBox(
-                              height: 52,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: _blue,
-                                  foregroundColor: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed:
-                                    _launching ? null : _launchCampaign,
-                                child: _launching
-                                    ? const SizedBox(
-                                        width: 22,
-                                        height: 22,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text(
-                                        'Launch Campaign',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+          ? const MerchantDashboardSkeleton()
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _WizardHeader(onBack: _prevStep),
+                if (_step > 0) ...[
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: MerchantCampaignStepper(
+                      currentStep: _step,
+                      totalSteps: 5,
                     ),
                   ),
                 ],
-              ),
+                Expanded(
+                  child: Form(
+                    key: _formKey,
+                    child: ListView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      children: [
+                        if (_step == 0)
+                          _StepEntry(
+                            onNewCampaign: _startNewCampaign,
+                            onSelectTemplate: _applyTemplate,
+                          )
+                        else
+                          MerchantSlideTransition(
+                            animationKey: ValueKey(_step),
+                            child: _buildStepContent(),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                if (_step > 0)
+                  MerchantWizardNav(
+                    onBack: _step > 1 ? _prevStep : () => Navigator.pop(context),
+                    onContinue: _nextStep,
+                    continueLabel: _step == 5 ? 'Launch Campaign' : 'Continue',
+                    canContinue: _canContinue,
+                    isLoading: _launching,
+                    showContinue: _step != 5,
+                  ),
+              ],
             ),
     );
   }
 
-  Widget _buildProgressIndicator() {
-    return Column(
-      children: [
-        const Text(
-          'Step 2 of 2',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Row(
+  Widget _buildStepContent() {
+    return switch (_step) {
+      1 => _StepCampaignType(
+        key: const ValueKey(1),
+        types: _campaignTypes,
+        selected: _campaignType,
+        onSelect: _applyCampaignType,
+      ),
+      2 => _StepOffer(
+        key: const ValueKey(2),
+        headlineCtrl: _headlineCtrl,
+        bodyCtrl: _bodyCtrl,
+        advertiserName: _advertiserName,
+        imageFile: _adImageFile,
+        ctaText: _ctaText,
+        onPickImage: _pickAdImage,
+        onAiImprove: _aiImproveCopy,
+      ),
+      3 => _StepSchedule(
+        key: const ValueKey(3),
+        selectedSlots: _selectedSlots,
+        radiusMiles: _radiusMiles,
+        onSlotsChanged: (s) => setState(() {
+          _selectedSlots
+            ..clear()
+            ..addAll(s);
+        }),
+        onClear: () => setState(_selectedSlots.clear),
+      ),
+      4 => _StepAudience(
+        key: const ValueKey(4),
+        radiusMiles: _radiusMiles,
+        onRadiusChanged: (v) => setState(() => _radiusMiles = v),
+        targetLocationCtrl: _targetLocationCtrl,
+      ),
+      5 => _StepReview(
+        key: const ValueKey(5),
+        quote: _quote,
+        promotionTitle: _headlineCtrl.text.trim(),
+        campaignType: _campaignType,
+        radiusMiles: _radiusMiles,
+        duration: _duration,
+        tier: _tier,
+        ctaUrlCtrl: _ctaUrlCtrl,
+        onTierChanged: (t) => setState(() => _tier = t),
+        onDurationChanged: (d) => setState(() => _duration = d),
+        onLaunch: _launchCampaign,
+        launching: _launching,
+      ),
+      _ => const SizedBox.shrink(),
+    };
+  }
+}
+
+class _StepEntry extends StatelessWidget {
+  const _StepEntry({
+    required this.onNewCampaign,
+    required this.onSelectTemplate,
+  });
+
+  final VoidCallback onNewCampaign;
+  final ValueChanged<MerchantCampaignTemplate> onSelectTemplate;
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<MerchantCampaignTemplate>>(
+      future: MerchantTemplateService.loadSaved(),
+      builder: (context, snap) {
+        final saved = snap.data ?? [];
+        final templates = [
+          ...MerchantTemplateService.builtInTemplates,
+          ...saved,
+        ];
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(
-              child: Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            Text('Create Campaign', style: PeeplMerchantTokens.sectionTitle(context)),
+            const SizedBox(height: 8),
+            Text(
+              'Start fresh or reuse a proven promotion template.',
+              style: PeeplMerchantTokens.body(context),
             ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Container(
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+            const SizedBox(height: 24),
+            MerchantPrimaryButton(
+              label: 'New Campaign',
+              icon: Icons.add_rounded,
+              onTap: onNewCampaign,
             ),
+            const SizedBox(height: 28),
+            Text('Use Template', style: PeeplMerchantTokens.cardTitle(context)),
+            const SizedBox(height: 12),
+            if (templates.isEmpty)
+              const MerchantEmptyState(
+                variant: MerchantEmptyStateVariant.noTemplates,
+              )
+            else
+              ...templates.take(8).map(
+                    (template) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: MerchantLiftCard(
+                        onTap: () => onSelectTemplate(template),
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: PeeplMerchantTokens.cardDecoration(),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 44,
+                                height: 44,
+                                decoration: BoxDecoration(
+                                  color: PeeplMerchantTokens.accentBlue.withValues(alpha: 0.15),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: const Icon(
+                                  Icons.bookmark_rounded,
+                                  color: PeeplMerchantTokens.accentBlue,
+                                ),
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      template.name,
+                                      style: PeeplMerchantTokens.cardTitle(context),
+                                    ),
+                                    if (template.campaignType != null)
+                                      Text(
+                                        template.campaignType!,
+                                        style: PeeplMerchantTokens.caption(context),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                              const Icon(
+                                Icons.chevron_right_rounded,
+                                color: PeeplMerchantTokens.textMuted,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
           ],
+        );
+      },
+    );
+  }
+}
+
+class _WizardHeader extends StatelessWidget {
+  const _WizardHeader({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final top = MediaQuery.paddingOf(context).top;
+    return Container(
+      padding: EdgeInsets.fromLTRB(8, top + 8, 16, 16),
+      decoration: PeeplMerchantTokens.heroGradient(),
+      child: Row(
+        children: [
+          IconButton(
+            onPressed: onBack,
+            icon: const Icon(Icons.arrow_back_rounded,
+                color: PeeplMerchantTokens.textPrimary),
+          ),
+          const Expanded(
+            child: Text(
+              'Create Campaign',
+              style: TextStyle(
+                color: PeeplMerchantTokens.textPrimary,
+                fontSize: 20,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CampaignType {
+  const _CampaignType(this.label, this.icon, this.emoji, this.description);
+  final String label;
+  final IconData icon;
+  final String emoji;
+  final String description;
+}
+
+class _StepCampaignType extends StatelessWidget {
+  const _StepCampaignType({
+    super.key,
+    required this.types,
+    required this.selected,
+    required this.onSelect,
+  });
+
+  final List<_CampaignType> types;
+  final String? selected;
+  final ValueChanged<_CampaignType> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Campaign Type', style: PeeplMerchantTokens.sectionTitle(context)),
+        const SizedBox(height: 8),
+        const Text(
+          'Choose a promotion template to get started.',
+          style: TextStyle(color: PeeplMerchantTokens.textSecondary, height: 1.4),
+        ),
+        const SizedBox(height: 20),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            childAspectRatio: 0.88,
+          ),
+          itemCount: types.length,
+          itemBuilder: (context, i) {
+            final type = types[i];
+            final isSelected = selected == type.label;
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => onSelect(type),
+                borderRadius: BorderRadius.circular(PeeplMerchantTokens.cardRadius),
+                child: AnimatedScale(
+                  scale: isSelected ? 1.02 : 1.0,
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOutCubic,
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 200),
+                    padding: const EdgeInsets.all(16),
+                    decoration: isSelected
+                        ? PeeplMerchantTokens.gradientCardDecoration()
+                        : PeeplMerchantTokens.cardDecoration(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(type.emoji, style: const TextStyle(fontSize: 30)),
+                        const SizedBox(height: 10),
+                        Text(
+                          type.label,
+                          style: const TextStyle(
+                            color: PeeplMerchantTokens.textPrimary,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          type.description,
+                          style: const TextStyle(
+                            color: PeeplMerchantTokens.textSecondary,
+                            fontSize: 11,
+                            height: 1.3,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const Spacer(),
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Icon(
+                            type.icon,
+                            color: isSelected
+                                ? PeeplMerchantTokens.accentBlue
+                                : PeeplMerchantTokens.textMuted,
+                            size: 20,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ],
     );
   }
+}
 
-  Widget _buildAdPreview() {
-    final headline = _headlineCtrl.text.trim().isEmpty
-        ? 'Your headline here'
-        : _headlineCtrl.text.trim();
-    final body = _bodyCtrl.text.trim().isEmpty
-        ? 'Your ad description will appear here'
-        : _bodyCtrl.text.trim();
+class _StepOffer extends StatelessWidget {
+  const _StepOffer({
+    super.key,
+    required this.headlineCtrl,
+    required this.bodyCtrl,
+    this.advertiserName,
+    this.imageFile,
+    required this.ctaText,
+    required this.onPickImage,
+    required this.onAiImprove,
+  });
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade200),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
-            child: Text(
-              'Feed Preview',
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.w700,
-                color: Colors.grey.shade500,
-                letterSpacing: 0.8,
-              ),
-            ),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: SizedBox(
-                    width: 72,
-                    height: 72,
-                    child: _adImageFile != null
-                        ? Image.file(_adImageFile!, fit: BoxFit.cover)
-                        : ColoredBox(
-                            color: Colors.grey.shade200,
-                            child: Icon(
-                              Icons.campaign_outlined,
-                              color: Colors.grey.shade400,
-                              size: 32,
-                            ),
-                          ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (_advertiserName != null &&
-                          _advertiserName!.isNotEmpty)
-                        Text(
-                          _advertiserName!,
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: Colors.grey.shade600,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      if (_advertiserName != null &&
-                          _advertiserName!.isNotEmpty)
-                        const SizedBox(height: 2),
-                      Text(
-                        headline,
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: _headlineCtrl.text.trim().isEmpty
-                              ? Colors.grey.shade400
-                              : Colors.black87,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        body,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: _bodyCtrl.text.trim().isEmpty
-                              ? Colors.grey.shade400
-                              : Colors.grey.shade700,
-                          height: 1.2,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  onPressed: null,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _blue,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: _blue,
-                    disabledForegroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                  child: Text(
-                    _ctaText,
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: Alignment.centerRight,
-            child: Padding(
-              padding: const EdgeInsets.only(right: 10, bottom: 8),
-              child: Text(
-                'Sponsored',
-                style: TextStyle(
-                  fontSize: 9,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade500,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+  final TextEditingController headlineCtrl;
+  final TextEditingController bodyCtrl;
+  final String? advertiserName;
+  final File? imageFile;
+  final String ctaText;
+  final VoidCallback onPickImage;
+  final VoidCallback onAiImprove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        MerchantOfferEditor(
+          controller: bodyCtrl,
+          headlineController: headlineCtrl,
+          maxLength: 100,
+          advertiserName: advertiserName,
+          imageFile: imageFile,
+          ctaText: ctaText,
+          onPickImage: onPickImage,
+          onAiImprove: onAiImprove,
+          suggestedCopies: const [
+            '🍻 Happy Hour 4–7pm — half off appetizers!',
+            '🎵 Live jazz tonight — no cover before 9pm.',
+            '🏈 Game Day specials — big screens, cold drinks.',
+          ],
+        ),
+        const SizedBox(height: 20),
+        MerchantAiCard(
+          onGeneratePromotion: onAiImprove,
+          onImproveWording: onAiImprove,
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildImagePicker() {
-    return InkWell(
-      onTap: _pickAdImage,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 140,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: _adImageFile == null
-                ? Colors.red.shade200
-                : Colors.grey.shade300,
-          ),
+class _StepSchedule extends StatelessWidget {
+  const _StepSchedule({
+    super.key,
+    required this.selectedSlots,
+    required this.radiusMiles,
+    required this.onSlotsChanged,
+    this.onClear,
+  });
+
+  final Set<DateTime> selectedSlots;
+  final double radiusMiles;
+  final ValueChanged<Set<DateTime>> onSlotsChanged;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text('Scheduling', style: PeeplMerchantTokens.sectionTitle(context)),
+        const SizedBox(height: 16),
+        MerchantCalendar(
+          selectedSlots: selectedSlots,
+          onSlotsChanged: onSlotsChanged,
+          radiusMiles: radiusMiles,
         ),
-        child: _adImageFile != null
-            ? ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    Image.file(_adImageFile!, fit: BoxFit.cover),
-                    Positioned(
-                      right: 8,
-                      bottom: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Change image',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.add_photo_alternate_outlined,
-                      size: 36, color: Colors.grey.shade500),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Upload ad image (required)',
-                    style: TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Tap to select from gallery',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade500,
-                    ),
-                  ),
-                ],
-              ),
-      ),
+        const SizedBox(height: 24),
+        MerchantTimeSelector(
+          selectedSlots: selectedSlots,
+          radiusMiles: radiusMiles,
+          onClear: onClear,
+        ),
+      ],
     );
   }
+}
 
-  Widget _buildTierCard({
-    required String value,
-    required String label,
-    required String price,
-    required String description,
-  }) {
-    final selected = _tier == value;
-    return GestureDetector(
-      onTap: () => setState(() => _tier = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: selected ? _blue.withValues(alpha: 0.08) : Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: selected ? _blue : Colors.grey.shade300,
-            width: selected ? 2 : 1,
+class _StepAudience extends StatelessWidget {
+  const _StepAudience({
+    super.key,
+    required this.radiusMiles,
+    required this.onRadiusChanged,
+    required this.targetLocationCtrl,
+  });
+
+  final double radiusMiles;
+  final ValueChanged<double> onRadiusChanged;
+  final TextEditingController targetLocationCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MerchantRadiusSlider(
+          radiusMiles: radiusMiles,
+          onChanged: onRadiusChanged,
+        ),
+        const SizedBox(height: 24),
+        Text(
+          'Target area (optional)',
+          style: PeeplMerchantTokens.sectionTitle(context),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: targetLocationCtrl,
+          style: const TextStyle(color: PeeplMerchantTokens.textPrimary),
+          decoration: InputDecoration(
+            hintText: 'City or neighborhood',
+            hintStyle: const TextStyle(color: PeeplMerchantTokens.textMuted),
+            filled: true,
+            fillColor: PeeplMerchantTokens.glassFill,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: PeeplMerchantTokens.glassBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: const BorderSide(color: PeeplMerchantTokens.glassBorder),
+            ),
           ),
         ),
-        child: Row(
+      ],
+    );
+  }
+}
+
+class _StepReview extends StatelessWidget {
+  const _StepReview({
+    super.key,
+    required this.quote,
+    required this.promotionTitle,
+    this.campaignType,
+    required this.radiusMiles,
+    required this.duration,
+    required this.tier,
+    required this.ctaUrlCtrl,
+    required this.onTierChanged,
+    required this.onDurationChanged,
+    required this.onLaunch,
+    required this.launching,
+  });
+
+  final CampaignQuote quote;
+  final String promotionTitle;
+  final String? campaignType;
+  final double radiusMiles;
+  final String duration;
+  final String tier;
+  final TextEditingController ctaUrlCtrl;
+  final ValueChanged<String> onTierChanged;
+  final ValueChanged<String> onDurationChanged;
+  final VoidCallback onLaunch;
+  final bool launching;
+
+  static const _durationLabels = {'1': '1 Month', '3': '3 Months', '6': '6 Months'};
+
+  @override
+  Widget build(BuildContext context) {
+    final packageLabel = tier == 'prime' ? 'Prime Plan' : 'Standard Plan';
+    final durationLabel = _durationLabels[duration] ?? duration;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        MerchantSectionCard(
+          title: 'Package',
           children: [
-            Icon(
-              selected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              color: selected ? _blue : Colors.grey.shade500,
-              size: 22,
+            _TierOption(
+              label: 'Standard',
+              price: '\$99/mo',
+              description: 'Appears every 3rd post in the feed',
+              selected: tier == 'standard',
+              onTap: () => onTierChanged('standard'),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 15,
-                      color: selected ? _blue : Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    description,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey.shade600,
-                    ),
-                  ),
-                ],
-              ),
+            const SizedBox(height: 10),
+            _TierOption(
+              label: 'Prime',
+              price: '\$299/mo',
+              description: 'First post every user sees',
+              selected: tier == 'prime',
+              onTap: () => onTierChanged('prime'),
             ),
-            Text(
-              price,
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: selected ? _blue : Colors.black87,
-              ),
+            const SizedBox(height: 16),
+            MerchantPackageSelector(
+              selectedDuration: duration,
+              onChanged: onDurationChanged,
+            ),
+            const SizedBox(height: 16),
+            MerchantGlassTextField(
+              label: 'CTA URL',
+              controller: ctaUrlCtrl,
+              keyboardType: TextInputType.url,
+              hint: 'https://yourbusiness.com/deal',
             ),
           ],
         ),
+        const SizedBox(height: 20),
+        MerchantPriceSummary(
+          quote: quote,
+          promotionTitle:
+              promotionTitle.isNotEmpty ? promotionTitle : campaignType,
+          packageLabel: '$packageLabel · $durationLabel',
+          radiusLabel:
+              '${radiusMiles.toStringAsFixed(radiusMiles == 1 ? 0 : 1)} miles',
+          timeLabel: durationLabel,
+          paymentMethodLabel: 'Beta — no charge during beta period',
+          onLaunch: onLaunch,
+          isLaunching: launching,
+        ),
+      ],
+    );
+  }
+}
+
+class _TierOption extends StatelessWidget {
+  const _TierOption({
+    required this.label,
+    required this.price,
+    required this.description,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String price;
+  final String description;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.all(16),
+          decoration: selected
+              ? PeeplMerchantTokens.gradientCardDecoration()
+              : PeeplMerchantTokens.cardDecoration(),
+          child: Row(
+            children: [
+              Icon(
+                selected ? Icons.check_circle_rounded : Icons.circle_outlined,
+                color: selected
+                    ? PeeplMerchantTokens.accentBlue
+                    : PeeplMerchantTokens.textMuted,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(label,
+                        style: const TextStyle(
+                          color: PeeplMerchantTokens.textPrimary,
+                          fontWeight: FontWeight.w700,
+                        )),
+                    Text(description,
+                        style: const TextStyle(
+                          color: PeeplMerchantTokens.textSecondary,
+                          fontSize: 12,
+                        )),
+                  ],
+                ),
+              ),
+              Text(price,
+                  style: const TextStyle(
+                    color: PeeplMerchantTokens.accentBlue,
+                    fontWeight: FontWeight.w800,
+                  )),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
 
-  Widget _durationChip(String value, String label) {
-    final selected = _duration == value;
-    return Expanded(
-      child: GestureDetector(
-        onTap: () => setState(() => _duration = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          decoration: BoxDecoration(
-            color: selected ? _blue : Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-              color: selected ? _blue : Colors.grey.shade300,
-            ),
-          ),
+class _DurationChip extends StatelessWidget {
+  const _DurationChip({
+    required this.label,
+    required this.value,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final String value;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelected = selected;
+    return Material(
+      color: isSelected ? PeeplMerchantTokens.accentBlue : PeeplMerchantTokens.glassFill,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
           child: Text(
             label,
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: selected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w600,
+              color: isSelected ? Colors.white : PeeplMerchantTokens.textPrimary,
+              fontWeight: FontWeight.w700,
               fontSize: 13,
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  Widget _buildCostSummary() {
-    final months = _durationMonths[_duration] ?? 1;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: _blue.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _blue.withValues(alpha: 0.2)),
-      ),
-      child: Column(
-        children: [
-          _summaryRow(
-            '\$$_monthlyPrice/mo × $months month${months > 1 ? 's' : ''}',
-            '\$$_totalCost',
-          ),
-          const Divider(height: 20),
-          _summaryRow('Total campaign cost', '\$$_totalCost', bold: true),
-        ],
-      ),
-    );
-  }
-
-  Widget _summaryRow(String label, String value, {bool bold = false}) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            color: Colors.grey.shade700,
-            fontWeight: bold ? FontWeight.w600 : FontWeight.normal,
-          ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: bold ? 18 : 13,
-            fontWeight: bold ? FontWeight.w800 : FontWeight.w600,
-            color: bold ? _blue : Colors.black87,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _sectionLabel(String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 11,
-        fontWeight: FontWeight.w700,
-        color: Colors.grey[500],
-        letterSpacing: 1.2,
-      ),
-    );
-  }
-
-  InputDecoration _inputDeco({
-    required String hint,
-    IconData? prefixIcon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-      prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: Colors.grey[500])
-          : null,
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: _blue, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 16,
-        vertical: 14,
       ),
     );
   }

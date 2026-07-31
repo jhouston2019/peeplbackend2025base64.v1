@@ -2,6 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../widgets/merchant/merchant_billing_card.dart';
+import '../../widgets/merchant/merchant_empty_state.dart';
+import '../../widgets/merchant/merchant_glass_text_field.dart';
+import '../../widgets/merchant/merchant_metric_card.dart';
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class MerchantAccountNumberScreen extends StatefulWidget {
   const MerchantAccountNumberScreen({super.key});
 
@@ -120,50 +127,38 @@ class _MerchantAccountNumberScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      appBar: AppBar(
-        backgroundColor: _blue,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'Payment & Billing',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-      ),
+    return MerchantScreenScaffold(
+      title: 'Billing',
+      onBack: () => Navigator.pop(context),
+      padding: EdgeInsets.zero,
       body: _loadingMerchant
-          ? const Center(child: CircularProgressIndicator(color: _blue))
-          : SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildBetaBanner(),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Payment & Billing Setup',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
+          ? const MerchantLoadingView()
+          : ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                _buildBetaBanner(),
+                const SizedBox(height: 20),
+                Text(
+                  'Payment & Billing',
+                  style: PeeplMerchantTokens.sectionTitle(context),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Manage cards, invoices, credits, and AutoPay.',
+                  style: TextStyle(
+                    color: PeeplMerchantTokens.textSecondary,
+                    height: 1.45,
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Securely connect your payment method to run ads on Peepl',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade600,
-                      height: 1.45,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  _buildCurrentPlanSection(),
-                  const SizedBox(height: 24),
-                  _buildPaymentMethodSection(),
-                  const SizedBox(height: 24),
-                  _buildBillingHistorySection(),
-                ],
-              ),
+                ),
+                const SizedBox(height: 20),
+                _buildCurrentPlanSection(),
+                const SizedBox(height: 14),
+                _buildPaymentMethodSection(),
+                const SizedBox(height: 14),
+                _buildCreditsSection(),
+                const SizedBox(height: 14),
+                _buildBillingHistorySection(),
+              ],
             ),
     );
   }
@@ -171,26 +166,21 @@ class _MerchantAccountNumberScreenState
   Widget _buildBetaBanner() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF2E7D32),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF2E7D32).withValues(alpha: 0.25),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+      decoration: PeeplMerchantTokens.glassDecoration(radius: 14).copyWith(
+        color: PeeplMerchantTokens.success.withValues(alpha: 0.15),
+        border: Border.all(
+          color: PeeplMerchantTokens.success.withValues(alpha: 0.35),
+        ),
       ),
       child: const Row(
         children: [
-          Icon(Icons.celebration_outlined, color: Colors.white, size: 22),
+          Icon(Icons.celebration_outlined, color: PeeplMerchantTokens.success, size: 22),
           SizedBox(width: 12),
           Expanded(
             child: Text(
               'Currently in Beta — ads are free during beta period',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplMerchantTokens.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 height: 1.35,
@@ -268,11 +258,7 @@ class _MerchantAccountNumberScreenState
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.grey.shade200),
-            ),
+            decoration: PeeplMerchantTokens.glassDecoration(radius: 14),
             child: Row(
               children: [
                 Container(
@@ -298,23 +284,24 @@ class _MerchantAccountNumberScreenState
                   ),
                 ),
                 const SizedBox(width: 14),
-                Expanded(
+                const Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Stripe payments coming soon',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w700,
                           fontSize: 14,
+                          color: PeeplMerchantTokens.textPrimary,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      SizedBox(height: 4),
                       Text(
                         'Secure card payments powered by Stripe will be available shortly.',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: PeeplMerchantTokens.textSecondary,
                           height: 1.35,
                         ),
                       ),
@@ -332,23 +319,24 @@ class _MerchantAccountNumberScreenState
               icon: const Icon(Icons.add_card),
               label: const Text('Add Payment Method'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: _blue,
+                backgroundColor: PeeplMerchantTokens.accentBlue,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
                 elevation: 0,
               ),
             ),
           ),
           const SizedBox(height: 24),
-          const Divider(),
+          Divider(color: PeeplMerchantTokens.glassBorder.withValues(alpha: 0.6)),
           const SizedBox(height: 16),
           const Text(
             'Notify me when payments are ready',
             style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w600,
+              color: PeeplMerchantTokens.textPrimary,
             ),
           ),
           const SizedBox(height: 12),
@@ -358,21 +346,11 @@ class _MerchantAccountNumberScreenState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
-                  child: TextFormField(
+                  child: MerchantGlassTextField(
+                    label: 'Email',
                     controller: _emailCtrl,
                     keyboardType: TextInputType.emailAddress,
-                    decoration: InputDecoration(
-                      hintText: 'your@email.com',
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
-                      ),
-                    ),
+                    hint: 'your@email.com',
                     validator: (v) {
                       final text = v?.trim() ?? '';
                       if (text.isEmpty) return 'Enter your email';
@@ -387,10 +365,10 @@ class _MerchantAccountNumberScreenState
                   child: ElevatedButton(
                     onPressed: _submittingWaitlist ? null : _submitWaitlist,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _blue,
+                      backgroundColor: PeeplMerchantTokens.accentBlue,
                       foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(14),
                       ),
                       elevation: 0,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -414,6 +392,18 @@ class _MerchantAccountNumberScreenState
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCreditsSection() {
+    return _sectionCard(
+      title: 'Advertising Credits',
+      child: MerchantBillingCard(
+        title: 'No credits available',
+        subtitle: 'Promotional advertising credits will appear here when issued.',
+        icon: Icons.account_balance_wallet_outlined,
+        badge: 'Beta',
       ),
     );
   }
@@ -465,11 +455,7 @@ class _MerchantAccountNumberScreenState
               return Container(
                 margin: const EdgeInsets.only(bottom: 10),
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: Colors.grey.shade200),
-                ),
+                decoration: PeeplMerchantTokens.glassDecoration(radius: 14),
                 child: Row(
                   children: [
                     Expanded(
@@ -479,16 +465,17 @@ class _MerchantAccountNumberScreenState
                           Text(
                             dateLabel.isEmpty ? 'Invoice' : dateLabel,
                             style: const TextStyle(
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.w700,
                               fontSize: 14,
+                              color: PeeplMerchantTokens.textPrimary,
                             ),
                           ),
                           const SizedBox(height: 2),
                           Text(
                             status.toUpperCase(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 11,
-                              color: Colors.grey.shade600,
+                              color: PeeplMerchantTokens.textMuted,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
@@ -496,11 +483,11 @@ class _MerchantAccountNumberScreenState
                       ),
                     ),
                     Text(
-                      '\$${amount.toStringAsFixed(2)}',
+                      merchantFormatCurrency(amount),
                       style: const TextStyle(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w800,
                         fontSize: 15,
-                        color: _blue,
+                        color: PeeplMerchantTokens.accentBlue,
                       ),
                     ),
                   ],
@@ -514,49 +501,24 @@ class _MerchantAccountNumberScreenState
   }
 
   Widget _emptyBillingState() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 20),
-      child: Column(
-        children: [
-          Icon(Icons.receipt_long_outlined,
-              size: 40, color: Colors.grey.shade400),
-          const SizedBox(height: 12),
-          Text(
-            'No billing history yet',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    return const MerchantEmptyState(
+      variant: MerchantEmptyStateVariant.noBilling,
     );
   }
 
   Widget _sectionCard({required String title, required Widget child}) {
     return Container(
       padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
+      decoration: PeeplMerchantTokens.cardDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             title,
-            style: TextStyle(
+            style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
-              color: Colors.grey.shade500,
+              color: PeeplMerchantTokens.textMuted,
               letterSpacing: 1.1,
             ),
           ),

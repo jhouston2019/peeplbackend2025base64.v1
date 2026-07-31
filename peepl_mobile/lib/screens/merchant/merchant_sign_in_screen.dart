@@ -2,6 +2,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class MerchantSignInScreen extends StatefulWidget {
   const MerchantSignInScreen({super.key});
 
@@ -11,7 +14,7 @@ class MerchantSignInScreen extends StatefulWidget {
 
 class _MerchantSignInScreenState extends State<MerchantSignInScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _blue = PeeplMerchantTokens.accentBlue;
 
   late final TabController _tabController;
 
@@ -161,8 +164,9 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _blue,
-      body: SafeArea(
+      body: Container(
+        decoration: PeeplMerchantTokens.heroGradient(),
+        child: SafeArea(
         child: Center(
           child: SingleChildScrollView(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
@@ -192,6 +196,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
             ),
           ),
         ),
+      ),
       ),
     );
   }

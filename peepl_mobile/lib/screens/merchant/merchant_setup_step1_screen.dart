@@ -6,6 +6,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../widgets/merchant/merchant_campaign_stepper.dart';
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class MerchantSetupStep1Screen extends StatefulWidget {
   const MerchantSetupStep1Screen({super.key});
 
@@ -15,7 +19,7 @@ class MerchantSetupStep1Screen extends StatefulWidget {
 }
 
 class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _blue = PeeplMerchantTokens.accentBlue;
 
   static const _businessTypes = [
     'Restaurant',
@@ -180,32 +184,48 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(
-        backgroundColor: _blue,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        title: const Text(
-          'Business Setup',
-          style: TextStyle(fontWeight: FontWeight.w700),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
+      backgroundColor: PeeplMerchantTokens.background,
       body: _loading
-          ? const Center(
-              child: CircularProgressIndicator(color: _blue),
-            )
+          ? const MerchantLoadingView()
           : GestureDetector(
               onTap: () => FocusScope.of(context).unfocus(),
               child: Column(
                 children: [
                   Container(
-                    color: _blue,
-                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                    child: _buildProgressIndicator(),
+                    decoration: PeeplMerchantTokens.heroGradient(),
+                    padding: EdgeInsets.fromLTRB(
+                      8,
+                      MediaQuery.paddingOf(context).top + 8,
+                      20,
+                      16,
+                    ),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          onPressed: () => Navigator.pop(context),
+                          icon: const Icon(Icons.arrow_back_rounded,
+                              color: PeeplMerchantTokens.textPrimary),
+                        ),
+                        const Expanded(
+                          child: Text(
+                            'Business Setup',
+                            style: TextStyle(
+                              color: PeeplMerchantTokens.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 0, 20, 8),
+                    child: MerchantCampaignStepper(
+                      currentStep: 1,
+                      totalSteps: 2,
+                      labels: const ['Business', 'Campaign'],
+                    ),
                   ),
                   Expanded(
                     child: SingleChildScrollView(

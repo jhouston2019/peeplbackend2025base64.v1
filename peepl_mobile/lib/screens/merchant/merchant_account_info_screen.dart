@@ -6,6 +6,10 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../widgets/merchant/merchant_glass_text_field.dart';
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class MerchantAccountInfoScreen extends StatefulWidget {
   const MerchantAccountInfoScreen({super.key});
 
@@ -15,7 +19,7 @@ class MerchantAccountInfoScreen extends StatefulWidget {
 }
 
 class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _blue = PeeplMerchantTokens.accentBlue;
 
   static const _businessTypes = [
     'Restaurant',
@@ -202,7 +206,7 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
         'contactName': _contactNameCtrl.text.trim(),
         'contactEmail': _contactEmailCtrl.text.trim(),
         'contactPhone': _contactPhoneCtrl.text.trim(),
-        'logoUrl': ?logoUrl,
+        'logoUrl': logoUrl,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
@@ -291,41 +295,35 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
-      appBar: AppBar(
-        backgroundColor: _blue,
-        foregroundColor: Colors.white,
-        title: const Text(
-          'Business Account',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        actions: [
-          TextButton(
-            onPressed: (_saving || _uploadingLogo || _loading || _deleting)
-                ? null
-                : _save,
-            child: _saving
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
-                  )
-                : const Text(
-                    'Save',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
+    return MerchantScreenScaffold(
+      title: 'Merchant Profile',
+      onBack: () => Navigator.pop(context),
+      padding: EdgeInsets.zero,
+      actions: [
+        TextButton(
+          onPressed: (_saving || _uploadingLogo || _loading || _deleting)
+              ? null
+              : _save,
+          child: _saving
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: PeeplMerchantTokens.accentBlue,
                   ),
-          ),
-        ],
-      ),
+                )
+              : const Text(
+                  'Save',
+                  style: TextStyle(
+                    color: PeeplMerchantTokens.accentBlue,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+        ),
+      ],
       body: _loading
-          ? const Center(child: CircularProgressIndicator(color: _blue))
+          ? const MerchantLoadingView()
           : _uid.isEmpty
               ? const Center(
                   child: Text('Please sign in to edit your business profile.'),
@@ -339,101 +337,109 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
                       children: [
                         Center(child: _buildLogoSection()),
                         const SizedBox(height: 28),
-                        _sectionTitle('Business Details'),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Business name',
-                          controller: _businessNameCtrl,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Business name is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildBusinessTypeDropdown(),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Street address',
-                          controller: _streetCtrl,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Street address is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
+                        MerchantSectionCard(
+                          title: 'Business Details',
                           children: [
-                            Expanded(
-                              flex: 2,
-                              child: _buildTextField(
-                                label: 'City',
-                                controller: _cityCtrl,
-                                validator: (v) =>
-                                    v == null || v.trim().isEmpty
-                                        ? 'City is required'
-                                        : null,
-                              ),
+                            _buildTextField(
+                              label: 'Business name',
+                              controller: _businessNameCtrl,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Business name is required'
+                                  : null,
                             ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: _buildTextField(
-                                label: 'State',
-                                controller: _stateCtrl,
-                                validator: (v) =>
-                                    v == null || v.trim().isEmpty
-                                        ? 'State is required'
-                                        : null,
-                              ),
+                            const SizedBox(height: 16),
+                            _buildBusinessTypeDropdown(),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: 'Street address',
+                              controller: _streetCtrl,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Street address is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: 2,
+                                  child: _buildTextField(
+                                    label: 'City',
+                                    controller: _cityCtrl,
+                                    validator: (v) =>
+                                        v == null || v.trim().isEmpty
+                                            ? 'City is required'
+                                            : null,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildTextField(
+                                    label: 'State',
+                                    controller: _stateCtrl,
+                                    validator: (v) =>
+                                        v == null || v.trim().isEmpty
+                                            ? 'State is required'
+                                            : null,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: 'Phone',
+                              controller: _phoneCtrl,
+                              keyboardType: TextInputType.phone,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Phone is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: 'Website URL',
+                              controller: _websiteCtrl,
+                              keyboardType: TextInputType.url,
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Phone',
-                          controller: _phoneCtrl,
-                          keyboardType: TextInputType.phone,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Phone is required'
-                              : null,
+                        const SizedBox(height: 20),
+                        MerchantSectionCard(
+                          title: 'Contact Person',
+                          children: [
+                            _buildTextField(
+                              label: 'Contact name',
+                              controller: _contactNameCtrl,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Contact name is required'
+                                  : null,
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: 'Contact email',
+                              controller: _contactEmailCtrl,
+                              keyboardType: TextInputType.emailAddress,
+                              validator: (v) {
+                                final text = v?.trim() ?? '';
+                                if (text.isEmpty) {
+                                  return 'Contact email is required';
+                                }
+                                if (!_isValidEmail(text)) {
+                                  return 'Enter a valid email address';
+                                }
+                                return null;
+                              },
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(
+                              label: 'Contact phone',
+                              controller: _contactPhoneCtrl,
+                              keyboardType: TextInputType.phone,
+                              validator: (v) => v == null || v.trim().isEmpty
+                                  ? 'Contact phone is required'
+                                  : null,
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Website URL',
-                          controller: _websiteCtrl,
-                          keyboardType: TextInputType.url,
-                        ),
-                        const SizedBox(height: 28),
-                        _sectionTitle('Contact Person'),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Contact name',
-                          controller: _contactNameCtrl,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Contact name is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Contact email',
-                          controller: _contactEmailCtrl,
-                          keyboardType: TextInputType.emailAddress,
-                          validator: (v) {
-                            final text = v?.trim() ?? '';
-                            if (text.isEmpty) return 'Contact email is required';
-                            if (!_isValidEmail(text)) {
-                              return 'Enter a valid email address';
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 16),
-                        _buildTextField(
-                          label: 'Contact phone',
-                          controller: _contactPhoneCtrl,
-                          keyboardType: TextInputType.phone,
-                          validator: (v) => v == null || v.trim().isEmpty
-                              ? 'Contact phone is required'
-                              : null,
-                        ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 20),
                         _buildDangerZone(),
                       ],
                     ),
@@ -511,85 +517,42 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
   }
 
   Widget _buildBusinessTypeDropdown() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Business type',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownMenu<String>(
-          key: ValueKey(_selectedBusinessType ?? 'unset'),
-          enabled: !_deleting,
-          width: MediaQuery.sizeOf(context).width - 40,
-          initialSelection: _selectedBusinessType,
-          hintText: 'Select business type',
-          dropdownMenuEntries: _businessTypes
-              .map(
-                (type) => DropdownMenuEntry<String>(
-                  value: type,
-                  label: type,
-                ),
-              )
-              .toList(),
-          onSelected: (value) =>
-              setState(() => _selectedBusinessType = value),
-          inputDecorationTheme: InputDecorationTheme(
-            filled: true,
-            fillColor: Colors.white,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: Colors.grey.shade300),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: _blue, width: 2),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
-          ),
-        ),
-      ],
+    return MerchantGlassDropdown(
+      key: ValueKey(_selectedBusinessType ?? 'unset'),
+      label: 'Business type',
+      value: _selectedBusinessType,
+      items: _businessTypes,
+      enabled: !_deleting,
+      onChanged: (value) => setState(() => _selectedBusinessType = value),
     );
   }
 
   Widget _buildDangerZone() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade200),
+        color: PeeplMerchantTokens.glassFill,
+        borderRadius: BorderRadius.circular(PeeplMerchantTokens.cardRadius),
+        border: Border.all(color: PeeplMerchantTokens.danger.withValues(alpha: 0.35)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
+          const Text(
             'Danger Zone',
             style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              color: Colors.red.shade700,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: PeeplMerchantTokens.danger,
             ),
           ),
           const SizedBox(height: 8),
-          Text(
+          const Text(
             'Permanently delete your merchant account and all associated data.',
             style: TextStyle(
               fontSize: 13,
-              color: Colors.grey.shade600,
-              height: 1.4,
+              color: PeeplMerchantTokens.textSecondary,
+              height: 1.45,
             ),
           ),
           const SizedBox(height: 16),
@@ -606,8 +569,10 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
                   : const Icon(Icons.delete_outline),
               label: const Text('Delete Account'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.red.shade700,
-                side: BorderSide(color: Colors.red.shade300),
+                foregroundColor: PeeplMerchantTokens.danger,
+                side: BorderSide(
+                  color: PeeplMerchantTokens.danger.withValues(alpha: 0.45),
+                ),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -620,66 +585,18 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
     );
   }
 
-  Widget _sectionTitle(String text) {
-    return Text(
-      text,
-      style: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.bold,
-        color: Colors.black87,
-      ),
-    );
-  }
-
   Widget _buildTextField({
     required String label,
     required TextEditingController controller,
     String? Function(String?)? validator,
     TextInputType? keyboardType,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          validator: validator,
-          keyboardType: keyboardType,
-          enabled: !_deleting,
-          decoration: _inputDecoration(),
-        ),
-      ],
-    );
-  }
-
-  InputDecoration _inputDecoration() {
-    return InputDecoration(
-      filled: true,
-      fillColor: Colors.white,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: Colors.grey.shade300),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: _blue, width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 14,
-        vertical: 12,
-      ),
+    return MerchantGlassTextField(
+      label: label,
+      controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
+      enabled: !_deleting,
     );
   }
 }

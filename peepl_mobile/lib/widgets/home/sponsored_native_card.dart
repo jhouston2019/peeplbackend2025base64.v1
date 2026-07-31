@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:visibility_detector/visibility_detector.dart';
 
 import 'feed_card_image.dart';
+import 'feed_card_tap_scale.dart';
 import 'peepl_home_tokens.dart';
 
 class SponsoredNativeCard extends StatefulWidget {
@@ -81,18 +82,20 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
       child: Semantics(
         label: 'Sponsored advertisement for ${widget.name}',
         button: true,
-        child: GestureDetector(
+        child: FeedCardTapScale(
           onTap: widget.onOpen,
-          behavior: HitTestBehavior.opaque,
           child: Container(
             height: PeeplHomeTokens.sponsoredCardHeight,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
               border: Border.all(
                 color: PeeplHomeTokens.sponsoredBorder,
-                width: 1,
+                width: PeeplHomeTokens.sponsoredBorderWidth,
               ),
-              boxShadow: const [PeeplHomeTokens.sponsoredShadow],
+              boxShadow: const [
+                PeeplHomeTokens.sponsoredShadow,
+                PeeplHomeTokens.sponsoredGlow,
+              ],
             ),
             clipBehavior: Clip.antiAlias,
             child: Stack(
@@ -123,25 +126,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.14),
-                          borderRadius: BorderRadius.circular(3),
-                        ),
-                        child: const Text(
-                          'SPONSORED',
-                          style: TextStyle(
-                            color: PeeplHomeTokens.white,
-                            fontSize: 8,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.8,
-                          ),
-                        ),
-                      ),
+                      const _SponsoredBadge(),
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
@@ -262,6 +247,50 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
       key: Key('sponsored_${widget.name}_${widget.ctaLabel.hashCode}'),
       onVisibilityChanged: _onVisibilityChanged,
       child: card,
+    );
+  }
+}
+
+class _SponsoredBadge extends StatelessWidget {
+  const _SponsoredBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 12,
+      padding: const EdgeInsets.symmetric(horizontal: 7),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: Colors.white.withValues(alpha: 0.14),
+        ),
+      ),
+      alignment: Alignment.center,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 3,
+            height: 3,
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.55),
+              shape: BoxShape.circle,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            'SPONSORED',
+            style: TextStyle(
+              color: PeeplHomeTokens.white.withValues(alpha: 0.92),
+              fontSize: 7,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+              height: 1.0,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

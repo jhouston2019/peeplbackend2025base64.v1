@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 
+import '../../widgets/merchant/merchant_screen_scaffold.dart';
+import '../../widgets/merchant/peepl_merchant_tokens.dart';
+
 class HowToAdvertiseScreen extends StatelessWidget {
   const HowToAdvertiseScreen({super.key});
 
-  static const Color _blue = Color(0xFF1565C0);
-  static const Color _blueDark = Color(0xFF0D47A1);
+  static const Color _blue = PeeplMerchantTokens.accentBlue;
+  static const Color _blueDark = PeeplMerchantTokens.accentGradientEnd;
 
   static const _tiers = <_AdTier>[
     _AdTier(
@@ -80,63 +83,44 @@ class HowToAdvertiseScreen extends StatelessWidget {
   ];
 
   void _showTierDialog(BuildContext context, _AdTier tier) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          tier.name,
-          style: const TextStyle(
-            color: _blue,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+    // Inline detail — no dialogs per merchant UX guidelines.
+    Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (ctx) => MerchantScreenScaffold(
+          title: tier.name,
+          onBack: () => Navigator.pop(ctx),
+          body: ListView(
             children: [
               Text(
                 tier.placement,
-                style: TextStyle(
-                  color: Colors.grey.shade700,
+                style: const TextStyle(
+                  color: PeeplMerchantTokens.textSecondary,
                   fontWeight: FontWeight.w600,
-                  fontSize: 14,
+                  fontSize: 15,
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 12),
               Text(
                 tier.price,
                 style: const TextStyle(
-                  color: _blue,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
+                  color: PeeplMerchantTokens.accentBlue,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
               Text(
                 tier.learnMore,
-                style: TextStyle(
-                  color: Colors.grey.shade700,
-                  fontSize: 14,
+                style: const TextStyle(
+                  color: PeeplMerchantTokens.textSecondary,
+                  fontSize: 15,
                   height: 1.5,
                 ),
               ),
             ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text(
-              'Got it',
-              style: TextStyle(
-                color: _blue,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -144,7 +128,7 @@ class HowToAdvertiseScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: PeeplMerchantTokens.background,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -166,27 +150,10 @@ class HowToAdvertiseScreen extends StatelessWidget {
                   const SizedBox(height: 28),
                   _buildStatsBar(),
                   const SizedBox(height: 28),
-                  SizedBox(
-                    height: 52,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: _blue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: () =>
-                          Navigator.pushNamed(context, '/merchant_sign_in'),
-                      child: const Text(
-                        'Start Advertising',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
+                  MerchantPrimaryButton(
+                    label: 'Start Advertising',
+                    onPressed: () =>
+                        Navigator.pushNamed(context, '/merchant_sign_in'),
                   ),
                 ],
               ),
