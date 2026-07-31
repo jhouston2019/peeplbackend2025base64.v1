@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/crowdsource_service.dart';
 import '../widgets/crowd_meter.dart';
@@ -128,7 +129,7 @@ class _VenueScreenState extends State<VenueScreen> {
               'Asked everyone at $_venueName to report crowd levels!',
             ),
             duration: const Duration(seconds: 3),
-            backgroundColor: const Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.shellNavy,
           ),
         );
       }
@@ -155,8 +156,8 @@ class _VenueScreenState extends State<VenueScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Venue'),
-          backgroundColor: const Color(0xFF1565C0),
-          foregroundColor: Colors.white,
+          backgroundColor: PeeplAppTokens.shellNavy,
+          foregroundColor: PeeplAppTokens.textPrimary,
         ),
         body: const Center(child: Text('No venue specified')),
       );
@@ -223,7 +224,7 @@ class _VenueScreenState extends State<VenueScreen> {
                     child: Center(
                       child: Text(
                         'No posts yet — be the first to Peep here!',
-                        style: TextStyle(color: Colors.black54),
+                        style: TextStyle(color: PeeplAppTokens.textMuted),
                       ),
                     ),
                   ),
@@ -249,12 +250,12 @@ class _VenueScreenState extends State<VenueScreen> {
     required int currentCrowd,
   }) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PeeplAppTokens.background,
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        foregroundColor: Colors.white,
+        foregroundColor: PeeplAppTokens.textPrimary,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
@@ -292,18 +293,18 @@ class _VenueScreenState extends State<VenueScreen> {
               imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) =>
-                  Container(color: const Color(0xFF1565C0)),
+                  Container(color: PeeplAppTokens.accentBlue),
             )
           else
-            Container(color: const Color(0xFF1565C0)),
+            Container(color: PeeplAppTokens.accentBlue),
           DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF2244EE).withValues(alpha: 0.55),
-                  const Color(0xFF1565C0).withValues(alpha: 0.85),
+                  PeeplAppTokens.background.withValues(alpha: 0.55),
+                  PeeplAppTokens.accentBlue.withValues(alpha: 0.85),
                 ],
               ),
             ),
@@ -315,14 +316,14 @@ class _VenueScreenState extends State<VenueScreen> {
             child: Text(
               _venueName,
               style: const TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
                 shadows: [
                   Shadow(
                     offset: Offset(0, 1),
                     blurRadius: 6,
-                    color: Colors.black54,
+                    color: PeeplAppTokens.textMuted,
                   ),
                 ],
               ),
@@ -355,7 +356,7 @@ class _VenueScreenState extends State<VenueScreen> {
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                 ),
               ),
             ),
@@ -371,7 +372,7 @@ class _VenueScreenState extends State<VenueScreen> {
                 style: const TextStyle(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                 ),
               ),
             ),
@@ -385,7 +386,7 @@ class _VenueScreenState extends State<VenueScreen> {
                 style: const TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -407,13 +408,13 @@ class _VenueScreenState extends State<VenueScreen> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1565C0),
+              color: PeeplAppTokens.accentBlue,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             'Last 7 days',
-            style: TextStyle(fontSize: 13, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 13, color: PeeplAppTokens.textSecondary),
           ),
           const SizedBox(height: 16),
           SizedBox(
@@ -422,7 +423,7 @@ class _VenueScreenState extends State<VenueScreen> {
                 ? Center(
                     child: Text(
                       'No crowd data yet',
-                      style: TextStyle(color: Colors.grey[500]),
+                      style: TextStyle(color: PeeplAppTokens.textMuted),
                     ),
                   )
                 : LineChart(
@@ -454,7 +455,7 @@ class _VenueScreenState extends State<VenueScreen> {
                               value.toInt().toString(),
                               style: TextStyle(
                                 fontSize: 10,
-                                color: Colors.grey[600],
+                                color: PeeplAppTokens.textSecondary,
                               ),
                             ),
                           ),
@@ -476,7 +477,7 @@ class _VenueScreenState extends State<VenueScreen> {
                                   labels[i],
                                   style: TextStyle(
                                     fontSize: 10,
-                                    color: Colors.grey[600],
+                                    color: PeeplAppTokens.textSecondary,
                                   ),
                                 ),
                               );
@@ -494,21 +495,21 @@ class _VenueScreenState extends State<VenueScreen> {
                         LineChartBarData(
                           spots: spots,
                           isCurved: true,
-                          color: const Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                           barWidth: 3,
                           dotData: FlDotData(
                             show: true,
                             getDotPainter: (spot, percent, bar, index) =>
                                 FlDotCirclePainter(
                               radius: 4,
-                              color: const Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                               strokeWidth: 1,
                               strokeColor: Colors.white,
                             ),
                           ),
                           belowBarData: BarAreaData(
                             show: true,
-                            color: const Color(0xFF1565C0)
+                            color: PeeplAppTokens.accentBlue
                                 .withValues(alpha: 0.12),
                           ),
                         ),
@@ -529,7 +530,7 @@ class _VenueScreenState extends State<VenueScreen> {
         style: TextStyle(
           fontSize: 18,
           fontWeight: FontWeight.bold,
-          color: Color(0xFF1565C0),
+          color: PeeplAppTokens.accentBlue,
         ),
       ),
     );
@@ -548,9 +549,9 @@ class _VenueScreenState extends State<VenueScreen> {
         margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: PeeplAppTokens.card,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: PeeplAppTokens.cardElevated),
         ),
         child: Row(
           children: [
@@ -568,7 +569,7 @@ class _VenueScreenState extends State<VenueScreen> {
                   const SizedBox(height: 2),
                   Text(
                     _relativeTime(post['timestamp']),
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                   ),
                 ],
               ),
@@ -585,10 +586,10 @@ class _VenueScreenState extends State<VenueScreen> {
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.08),
+              color: PeeplAppTokens.textPrimary.withValues(alpha: 0.08),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -605,8 +606,8 @@ class _VenueScreenState extends State<VenueScreen> {
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2244EE),
-                  foregroundColor: Colors.white,
+                  backgroundColor: PeeplAppTokens.background,
+                  foregroundColor: PeeplAppTokens.textPrimary,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -624,8 +625,8 @@ class _VenueScreenState extends State<VenueScreen> {
                   style: TextStyle(fontWeight: FontWeight.w600),
                 ),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: const Color(0xFF1565C0),
-                  side: const BorderSide(color: Color(0xFF1565C0)),
+                  foregroundColor: PeeplAppTokens.accentBlue,
+                  side: const BorderSide(color: PeeplAppTokens.accentBlue),
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -776,12 +777,12 @@ class _StatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: PeeplAppTokens.cardElevated),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.04),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -795,7 +796,7 @@ class _StatCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 9,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[600],
+              color: PeeplAppTokens.textSecondary,
             ),
             textAlign: TextAlign.center,
             maxLines: 2,

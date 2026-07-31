@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class LocationPermissionScreen extends StatelessWidget {
   const LocationPermissionScreen({super.key});
@@ -24,11 +25,11 @@ class LocationPermissionScreen extends StatelessWidget {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.background,
         body: Column(
           children: [
             Container(
-              color: const Color(0xFF2244EE),
+              color: PeeplAppTokens.background,
               width: double.infinity,
               padding: EdgeInsets.only(
                 top: topPadding + 16,
@@ -38,7 +39,7 @@ class LocationPermissionScreen extends StatelessWidget {
                 child: Text(
                   'peepl',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     fontStyle: FontStyle.italic,
@@ -69,7 +70,7 @@ class LocationPermissionScreen extends StatelessWidget {
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 15,
-                        color: Color(0xFF666666),
+                        color: PeeplAppTokens.textSecondary,
                         height: 1.6,
                       ),
                     ),
@@ -78,12 +79,12 @@ class LocationPermissionScreen extends StatelessWidget {
                       rows: [
                         _PermissionRowData(
                           label: 'Allow While Using App',
-                          color: const Color(0xFF2244EE),
+                          color: PeeplAppTokens.background,
                           onTap: () => _requestAndContinue(context),
                         ),
                         _PermissionRowData(
                           label: 'Allow Once',
-                          color: const Color(0xFF2244EE),
+                          color: PeeplAppTokens.background,
                           onTap: () => _requestAndContinue(context),
                         ),
                         _PermissionRowData(
@@ -125,11 +126,11 @@ class _PermissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.10),
+            color: PeeplAppTokens.textPrimary.withOpacity(0.10),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),

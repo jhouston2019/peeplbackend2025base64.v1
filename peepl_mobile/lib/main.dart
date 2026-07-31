@@ -14,21 +14,12 @@ import 'services/geofence_service.dart' as geofence_svc;
 import 'services/local_notification_service.dart';
 import 'services/notification_service.dart';
 import 'services/presence_service.dart';
+import 'theme/peepl_app_tokens.dart';
 import 'theme_notifier.dart';
 
-ThemeData _buildLightTheme() => ThemeData(
-      brightness: Brightness.light,
-      primaryColor: Color(0xFF1565C0),
-      scaffoldBackgroundColor: Color(0xFF1565C0),
-      colorScheme: ColorScheme.light(primary: Color(0xFF1565C0)),
-    );
+ThemeData _buildLightTheme() => PeeplAppTokens.buildTheme();
 
-ThemeData _buildDarkTheme() => ThemeData(
-      brightness: Brightness.dark,
-      primaryColor: Color(0xFF0D47A1),
-      scaffoldBackgroundColor: Color(0xFF0D47A1),
-      colorScheme: ColorScheme.dark(primary: Color(0xFF0D47A1)),
-    );
+ThemeData _buildDarkTheme() => PeeplAppTokens.buildTheme();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -77,8 +68,9 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     if (!_ready) {
-      return const MaterialApp(
-        home: Scaffold(
+      return MaterialApp(
+        theme: PeeplAppTokens.buildTheme(),
+        home: const Scaffold(
           body: Center(child: CircularProgressIndicator()),
         ),
       );

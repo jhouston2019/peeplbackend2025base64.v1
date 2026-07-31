@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
@@ -221,7 +222,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -241,12 +242,12 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Text(
             'Leaderboard',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -255,7 +256,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
           IconButton(
             tooltip: 'Scoreboard',
             onPressed: () => Navigator.pushNamed(context, '/scoreboard'),
-            icon: const Icon(Icons.scoreboard_outlined, color: Colors.white),
+            icon: const Icon(Icons.scoreboard_outlined, color: PeeplAppTokens.textPrimary),
           ),
         ],
       ),
@@ -264,7 +265,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
 
   Widget _buildTabBar() {
     return Material(
-      color: const Color(0xFF1565C0),
+      color: PeeplAppTokens.accentBlue,
       child: TabBar(
         controller: _tabController,
         labelColor: Colors.white,
@@ -282,13 +283,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
 
   Widget _buildTabViews() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
+      decoration: PeeplAppTokens.shellBodyDecoration(),
       child: TabBarView(
         controller: _tabController,
         children: [
@@ -314,7 +309,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Could not load leaderboard', style: TextStyle(color: Colors.grey[600])),
+            Text('Could not load leaderboard', style: TextStyle(color: PeeplAppTokens.textSecondary)),
             TextButton(
               onPressed: () => _loadPeriod(period),
               child: const Text('Retry'),
@@ -333,7 +328,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
             const SizedBox(height: 12),
             Text(
               'No activity yet for this period',
-              style: TextStyle(color: Colors.grey[500], fontSize: 16),
+              style: TextStyle(color: PeeplAppTokens.textMuted, fontSize: 16),
             ),
           ],
         ),
@@ -400,7 +395,7 @@ class _LeaderboardScreenState extends State<LeaderboardScreen>
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: Colors.grey[600],
+                        color: PeeplAppTokens.textSecondary,
                       ),
                     ),
                   ),
@@ -550,7 +545,7 @@ class _PodiumPlace extends StatelessWidget {
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: rank == 1 ? 13 : 11,
-                color: isMe ? const Color(0xFF1565C0) : Colors.black87,
+                color: isMe ? PeeplAppTokens.accentBlue : Colors.black87,
               ),
               textAlign: TextAlign.center,
               maxLines: 1,
@@ -621,7 +616,7 @@ class _RankRow extends StatelessWidget {
             ? const BoxDecoration(
                 color: Color(0xFFE3F2FD),
                 border: Border(
-                  left: BorderSide(color: Color(0xFF1565C0), width: 3),
+                  left: BorderSide(color: PeeplAppTokens.accentBlue, width: 3),
                 ),
               )
             : null,
@@ -655,7 +650,7 @@ class _RankRow extends StatelessWidget {
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                             color: isMe
-                                ? const Color(0xFF1565C0)
+                                ? PeeplAppTokens.accentBlue
                                 : Colors.black87,
                           ),
                           overflow: TextOverflow.ellipsis,
@@ -679,7 +674,7 @@ class _RankRow extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 9,
                               fontWeight: FontWeight.bold,
-                              color: Colors.black87,
+                              color: PeeplAppTokens.textPrimary,
                             ),
                           ),
                         ),
@@ -692,13 +687,13 @@ class _RankRow extends StatelessWidget {
                             vertical: 1,
                           ),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1565C0),
+                            color: PeeplAppTokens.accentBlue,
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: const Text(
                             'You',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: PeeplAppTokens.textPrimary,
                               fontSize: 9,
                               fontWeight: FontWeight.w700,
                             ),
@@ -710,7 +705,7 @@ class _RankRow extends StatelessWidget {
                   if (entry.username.isNotEmpty)
                     Text(
                       '@${entry.username}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                     ),
                   const SizedBox(height: 6),
                   _StatChips(entry: entry),
@@ -746,8 +741,8 @@ class _LeaderAvatar extends StatelessWidget {
     return CircleAvatar(
       radius: radius,
       backgroundColor: isMe
-          ? const Color(0xFF1565C0)
-          : const Color(0xFF1565C0).withValues(alpha: 0.15),
+          ? PeeplAppTokens.accentBlue
+          : PeeplAppTokens.accentBlue.withValues(alpha: 0.15),
       backgroundImage: entry.photoUrl != null && entry.photoUrl!.isNotEmpty
           ? NetworkImage(entry.photoUrl!)
           : null,
@@ -755,7 +750,7 @@ class _LeaderAvatar extends StatelessWidget {
           ? Text(
               name[0].toUpperCase(),
               style: TextStyle(
-                color: isMe ? Colors.white : const Color(0xFF1565C0),
+                color: isMe ? Colors.white : PeeplAppTokens.accentBlue,
                 fontWeight: FontWeight.bold,
                 fontSize: radius * 0.55,
               ),
@@ -791,10 +786,10 @@ class _StatChips extends StatelessWidget {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: hPad, vertical: vPad),
       decoration: BoxDecoration(
-        color: const Color(0xFF1565C0).withValues(alpha: 0.08),
+        color: PeeplAppTokens.accentBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
-          color: const Color(0xFF1565C0).withValues(alpha: 0.2),
+          color: PeeplAppTokens.accentBlue.withValues(alpha: 0.2),
         ),
       ),
       child: Text(
@@ -802,7 +797,7 @@ class _StatChips extends StatelessWidget {
         style: TextStyle(
           fontSize: fontSize,
           fontWeight: FontWeight.w600,
-          color: const Color(0xFF1565C0),
+          color: PeeplAppTokens.accentBlue,
         ),
       ),
     );

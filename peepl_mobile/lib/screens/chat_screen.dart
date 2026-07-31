@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class ChatScreen extends StatefulWidget {
   @override
@@ -54,20 +55,14 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
             _buildAppBar(context),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: Column(
                   children: [
                     Expanded(child: _buildMessagesList()),
@@ -89,7 +84,7 @@ class _ChatScreenState extends State<ChatScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const SizedBox(width: 16),
           const Column(
@@ -98,7 +93,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Text(
                 'Community Chat',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold),
               ),
@@ -125,7 +120,7 @@ class _ChatScreenState extends State<ChatScreen> {
           return const Center(
             child: CircularProgressIndicator(
               valueColor:
-                  AlwaysStoppedAnimation<Color>(Color(0xFF1565C0)),
+                  AlwaysStoppedAnimation<Color>(PeeplAppTokens.accentBlue),
             ),
           );
         }
@@ -137,7 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Icon(Icons.chat_bubble_outline,
-                    size: 64, color: Colors.grey[300]),
+                    size: 64, color: PeeplAppTokens.cardElevated),
                 const SizedBox(height: 16),
                 const Text(
                   'No messages yet.\nStart the conversation!',
@@ -182,11 +177,11 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!isMe) ...[
             CircleAvatar(
               radius: 16,
-              backgroundColor: const Color(0xFF1565C0),
+              backgroundColor: PeeplAppTokens.shellNavy,
               child: Text(
                 (data['username'] ?? 'A')[0].toUpperCase(),
                 style: const TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 13,
                     fontWeight: FontWeight.bold),
               ),
@@ -207,7 +202,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       data['username'] ?? 'Anonymous',
                       style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey[600],
+                          color: PeeplAppTokens.textSecondary,
                           fontWeight: FontWeight.w600),
                     ),
                   ),
@@ -216,7 +211,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
                     color: isMe
-                        ? const Color(0xFF1565C0)
+                        ? PeeplAppTokens.accentBlue
                         : const Color(0xFFF0F4FF),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
@@ -260,11 +255,11 @@ class _ChatScreenState extends State<ChatScreen> {
                 hintText: 'Type a message...',
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: PeeplAppTokens.cardElevated!),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide(color: Colors.grey[300]!),
+                  borderSide: BorderSide(color: PeeplAppTokens.cardElevated!),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                     horizontal: 16, vertical: 10),
@@ -280,16 +275,16 @@ class _ChatScreenState extends State<ChatScreen> {
               width: 46,
               height: 46,
               decoration: const BoxDecoration(
-                color: Color(0xFF1565C0),
+                color: PeeplAppTokens.accentBlue,
                 shape: BoxShape.circle,
               ),
               child: _isSending
                   ? const Padding(
                       padding: EdgeInsets.all(12),
                       child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2),
+                          color: PeeplAppTokens.textPrimary, strokeWidth: 2),
                     )
-                  : const Icon(Icons.send, color: Colors.white, size: 20),
+                  : const Icon(Icons.send, color: PeeplAppTokens.textPrimary, size: 20),
             ),
           ),
         ],

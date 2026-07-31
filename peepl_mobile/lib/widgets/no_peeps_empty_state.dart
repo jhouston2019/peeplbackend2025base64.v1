@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 /// Shown when a venue has no crowd reports yet.
 /// The "Peep Here →" button navigates to /post prefilling the location name.
@@ -30,7 +31,7 @@ class NoPeepsEmptyState extends StatelessWidget {
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
-              color: Color(0xFF666666),
+              color: PeeplAppTokens.textSecondary,
               height: 1.5,
             ),
           ),
@@ -42,8 +43,8 @@ class NoPeepsEmptyState extends StatelessWidget {
               arguments: {'locationName': locationName},
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF2244EE),
-              foregroundColor: Colors.white,
+              backgroundColor: PeeplAppTokens.background,
+              foregroundColor: PeeplAppTokens.textPrimary,
               padding:
                   const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
               shape: RoundedRectangleBorder(

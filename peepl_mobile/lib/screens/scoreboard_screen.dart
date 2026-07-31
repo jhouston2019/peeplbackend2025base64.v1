@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 // ── data models ──────────────────────────────────────────────────────────────
 
@@ -153,7 +154,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
   // ── colour helpers ───────────────────────────────────────────────────────
 
   static const List<List<Color>> _gs = [
-    [Color(0xFF1565C0), Color(0xFF0D47A1)],
+    [PeeplAppTokens.accentBlue, PeeplAppTokens.shellNavy],
     [Color(0xFF2E7D32), Color(0xFF1B5E20)],
     [Color(0xFF4527A0), Color(0xFF311B92)],
     [Color(0xFF00695C), Color(0xFF004D40)],
@@ -165,7 +166,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
 
   static Color _avatarColor(String name) {
     const palette = [
-      Color(0xFF1565C0),
+      PeeplAppTokens.accentBlue,
       Color(0xFF388E3C),
       Color(0xFFBF360C),
       Color(0xFF6A1B9A),
@@ -180,7 +181,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
     if (rank == 1) return const Color(0xFFFFD700);
     if (rank == 2) return const Color(0xFFB0BEC5);
     if (rank == 3) return const Color(0xFFCD7F32);
-    return Colors.grey.shade600;
+    return PeeplAppTokens.textSecondary;
   }
 
   static String _rankEmoji(int rank) {
@@ -209,13 +210,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
             _buildSectionHeader(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: FutureBuilder<_BoardData?>(
                   future: _future,
                   builder: (context, snap) {
@@ -272,15 +267,15 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(ctx),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.white.withValues(alpha: 0.25),
+            backgroundColor: PeeplAppTokens.background.withValues(alpha: 0.25),
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',
               style: const TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -291,7 +286,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
             child: Text(
               'Scoreboard',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
               ),
@@ -310,7 +305,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
       child: const Text(
         'Your Stats & Friends Leaderboard',
         style: TextStyle(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
@@ -354,12 +349,12 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF1565C0), Color(0xFF1976D2)],
+          colors: [PeeplAppTokens.accentBlue, PeeplAppTokens.accentBlue],
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1565C0).withValues(alpha: 0.3),
+            color: PeeplAppTokens.accentBlue.withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -428,7 +423,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               child: const Text(
                 'View Full →',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontSize: 13,
                 ),
               ),
@@ -442,7 +437,7 @@ class _ScoreboardScreenState extends State<ScoreboardScreen> {
               padding: const EdgeInsets.all(20),
               child: Text(
                 'Follow friends to see them here!',
-                style: TextStyle(color: Colors.grey[500]),
+                style: TextStyle(color: PeeplAppTokens.textMuted),
               ),
             ),
           )
@@ -490,7 +485,7 @@ class _StatCell extends StatelessWidget {
           Text(
             value,
             style: const TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 18,
             ),
@@ -522,7 +517,7 @@ class _LeaderRow extends StatelessWidget {
 
   static Color _avatarColor(String name) {
     const palette = [
-      Color(0xFF1565C0),
+      PeeplAppTokens.accentBlue,
       Color(0xFF388E3C),
       Color(0xFFBF360C),
       Color(0xFF6A1B9A),
@@ -544,7 +539,7 @@ class _LeaderRow extends StatelessWidget {
             ? const Color(0xFFB0BEC5)
             : rank == 3
                 ? const Color(0xFFCD7F32)
-                : Colors.grey.shade600;
+                : PeeplAppTokens.textSecondary;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -576,13 +571,13 @@ class _LeaderRow extends StatelessWidget {
           CircleAvatar(
             radius: 20,
             backgroundColor:
-                entry.isMe ? const Color(0xFF1565C0) : _avatarColor(entry.username),
+                entry.isMe ? PeeplAppTokens.accentBlue : _avatarColor(entry.username),
             child: Text(
               entry.username.isNotEmpty
                   ? entry.username[0].toUpperCase()
                   : '?',
               style: const TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -601,7 +596,7 @@ class _LeaderRow extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                       color: entry.isMe
-                          ? const Color(0xFF1565C0)
+                          ? PeeplAppTokens.accentBlue
                           : Colors.black87,
                     ),
                     overflow: TextOverflow.ellipsis,
@@ -613,13 +608,13 @@ class _LeaderRow extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text(
                       'You',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 10,
                         fontWeight: FontWeight.w700,
                       ),
@@ -637,7 +632,7 @@ class _LeaderRow extends StatelessWidget {
               fontWeight: FontWeight.bold,
               fontSize: 14,
               color: entry.isMe
-                  ? const Color(0xFF1565C0)
+                  ? PeeplAppTokens.accentBlue
                   : Colors.black87,
             ),
           ),

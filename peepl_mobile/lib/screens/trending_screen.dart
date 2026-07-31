@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -300,18 +301,18 @@ class _TrendingScreenState extends State<TrendingScreen> {
       children: [
         // peepl logo bar
         Container(
-          color: const Color(0xFF2244EE),
+          color: PeeplAppTokens.background,
           padding: EdgeInsets.fromLTRB(0, topPad + 8, 16, 8),
           child: Row(
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back, color: Colors.white),
+                icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                 onPressed: () => Navigator.pop(context),
               ),
               const Text(
                 'peepl',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                   fontStyle: FontStyle.italic,
@@ -339,7 +340,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
               const Text(
                 '🔥 Trending Now',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -376,7 +377,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
               Text(
                 _error!,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Colors.black54),
+                style: const TextStyle(fontSize: 14, color: PeeplAppTokens.textMuted),
               ),
               const SizedBox(height: 16),
               ElevatedButton(
@@ -463,7 +464,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                     shadows: [
-                      Shadow(blurRadius: 4, color: Colors.black87),
+                      Shadow(blurRadius: 4, color: PeeplAppTokens.textPrimary),
                     ],
                   ),
                 ),
@@ -489,14 +490,14 @@ class _TrendingScreenState extends State<TrendingScreen> {
                     Text(
                       venue.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
                         shadows: [
                           Shadow(
                               offset: Offset(0, 1),
                               blurRadius: 4,
-                              color: Colors.black87),
+                              color: PeeplAppTokens.textPrimary),
                         ],
                       ),
                       maxLines: 1,
@@ -508,7 +509,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
                         color: Colors.white.withValues(alpha: 0.82),
                         fontSize: 10,
                         shadows: const [
-                          Shadow(blurRadius: 3, color: Colors.black54),
+                          Shadow(blurRadius: 3, color: PeeplAppTokens.textMuted),
                         ],
                       ),
                     ),
@@ -586,7 +587,7 @@ class _TrendingScreenState extends State<TrendingScreen> {
             Text(
               'Be the first to Peep a spot and start the trend!',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -594,8 +595,8 @@ class _TrendingScreenState extends State<TrendingScreen> {
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Post a Peep'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2244EE),
-                foregroundColor: Colors.white,
+                backgroundColor: PeeplAppTokens.background,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20)),
               ),

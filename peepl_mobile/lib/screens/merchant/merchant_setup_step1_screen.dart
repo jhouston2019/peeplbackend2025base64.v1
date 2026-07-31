@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -240,7 +241,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.black87,
+                                color: PeeplAppTokens.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 6),
@@ -248,7 +249,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
                               'This information helps Peepl match your ads to the right audience.',
                               style: TextStyle(
                                 fontSize: 14,
-                                color: Colors.grey.shade600,
+                                color: PeeplAppTokens.textSecondary,
                                 height: 1.4,
                               ),
                             ),
@@ -375,7 +376,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
                               child: ElevatedButton(
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: _blue,
-                                  foregroundColor: Colors.white,
+                                  foregroundColor: PeeplAppTokens.textPrimary,
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(12),
                                   ),
@@ -388,7 +389,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
                                         height: 22,
                                         child: CircularProgressIndicator(
                                           strokeWidth: 2,
-                                          color: Colors.white,
+                                          color: PeeplAppTokens.textPrimary,
                                         ),
                                       )
                                     : const Text(
@@ -417,7 +418,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
         const Text(
           'Step 1 of 2',
           style: TextStyle(
-            color: Colors.white,
+            color: PeeplAppTokens.textPrimary,
             fontSize: 13,
             fontWeight: FontWeight.w600,
             letterSpacing: 0.5,
@@ -429,10 +430,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
             Expanded(
               child: Container(
                 height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(2),
-                ),
+                decoration: PeeplAppTokens.cardDecoration(color: PeeplAppTokens.card),
               ),
             ),
             const SizedBox(width: 6),
@@ -461,7 +459,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade300),
         ),
@@ -489,7 +487,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
               ),
               child: !hasLogo
                   ? Icon(Icons.add_a_photo_outlined,
-                      color: Colors.grey.shade500, size: 28)
+                      color: PeeplAppTokens.card0, size: 28)
                   : null,
             ),
             const SizedBox(width: 16),
@@ -509,13 +507,13 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
                     'Tap to select an image from your gallery',
                     style: TextStyle(
                       fontSize: 13,
-                      color: Colors.grey.shade600,
+                      color: PeeplAppTokens.textSecondary,
                     ),
                   ),
                 ],
               ),
             ),
-            Icon(Icons.chevron_right, color: Colors.grey.shade500),
+            Icon(Icons.chevron_right, color: PeeplAppTokens.card0),
           ],
         ),
       ),
@@ -528,7 +526,7 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
       style: TextStyle(
         fontSize: 11,
         fontWeight: FontWeight.w700,
-        color: Colors.grey[500],
+        color: PeeplAppTokens.textMuted,
         letterSpacing: 1.2,
       ),
     );
@@ -542,10 +540,10 @@ class _MerchantSetupStep1ScreenState extends State<MerchantSetupStep1Screen> {
       hintText: hint,
       hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
       prefixIcon: prefixIcon != null
-          ? Icon(prefixIcon, color: Colors.grey[500])
+          ? Icon(prefixIcon, color: PeeplAppTokens.textMuted)
           : null,
       filled: true,
-      fillColor: Colors.white,
+      fillColor: PeeplAppTokens.searchField,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
         borderSide: BorderSide(color: Colors.grey.shade300),

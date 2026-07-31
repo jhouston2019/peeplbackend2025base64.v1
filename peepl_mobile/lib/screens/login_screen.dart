@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/notification_service.dart';
 
@@ -188,10 +189,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 48),
                     Align(alignment: Alignment.centerLeft,
-                      child: Text('Email Address', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w600))),
+                      child: Text('Email Address', style: TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 18, fontWeight: FontWeight.w600))),
                     SizedBox(height: 8),
                     Container(
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: PeeplAppTokens.searchField, borderRadius: BorderRadius.circular(8), border: Border.all(color: PeeplAppTokens.glassBorder)),
                       child: TextFormField(
                         controller: _email,
                         decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
@@ -201,10 +202,10 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     SizedBox(height: 32),
                     Align(alignment: Alignment.centerLeft,
-                      child: Text('Password', style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.w600))),
+                      child: Text('Password', style: TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 18, fontWeight: FontWeight.w600))),
                     SizedBox(height: 8),
                     Container(
-                      decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(8)),
+                      decoration: BoxDecoration(color: PeeplAppTokens.searchField, borderRadius: BorderRadius.circular(8), border: Border.all(color: PeeplAppTokens.glassBorder)),
                       child: TextFormField(
                         controller: _pass,
                         decoration: InputDecoration(border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none), contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16)),
@@ -220,7 +221,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           onPressed:
                               _loading ? null : _showForgotPasswordDialog,
                           style: TextButton.styleFrom(
-                            foregroundColor: const Color(0xFF1565C0),
+                            foregroundColor: PeeplAppTokens.accentBlue,
                             disabledForegroundColor: const Color(0x801565C0),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 8,
@@ -235,7 +236,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
                               decoration: TextDecoration.underline,
-                              decorationColor: Color(0xFF1565C0),
+                              decorationColor: PeeplAppTokens.accentBlue,
                               shadows: [
                                 Shadow(
                                   color: Color(0xE6FFFFFF),
@@ -260,14 +261,14 @@ class _LoginScreenState extends State<LoginScreen> {
                         padding: EdgeInsets.all(12),
                         margin: EdgeInsets.only(bottom: 20),
                         decoration: BoxDecoration(color: Colors.red.withOpacity(0.9), borderRadius: BorderRadius.circular(8)),
-                        child: Text(_error!, style: TextStyle(color: Colors.white, fontSize: 14)),
+                        child: Text(_error!, style: TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 14)),
                       ),
                     SizedBox(
                       width: double.infinity, height: 56,
                       child: ElevatedButton(
                         onPressed: _loading ? null : _authenticate,
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
-                        child: _loading ? CircularProgressIndicator(color: Colors.white) : Text(_isLoginMode ? 'Log In' : 'Sign Up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.black, foregroundColor: PeeplAppTokens.textPrimary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))),
+                        child: _loading ? CircularProgressIndicator(color: PeeplAppTokens.textPrimary) : Text(_isLoginMode ? 'Log In' : 'Sign Up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
                       ),
                     ),
                     SizedBox(height: 30),
@@ -275,7 +276,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       TextButton(
                         onPressed: () => setState(() { _isLoginMode = !_isLoginMode; _error = null; }),
                         child: Text(_isLoginMode ? "Don't have an account? Sign Up" : 'Already have an account? Log In',
-                          style: TextStyle(color: Color(0xFF1565C0), fontSize: 14, fontWeight: FontWeight.w600)),
+                          style: TextStyle(color: PeeplAppTokens.accentBlue, fontSize: 14, fontWeight: FontWeight.w600)),
                       ),
                     SizedBox(height: 50),
                   ],

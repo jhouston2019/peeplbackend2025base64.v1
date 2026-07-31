@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -241,10 +242,10 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: PeeplAppTokens.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.shellNavy,
+        foregroundColor: PeeplAppTokens.textPrimary,
         title: const Text(
           'Account Info',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -260,13 +261,13 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                     ),
                   )
                 : const Text(
                     'Save',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -343,8 +344,8 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                             icon: const Icon(Icons.lock_outline),
                             label: const Text('Change Password'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF1565C0),
-                              side: const BorderSide(color: Color(0xFF1565C0)),
+                              foregroundColor: PeeplAppTokens.accentBlue,
+                              side: const BorderSide(color: PeeplAppTokens.accentBlue),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
@@ -367,7 +368,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         children: [
           CircleAvatar(
             radius: 56,
-            backgroundColor: const Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.shellNavy,
             backgroundImage: _pendingPhotoFile != null
                 ? FileImage(_pendingPhotoFile!)
                 : (_photoUrl != null && _photoUrl!.isNotEmpty
@@ -382,7 +383,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                     style: const TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                     ),
                   )
                 : null,
@@ -394,7 +395,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
               child: ColoredBox(
                 color: Color(0x66000000),
                 child: Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+                  child: CircularProgressIndicator(color: PeeplAppTokens.textPrimary),
                 ),
               ),
             ),
@@ -405,13 +406,13 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: const Color(0xFF1565C0),
+                color: PeeplAppTokens.accentBlue,
                 shape: BoxShape.circle,
-                border: Border.all(color: Colors.white, width: 2),
+                border: Border.all(color: PeeplAppTokens.textPrimary, width: 2),
               ),
               child: const Icon(
                 Icons.camera_alt,
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 size: 18,
               ),
             ),
@@ -442,18 +443,18 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
         child: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.star, color: Colors.white, size: 18),
+            Icon(Icons.star, color: PeeplAppTokens.textPrimary, size: 18),
             SizedBox(width: 6),
             Text(
               'VIPeep',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
               ),
             ),
             SizedBox(width: 4),
-            Icon(Icons.chevron_right, color: Colors.white, size: 18),
+            Icon(Icons.chevron_right, color: PeeplAppTokens.textPrimary, size: 18),
           ],
         ),
       ),
@@ -478,7 +479,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Colors.grey.shade700,
+            color: PeeplAppTokens.textSecondary,
           ),
         ),
         const SizedBox(height: 8),
@@ -501,13 +502,13 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
                     '$currentLength/$maxLength',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.grey.shade600,
+                      color: PeeplAppTokens.textSecondary,
                     ),
                   )
               : null,
           decoration: InputDecoration(
             filled: true,
-            fillColor: Colors.white,
+            fillColor: PeeplAppTokens.searchField,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: Colors.grey.shade300),
@@ -518,7 +519,7 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Color(0xFF1565C0), width: 2),
+              borderSide: const BorderSide(color: PeeplAppTokens.accentBlue, width: 2),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,

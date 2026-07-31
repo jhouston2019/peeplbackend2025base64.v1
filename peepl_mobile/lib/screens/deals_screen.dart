@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -144,7 +145,7 @@ class _DealsScreenState extends State<DealsScreen> {
   }
 
   static Color _accentColor(Map<String, dynamic> ad) =>
-      Color((ad['accentColor'] as int?) ?? 0xFF1565C0);
+      Color((ad['accentColor'] as int?) ?? 0xFF2E6CFF);
 
   static String _ctaLabel(Map<String, dynamic> ad) {
     final cta = (ad['cta'] ?? ad['ctaText']) as String?;
@@ -165,11 +166,11 @@ class _DealsScreenState extends State<DealsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Deals Near You'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.shellNavy,
+        foregroundColor: PeeplAppTokens.textPrimary,
         elevation: 0,
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: PeeplAppTokens.background,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _deals.isEmpty
@@ -203,12 +204,12 @@ class _DealsScreenState extends State<DealsScreen> {
       physics: const AlwaysScrollableScrollPhysics(),
       children: [
         SizedBox(height: MediaQuery.sizeOf(context).height * 0.2),
-        const Icon(Icons.local_offer_outlined, size: 64, color: Colors.black38),
+        const Icon(Icons.local_offer_outlined, size: 64, color: PeeplAppTokens.textMuted),
         const SizedBox(height: 16),
         const Center(
           child: Text(
             'No deals available right now',
-            style: TextStyle(fontSize: 16, color: Colors.black54),
+            style: TextStyle(fontSize: 16, color: PeeplAppTokens.textMuted),
           ),
         ),
       ],
@@ -249,7 +250,7 @@ class _DealCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.12),
             blurRadius: 8,
             offset: const Offset(0, 3),
           ),
@@ -290,7 +291,7 @@ class _DealCard extends StatelessWidget {
               child: const Text(
                 'SPONSORED',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 9,
                   fontWeight: FontWeight.w900,
                   letterSpacing: 1.2,
@@ -308,7 +309,7 @@ class _DealCard extends StatelessWidget {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w800,
                   ),
@@ -358,10 +359,7 @@ class _DealCard extends StatelessWidget {
                         horizontal: 16,
                         vertical: 8,
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
+                      decoration: PeeplAppTokens.cardDecoration(color: PeeplAppTokens.card),
                       child: Text(
                         ctaLabel,
                         style: TextStyle(

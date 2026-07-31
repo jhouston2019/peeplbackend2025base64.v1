@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:confetti/confetti.dart';
@@ -141,7 +142,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
                           : "You're the first person to post about this location!",
                       textAlign: TextAlign.center,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 16,
                         height: 1.65,
                       ),
@@ -173,7 +174,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
                         onPressed: () =>
                             Navigator.pushReplacementNamed(context, '/pioneers'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.white,
+                          foregroundColor: PeeplAppTokens.textPrimary,
                           side: const BorderSide(color: Colors.white70, width: 1.5),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -219,7 +220,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
                   Color(0xFFFFD700),
                   Color(0xFFFFA500),
                   Colors.white,
-                  Color(0xFF2244EE),
+                  PeeplAppTokens.background,
                   Color(0xFF00BFFF),
                   Color(0xFFFF69B4),
                 ],
@@ -245,10 +246,10 @@ class _PioneerBadge extends StatelessWidget {
       height: 120,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: const Color(0xFF1565C0),
+        color: PeeplAppTokens.accentBlue,
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF1565C0).withValues(alpha: 0.45),
+            color: PeeplAppTokens.accentBlue.withValues(alpha: 0.45),
             blurRadius: 24,
             spreadRadius: 2,
           ),
@@ -262,7 +263,7 @@ class _PioneerBadge extends StatelessWidget {
           Text(
             'Pioneer',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: 0.5,

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:math' show atan2, cos, pi, sin, sqrt;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -312,10 +313,7 @@ class _FeedScreenState extends State<FeedScreen> {
       builder: (_) => StatefulBuilder(
         builder: (context, setSheetState) {
           return Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
+            decoration: PeeplAppTokens.shellBodyDecoration(),
             padding: const EdgeInsets.fromLTRB(24, 16, 24, 40),
             child: SingleChildScrollView(
               child: Column(
@@ -327,7 +325,7 @@ class _FeedScreenState extends State<FeedScreen> {
                       width: 40,
                       height: 4,
                       decoration: BoxDecoration(
-                        color: Colors.grey[300],
+                        color: PeeplAppTokens.cardElevated,
                         borderRadius: BorderRadius.circular(2),
                       ),
                     ),
@@ -376,11 +374,11 @@ class _FeedScreenState extends State<FeedScreen> {
                     Container(
                       margin: const EdgeInsets.only(top: 4),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
+                            color: PeeplAppTokens.textPrimary.withOpacity(0.08),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -391,7 +389,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           return ListTile(
                             leading: const Icon(
                               Icons.location_on_outlined,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                               size: 20,
                             ),
                             title: Text(
@@ -422,13 +420,13 @@ class _FeedScreenState extends State<FeedScreen> {
                             Icon(
                               Icons.my_location,
                               size: 16,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                             ),
                             SizedBox(width: 6),
                             Text(
                               'Use my location',
                               style: TextStyle(
-                                color: Color(0xFF1565C0),
+                                color: PeeplAppTokens.accentBlue,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -470,7 +468,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: selected
-                                ? const Color(0xFF1565C0)
+                                ? PeeplAppTokens.accentBlue
                                 : Colors.grey[100],
                             borderRadius: BorderRadius.circular(25),
                           ),
@@ -491,7 +489,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   if (!_locationResolved && _searchedCityName == null)
                     Text(
                       'Enable location access to filter by distance.',
-                      style: TextStyle(color: Colors.grey[500], fontSize: 13),
+                      style: TextStyle(color: PeeplAppTokens.textMuted, fontSize: 13),
                     ),
                 ],
               ),
@@ -1386,7 +1384,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 '')
             .toString();
     final distance = (ad['distance'] ?? '').toString();
-    final accentColor = Color((ad['accentColor'] as int?) ?? 0xFF1565C0);
+    final accentColor = Color((ad['accentColor'] as int?) ?? 0xFF2E6CFF);
     final initialRaw = (ad['initial'] ?? '').toString();
     final initial = initialRaw.isNotEmpty
         ? initialRaw

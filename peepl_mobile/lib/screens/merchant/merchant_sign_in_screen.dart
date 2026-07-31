@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../theme/peepl_app_tokens.dart';
 
 import '../../widgets/merchant/merchant_screen_scaffold.dart';
 import '../../widgets/merchant/peepl_merchant_tokens.dart';
@@ -218,7 +219,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                 color: Colors.white.withValues(alpha: 0.15),
                 borderRadius: BorderRadius.circular(16),
               ),
-              child: const Icon(Icons.store, color: Colors.white, size: 40),
+              child: const Icon(Icons.store, color: PeeplAppTokens.textPrimary, size: 40),
             ),
           ),
         ),
@@ -241,11 +242,11 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
       constraints: const BoxConstraints(maxWidth: 420),
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.18),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.18),
             blurRadius: 24,
             offset: const Offset(0, 8),
           ),
@@ -256,7 +257,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
           TabBar(
             controller: _tabController,
             labelColor: _blue,
-            unselectedLabelColor: Colors.grey.shade600,
+            unselectedLabelColor: PeeplAppTokens.textSecondary,
             indicatorColor: _blue,
             indicatorWeight: 3,
             labelStyle: const TextStyle(
@@ -313,7 +314,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                   _obscureSignInPass
                       ? Icons.visibility_off
                       : Icons.visibility,
-                  color: Colors.grey.shade600,
+                  color: PeeplAppTokens.textSecondary,
                 ),
                 onPressed: () =>
                     setState(() => _obscureSignInPass = !_obscureSignInPass),
@@ -382,7 +383,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                     _obscureRegisterPass
                         ? Icons.visibility_off
                         : Icons.visibility,
-                    color: Colors.grey.shade600,
+                    color: PeeplAppTokens.textSecondary,
                   ),
                   onPressed: () => setState(
                       () => _obscureRegisterPass = !_obscureRegisterPass),
@@ -409,7 +410,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                     _obscureConfirmPass
                         ? Icons.visibility_off
                         : Icons.visibility,
-                    color: Colors.grey.shade600,
+                    color: PeeplAppTokens.textSecondary,
                   ),
                   onPressed: () => setState(
                       () => _obscureConfirmPass = !_obscureConfirmPass),
@@ -446,7 +447,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                       'I agree to Peepl\'s advertising terms',
                       style: TextStyle(
                         fontSize: 13,
-                        color: Colors.grey.shade700,
+                        color: PeeplAppTokens.textSecondary,
                         height: 1.4,
                       ),
                     ),
@@ -471,7 +472,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: _blue,
-          foregroundColor: Colors.white,
+          foregroundColor: PeeplAppTokens.textPrimary,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -484,7 +485,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
                 height: 22,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                 ),
               )
             : Text(
@@ -501,7 +502,7 @@ class _MerchantSignInScreenState extends State<MerchantSignInScreen>
   InputDecoration _field(String hint, IconData icon) {
     return InputDecoration(
       hintText: hint,
-      prefixIcon: Icon(icon, color: Colors.grey.shade600),
+      prefixIcon: Icon(icon, color: PeeplAppTokens.textSecondary),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
       ),

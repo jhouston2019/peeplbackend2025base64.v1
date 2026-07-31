@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -160,11 +161,11 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                     width: 88,
                     height: 88,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       shape: BoxShape.circle,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.15),
+                          color: PeeplAppTokens.textPrimary.withValues(alpha: 0.15),
                           blurRadius: 16,
                           offset: const Offset(0, 4),
                         ),
@@ -181,7 +182,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                 const Text(
                   'Deal Claimed! 🎉',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 30,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.5,
@@ -195,7 +196,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
+                        color: PeeplAppTokens.textPrimary.withValues(alpha: 0.12),
                         blurRadius: 20,
                         offset: const Offset(0, 6),
                       ),
@@ -211,7 +212,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                         style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          color: Colors.black87,
+                          color: PeeplAppTokens.textPrimary,
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -221,7 +222,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                           _dealDescription,
                           style: const TextStyle(
                             fontSize: 14,
-                            color: Colors.black54,
+                            color: PeeplAppTokens.textMuted,
                             height: 1.45,
                           ),
                           textAlign: TextAlign.center,
@@ -232,7 +233,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                         width: double.infinity,
                         height: 160,
                         decoration: BoxDecoration(
-                          color: const Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                           borderRadius: BorderRadius.circular(14),
                         ),
                         child: const Column(
@@ -243,7 +244,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                             Text(
                               'Show this to staff',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: PeeplAppTokens.textPrimary,
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
                               ),
@@ -267,7 +268,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                           fontFamily: 'monospace',
                           fontSize: 32,
                           fontWeight: FontWeight.w900,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                           letterSpacing: 6,
                         ),
                       ),
@@ -291,7 +292,7 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                     icon: const Icon(Icons.share_outlined),
                     label: const Text('Share Deal'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
+                      backgroundColor: PeeplAppTokens.background,
                       foregroundColor: const Color(0xFF22CC44),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
@@ -307,8 +308,8 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
                     onPressed: () =>
                         Navigator.pushNamedAndRemoveUntil(context, '/deals', (_) => false),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white, width: 1.5),
+                      foregroundColor: PeeplAppTokens.textPrimary,
+                      side: const BorderSide(color: PeeplAppTokens.textPrimary, width: 1.5),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -346,7 +347,7 @@ class _MerchantLogo extends StatelessWidget {
       child: Container(
         width: 64,
         height: 64,
-        color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+        color: PeeplAppTokens.accentBlue.withValues(alpha: 0.1),
         child: logoUrl != null
             ? Image.network(
                 logoUrl!,
@@ -355,7 +356,7 @@ class _MerchantLogo extends StatelessWidget {
                   child: Text(
                     initial,
                     style: const TextStyle(
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                       fontWeight: FontWeight.bold,
                       fontSize: 24,
                     ),
@@ -366,7 +367,7 @@ class _MerchantLogo extends StatelessWidget {
                 child: Text(
                   initial,
                   style: const TextStyle(
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                     fontWeight: FontWeight.bold,
                     fontSize: 24,
                   ),

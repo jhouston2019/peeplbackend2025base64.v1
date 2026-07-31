@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -598,7 +599,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 _isSubmittingCrowdsource ? null : _sendExploreLiveRequest,
             style: ElevatedButton.styleFrom(
               backgroundColor: PeeplDetailTokens.accentBlue,
-              foregroundColor: Colors.white,
+              foregroundColor: PeeplAppTokens.textPrimary,
               minimumSize: const Size.fromHeight(52),
               shape: RoundedRectangleBorder(
                 borderRadius:
@@ -612,7 +613,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                     height: 18,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                     ),
                   )
                 : const Row(
@@ -738,7 +739,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Request sent! Nearby users will be notified.'),
-          backgroundColor: Color(0xFF1565C0),
+          backgroundColor: PeeplAppTokens.shellNavy,
         ),
       );
     } catch (e) {

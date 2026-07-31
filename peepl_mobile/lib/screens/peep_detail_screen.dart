@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
 import '../utils/post_crowd_format.dart';
@@ -202,8 +203,8 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     if (post == null) {
       return Scaffold(
         appBar: AppBar(
-          backgroundColor: const Color(0xFF1565C0),
-          foregroundColor: Colors.white,
+          backgroundColor: PeeplAppTokens.shellNavy,
+          foregroundColor: PeeplAppTokens.textPrimary,
           title: const Text('Post'),
         ),
         body: const Center(child: Text('Post not found')),
@@ -254,13 +255,13 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                       children: [
                         CircleAvatar(
                           radius: 22,
-                          backgroundColor: const Color(0xFF1565C0),
+                          backgroundColor: PeeplAppTokens.shellNavy,
                           child: Text(
                             username.isNotEmpty
                                 ? username[0].toUpperCase()
                                 : '?',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: PeeplAppTokens.textPrimary,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -283,7 +284,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 16,
-                                    color: Color(0xFF1565C0),
+                                    color: PeeplAppTokens.accentBlue,
                                   ),
                                 ),
                               ),
@@ -292,7 +293,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                                   timeStr,
                                   style: TextStyle(
                                     fontSize: 13,
-                                    color: Colors.grey[600],
+                                    color: PeeplAppTokens.textSecondary,
                                   ),
                                 ),
                             ],
@@ -313,7 +314,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -324,10 +325,10 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                                 .map(
                                   (c) => Chip(
                                     label: Text(c),
-                                    backgroundColor: const Color(0xFF1565C0)
+                                    backgroundColor: PeeplAppTokens.shellNavy
                                         .withValues(alpha: 0.08),
                                     side: BorderSide(
-                                      color: const Color(0xFF1565C0)
+                                      color: PeeplAppTokens.accentBlue
                                           .withValues(alpha: 0.2),
                                     ),
                                   ),
@@ -349,7 +350,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -358,7 +359,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             style: const TextStyle(
                               fontSize: 15,
                               height: 1.45,
-                              color: Colors.black87,
+                              color: PeeplAppTokens.textPrimary,
                             ),
                           ),
                         ],
@@ -409,7 +410,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 15,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -453,7 +454,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             'Tap to open map',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: PeeplAppTokens.textSecondary,
                             ),
                           ),
                         ],
@@ -478,8 +479,8 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                         icon: const Icon(Icons.add_location_alt_outlined),
                         label: const Text('Post Here Too'),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF1565C0),
-                          foregroundColor: Colors.white,
+                          backgroundColor: PeeplAppTokens.shellNavy,
+                          foregroundColor: PeeplAppTokens.textPrimary,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -497,7 +498,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                     ),
                   ),
@@ -536,9 +537,9 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                   imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (context, error, stack) =>
-                      ColoredBox(color: Colors.grey[300]!),
+                      ColoredBox(color: PeeplAppTokens.cardElevated!),
                 )
-              : ColoredBox(color: Colors.grey[300]!),
+              : ColoredBox(color: PeeplAppTokens.cardElevated!),
         ),
         Positioned(
           top: MediaQuery.paddingOf(context).top + 8,
@@ -546,7 +547,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
           child: CircleAvatar(
             backgroundColor: Colors.black.withValues(alpha: 0.45),
             child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -570,11 +571,11 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
             child: Text(
               locationName,
               style: const TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 26,
                 fontWeight: FontWeight.bold,
                 shadows: [
-                  Shadow(blurRadius: 8, color: Colors.black54),
+                  Shadow(blurRadius: 8, color: PeeplAppTokens.textMuted),
                 ],
               ),
             ),
@@ -589,11 +590,11 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -623,7 +624,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'Could not load comments',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: PeeplAppTokens.textSecondary),
             ),
           );
         }
@@ -633,7 +634,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
               'No comments yet. Be the first!',
-              style: TextStyle(color: Colors.grey[600]),
+              style: TextStyle(color: PeeplAppTokens.textSecondary),
             ),
           );
         }
@@ -651,13 +652,13 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                   children: [
                     CircleAvatar(
                       radius: 16,
-                      backgroundColor: const Color(0xFF1565C0),
+                      backgroundColor: PeeplAppTokens.shellNavy,
                       child: Text(
                         commentUser.isNotEmpty
                             ? commentUser[0].toUpperCase()
                             : '?',
                         style: const TextStyle(
-                          color: Colors.white,
+                          color: PeeplAppTokens.textPrimary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold,
                         ),
@@ -679,7 +680,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             data['text'] as String? ?? '',
                             style: const TextStyle(
                               fontSize: 14,
-                              color: Colors.black87,
+                              color: PeeplAppTokens.textPrimary,
                             ),
                           ),
                         ],
@@ -733,13 +734,13 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                         height: 20,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: PeeplAppTokens.textPrimary,
                         ),
                       )
                     : const Icon(Icons.send),
                 style: IconButton.styleFrom(
-                  backgroundColor: const Color(0xFF1565C0),
-                  foregroundColor: Colors.white,
+                  backgroundColor: PeeplAppTokens.shellNavy,
+                  foregroundColor: PeeplAppTokens.textPrimary,
                 ),
               ),
             ],

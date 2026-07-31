@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -25,9 +26,9 @@ class _SearchScreenState extends State<SearchScreen>
   static const _kRecentSearchesKey = 'recent_searches';
 
   static const TextStyle _overlayShadow = TextStyle(
-    color: Colors.white,
+    color: PeeplAppTokens.textPrimary,
     shadows: [
-      Shadow(offset: Offset(0, 1), blurRadius: 6, color: Colors.black87),
+      Shadow(offset: Offset(0, 1), blurRadius: 6, color: PeeplAppTokens.textPrimary),
     ],
   );
 
@@ -414,7 +415,7 @@ class _SearchScreenState extends State<SearchScreen>
     final trimmedQuery = _query.trim();
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: PeeplAppTokens.background,
       body: Column(
         children: [
           _buildHeader(topPad),
@@ -422,12 +423,12 @@ class _SearchScreenState extends State<SearchScreen>
           if (trimmedQuery.isEmpty && _recentSearches.isNotEmpty)
             _buildRecentChips(),
           Material(
-            color: Colors.white,
+            color: PeeplAppTokens.textPrimary,
             child: TabBar(
               controller: _tabController,
-              labelColor: const Color(0xFF2244EE),
-              unselectedLabelColor: Colors.grey.shade600,
-              indicatorColor: const Color(0xFF2244EE),
+              labelColor: PeeplAppTokens.background,
+              unselectedLabelColor: PeeplAppTokens.textSecondary,
+              indicatorColor: PeeplAppTokens.background,
               tabs: const [
                 Tab(text: 'Places'),
                 Tab(text: 'People'),
@@ -450,19 +451,19 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildHeader(double topPad) {
     return Container(
-      color: const Color(0xFF2244EE),
+      color: PeeplAppTokens.background,
       padding: EdgeInsets.fromLTRB(0, topPad + 8, 16, 12),
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
           const Expanded(
             child: Text(
               'Search',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -475,7 +476,7 @@ class _SearchScreenState extends State<SearchScreen>
 
   Widget _buildSearchBar() {
     return Container(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       child: TextField(
         controller: _searchCtrl,
@@ -483,7 +484,7 @@ class _SearchScreenState extends State<SearchScreen>
         textInputAction: TextInputAction.search,
         decoration: InputDecoration(
           hintText: 'Search places or people',
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF2244EE)),
+          prefixIcon: const Icon(Icons.search, color: PeeplAppTokens.background),
           suffixIcon: _query.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 20),
@@ -505,7 +506,7 @@ class _SearchScreenState extends State<SearchScreen>
   Widget _buildRecentChips() {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -515,7 +516,7 @@ class _SearchScreenState extends State<SearchScreen>
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: Colors.grey.shade600,
+              color: PeeplAppTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 8),
@@ -528,7 +529,7 @@ class _SearchScreenState extends State<SearchScreen>
                 onPressed: () => _applyRecentSearch(term),
                 backgroundColor: const Color(0xFFEEF1FF),
                 labelStyle: const TextStyle(
-                  color: Color(0xFF2244EE),
+                  color: PeeplAppTokens.background,
                   fontSize: 13,
                 ),
               );
@@ -711,7 +712,7 @@ class _SearchScreenState extends State<SearchScreen>
         person.username.isNotEmpty ? person.username[0].toUpperCase() : '?';
 
     return Material(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -727,11 +728,11 @@ class _SearchScreenState extends State<SearchScreen>
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: const Color(0xFF2244EE),
+                backgroundColor: PeeplAppTokens.background,
                 child: Text(
                   initial,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
                   ),
@@ -755,7 +756,7 @@ class _SearchScreenState extends State<SearchScreen>
                       '${person.postCount} post${person.postCount == 1 ? '' : 's'}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: PeeplAppTokens.textSecondary,
                       ),
                     ),
                   ],
@@ -767,9 +768,9 @@ class _SearchScreenState extends State<SearchScreen>
                   style: TextButton.styleFrom(
                     foregroundColor: isFollowing
                         ? Colors.grey.shade700
-                        : const Color(0xFF2244EE),
+                        : PeeplAppTokens.background,
                     backgroundColor: isFollowing
-                        ? Colors.grey.shade200
+                        ? PeeplAppTokens.cardElevated
                         : const Color(0xFFEEF1FF),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -806,7 +807,7 @@ class _SearchScreenState extends State<SearchScreen>
     return Center(
       child: Text(
         message,
-        style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
       ),
     );
   }
@@ -818,7 +819,7 @@ class _SearchScreenState extends State<SearchScreen>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.search_off, size: 48, color: Colors.grey.shade400),
+            Icon(Icons.search_off, size: 48, color: PeeplAppTokens.textMuted),
             const SizedBox(height: 14),
             Text(
               'No results for "$query"',
@@ -846,15 +847,15 @@ class _SearchScreenState extends State<SearchScreen>
             const SizedBox(height: 12),
             Text(
               'Something went wrong',
-              style: TextStyle(fontSize: 14, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
             ),
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: onRetry,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF2244EE),
+                backgroundColor: PeeplAppTokens.background,
               ),
-              child: const Text('Try again', style: TextStyle(color: Colors.white)),
+              child: const Text('Try again', style: TextStyle(color: PeeplAppTokens.textPrimary)),
             ),
           ],
         ),

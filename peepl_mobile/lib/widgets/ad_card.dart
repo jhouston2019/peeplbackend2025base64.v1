@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../constants/national_brand_ads.dart';
 
@@ -142,7 +143,7 @@ class _AdCardState extends State<AdCard> {
                           color: Colors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w800,
-                          shadows: [Shadow(blurRadius: 4, color: Colors.black)],
+                          shadows: [Shadow(blurRadius: 4, color: PeeplAppTokens.textPrimary)],
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -155,7 +156,7 @@ class _AdCardState extends State<AdCard> {
                             color: Colors.white.withValues(alpha: 0.85),
                             fontSize: 10,
                             shadows: const [
-                              Shadow(blurRadius: 3, color: Colors.black),
+                              Shadow(blurRadius: 3, color: PeeplAppTokens.textPrimary),
                             ],
                           ),
                           maxLines: 1,

@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../theme/peepl_app_tokens.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -420,7 +421,7 @@ class _ImagePickerTile extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.55),
+                          color: PeeplAppTokens.textPrimary.withValues(alpha: 0.55),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Text(

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
@@ -31,9 +32,9 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
       widget.userId == FirebaseAuth.instance.currentUser?.uid;
 
   static const TextStyle _overlayShadow = TextStyle(
-    color: Colors.white,
+    color: PeeplAppTokens.textPrimary,
     shadows: [
-      Shadow(offset: Offset(0, 1), blurRadius: 6, color: Colors.black87),
+      Shadow(offset: Offset(0, 1), blurRadius: 6, color: PeeplAppTokens.textPrimary),
     ],
   );
 
@@ -186,10 +187,10 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
     final title = _isOwn ? 'My Peeps' : "$name's Peeps";
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: PeeplAppTokens.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.shellNavy,
+        foregroundColor: PeeplAppTokens.textPrimary,
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
       ),
       body: _uid.isEmpty
@@ -265,7 +266,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
   Widget _buildStatsBar(_PostStats stats) {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
       child: Row(
         children: [
@@ -288,14 +289,14 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF1565C0),
+              color: PeeplAppTokens.accentBlue,
             ),
           ),
           const SizedBox(height: 4),
           Text(
             label,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 11, color: PeeplAppTokens.textSecondary),
           ),
         ],
       ),
@@ -313,7 +314,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
   Widget _buildFilterChips() {
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
       child: Wrap(
         spacing: 8,
@@ -333,13 +334,13 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
       selected: selected,
       onSelected: (_) => setState(() => _dateFilter = filter),
       selectedColor: const Color(0xFFE3F2FD),
-      checkmarkColor: const Color(0xFF1565C0),
+      checkmarkColor: PeeplAppTokens.accentBlue,
       labelStyle: TextStyle(
-        color: selected ? const Color(0xFF1565C0) : Colors.grey.shade700,
+        color: selected ? PeeplAppTokens.accentBlue : Colors.grey.shade700,
         fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
       ),
       side: BorderSide(
-        color: selected ? const Color(0xFF1565C0) : Colors.grey.shade300,
+        color: selected ? PeeplAppTokens.accentBlue : Colors.grey.shade300,
       ),
     );
   }
@@ -374,7 +375,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
               width: double.infinity,
               height: cardHeight,
               errorBuilder: (context, error, stackTrace) => ColoredBox(
-                color: Colors.grey.shade800,
+                color: PeeplAppTokens.textSecondary,
                 child: const Icon(Icons.place, color: Colors.white54, size: 40),
               ),
             ),
@@ -463,7 +464,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.add_location_alt_outlined,
-                size: 56, color: Colors.grey.shade400),
+                size: 56, color: PeeplAppTokens.textMuted),
             const SizedBox(height: 16),
             const Text(
               "You haven't posted yet! Tap POST to share your first crowd report.",
@@ -478,8 +479,8 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/post'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
+                backgroundColor: PeeplAppTokens.shellNavy,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 padding:
                     const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(
@@ -507,7 +508,7 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
     return Center(
       child: Text(
         'No posts $label',
-        style: TextStyle(fontSize: 15, color: Colors.grey.shade600),
+        style: TextStyle(fontSize: 15, color: PeeplAppTokens.textSecondary),
       ),
     );
   }

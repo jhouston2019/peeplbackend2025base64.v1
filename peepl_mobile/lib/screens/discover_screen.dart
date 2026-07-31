@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -19,9 +20,9 @@ class DiscoverScreen extends StatefulWidget {
 class _DiscoverScreenState extends State<DiscoverScreen> {
   static const _kNearRadiusM = 10000.0;
   static const TextStyle _overlayShadow = TextStyle(
-    color: Colors.white,
+    color: PeeplAppTokens.textPrimary,
     shadows: [
-      Shadow(offset: Offset(0, 1), blurRadius: 6, color: Colors.black87),
+      Shadow(offset: Offset(0, 1), blurRadius: 6, color: PeeplAppTokens.textPrimary),
     ],
   );
 
@@ -292,7 +293,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -312,12 +313,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
         children: [
           const Row(
             children: [
-              Icon(Icons.explore, color: Colors.white, size: 20),
+              Icon(Icons.explore, color: PeeplAppTokens.textPrimary, size: 20),
               SizedBox(width: 10),
               Text(
                 'Discover',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -336,7 +337,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
       controller: _searchCtrl,
       focusNode: _searchFocus,
       onChanged: _onSearchChanged,
-      style: const TextStyle(color: Colors.white, fontSize: 14),
+      style: const TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 14),
       cursorColor: Colors.white,
       decoration: InputDecoration(
         hintText: 'Search venues...',
@@ -360,7 +361,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
               )
             : null,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.15),
+        fillColor: PeeplAppTokens.searchField.withValues(alpha: 0.15),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(21),
           borderSide: BorderSide(
@@ -418,7 +419,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, '/venue_list'),
@@ -430,12 +431,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                    color: PeeplAppTokens.accentBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.storefront_outlined,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                     size: 22,
                   ),
                 ),
@@ -449,7 +450,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -457,13 +458,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         'Filter by type, search, and find spots near you',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: PeeplAppTokens.textMuted),
               ],
             ),
           ),
@@ -476,7 +477,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, '/deals'),
@@ -507,7 +508,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -515,13 +516,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         'Claim exclusive offers from local merchants',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: PeeplAppTokens.textMuted),
               ],
             ),
           ),
@@ -534,7 +535,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, '/leaderboard'),
@@ -551,7 +552,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   ),
                   child: const Icon(
                     Icons.emoji_events_outlined,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                     size: 22,
                   ),
                 ),
@@ -565,7 +566,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -573,13 +574,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         'See top Peepl contributors this week',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: PeeplAppTokens.textMuted),
               ],
             ),
           ),
@@ -592,7 +593,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, '/get_peeps'),
@@ -604,12 +605,12 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                    color: PeeplAppTokens.accentBlue.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(
                     Icons.groups_2_outlined,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                     size: 22,
                   ),
                 ),
@@ -623,7 +624,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -631,13 +632,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         'Ask people nearby for a live crowd update',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: PeeplAppTokens.textMuted),
               ],
             ),
           ),
@@ -650,7 +651,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
       child: Material(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: () => Navigator.pushNamed(context, '/trending'),
@@ -681,7 +682,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       SizedBox(height: 2),
@@ -689,13 +690,13 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                         'See the hottest spots right now',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.black54,
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
                   ),
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey.shade400),
+                Icon(Icons.chevron_right, color: PeeplAppTokens.textMuted),
               ],
             ),
           ),
@@ -713,7 +714,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
           child: Text(
             title,
             style: const TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -763,7 +764,7 @@ class _DiscoverScreenState extends State<DiscoverScreen> {
                   'https://via.placeholder.com/400x400',
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => ColoredBox(
-                color: Colors.grey.shade800,
+                color: PeeplAppTokens.textSecondary,
                 child: const Icon(Icons.image, color: Colors.white54, size: 40),
               ),
             ),

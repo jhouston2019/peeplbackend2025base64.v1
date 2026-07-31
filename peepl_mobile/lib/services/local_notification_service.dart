@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class LocalNotificationService {
   LocalNotificationService._();
@@ -68,7 +69,7 @@ class LocalNotificationService {
         importance: Importance.high,
         priority: Priority.high,
         icon: '@mipmap/ic_launcher',
-        color: Color(0xFF1565C0),
+        color: PeeplAppTokens.accentBlue,
       );
       const iosDetails = DarwinNotificationDetails(
         presentAlert: true,

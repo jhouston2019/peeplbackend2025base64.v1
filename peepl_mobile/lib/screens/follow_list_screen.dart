@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
@@ -255,7 +256,7 @@ class _FollowListScreenState extends State<FollowListScreen>
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -276,12 +277,12 @@ class _FollowListScreenState extends State<FollowListScreen>
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Text(
             'Connections',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
@@ -297,7 +298,7 @@ class _FollowListScreenState extends State<FollowListScreen>
       child: TextField(
         controller: _searchCtrl,
         onChanged: (value) => setState(() => _searchQuery = value.trim()),
-        style: const TextStyle(color: Colors.white, fontSize: 14),
+        style: const TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 14),
         cursorColor: Colors.white,
         decoration: InputDecoration(
           hintText: 'Search by username...',
@@ -324,7 +325,7 @@ class _FollowListScreenState extends State<FollowListScreen>
                 )
               : null,
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.15),
+          fillColor: PeeplAppTokens.searchField.withValues(alpha: 0.15),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(21),
             borderSide: BorderSide(
@@ -351,7 +352,7 @@ class _FollowListScreenState extends State<FollowListScreen>
 
   Widget _buildTabBar() {
     return Material(
-      color: const Color(0xFF1565C0),
+      color: PeeplAppTokens.accentBlue,
       child: TabBar(
         controller: _tabController,
         labelColor: Colors.white,
@@ -368,13 +369,7 @@ class _FollowListScreenState extends State<FollowListScreen>
 
   Widget _buildTabViews() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
+      decoration: PeeplAppTokens.shellBodyDecoration(),
       child: TabBarView(
         controller: _tabController,
         children: [
@@ -448,7 +443,7 @@ class _FollowListScreenState extends State<FollowListScreen>
                 const SizedBox(height: 12),
                 Text(
                   emptyMessage,
-                  style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                  style: TextStyle(color: PeeplAppTokens.textMuted, fontSize: 16),
                 ),
               ],
             ),
@@ -561,8 +556,7 @@ class _FollowUserRowState extends State<_FollowUserRow> {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor:
-                      const Color(0xFF1565C0).withValues(alpha: 0.15),
+                  backgroundColor: PeeplAppTokens.shellNavy.withValues(alpha: 0.15),
                   backgroundImage: user.photoUrl != null &&
                           user.photoUrl!.isNotEmpty
                       ? NetworkImage(user.photoUrl!)
@@ -573,7 +567,7 @@ class _FollowUserRowState extends State<_FollowUserRow> {
                               ? user.displayName[0].toUpperCase()
                               : '?',
                           style: const TextStyle(
-                            color: Color(0xFF1565C0),
+                            color: PeeplAppTokens.accentBlue,
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
                           ),
@@ -599,14 +593,14 @@ class _FollowUserRowState extends State<_FollowUserRow> {
                           '@${user.username}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.grey[600],
+                            color: PeeplAppTokens.textSecondary,
                           ),
                         ),
                       Text(
                         '${user.postCount} ${user.postCount == 1 ? 'post' : 'posts'}',
                         style: TextStyle(
                           fontSize: 11,
-                          color: Colors.grey[500],
+                          color: PeeplAppTokens.textMuted,
                         ),
                       ),
                     ],
@@ -701,7 +695,7 @@ class _FollowUserRowState extends State<_FollowUserRow> {
     if (onTap == null) {
       return Text(
         label,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
       );
     }
 
@@ -709,12 +703,12 @@ class _FollowUserRowState extends State<_FollowUserRow> {
       onPressed: onTap,
       style: TextButton.styleFrom(
         backgroundColor:
-            filled ? const Color(0xFF1565C0) : Colors.transparent,
+            filled ? PeeplAppTokens.accentBlue : Colors.transparent,
         foregroundColor: destructive
             ? Colors.red
             : filled
                 ? Colors.white
-                : const Color(0xFF1565C0),
+                : PeeplAppTokens.accentBlue,
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -723,7 +717,7 @@ class _FollowUserRowState extends State<_FollowUserRow> {
           side: filled
               ? BorderSide.none
               : BorderSide(
-                  color: destructive ? Colors.red : const Color(0xFF1565C0),
+                  color: destructive ? Colors.red : PeeplAppTokens.accentBlue,
                 ),
         ),
       ),

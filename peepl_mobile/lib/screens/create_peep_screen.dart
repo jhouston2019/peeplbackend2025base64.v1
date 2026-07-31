@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -350,9 +351,9 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
             ),
             if (_isLoading)
               Container(
-                color: Colors.black.withValues(alpha: 0.45),
+                color: PeeplAppTokens.textPrimary.withValues(alpha: 0.45),
                 child: const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
+                  child: CircularProgressIndicator(color: PeeplAppTokens.textPrimary),
                 ),
               ),
           ],
@@ -377,7 +378,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
           const Text(
             'Quick Peep',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 17,
               fontWeight: FontWeight.bold,
             ),
@@ -417,7 +418,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
                             ? 'Location unavailable'
                             : 'Detecting location…'),
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
@@ -461,12 +462,12 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isSet
-                    ? const Color(0xFF1565C0)
+                    ? PeeplAppTokens.accentBlue
                     : Colors.white.withValues(alpha: 0.12),
                 borderRadius: BorderRadius.circular(22),
                 border: Border.all(
                   color: isSet
-                      ? const Color(0xFF1565C0)
+                      ? PeeplAppTokens.accentBlue
                       : Colors.white.withValues(alpha: 0.25),
                 ),
               ),
@@ -525,9 +526,9 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         child: ElevatedButton(
           onPressed: _isLoading ? null : _submitPost,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1565C0),
-            foregroundColor: Colors.white,
-            disabledBackgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.5),
+            backgroundColor: PeeplAppTokens.shellNavy,
+            foregroundColor: PeeplAppTokens.textPrimary,
+            disabledBackgroundColor: PeeplAppTokens.accentBlue.withValues(alpha: 0.5),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
             ),

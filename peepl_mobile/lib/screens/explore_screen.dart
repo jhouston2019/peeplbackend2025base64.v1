@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -136,11 +137,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PeeplAppTokens.background,
       appBar: AppBar(
         title: const Text('Explore'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.shellNavy,
+        foregroundColor: PeeplAppTokens.textPrimary,
         elevation: 0,
       ),
       body: Column(
@@ -172,7 +173,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   return Center(
                     child: Text(
                       'Could not load venues',
-                      style: TextStyle(color: Colors.grey[600]),
+                      style: TextStyle(color: PeeplAppTokens.textSecondary),
                     ),
                   );
                 }
@@ -186,13 +187,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey[400]),
+                        Icon(Icons.search_off, size: 64, color: PeeplAppTokens.textMuted),
                         const SizedBox(height: 12),
                         Text(
                           'No venues found',
                           style: TextStyle(
                             fontSize: 16,
-                            color: Colors.grey[600],
+                            color: PeeplAppTokens.textSecondary,
                           ),
                         ),
                       ],
@@ -257,7 +258,7 @@ class _ExploreVenueCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: const Color(0xFF0D47A1),
+          color: PeeplAppTokens.shellNavy,
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -267,7 +268,7 @@ class _ExploreVenueCard extends StatelessWidget {
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, __, ___) =>
-                    Container(color: const Color(0xFF0D47A1)),
+                    Container(color: PeeplAppTokens.shellNavy),
               ),
             DecoratedBox(
               decoration: BoxDecoration(
@@ -295,7 +296,7 @@ class _ExploreVenueCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: PeeplAppTokens.textPrimary,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),

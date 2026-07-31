@@ -111,7 +111,7 @@ class _HomeFeedViewportHarness extends StatelessWidget {
           tagline: (ad['tagline'] ?? '').toString(),
           offerLine: (ad['tagline'] ?? '').toString(),
           initial: (ad['initial'] ?? 'A').toString(),
-          accentColor: Color((ad['accentColor'] as int?) ?? 0xFF1565C0),
+          accentColor: Color((ad['accentColor'] as int?) ?? 0xFF2E6CFF),
           imageUrl: NationalBrandAds.imageSource(ad),
           ctaLabel: (ad['cta'] ?? 'Learn More').toString(),
           onOpen: () {},

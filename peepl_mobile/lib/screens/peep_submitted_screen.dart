@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class PeepSubmittedScreen extends StatefulWidget {
   /// Optionally supplied when pushed directly. If null the screen reads from
@@ -73,7 +74,7 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.background,
         body: SafeArea(
           child: Center(
             child: Padding(
@@ -86,7 +87,7 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
                   const Text(
                     'Peep Submitted!',
                     style: TextStyle(
-                      color: Color(0xFF2244EE),
+                      color: PeeplAppTokens.background,
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
@@ -97,7 +98,7 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: Color(0xFF666666),
+                      color: PeeplAppTokens.textSecondary,
                       height: 1.6,
                     ),
                   ),
@@ -194,7 +195,7 @@ class _Dot extends StatelessWidget {
         width: 12,
         height: 12,
         decoration: const BoxDecoration(
-          color: Color(0xFF2244EE),
+          color: PeeplAppTokens.background,
           shape: BoxShape.circle,
         ),
       ),

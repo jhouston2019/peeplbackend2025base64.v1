@@ -1,8 +1,9 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
-const Color _kPeeplBlue = Color(0xFF1565C0);
+const Color _kPeeplBlue = PeeplAppTokens.shellNavy;
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -77,17 +78,11 @@ class _AdminScreenState extends State<AdminScreen>
             _buildAppBar(context),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: Column(
                   children: [
                     Material(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       child: TabBar(
                         controller: _tabController,
                         labelColor: _kPeeplBlue,
@@ -132,13 +127,13 @@ class _AdminScreenState extends State<AdminScreen>
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const SizedBox(width: 16),
           const Text(
             'Admin',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -522,7 +517,7 @@ class _StatsTabState extends State<_StatsTab> {
           const SizedBox(height: 24),
           Text(
             'Likes total sums each post likesCount field (paginated reads).',
-            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
           ),
         ],
       ),
@@ -581,7 +576,7 @@ class _NativeAdsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PeeplAppTokens.background,
       body: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: FirebaseFirestore.instance.collection('native_ads').snapshots(),
         builder: (context, snapshot) {
@@ -1057,7 +1052,7 @@ class _AdFormSheetState extends State<_AdFormSheet> {
                         height: 22,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: PeeplAppTokens.textPrimary,
                         ),
                       )
                     : Text(widget.isEditing ? 'Save Changes' : 'Create Ad'),
@@ -1189,7 +1184,7 @@ class _ScreensTab extends StatelessWidget {
               ),
               subtitle: Text(
                 e['route']!,
-                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
               ),
               trailing: OutlinedButton(
                 onPressed: () {

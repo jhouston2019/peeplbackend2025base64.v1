@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -222,7 +223,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -243,13 +244,13 @@ class _VenueListScreenState extends State<VenueListScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Expanded(
             child: Text(
               'Browse Venues',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
               ),
@@ -268,7 +269,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
           TextField(
             controller: _searchCtrl,
             onChanged: (value) => setState(() => _searchQuery = value.trim()),
-            style: const TextStyle(color: Colors.white, fontSize: 14),
+            style: const TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 14),
             cursorColor: Colors.white,
             decoration: InputDecoration(
               hintText: 'Search venues...',
@@ -295,7 +296,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
                     )
                   : null,
               filled: true,
-              fillColor: Colors.white.withValues(alpha: 0.15),
+              fillColor: PeeplAppTokens.searchField.withValues(alpha: 0.15),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(21),
                 borderSide: BorderSide(
@@ -324,14 +325,14 @@ class _VenueListScreenState extends State<VenueListScreen> {
                 value: _nearMeEnabled,
                 onChanged: _onNearMeChanged,
                 activeThumbColor: Colors.white,
-                activeTrackColor: const Color(0xFF2244EE),
+                activeTrackColor: PeeplAppTokens.background,
                 inactiveThumbColor: Colors.white70,
                 inactiveTrackColor: Colors.white24,
               ),
               const Text(
                 'Near Me',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -367,13 +368,13 @@ class _VenueListScreenState extends State<VenueListScreen> {
             selected: selected,
             onSelected: (_) => setState(() => _selectedCategory = category),
             labelStyle: TextStyle(
-              color: selected ? const Color(0xFF1565C0) : Colors.white,
+              color: selected ? PeeplAppTokens.accentBlue : Colors.white,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
             selectedColor: Colors.white,
-            backgroundColor: Colors.white.withValues(alpha: 0.15),
-            checkmarkColor: const Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.background.withValues(alpha: 0.15),
+            checkmarkColor: PeeplAppTokens.accentBlue,
             side: BorderSide(
               color: selected
                   ? Colors.white
@@ -408,7 +409,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _loadVenues,
-                child: const Text('Retry', style: TextStyle(color: Colors.white)),
+                child: const Text('Retry', style: TextStyle(color: PeeplAppTokens.textPrimary)),
               ),
             ],
           ),
@@ -446,13 +447,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
 
     return Container(
       margin: const EdgeInsets.only(top: 8),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-        ),
-      ),
+      decoration: PeeplAppTokens.shellBodyDecoration(),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
         itemCount: venues.length,
@@ -473,9 +468,9 @@ class _VenueListScreenState extends State<VenueListScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: Colors.grey.shade50,
+          color: PeeplAppTokens.card,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: Colors.grey.shade200),
+          border: Border.all(color: PeeplAppTokens.cardElevated),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -489,7 +484,7 @@ class _VenueListScreenState extends State<VenueListScreen> {
                     style: const TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -499,10 +494,10 @@ class _VenueListScreenState extends State<VenueListScreen> {
                     padding:
                         const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                      color: PeeplAppTokens.accentBlue.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: const Color(0xFF1565C0).withValues(alpha: 0.25),
+                        color: PeeplAppTokens.accentBlue.withValues(alpha: 0.25),
                       ),
                     ),
                     child: Text(
@@ -510,14 +505,14 @@ class _VenueListScreenState extends State<VenueListScreen> {
                       style: const TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     '${venue.postCount} ${venue.postCount == 1 ? 'post' : 'posts'} · ${_formatLastPosted(venue.lastPosted)}',
-                    style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                   ),
                 ],
               ),

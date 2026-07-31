@@ -1,4 +1,5 @@
 import 'dart:ui' as ui;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -293,23 +294,23 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       resizeToAvoidBottomInset: false,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Map',
           style: TextStyle(
-            color: Colors.white,
+            color: PeeplAppTokens.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         onPressed: _goToMyLocation,
-        child: const Icon(Icons.my_location, color: Colors.white),
+        child: const Icon(Icons.my_location, color: PeeplAppTokens.textPrimary),
       ),
       body: Stack(
         children: [
@@ -353,8 +354,8 @@ class _MapScreenState extends State<MapScreen> {
         onChanged: _onSearchChanged,
         decoration: InputDecoration(
           hintText: 'Search by location name...',
-          hintStyle: TextStyle(color: Colors.grey.shade500, fontSize: 14),
-          prefixIcon: const Icon(Icons.search, color: Color(0xFF1565C0)),
+          hintStyle: TextStyle(color: PeeplAppTokens.card0, fontSize: 14),
+          prefixIcon: const Icon(Icons.search, color: PeeplAppTokens.accentBlue),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
                   icon: const Icon(Icons.clear, size: 20),
@@ -365,7 +366,7 @@ class _MapScreenState extends State<MapScreen> {
                 )
               : null,
           filled: true,
-          fillColor: Colors.white,
+          fillColor: PeeplAppTokens.searchField,
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(24),
             borderSide: BorderSide.none,
@@ -379,7 +380,7 @@ class _MapScreenState extends State<MapScreen> {
   Widget _buildRecentSheet(ScrollController ctrl) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         boxShadow: [
           BoxShadow(
@@ -419,7 +420,7 @@ class _MapScreenState extends State<MapScreen> {
               child: Center(
                 child: Text(
                   'No posts with location data yet',
-                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
+                  style: TextStyle(color: PeeplAppTokens.card0, fontSize: 14),
                 ),
               ),
             )
@@ -459,7 +460,7 @@ class _MapScreenState extends State<MapScreen> {
                   ),
                   Text(
                     '${_wordLabel(pin.crowdLevel)} · ${_formatTimestamp(pin.timestamp)}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+                    style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 12),
                   ),
                 ],
               ),

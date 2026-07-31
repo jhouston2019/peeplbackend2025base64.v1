@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
 
-/// Blue header + white body, matching Peepl RN / Flutter main apps.
-const Color kPeeplPortedBlue = Color(0xFF1565C0);
+import '../theme/peepl_app_tokens.dart';
 
-/// Shared layout for ported React Native screens.
+/// Navy header + dark body shell for secondary Peepl screens.
 class PeeplPortedScreenShell extends StatelessWidget {
   const PeeplPortedScreenShell({
     super.key,
@@ -19,7 +18,7 @@ class PeeplPortedScreenShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: kPeeplPortedBlue,
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -29,7 +28,7 @@ class PeeplPortedScreenShell extends StatelessWidget {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                     onPressed: () => Navigator.of(context).maybePop(),
                   ),
                   Image.asset(
@@ -42,7 +41,7 @@ class PeeplPortedScreenShell extends StatelessWidget {
                     child: Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                       ),
@@ -53,11 +52,7 @@ class PeeplPortedScreenShell extends StatelessWidget {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(top: Radius.circular(24)),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Column(
@@ -65,15 +60,18 @@ class PeeplPortedScreenShell extends StatelessWidget {
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 8),
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE3F2FD),
+                          color: PeeplAppTokens.accentBlue.withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: PeeplAppTokens.border),
                         ),
                         child: const Text(
                           'Coming soon',
                           style: TextStyle(
-                            color: kPeeplPortedBlue,
+                            color: PeeplAppTokens.accentBlue,
                             fontWeight: FontWeight.w700,
                             fontSize: 13,
                           ),
@@ -83,9 +81,9 @@ class PeeplPortedScreenShell extends StatelessWidget {
                       if (description != null) ...[
                         Text(
                           description!,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 15,
-                            color: Colors.grey[800],
+                            color: PeeplAppTokens.textSecondary,
                             height: 1.45,
                           ),
                         ),

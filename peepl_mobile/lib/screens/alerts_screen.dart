@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import 'location_detail_screen.dart';
 
@@ -46,11 +47,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
       case 'post_liked':
         return const Icon(Icons.favorite, color: Colors.red, size: 22);
       case 'arrival_fulfilled':
-        return const Icon(Icons.location_on, color: Color(0xFF1565C0), size: 22);
+        return const Icon(Icons.location_on, color: PeeplAppTokens.accentBlue, size: 22);
       case 'crowdsource_request':
         return const Icon(Icons.people, color: Colors.orange, size: 22);
       default:
-        return Icon(Icons.notifications, color: Colors.grey.shade600, size: 22);
+        return Icon(Icons.notifications, color: PeeplAppTokens.textSecondary, size: 22);
     }
   }
 
@@ -112,8 +113,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('Alerts'),
-          backgroundColor: const Color(0xFF1565C0),
-          foregroundColor: Colors.white,
+          backgroundColor: PeeplAppTokens.shellNavy,
+          foregroundColor: PeeplAppTokens.textPrimary,
         ),
         body: const Center(child: Text('Please log in to see notifications')),
       );
@@ -124,8 +125,8 @@ class _AlertsScreenState extends State<AlertsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Alerts'),
-        backgroundColor: const Color(0xFF1565C0),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.shellNavy,
+        foregroundColor: PeeplAppTokens.textPrimary,
         actions: [
           TextButton(
             onPressed: () async {
@@ -141,7 +142,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
             },
             child: const Text(
               'Mark all read',
-              style: TextStyle(color: Colors.white, fontSize: 13),
+              style: TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 13),
             ),
           ),
         ],
@@ -198,7 +199,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
                         height: 8,
                         margin: const EdgeInsets.only(right: 6),
                         decoration: const BoxDecoration(
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -218,11 +219,11 @@ class _AlertsScreenState extends State<AlertsScreen> {
                     if (body.isNotEmpty)
                       Text(
                         body,
-                        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                       ),
                     Text(
                       _relativeTime(data['timestamp']),
-                      style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      style: TextStyle(fontSize: 11, color: PeeplAppTokens.textMuted),
                     ),
                   ],
                 ),

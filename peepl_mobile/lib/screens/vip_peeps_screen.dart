@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class VIPeepsScreen extends StatefulWidget {
   const VIPeepsScreen({super.key});
@@ -24,7 +25,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Stripe payments coming soon — stay tuned!'),
-        backgroundColor: Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         duration: Duration(seconds: 3),
       ),
     );
@@ -35,7 +36,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
     final uid = FirebaseAuth.instance.currentUser?.uid;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: PeeplAppTokens.background,
       body: uid == null
           ? _buildSignedOut(context)
           : StreamBuilder<DocumentSnapshot>(
@@ -47,7 +48,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                 if (snap.connectionState == ConnectionState.waiting) {
                   return const Center(
                     child: CircularProgressIndicator(
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                     ),
                   );
                 }
@@ -80,7 +81,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
             child: Center(
               child: Text(
                 'Sign in to view VIPeeps',
-                style: TextStyle(fontSize: 16, color: Colors.black54),
+                style: TextStyle(fontSize: 16, color: PeeplAppTokens.textMuted),
               ),
             ),
           ),
@@ -97,7 +98,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
             alignment: Alignment.centerLeft,
             child: IconButton(
               onPressed: () => Navigator.pop(context),
-              icon: const Icon(Icons.arrow_back, color: Color(0xFF1565C0)),
+              icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.accentBlue),
             ),
           ),
           Expanded(
@@ -129,7 +130,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                     ),
                     const SizedBox(height: 12),
@@ -139,7 +140,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                       style: TextStyle(
                         fontSize: 15,
                         height: 1.45,
-                        color: Colors.grey.shade700,
+                        color: PeeplAppTokens.textSecondary,
                       ),
                     ),
                   ],
@@ -168,7 +169,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 16,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -181,7 +182,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                   style: TextStyle(
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -190,15 +191,15 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Colors.grey.shade600,
+                    color: PeeplAppTokens.textSecondary,
                   ),
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _showStripeComingSoon,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
+                    backgroundColor: PeeplAppTokens.shellNavy,
+                    foregroundColor: PeeplAppTokens.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
@@ -218,7 +219,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                   child: const Text(
                     'Restore Purchase',
                     style: TextStyle(
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -241,7 +242,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
             'assets/icon/icon.png',
             fit: BoxFit.cover,
             errorBuilder: (context, error, stackTrace) => Container(
-              color: const Color(0xFF1565C0),
+              color: PeeplAppTokens.accentBlue,
             ),
           ),
           DecoratedBox(
@@ -250,8 +251,8 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  const Color(0xFF1565C0).withValues(alpha: 0.55),
-                  const Color(0xFF0D47A1).withValues(alpha: 0.92),
+                  PeeplAppTokens.accentBlue.withValues(alpha: 0.55),
+                  PeeplAppTokens.shellNavy.withValues(alpha: 0.92),
                 ],
               ),
             ),
@@ -263,14 +264,14 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
                   alignment: Alignment.topLeft,
                   child: IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                   ),
                 ),
                 const Center(
                   child: Text(
                     'VIPeeps',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
                       letterSpacing: 0.5,
@@ -303,7 +304,7 @@ class _VIPeepsScreenState extends State<VIPeepsScreen> {
               style: const TextStyle(
                 fontSize: 15,
                 height: 1.35,
-                color: Colors.black87,
+                color: PeeplAppTokens.textPrimary,
               ),
             ),
           ),

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class HeatMapScreen extends StatefulWidget {
   const HeatMapScreen({super.key});
@@ -140,7 +141,7 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         boxShadow: const [
           BoxShadow(
@@ -189,15 +190,15 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
+          icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           'Heat Map',
           style: TextStyle(
-            color: Colors.white,
+            color: PeeplAppTokens.textPrimary,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -205,9 +206,9 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
       floatingActionButton: _isLoading
           ? null
           : FloatingActionButton(
-              backgroundColor: const Color(0xFF1565C0),
+              backgroundColor: PeeplAppTokens.shellNavy,
               onPressed: _recenterOnUser,
-              child: const Icon(Icons.my_location, color: Colors.white),
+              child: const Icon(Icons.my_location, color: PeeplAppTokens.textPrimary),
             ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())

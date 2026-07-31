@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_meter.dart';
 
@@ -221,7 +222,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -230,13 +231,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             _buildSectionHeader(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: _uid.isEmpty
                     ? const Center(child: Text('Not signed in'))
                     : _buildBody(context),
@@ -257,15 +252,15 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           CircleAvatar(
             radius: 18,
-            backgroundColor: Colors.white.withValues(alpha: 0.25),
+            backgroundColor: PeeplAppTokens.background.withValues(alpha: 0.25),
             child: Text(
               name.isNotEmpty ? name[0].toUpperCase() : '?',
               style: const TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -276,7 +271,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
             child: Text(
               'Favorites',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
               ),
@@ -299,9 +294,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               child: DropdownButton<_SortOption>(
                 value: _sort,
                 isExpanded: true,
-                dropdownColor: const Color(0xFF1565C0),
+                dropdownColor: PeeplAppTokens.accentBlue,
                 iconEnabledColor: Colors.white,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
+                style: const TextStyle(color: PeeplAppTokens.textPrimary, fontSize: 13),
                 items: _SortOption.values
                     .map(
                       (opt) => DropdownMenuItem(
@@ -329,7 +324,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       child: const Text(
         'Saved venues',
         style: TextStyle(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
@@ -398,7 +393,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.black54,
+                    color: PeeplAppTokens.textMuted,
                     height: 1.45,
                   ),
                 ),
@@ -427,7 +422,7 @@ class _FavoriteCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(14),
@@ -437,7 +432,7 @@ class _FavoriteCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: PeeplAppTokens.cardElevated),
           ),
           padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
           child: Row(
@@ -451,7 +446,7 @@ class _FavoriteCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 15,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
@@ -461,7 +456,7 @@ class _FavoriteCard extends StatelessWidget {
                       lastUpdatedLabel,
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: PeeplAppTokens.textSecondary,
                       ),
                     ),
                   ],
@@ -471,7 +466,7 @@ class _FavoriteCard extends StatelessWidget {
               CrowdMeter(level: item.crowdingLevel, size: 56),
               IconButton(
                 onPressed: onDelete,
-                icon: Icon(Icons.delete_outline, color: Colors.grey[500]),
+                icon: Icon(Icons.delete_outline, color: PeeplAppTokens.textMuted),
                 tooltip: 'Remove favorite',
               ),
             ],

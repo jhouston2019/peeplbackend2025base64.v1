@@ -1,4 +1,5 @@
 import 'dart:async';
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -228,7 +229,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             content: Text(
               "Request sent! We'll notify you when someone responds.",
             ),
-            backgroundColor: Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.shellNavy,
           ),
         );
         setState(() {
@@ -316,7 +317,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -325,13 +326,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             _buildSearchBar(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: _uid.isEmpty
                     ? const Center(child: Text('Sign in to ask for crowd updates'))
                     : RefreshIndicator(
@@ -376,7 +371,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Expanded(
             child: Column(
@@ -385,7 +380,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
                 Text(
                   'Ask People Here Now',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -411,7 +406,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
         onChanged: _onSearchChanged,
         onSubmitted: _selectByName,
         textInputAction: TextInputAction.search,
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: PeeplAppTokens.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search for a location...',
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
@@ -427,7 +422,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
                 )
               : null,
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.15),
+          fillColor: PeeplAppTokens.searchField.withValues(alpha: 0.15),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -480,7 +475,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           children: [
             Text(
               'No venues found — press Enter to use "$_searchTerm"',
-              style: TextStyle(color: Colors.grey[600], fontSize: 13),
+              style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 13),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 8),
@@ -509,7 +504,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           final name = post['locationName'] as String? ?? 'Unknown';
           return ListTile(
             contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.place_outlined, color: Color(0xFF1565C0)),
+            leading: const Icon(Icons.place_outlined, color: PeeplAppTokens.accentBlue),
             title: Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
             trailing: const Icon(Icons.chevron_right, size: 18),
             onTap: () => _selectFromPost(post),
@@ -524,9 +519,9 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1565C0).withValues(alpha: 0.06),
+        color: PeeplAppTokens.accentBlue.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.2)),
+        border: Border.all(color: PeeplAppTokens.accentBlue.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -536,10 +531,10 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                  color: PeeplAppTokens.accentBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.location_on, color: Color(0xFF1565C0)),
+                child: const Icon(Icons.location_on, color: PeeplAppTokens.accentBlue),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -551,13 +546,13 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                     ),
                     const SizedBox(height: 2),
                     const Text(
                       'Ask people there now for a crowd update',
-                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                      style: TextStyle(fontSize: 12, color: PeeplAppTokens.textMuted),
                     ),
                   ],
                 ),
@@ -570,8 +565,8 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             child: ElevatedButton(
               onPressed: _sending ? null : _sendRequest,
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF1565C0),
-                foregroundColor: Colors.white,
+                backgroundColor: PeeplAppTokens.shellNavy,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -583,7 +578,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
                       height: 22,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                       ),
                     )
                   : const Text(
@@ -606,7 +601,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -625,7 +620,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             if (snap.hasError) {
               return Text(
                 'Could not load requests',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 13),
               );
             }
 
@@ -635,7 +630,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             if (docs.isEmpty) {
               return Text(
                 'No active requests yet',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 13),
               );
             }
 
@@ -668,7 +663,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -687,7 +682,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             if (snap.hasError) {
               return Text(
                 'Could not load responses',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 13),
               );
             }
 
@@ -697,7 +692,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             if (docs.isEmpty) {
               return Text(
                 'Responses will appear here when someone posts',
-                style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 13),
               );
             }
 
@@ -744,7 +739,7 @@ class _RequestRow extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade200),
+        border: Border.all(color: PeeplAppTokens.cardElevated),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Row(
@@ -762,7 +757,7 @@ class _RequestRow extends StatelessWidget {
                 if (timeLabel.isNotEmpty)
                   Text(
                     timeLabel,
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 11, color: PeeplAppTokens.textSecondary),
                   ),
               ],
             ),
@@ -806,7 +801,7 @@ class _ResponseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         onTap: onTap,
@@ -816,7 +811,7 @@ class _ResponseCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: PeeplAppTokens.cardElevated),
           ),
           child: Row(
             children: [
@@ -831,7 +826,7 @@ class _ResponseCard extends StatelessWidget {
                       style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 14,
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -839,12 +834,12 @@ class _ResponseCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       'From $username',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                     ),
                     if (timeLabel.isNotEmpty)
                       Text(
                         timeLabel,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 11, color: PeeplAppTokens.textMuted),
                       ),
                   ],
                 ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -38,7 +39,7 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   Widget build(BuildContext context) {
     return const Scaffold(
-      backgroundColor: Color(0xFF2244EE),
+      backgroundColor: PeeplAppTokens.background,
       body: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -46,7 +47,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Text(
               'peepl',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 64,
                 fontWeight: FontWeight.bold,
                 fontStyle: FontStyle.italic,
@@ -56,7 +57,7 @@ class _SplashScreenState extends State<SplashScreen> {
             Text(
               'KNOW BEFORE YOU GO',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 14,
                 letterSpacing: 2.5,
               ),

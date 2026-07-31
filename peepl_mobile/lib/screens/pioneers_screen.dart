@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class _PioneerEntry {
   final String locationName;
@@ -161,7 +162,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -170,13 +171,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
             _buildSectionHeader(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: FutureBuilder<List<_PioneerEntry>>(
                   future: _future,
                   builder: (context, snap) {
@@ -187,7 +182,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
                       return Center(
                         child: Text(
                           'Failed to load: ${snap.error}',
-                          style: TextStyle(color: Colors.grey[500]),
+                          style: TextStyle(color: PeeplAppTokens.textMuted),
                         ),
                       );
                     }
@@ -211,12 +206,12 @@ class _PioneersScreenState extends State<PioneersScreen> {
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Text(
             '🏅 Pioneers',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -231,13 +226,13 @@ class _PioneersScreenState extends State<PioneersScreen> {
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: Colors.white),
+        style: const TextStyle(color: PeeplAppTokens.textPrimary),
         decoration: InputDecoration(
           hintText: 'Search locations...',
           hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.6)),
           prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.8)),
           filled: true,
-          fillColor: Colors.white.withValues(alpha: 0.15),
+          fillColor: PeeplAppTokens.searchField.withValues(alpha: 0.15),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
             borderSide: BorderSide.none,
@@ -256,7 +251,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
       child: const Text(
         'First to Peep each venue',
         style: TextStyle(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
@@ -278,7 +273,7 @@ class _PioneersScreenState extends State<PioneersScreen> {
             const SizedBox(height: 12),
             Text(
               message,
-              style: const TextStyle(fontSize: 16, color: Colors.black54),
+              style: const TextStyle(fontSize: 16, color: PeeplAppTokens.textMuted),
               textAlign: TextAlign.center,
             ),
           ],
@@ -382,7 +377,7 @@ class _PioneerRow extends StatelessWidget {
                           (dateLabel.isNotEmpty ? ' · $dateLabel' : ''),
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: PeeplAppTokens.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -402,12 +397,12 @@ class _PioneerRow extends StatelessWidget {
                   fontSize: 16,
                   color: isCurrentUser
                       ? const Color(0xFFB8860B)
-                      : const Color(0xFF1565C0),
+                      : PeeplAppTokens.accentBlue,
                 ),
               ),
               Text(
                 'post${entry.postCount == 1 ? '' : 's'}',
-                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+                style: TextStyle(fontSize: 10, color: PeeplAppTokens.textMuted),
               ),
             ],
           ),
@@ -440,14 +435,14 @@ class _PioneerAvatar extends StatelessWidget {
     final initial = username.isNotEmpty ? username[0].toUpperCase() : '?';
     return CircleAvatar(
       radius: 22,
-      backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+      backgroundColor: PeeplAppTokens.shellNavy.withValues(alpha: 0.15),
       backgroundImage:
           photoUrl != null && photoUrl!.isNotEmpty ? NetworkImage(photoUrl!) : null,
       child: photoUrl == null || photoUrl!.isEmpty
           ? Text(
               initial,
               style: const TextStyle(
-                color: Color(0xFF1565C0),
+                color: PeeplAppTokens.accentBlue,
                 fontWeight: FontWeight.bold,
               ),
             )

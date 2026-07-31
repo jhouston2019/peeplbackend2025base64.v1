@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -479,7 +480,7 @@ class _MerchantAccountInfoScreenState extends State<MerchantAccountInfoScreen> {
               width: 112,
               height: 112,
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.4),
+                color: PeeplAppTokens.textPrimary.withValues(alpha: 0.4),
                 borderRadius: BorderRadius.circular(16),
               ),
               child: const Center(

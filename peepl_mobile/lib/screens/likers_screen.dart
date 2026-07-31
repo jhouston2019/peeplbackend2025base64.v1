@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
@@ -94,7 +95,7 @@ class _LikersScreenState extends State<LikersScreen> {
     final topPad = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: PeeplAppTokens.background,
       body: Column(
         children: [
           _buildHeader(topPad),
@@ -120,7 +121,7 @@ class _LikersScreenState extends State<LikersScreen> {
             : '$count people liked this';
 
         return Container(
-          color: const Color(0xFF2244EE),
+          color: PeeplAppTokens.background,
           padding: EdgeInsets.fromLTRB(0, topPad + 8, 16, 12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -128,14 +129,14 @@ class _LikersScreenState extends State<LikersScreen> {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   Expanded(
                     child: Text(
                       title,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -350,7 +351,7 @@ class _LikerRowState extends State<_LikerRow> {
 
   static Color _avatarColor(String name) {
     const colors = [
-      Color(0xFF1565C0),
+      PeeplAppTokens.accentBlue,
       Color(0xFF388E3C),
       Color(0xFFBF360C),
       Color(0xFF6A1B9A),
@@ -387,7 +388,7 @@ class _LikerRowState extends State<_LikerRow> {
                   ? Text(
                       initial,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
                       ),
@@ -415,7 +416,7 @@ class _LikerRowState extends State<_LikerRow> {
                       '@${user.username}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey[600],
+                        color: PeeplAppTokens.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -435,8 +436,8 @@ class _LikerRowState extends State<_LikerRow> {
                       onPressed: _toggleFollow,
                       style: TextButton.styleFrom(
                         backgroundColor: _isFollowing
-                            ? Colors.grey.shade200
-                            : const Color(0xFF1565C0),
+                            ? PeeplAppTokens.cardElevated
+                            : PeeplAppTokens.accentBlue,
                         foregroundColor: _isFollowing
                             ? Colors.black87
                             : Colors.white,

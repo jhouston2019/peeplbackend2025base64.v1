@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:flutter/material.dart';
 
@@ -51,14 +52,14 @@ class _NoConnectionScreenState extends State<NoConnectionScreen> {
         body: Column(
           children: [
             Container(
-              color: const Color(0xFF2244EE),
+              color: PeeplAppTokens.background,
               width: double.infinity,
               padding: EdgeInsets.only(top: topPadding + 16, bottom: 20),
               child: const Center(
                 child: Text(
                   'peepl',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 32,
                     fontWeight: FontWeight.bold,
                     fontStyle: FontStyle.italic,
@@ -89,7 +90,7 @@ class _NoConnectionScreenState extends State<NoConnectionScreen> {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 15,
-                          color: Color(0xFF666666),
+                          color: PeeplAppTokens.textSecondary,
                           height: 1.6,
                         ),
                       ),
@@ -99,8 +100,8 @@ class _NoConnectionScreenState extends State<NoConnectionScreen> {
                         child: ElevatedButton(
                           onPressed: _checking ? null : _tryAgain,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF2244EE),
-                            foregroundColor: Colors.white,
+                            backgroundColor: PeeplAppTokens.background,
+                            foregroundColor: PeeplAppTokens.textPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -112,7 +113,7 @@ class _NoConnectionScreenState extends State<NoConnectionScreen> {
                                   width: 22,
                                   height: 22,
                                   child: CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: PeeplAppTokens.textPrimary,
                                     strokeWidth: 2.5,
                                   ),
                                 )

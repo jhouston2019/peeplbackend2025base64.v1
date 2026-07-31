@@ -4,6 +4,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/auth_service.dart';
 import '../services/presence_service.dart';
@@ -143,20 +144,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final themeNotifier = Provider.of<ThemeNotifier>(context);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
             _buildAppBar(context),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
                   children: [
@@ -168,7 +163,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Switch(
                         value: themeNotifier.isDarkMode,
                         onChanged: themeNotifier.setDarkMode,
-                        activeColor: const Color(0xFF1565C0),
+                        activeColor: PeeplAppTokens.accentBlue,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -181,7 +176,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Switch(
                         value: _pushEnabled,
                         onChanged: _setPushEnabled,
-                        activeColor: const Color(0xFF1565C0),
+                        activeColor: PeeplAppTokens.accentBlue,
                       ),
                     ),
                     _tile(
@@ -190,7 +185,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       trailing: Switch(
                         value: _locationAlertsEnabled,
                         onChanged: _setLocationAlerts,
-                        activeColor: const Color(0xFF1565C0),
+                        activeColor: PeeplAppTokens.accentBlue,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -240,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         trailing: Switch(
                           value: _locationSharingEnabled,
                           onChanged: _setLocationSharing,
-                          activeColor: const Color(0xFF1565C0),
+                          activeColor: PeeplAppTokens.accentBlue,
                         ),
                       ),
                     ],
@@ -326,13 +321,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const SizedBox(width: 16),
           const Text(
             'Settings',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -350,7 +345,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.w700,
-          color: Colors.grey[500],
+          color: PeeplAppTokens.textMuted,
           letterSpacing: 1.2,
         ),
       ),
@@ -360,7 +355,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _tileIcon(
     IconData icon, {
     Color bgColor = const Color(0xFFE3F2FD),
-    Color iconColor = const Color(0xFF1565C0),
+    Color iconColor = PeeplAppTokens.accentBlue,
   }) {
     return Container(
       width: 40,
@@ -450,7 +445,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     level['label'] as String,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
@@ -479,7 +474,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text(
           'About Peepl',
           style: TextStyle(
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -492,7 +487,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onPressed: () => Navigator.pop(context),
             child: const Text(
               'Close',
-              style: TextStyle(color: Color(0xFF1565C0)),
+              style: TextStyle(color: PeeplAppTokens.accentBlue),
             ),
           ),
         ],

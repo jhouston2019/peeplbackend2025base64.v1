@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/auth_service.dart';
 
@@ -15,7 +16,7 @@ class MenuScreen extends StatelessWidget {
   // ── Palette ───────────────────────────────────────────────────────────────
 
   static const List<List<Color>> _palettes = [
-    [Color(0xFF0D47A1), Color(0xFF1976D2)],
+    [PeeplAppTokens.shellNavy, PeeplAppTokens.accentBlue],
     [Color(0xFF1B5E20), Color(0xFF388E3C)],
     [Color(0xFF4A148C), Color(0xFF7B1FA2)],
     [Color(0xFF004D40), Color(0xFF00796B)],
@@ -42,7 +43,7 @@ class MenuScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -55,13 +56,7 @@ class MenuScreen extends StatelessWidget {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 clipBehavior: Clip.antiAlias,
                 child: _buildNavList(context),
               ),
@@ -78,13 +73,13 @@ class MenuScreen extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: const Icon(Icons.close, color: PeeplAppTokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
             'Menu',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -112,11 +107,11 @@ class MenuScreen extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 22,
-              backgroundColor: Colors.white.withValues(alpha: 0.25),
+              backgroundColor: PeeplAppTokens.background.withValues(alpha: 0.25),
               child: Text(
                 initial,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                 ),
@@ -131,7 +126,7 @@ class MenuScreen extends StatelessWidget {
                   Text(
                     name,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                     ),
@@ -298,7 +293,7 @@ class _NavRow extends StatelessWidget {
             Icon(
               icon,
               size: 22,
-              color: labelColor ?? const Color(0xFF1565C0),
+              color: labelColor ?? PeeplAppTokens.accentBlue,
             ),
             const SizedBox(width: 16),
             Expanded(

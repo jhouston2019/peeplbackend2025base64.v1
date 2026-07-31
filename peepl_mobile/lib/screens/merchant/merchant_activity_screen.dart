@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../theme/peepl_app_tokens.dart';
 
 import '../../services/merchant_pricing_service.dart';
 import '../../widgets/merchant/merchant_empty_state.dart';
@@ -710,7 +711,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
         style: TextStyle(
           fontSize: 10,
           fontWeight: FontWeight.w700,
-          color: Colors.grey.shade600,
+          color: PeeplAppTokens.textSecondary,
         ),
       ),
     );
@@ -723,7 +724,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     final statusColor = _statusColor(ad.status);
 
     return Container(
-      color: isEven ? Colors.white : Colors.grey.shade50,
+      color: isEven ? Colors.white : PeeplAppTokens.card,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -788,9 +789,9 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
 
   Widget _thumbPlaceholder() {
     return ColoredBox(
-      color: Colors.grey.shade200,
+      color: PeeplAppTokens.cardElevated,
       child: Icon(Icons.campaign_outlined,
-          size: 18, color: Colors.grey.shade500),
+          size: 18, color: PeeplAppTokens.card0),
     );
   }
 
@@ -817,11 +818,11 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.06),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -851,7 +852,7 @@ class _MerchantActivityScreenState extends State<MerchantActivityScreen> {
                       '${entry.value} impressions',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Colors.grey.shade600,
+                        color: PeeplAppTokens.textSecondary,
                       ),
                     ),
                   ],

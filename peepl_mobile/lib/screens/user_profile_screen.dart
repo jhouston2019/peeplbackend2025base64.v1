@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
@@ -275,7 +276,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                         selected == reason
                             ? Icons.radio_button_checked
                             : Icons.radio_button_off,
-                        color: const Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                       ),
                       onTap: () => setDialogState(() => selected = reason),
                       dense: true,
@@ -377,8 +378,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
       return Scaffold(
         appBar: AppBar(
           title: const Text('Profile'),
-          backgroundColor: const Color(0xFF1565C0),
-          foregroundColor: Colors.white,
+          backgroundColor: PeeplAppTokens.shellNavy,
+          foregroundColor: PeeplAppTokens.textPrimary,
         ),
         body: const Center(child: Text('User not found')),
       );
@@ -398,7 +399,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -406,13 +407,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _error && _userData == null
@@ -439,9 +434,9 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                                           delegate: _TabBarDelegate(
                                             TabBar(
                                               controller: _tabController,
-                                              labelColor: const Color(0xFF1565C0),
+                                              labelColor: PeeplAppTokens.accentBlue,
                                               unselectedLabelColor: Colors.grey,
-                                              indicatorColor: const Color(0xFF1565C0),
+                                              indicatorColor: PeeplAppTokens.accentBlue,
                                               tabs: [
                                                 const Tab(text: 'Posts'),
                                                 if (_isCurrentUser)
@@ -481,13 +476,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         children: [
           IconButton(
             onPressed: () => Navigator.pop(context),
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           ),
           const Expanded(
             child: Text(
               'Profile',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -496,7 +491,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           if (!_isCurrentUser)
             IconButton(
               onPressed: _showMenu,
-              icon: const Icon(Icons.more_vert, color: Colors.white),
+              icon: const Icon(Icons.more_vert, color: PeeplAppTokens.textPrimary),
             ),
         ],
       ),
@@ -510,7 +505,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         children: [
           const Text(
             'Something went wrong',
-            style: TextStyle(fontSize: 15, color: Colors.black54),
+            style: TextStyle(fontSize: 15, color: PeeplAppTokens.textMuted),
           ),
           TextButton(onPressed: _loadAll, child: const Text('Retry')),
         ],
@@ -532,7 +527,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         children: [
           CircleAvatar(
             radius: 52,
-            backgroundColor: const Color(0xFF1565C0).withValues(alpha: 0.15),
+            backgroundColor: PeeplAppTokens.shellNavy.withValues(alpha: 0.15),
             backgroundImage:
                 photoUrl != null && photoUrl.isNotEmpty
                     ? NetworkImage(photoUrl)
@@ -545,7 +540,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     style: const TextStyle(
                       fontSize: 36,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                     ),
                   )
                 : null,
@@ -556,7 +551,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             style: const TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.bold,
-              color: Colors.black87,
+              color: PeeplAppTokens.textPrimary,
             ),
             textAlign: TextAlign.center,
           ),
@@ -564,7 +559,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             const SizedBox(height: 4),
             Text(
               '@$username',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
             ),
           ],
           if (isVIP) ...[
@@ -588,7 +583,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
-                      color: Colors.black87,
+                      color: PeeplAppTokens.textPrimary,
                     ),
                   ),
                 ],
@@ -610,7 +605,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           const SizedBox(height: 8),
           Text(
             joinDate,
-            style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            style: TextStyle(fontSize: 12, color: PeeplAppTokens.textMuted),
           ),
           const SizedBox(height: 16),
           _buildStatsRow(),
@@ -652,13 +647,13 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: tappable ? const Color(0xFF1565C0) : Colors.black87,
+              color: tappable ? PeeplAppTokens.accentBlue : Colors.black87,
               decoration: tappable ? TextDecoration.underline : null,
-              decorationColor: const Color(0xFF1565C0),
+              decorationColor: PeeplAppTokens.accentBlue,
             ),
           ),
           const SizedBox(height: 2),
-          Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+          Text(label, style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary)),
         ],
       ),
     );
@@ -676,8 +671,8 @@ class _UserProfileScreenState extends State<UserProfileScreen>
             style: TextStyle(fontWeight: FontWeight.w600),
           ),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF1565C0),
-            side: const BorderSide(color: Color(0xFF1565C0)),
+            foregroundColor: PeeplAppTokens.accentBlue,
+            side: const BorderSide(color: PeeplAppTokens.accentBlue),
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -706,7 +701,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
         onPressed: _toggleFollow,
         style: ElevatedButton.styleFrom(
           backgroundColor:
-              _isFollowing ? Colors.grey.shade200 : const Color(0xFF1565C0),
+              _isFollowing ? PeeplAppTokens.cardElevated : PeeplAppTokens.accentBlue,
           foregroundColor:
               _isFollowing ? Colors.black87 : Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 12),
@@ -744,7 +739,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
           return Center(
             child: Text(
               'No posts yet',
-              style: TextStyle(color: Colors.grey[500]),
+              style: TextStyle(color: PeeplAppTokens.textMuted),
             ),
           );
         }
@@ -806,7 +801,7 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 const SizedBox(height: 10),
                 Text(
                   'No favorite venues yet',
-                  style: TextStyle(color: Colors.grey[500]),
+                  style: TextStyle(color: PeeplAppTokens.textMuted),
                 ),
               ],
             ),
@@ -828,12 +823,12 @@ class _UserProfileScreenState extends State<UserProfileScreen>
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.12),
+                  color: PeeplAppTokens.accentBlue.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(
                   Icons.storefront_outlined,
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   size: 20,
                 ),
               ),
@@ -912,7 +907,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     return Material(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       child: tabBar,
     );
   }

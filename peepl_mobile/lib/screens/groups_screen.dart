@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
@@ -62,8 +63,8 @@ class _GroupsScreenState extends State<GroupsScreen>
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF1565C0),
-              foregroundColor: Colors.white,
+              backgroundColor: PeeplAppTokens.shellNavy,
+              foregroundColor: PeeplAppTokens.textPrimary,
             ),
             onPressed: () {
               if (nameCtrl.text.trim().isEmpty) return;
@@ -127,11 +128,11 @@ class _GroupsScreenState extends State<GroupsScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       floatingActionButton: _tabController.index == 0
           ? FloatingActionButton(
-              backgroundColor: Colors.white,
-              foregroundColor: const Color(0xFF1565C0),
+              backgroundColor: PeeplAppTokens.background,
+              foregroundColor: PeeplAppTokens.accentBlue,
               onPressed: _showCreateDialog,
               child: const Icon(Icons.add),
             )
@@ -143,13 +144,7 @@ class _GroupsScreenState extends State<GroupsScreen>
             _buildTabBar(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 clipBehavior: Clip.antiAlias,
                 child: TabBarView(
                   controller: _tabController,
@@ -175,13 +170,13 @@ class _GroupsScreenState extends State<GroupsScreen>
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
+            icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
           const Text(
             '👥  Groups',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 22,
               fontWeight: FontWeight.bold,
             ),
@@ -249,14 +244,14 @@ class _MyGroupsTab extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 17,
                       fontWeight: FontWeight.bold,
-                      color: Colors.black87,
+                      color: PeeplAppTokens.textPrimary,
                     ),
                   ),
                   SizedBox(height: 6),
                   Text(
                     'Create one with + or discover groups to join',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: Colors.black54),
+                    style: TextStyle(fontSize: 13, color: PeeplAppTokens.textMuted),
                   ),
                 ],
               ),
@@ -398,8 +393,8 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
                 label: Text(cat),
                 selected: selected,
                 onSelected: (_) => setState(() => _selectedCategory = cat),
-                selectedColor: const Color(0xFF1565C0).withValues(alpha: 0.2),
-                checkmarkColor: const Color(0xFF1565C0),
+                selectedColor: PeeplAppTokens.accentBlue.withValues(alpha: 0.2),
+                checkmarkColor: PeeplAppTokens.accentBlue,
               );
             },
           ),
@@ -436,7 +431,7 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
                 return const Center(
                   child: Text(
                     'No public groups match your search',
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(color: PeeplAppTokens.textMuted),
                   ),
                 );
               }
@@ -468,7 +463,7 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200,
+                              color: PeeplAppTokens.cardElevated,
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Text(
@@ -482,8 +477,8 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
                         : TextButton(
                             onPressed: () => _joinGroup(doc.id, members),
                             style: TextButton.styleFrom(
-                              backgroundColor: const Color(0xFF1565C0),
-                              foregroundColor: Colors.white,
+                              backgroundColor: PeeplAppTokens.shellNavy,
+                              foregroundColor: PeeplAppTokens.textPrimary,
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 14,
                                 vertical: 6,
@@ -546,7 +541,7 @@ class _GroupCard extends StatelessWidget {
 
   static List<Color> _paletteFor(String name) {
     const palettes = [
-      [Color(0xFF0D47A1), Color(0xFF1976D2)],
+      [PeeplAppTokens.shellNavy, PeeplAppTokens.accentBlue],
       [Color(0xFF1B5E20), Color(0xFF388E3C)],
       [Color(0xFF4A148C), Color(0xFF7B1FA2)],
       [Color(0xFF004D40), Color(0xFF00796B)],
@@ -571,7 +566,7 @@ class _GroupCard extends StatelessWidget {
     final initial = name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return Material(
-      color: Colors.white,
+      color: PeeplAppTokens.textPrimary,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         onTap: onTap,
@@ -580,7 +575,7 @@ class _GroupCard extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: Colors.grey.shade200),
+            border: Border.all(color: PeeplAppTokens.cardElevated),
           ),
           child: Row(
             children: [
@@ -595,7 +590,7 @@ class _GroupCard extends StatelessWidget {
                   child: Text(
                     initial,
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontWeight: FontWeight.bold,
                       fontSize: 20,
                     ),
@@ -619,12 +614,12 @@ class _GroupCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       '$memberCount ${memberCount == 1 ? 'member' : 'members'} · ${_formatActivity(lastActivity)}',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                      style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
                     ),
                     if (category != null && category!.isNotEmpty)
                       Text(
                         category!,
-                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                        style: TextStyle(fontSize: 11, color: PeeplAppTokens.textMuted),
                       ),
                   ],
                 ),
@@ -712,7 +707,7 @@ class _UnreadBadge extends StatelessWidget {
           child: Text(
             count > 99 ? '99+' : '$count',
             style: const TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.bold,
             ),
@@ -814,7 +809,7 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -824,13 +819,13 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                   ),
                   Expanded(
                     child: Text(
                       widget.groupName,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -841,20 +836,14 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _posts.isEmpty
                         ? const Center(
                             child: Text(
                               'No posts from group members yet',
-                              style: TextStyle(color: Colors.black54),
+                              style: TextStyle(color: PeeplAppTokens.textMuted),
                             ),
                           )
                         : RefreshIndicator(
@@ -874,7 +863,7 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                                     (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
                                 return Material(
-                                  color: Colors.white,
+                                  color: PeeplAppTokens.textPrimary,
                                   borderRadius: BorderRadius.circular(12),
                                   child: InkWell(
                                     onTap: () => Navigator.push(
@@ -889,7 +878,7 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
                                         border: Border.all(
-                                          color: Colors.grey.shade200,
+                                          color: PeeplAppTokens.cardElevated,
                                         ),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
@@ -905,14 +894,14 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14,
-                                                    color: Color(0xFF1565C0),
+                                                    color: PeeplAppTokens.accentBlue,
                                                   ),
                                                 ),
                                                 Text(
                                                   'by $username · ${_formatTime(post['timestamp'])}',
                                                   style: TextStyle(
                                                     fontSize: 12,
-                                                    color: Colors.grey[600],
+                                                    color: PeeplAppTokens.textSecondary,
                                                   ),
                                                 ),
                                               ],

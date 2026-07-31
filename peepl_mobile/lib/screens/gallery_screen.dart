@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class GalleryScreen extends StatelessWidget {
   const GalleryScreen({super.key});
@@ -9,7 +10,7 @@ class GalleryScreen extends StatelessWidget {
       body: Column(
         children: [
           Container(
-            color: const Color(0xFF2244EE),
+            color: PeeplAppTokens.background,
             padding: EdgeInsets.fromLTRB(
               0,
               MediaQuery.of(context).padding.top + 8,
@@ -19,14 +20,14 @@ class GalleryScreen extends StatelessWidget {
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                   onPressed: () => Navigator.pop(context),
                 ),
                 const Expanded(
                   child: Text(
                     'Photo Gallery',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),

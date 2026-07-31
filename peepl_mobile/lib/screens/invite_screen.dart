@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class InviteScreen extends StatefulWidget {
   const InviteScreen({super.key});
@@ -63,7 +64,7 @@ class _InviteScreenState extends State<InviteScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
@@ -73,12 +74,12 @@ class _InviteScreenState extends State<InviteScreen> {
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
                   ),
                   const Text(
                     'Invite Friends',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
                     ),
@@ -89,13 +90,7 @@ class _InviteScreenState extends State<InviteScreen> {
             Expanded(
               child: Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
                   child: Column(
@@ -116,7 +111,7 @@ class _InviteScreenState extends State<InviteScreen> {
                         style: TextStyle(
                           fontSize: 26,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       const SizedBox(height: 12),
@@ -126,7 +121,7 @@ class _InviteScreenState extends State<InviteScreen> {
                         style: TextStyle(
                           fontSize: 16,
                           height: 1.45,
-                          color: Colors.grey.shade700,
+                          color: PeeplAppTokens.textSecondary,
                         ),
                       ),
                       const SizedBox(height: 32),
@@ -135,7 +130,7 @@ class _InviteScreenState extends State<InviteScreen> {
                         style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xFF1565C0),
+                          color: PeeplAppTokens.accentBlue,
                         ),
                       ),
                       const SizedBox(height: 28),
@@ -152,8 +147,8 @@ class _InviteScreenState extends State<InviteScreen> {
                             ),
                           ),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1565C0),
-                            foregroundColor: Colors.white,
+                            backgroundColor: PeeplAppTokens.shellNavy,
+                            foregroundColor: PeeplAppTokens.textPrimary,
                             padding: const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),
@@ -175,8 +170,8 @@ class _InviteScreenState extends State<InviteScreen> {
                             ),
                           ),
                           style: OutlinedButton.styleFrom(
-                            foregroundColor: const Color(0xFF1565C0),
-                            side: const BorderSide(color: Color(0xFF1565C0)),
+                            foregroundColor: PeeplAppTokens.accentBlue,
+                            side: const BorderSide(color: PeeplAppTokens.accentBlue),
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(14),

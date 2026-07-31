@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -135,7 +136,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'new_post_nearby':
         return const Icon(Icons.location_on, color: Colors.green, size: 22);
       default:
-        return Icon(Icons.notifications, color: Colors.grey.shade600, size: 22);
+        return Icon(Icons.notifications, color: PeeplAppTokens.textSecondary, size: 22);
     }
   }
 
@@ -285,10 +286,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FB),
+      backgroundColor: PeeplAppTokens.background,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF2244EE),
-        foregroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.background,
+        foregroundColor: PeeplAppTokens.textPrimary,
         title: const Text(
           'Notifications',
           style: TextStyle(fontWeight: FontWeight.bold),
@@ -299,7 +300,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             child: const Text(
               'Mark all as read',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -363,7 +364,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.grey.shade700,
+                      color: PeeplAppTokens.textSecondary,
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -432,7 +433,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     _relativeTime(timestamp),
                     style: TextStyle(
                       fontSize: 11,
-                      color: Colors.grey.shade500,
+                      color: PeeplAppTokens.card0,
                     ),
                   ),
                   if (!isRead) ...[
@@ -441,7 +442,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       width: 8,
                       height: 8,
                       decoration: const BoxDecoration(
-                        color: Color(0xFF2244EE),
+                        color: PeeplAppTokens.background,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -465,7 +466,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Icon(
               Icons.notifications_none,
               size: 56,
-              color: Colors.grey.shade400,
+              color: PeeplAppTokens.textMuted,
             ),
             const SizedBox(height: 16),
             const Text(
@@ -480,7 +481,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             Text(
               "We'll notify you when something happens near your favourite spots.",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+              style: TextStyle(fontSize: 13, color: PeeplAppTokens.textSecondary),
             ),
           ],
         ),

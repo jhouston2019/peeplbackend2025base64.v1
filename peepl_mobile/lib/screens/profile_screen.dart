@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/auth_service.dart';
 import 'location_detail_screen.dart';
@@ -36,20 +37,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
             _buildAppBar(context),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
@@ -76,19 +71,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const Text(
             'Profile',
             style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 24,
                 fontWeight: FontWeight.bold),
           ),
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/settings'),
             child: const Icon(Icons.settings_outlined,
-                color: Colors.white, size: 28),
+                color: PeeplAppTokens.textPrimary, size: 28),
           ),
         ],
       ),
@@ -106,11 +101,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           CircleAvatar(
             radius: 48,
-            backgroundColor: const Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.shellNavy,
             child: Text(
               username.isNotEmpty ? username[0].toUpperCase() : 'P',
               style: const TextStyle(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   fontSize: 40,
                   fontWeight: FontWeight.bold),
             ),
@@ -121,13 +116,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
-                color: Color(0xFF1565C0)),
+                color: PeeplAppTokens.accentBlue),
           ),
           if (email.isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(
               email,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
             ),
           ],
           const SizedBox(height: 20),
@@ -140,7 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onPressed: () =>
                       Navigator.pushNamed(context, '/account_info'),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFF1565C0)),
+                    side: const BorderSide(color: PeeplAppTokens.accentBlue),
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(10)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
@@ -148,7 +143,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: const Text(
                     'Edit Profile',
                     style: TextStyle(
-                        color: Color(0xFF1565C0),
+                        color: PeeplAppTokens.accentBlue,
                         fontWeight: FontWeight.w600),
                   ),
                 ),
@@ -181,16 +176,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/vip_peeps'),
-              icon: const Icon(Icons.star_outline, color: Color(0xFF1565C0)),
+              icon: const Icon(Icons.star_outline, color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Go VIPeeps',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -203,16 +198,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/favorites'),
-              icon: const Icon(Icons.star_outline, color: Color(0xFF1565C0)),
+              icon: const Icon(Icons.star_outline, color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Favorites',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -225,16 +220,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/groups'),
-              icon: const Icon(Icons.groups_outlined, color: Color(0xFF1565C0)),
+              icon: const Icon(Icons.groups_outlined, color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Groups',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -248,16 +243,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/invite'),
               icon: const Icon(Icons.person_add_outlined,
-                  color: Color(0xFF1565C0)),
+                  color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Invite Friends',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -271,16 +266,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/gallery'),
               icon: const Icon(Icons.photo_library_outlined,
-                  color: Color(0xFF1565C0)),
+                  color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Photo Gallery',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -293,16 +288,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: double.infinity,
             child: OutlinedButton.icon(
               onPressed: () => Navigator.pushNamed(context, '/share'),
-              icon: const Icon(Icons.share_outlined, color: Color(0xFF1565C0)),
+              icon: const Icon(Icons.share_outlined, color: PeeplAppTokens.accentBlue),
               label: const Text(
                 'Share this app',
                 style: TextStyle(
-                  color: Color(0xFF1565C0),
+                  color: PeeplAppTokens.accentBlue,
                   fontWeight: FontWeight.w600,
                 ),
               ),
               style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -331,11 +326,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               style: const TextStyle(
                   fontSize: 32,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xFF1565C0)),
+                  color: PeeplAppTokens.accentBlue),
             ),
             Text(
               count == 1 ? 'Post' : 'Posts',
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
             ),
           ],
         );
@@ -367,8 +362,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
               ),
               style: OutlinedButton.styleFrom(
-                foregroundColor: const Color(0xFF1565C0),
-                side: const BorderSide(color: Color(0xFF1565C0)),
+                foregroundColor: PeeplAppTokens.accentBlue,
+                side: const BorderSide(color: PeeplAppTokens.accentBlue),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -402,7 +397,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   padding: EdgeInsets.all(32),
                   child: CircularProgressIndicator(
                     valueColor: AlwaysStoppedAnimation<Color>(
-                        Color(0xFF1565C0)),
+                        PeeplAppTokens.accentBlue),
                   ),
                 ),
               );
@@ -416,7 +411,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       Icon(Icons.add_location_alt_outlined,
-                          size: 64, color: Colors.grey[300]),
+                          size: 64, color: PeeplAppTokens.cardElevated),
                       const SizedBox(height: 16),
                       const Text('No posts yet',
                           style:
@@ -464,11 +459,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.07),
+              color: PeeplAppTokens.textPrimary.withOpacity(0.07),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -509,7 +504,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text(
                         post['description'] as String,
                         style: TextStyle(
-                            fontSize: 13, color: Colors.grey[600]),
+                            fontSize: 13, color: PeeplAppTokens.textSecondary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -548,7 +543,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Text(
                     crowdingLevel.toString(),
                     style: const TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold),
                   ),
@@ -624,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(
               'VIPeeps Active',
               style: TextStyle(
-                color: Colors.black,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 15,
               ),
@@ -636,7 +631,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Text(
               '$label · Manage',
               style: const TextStyle(
-                color: Colors.black87,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 12,
                 decoration: TextDecoration.underline,
               ),

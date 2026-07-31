@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class SignUpConfirmedScreen extends StatefulWidget {
   const SignUpConfirmedScreen({super.key});
@@ -63,7 +64,7 @@ class _SignUpConfirmedScreenState extends State<SignUpConfirmedScreen>
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: const Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         body: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 32),
@@ -87,7 +88,7 @@ class _SignUpConfirmedScreenState extends State<SignUpConfirmedScreen>
                   'Welcome to Peepl, $_username! 👋',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 26,
                     fontWeight: FontWeight.bold,
                     height: 1.25,
@@ -110,7 +111,7 @@ class _SignUpConfirmedScreenState extends State<SignUpConfirmedScreen>
                           child: Text(
                             point,
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: PeeplAppTokens.textPrimary,
                               fontSize: 15,
                               height: 1.45,
                             ),
@@ -130,8 +131,8 @@ class _SignUpConfirmedScreenState extends State<SignUpConfirmedScreen>
                       '/onboarding',
                     ),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: const Color(0xFF1565C0),
+                      backgroundColor: PeeplAppTokens.background,
+                      foregroundColor: PeeplAppTokens.accentBlue,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),

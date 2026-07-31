@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../../theme/peepl_app_tokens.dart';
 
 import '../../services/merchant_pricing_service.dart';
 import '../../widgets/merchant/merchant_billing_card.dart';
@@ -20,7 +21,7 @@ class MerchantAccountNumberScreen extends StatefulWidget {
 
 class _MerchantAccountNumberScreenState
     extends State<MerchantAccountNumberScreen> {
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _blue = PeeplAppTokens.accentBlue;
 
   final _emailCtrl = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -217,7 +218,7 @@ class _MerchantAccountNumberScreenState
                   _planPricing,
                   style: TextStyle(
                     fontSize: 14,
-                    color: Colors.grey.shade600,
+                    color: PeeplAppTokens.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -270,7 +271,7 @@ class _MerchantAccountNumberScreenState
                   child: const Text(
                     'stripe',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: PeeplAppTokens.textPrimary,
                       fontWeight: FontWeight.w800,
                       fontSize: 13,
                       letterSpacing: 0.5,
@@ -314,7 +315,7 @@ class _MerchantAccountNumberScreenState
               label: const Text('Add Payment Method'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: PeeplMerchantTokens.accentBlue,
-                foregroundColor: Colors.white,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(14),
                 ),
@@ -360,7 +361,7 @@ class _MerchantAccountNumberScreenState
                     onPressed: _submittingWaitlist ? null : _submitWaitlist,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: PeeplMerchantTokens.accentBlue,
-                      foregroundColor: Colors.white,
+                      foregroundColor: PeeplAppTokens.textPrimary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
@@ -373,7 +374,7 @@ class _MerchantAccountNumberScreenState
                             height: 18,
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
-                              color: Colors.white,
+                              color: PeeplAppTokens.textPrimary,
                             ),
                           )
                         : const Text(

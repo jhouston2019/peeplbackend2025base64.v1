@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../theme/peepl_app_tokens.dart';
 
 class ReportScreen extends StatefulWidget {
   const ReportScreen({
@@ -132,7 +133,7 @@ class _ReportScreenState extends State<ReportScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -141,13 +142,7 @@ class _ReportScreenState extends State<ReportScreen> {
             _buildStrip(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -163,7 +158,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
-                                color: Colors.black87,
+                                color: PeeplAppTokens.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 16),
@@ -193,7 +188,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: Color(0xFF1565C0),
+                                color: PeeplAppTokens.accentBlue,
                               ),
                             ),
                             const SizedBox(height: 8),
@@ -213,7 +208,7 @@ class _ReportScreenState extends State<ReportScreen> {
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.grey[600],
+                                color: PeeplAppTokens.textSecondary,
                                 height: 1.45,
                               ),
                             ),
@@ -239,14 +234,14 @@ class _ReportScreenState extends State<ReportScreen> {
       child: Row(
         children: [
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white),
+            icon: const Icon(Icons.close, color: PeeplAppTokens.textPrimary),
             onPressed: () => Navigator.pop(context),
           ),
           const Expanded(
             child: Text(
               'Report Content',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
               ),
@@ -266,7 +261,7 @@ class _ReportScreenState extends State<ReportScreen> {
       child: const Text(
         'Report Content',
         style: TextStyle(
-          color: Colors.white,
+          color: PeeplAppTokens.textPrimary,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
@@ -283,7 +278,7 @@ class _ReportScreenState extends State<ReportScreen> {
         child: ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.red,
-            foregroundColor: Colors.white,
+            foregroundColor: PeeplAppTokens.textPrimary,
             disabledBackgroundColor: Colors.red.withValues(alpha: 0.45),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -297,7 +292,7 @@ class _ReportScreenState extends State<ReportScreen> {
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                   ),
                 )
               : const Text(
@@ -334,7 +329,7 @@ class _ReasonRow extends StatelessWidget {
               selected
                   ? Icons.radio_button_checked
                   : Icons.radio_button_off,
-              color: selected ? const Color(0xFF1565C0) : Colors.grey,
+              color: selected ? PeeplAppTokens.accentBlue : Colors.grey,
               size: 22,
             ),
             const SizedBox(width: 12),
@@ -343,7 +338,7 @@ class _ReasonRow extends StatelessWidget {
                 label,
                 style: TextStyle(
                   fontSize: 15,
-                  color: selected ? const Color(0xFF1565C0) : Colors.black87,
+                  color: selected ? PeeplAppTokens.accentBlue : Colors.black87,
                   fontWeight:
                       selected ? FontWeight.w600 : FontWeight.normal,
                 ),

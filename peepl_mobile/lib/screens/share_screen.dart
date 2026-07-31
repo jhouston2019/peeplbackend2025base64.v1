@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_dot_ring_meter.dart';
 
@@ -149,7 +150,7 @@ class _ShareScreenState extends State<ShareScreen> {
     ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -159,14 +160,14 @@ class _ShareScreenState extends State<ShareScreen> {
               child: Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close, color: Colors.white),
+                    icon: const Icon(Icons.close, color: PeeplAppTokens.textPrimary),
                     onPressed: () => Navigator.pop(context),
                   ),
                   const Expanded(
                     child: Text(
                       'Share',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -179,13 +180,7 @@ class _ShareScreenState extends State<ShareScreen> {
             ),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(22),
-                    topRight: Radius.circular(22),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -198,7 +193,7 @@ class _ShareScreenState extends State<ShareScreen> {
                             'Spread the word',
                             style: TextStyle(
                               fontSize: 15,
-                              color: Colors.grey[600],
+                              color: PeeplAppTokens.textSecondary,
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -217,7 +212,7 @@ class _ShareScreenState extends State<ShareScreen> {
                         color: const Color(0xFFF5F8FF),
                         border: Border(
                           top: BorderSide(
-                            color: Colors.grey.shade200,
+                            color: PeeplAppTokens.cardElevated,
                           ),
                         ),
                       ),
@@ -227,7 +222,7 @@ class _ShareScreenState extends State<ShareScreen> {
                           Icon(
                             Icons.people_outline,
                             size: 20,
-                            color: Colors.grey.shade600,
+                            color: PeeplAppTokens.textSecondary,
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -236,7 +231,7 @@ class _ShareScreenState extends State<ShareScreen> {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xFF1565C0),
+                              color: PeeplAppTokens.accentBlue,
                             ),
                           ),
                         ],
@@ -273,12 +268,12 @@ class _ShareCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: PeeplAppTokens.textPrimary,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF1565C0).withValues(alpha: 0.2)),
+        border: Border.all(color: PeeplAppTokens.accentBlue.withValues(alpha: 0.2)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
+            color: PeeplAppTokens.textPrimary.withValues(alpha: 0.06),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -293,10 +288,10 @@ class _ShareCard extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0).withValues(alpha: 0.1),
+                  color: PeeplAppTokens.accentBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: const Color(0xFF1565C0), size: 24),
+                child: Icon(icon, color: PeeplAppTokens.accentBlue, size: 24),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -305,7 +300,7 @@ class _ShareCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
-                    color: Color(0xFF1565C0),
+                    color: PeeplAppTokens.accentBlue,
                   ),
                 ),
               ),
@@ -317,7 +312,7 @@ class _ShareCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 14,
               height: 1.45,
-              color: Colors.grey.shade700,
+              color: PeeplAppTokens.textSecondary,
             ),
           ),
           const SizedBox(height: 16),
@@ -332,8 +327,8 @@ class _ShareCard extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.bold),
                   ),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1565C0),
-                    foregroundColor: Colors.white,
+                    backgroundColor: PeeplAppTokens.shellNavy,
+                    foregroundColor: PeeplAppTokens.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -352,8 +347,8 @@ class _ShareCard extends StatelessWidget {
                     style: TextStyle(fontWeight: FontWeight.w600),
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF1565C0),
-                    side: const BorderSide(color: Color(0xFF1565C0)),
+                    foregroundColor: PeeplAppTokens.accentBlue,
+                    side: const BorderSide(color: PeeplAppTokens.accentBlue),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),

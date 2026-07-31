@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
@@ -437,7 +438,7 @@ class _PostScreenState extends State<PostScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             ListTile(
-              leading: Icon(Icons.camera_alt, color: Color(0xFF1565C0)),
+              leading: Icon(Icons.camera_alt, color: PeeplAppTokens.accentBlue),
               title: Text('Take a Photo'),
               onTap: () {
                 Navigator.pop(context);
@@ -445,7 +446,7 @@ class _PostScreenState extends State<PostScreen> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.photo_library, color: Color(0xFF1565C0)),
+              leading: Icon(Icons.photo_library, color: PeeplAppTokens.accentBlue),
               title: Text('Choose from Gallery'),
               onTap: () {
                 Navigator.pop(context);
@@ -674,7 +675,7 @@ class _PostScreenState extends State<PostScreen> {
           icon: const Icon(Icons.add_a_photo_outlined),
           label: const Text('Add photo'),
           style: OutlinedButton.styleFrom(
-            foregroundColor: const Color(0xFF1565C0),
+            foregroundColor: PeeplAppTokens.accentBlue,
             padding: const EdgeInsets.symmetric(vertical: 14),
           ),
         ),
@@ -705,10 +706,10 @@ class _PostScreenState extends State<PostScreen> {
             child: Text(
               '✓ Photo selected',
               style: TextStyle(
-                color: Colors.white,
+                color: PeeplAppTokens.textPrimary,
                 fontWeight: FontWeight.bold,
                 fontSize: 14,
-                shadows: [Shadow(blurRadius: 4, color: Colors.black87)],
+                shadows: [Shadow(blurRadius: 4, color: PeeplAppTokens.textPrimary)],
               ),
             ),
           ),
@@ -729,14 +730,14 @@ class _PostScreenState extends State<PostScreen> {
               child: const Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.edit, size: 11, color: Color(0xFF1565C0)),
+                  Icon(Icons.edit, size: 11, color: PeeplAppTokens.accentBlue),
                   SizedBox(width: 3),
                   Text(
                     'Change',
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF1565C0),
+                      color: PeeplAppTokens.accentBlue,
                     ),
                   ),
                 ],
@@ -753,10 +754,10 @@ class _PostScreenState extends State<PostScreen> {
             child: Container(
               padding: const EdgeInsets.all(3),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.55),
+                color: PeeplAppTokens.textPrimary.withValues(alpha: 0.55),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.close, color: Colors.white, size: 13),
+              child: const Icon(Icons.close, color: PeeplAppTokens.textPrimary, size: 13),
             ),
           ),
         ),
@@ -790,20 +791,14 @@ class _PostScreenState extends State<PostScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
         child: Column(
           children: [
             _buildAppBar(),
             Expanded(
               child: Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.only(
-                    topLeft: Radius.circular(24),
-                    topRight: Radius.circular(24),
-                  ),
-                ),
+                decoration: PeeplAppTokens.shellBodyDecoration(),
                 child: SingleChildScrollView(
                   padding: const EdgeInsets.all(24),
                   child: Form(
@@ -837,7 +832,7 @@ class _PostScreenState extends State<PostScreen> {
                                         style: TextStyle(
                                           fontSize: 11,
                                           fontWeight: FontWeight.w600,
-                                          color: Colors.grey[600],
+                                          color: PeeplAppTokens.textSecondary,
                                           letterSpacing: 0.2,
                                         ),
                                       ),
@@ -850,10 +845,10 @@ class _PostScreenState extends State<PostScreen> {
                                           return FilterChip(
                                             label: Text(t),
                                             selected: sel,
-                                            selectedColor: const Color(0xFF1565C0)
+                                            selectedColor: PeeplAppTokens.accentBlue
                                                 .withValues(alpha: 0.25),
                                             checkmarkColor:
-                                                const Color(0xFF1565C0),
+                                                PeeplAppTokens.accentBlue,
                                             onSelected: _isLoading
                                                 ? null
                                                 : (on) {
@@ -1055,7 +1050,7 @@ class _PostScreenState extends State<PostScreen> {
                                 icon: const Icon(Icons.videocam_outlined),
                                 label: const Text('Add video'),
                                 style: OutlinedButton.styleFrom(
-                                  foregroundColor: const Color(0xFF1565C0),
+                                  foregroundColor: PeeplAppTokens.accentBlue,
                                   padding: const EdgeInsets.symmetric(
                                     vertical: 14,
                                   ),
@@ -1087,15 +1082,15 @@ class _PostScreenState extends State<PostScreen> {
                           child: ElevatedButton(
                             onPressed: _isLoading ? null : _submitPost,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF1565C0),
-                              foregroundColor: Colors.white,
+                              backgroundColor: PeeplAppTokens.shellNavy,
+                              foregroundColor: PeeplAppTokens.textPrimary,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
                             ),
                             child: _isLoading
                                 ? const CircularProgressIndicator(
-                                    color: Colors.white,
+                                    color: PeeplAppTokens.textPrimary,
                                   )
                                 : const Text(
                                     'Post Update',
@@ -1121,7 +1116,7 @@ class _PostScreenState extends State<PostScreen> {
 
   Widget _buildQuickPeepBanner() {
     return Material(
-      color: const Color(0xFF0D47A1),
+      color: PeeplAppTokens.shellNavy,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
@@ -1150,7 +1145,7 @@ class _PostScreenState extends State<PostScreen> {
                   color: Colors.white.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(Icons.flash_on, color: Colors.white),
+                child: const Icon(Icons.flash_on, color: PeeplAppTokens.textPrimary),
               ),
               const SizedBox(width: 14),
               const Expanded(
@@ -1160,7 +1155,7 @@ class _PostScreenState extends State<PostScreen> {
                     Text(
                       'Quick Peep',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: PeeplAppTokens.textPrimary,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1194,13 +1189,13 @@ class _PostScreenState extends State<PostScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const SizedBox(width: 16),
           const Text(
             'Post Update',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1216,7 +1211,7 @@ class _PostScreenState extends State<PostScreen> {
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF1565C0),
+        color: PeeplAppTokens.accentBlue,
       ),
     );
   }
@@ -1231,7 +1226,7 @@ class _PostScreenState extends State<PostScreen> {
     return Container(
       margin: const EdgeInsets.only(top: 8),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: PeeplAppTokens.cardElevated!),
         borderRadius: BorderRadius.circular(12),
       ),
       child: TextFormField(
@@ -1258,7 +1253,7 @@ class _PostScreenState extends State<PostScreen> {
         Container(
           margin: const EdgeInsets.only(top: 8),
           decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey[300]!),
+            border: Border.all(color: PeeplAppTokens.cardElevated!),
             borderRadius: BorderRadius.circular(12),
           ),
           child: TextFormField(
@@ -1337,7 +1332,7 @@ class _PostScreenState extends State<PostScreen> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey[800],
+                color: PeeplAppTokens.textSecondary,
               ),
             ),
           ],
@@ -1357,11 +1352,11 @@ class _PostScreenState extends State<PostScreen> {
           children: [
             Text(
               'More female',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
             ),
             Text(
               'More male',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
             ),
           ],
         ),
@@ -1383,7 +1378,7 @@ class _PostScreenState extends State<PostScreen> {
               style: TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey[800],
+                color: PeeplAppTokens.textSecondary,
               ),
             ),
           ],
@@ -1403,11 +1398,11 @@ class _PostScreenState extends State<PostScreen> {
           children: [
             Text(
               'More kids',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
             ),
             Text(
               'More adults',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
             ),
           ],
         ),
@@ -1434,12 +1429,12 @@ class _PostScreenState extends State<PostScreen> {
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
               color: selected
-                  ? const Color(0xFF1565C0)
+                  ? PeeplAppTokens.accentBlue
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: selected
-                    ? const Color(0xFF1565C0)
+                    ? PeeplAppTokens.accentBlue
                     : Colors.grey.shade300,
                 width: 1.5,
               ),
@@ -1486,7 +1481,7 @@ class _PostScreenState extends State<PostScreen> {
                 child: Text(
                   _crowdingLevel.toString(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
@@ -1509,12 +1504,12 @@ class _PostScreenState extends State<PostScreen> {
           children: [
             Text(
               '1\nEmpty',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
               textAlign: TextAlign.center,
             ),
             Text(
               '10\nPacked',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 12, color: PeeplAppTokens.textSecondary),
               textAlign: TextAlign.center,
             ),
           ],
@@ -1535,7 +1530,7 @@ class _PostScreenState extends State<PostScreen> {
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Colors.grey[800],
+            color: PeeplAppTokens.textSecondary,
           ),
         ),
         Slider(
@@ -1560,7 +1555,7 @@ class _PostScreenState extends State<PostScreen> {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: PeeplAppTokens.cardElevated!),
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey[50],
       ),
@@ -1572,7 +1567,7 @@ class _PostScreenState extends State<PostScreen> {
             style: const TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1565C0),
+              color: PeeplAppTokens.accentBlue,
             ),
           ),
           const SizedBox(height: 12),
@@ -1602,12 +1597,12 @@ class _PostScreenState extends State<PostScreen> {
                 const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
             decoration: BoxDecoration(
               color: isSelected
-                  ? const Color(0xFF1565C0)
+                  ? PeeplAppTokens.accentBlue
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(20),
               border: Border.all(
                 color: isSelected
-                    ? const Color(0xFF1565C0)
+                    ? PeeplAppTokens.accentBlue
                     : Colors.grey.shade300,
                 width: 1.5,
               ),
@@ -1645,7 +1640,7 @@ class _PostScreenState extends State<PostScreen> {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF1565C0),
+                color: PeeplAppTokens.accentBlue,
               ),
             ),
             Text(
@@ -1653,7 +1648,7 @@ class _PostScreenState extends State<PostScreen> {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
-                color: Colors.grey[800],
+                color: PeeplAppTokens.textSecondary,
               ),
             ),
           ],
@@ -1702,7 +1697,7 @@ class _PostScreenState extends State<PostScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -1726,7 +1721,7 @@ class _PostScreenState extends State<PostScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -1741,7 +1736,7 @@ class _PostScreenState extends State<PostScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -1764,7 +1759,7 @@ class _PostScreenState extends State<PostScreen> {
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
-            color: Color(0xFF1565C0),
+            color: PeeplAppTokens.accentBlue,
           ),
         ),
         const SizedBox(height: 8),
@@ -1780,7 +1775,7 @@ class _PostScreenState extends State<PostScreen> {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Color(0xFF1565C0),
+              color: PeeplAppTokens.accentBlue,
             ),
           ),
           const SizedBox(height: 8),

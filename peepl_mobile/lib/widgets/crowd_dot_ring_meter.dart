@@ -1,4 +1,5 @@
 import 'dart:math' as math;
+import '../theme/peepl_app_tokens.dart';
 
 import 'package:flutter/material.dart';
 
@@ -29,7 +30,7 @@ class CrowdDotRingMeter extends StatelessWidget {
   static Color filledDotColor(int l) {
     final v = clampLevel(l);
     if (v <= 4) return const Color(0xFFECEFF1);
-    if (v <= 6) return const Color(0xFF1565C0);
+    if (v <= 6) return PeeplAppTokens.accentBlue;
     return const Color(0xFFC62828);
   }
 
@@ -62,7 +63,7 @@ class CrowdDotRingMeter extends StatelessWidget {
             label,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 11,
               fontWeight: FontWeight.bold,
               height: 1.05,
@@ -70,7 +71,7 @@ class CrowdDotRingMeter extends StatelessWidget {
                 Shadow(
                   offset: Offset(0, 1),
                   blurRadius: 5,
-                  color: Colors.black87,
+                  color: PeeplAppTokens.textPrimary,
                 ),
               ],
             ),

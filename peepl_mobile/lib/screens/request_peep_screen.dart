@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../theme/peepl_app_tokens.dart';
 
 class RequestPeepScreen extends StatefulWidget {
   const RequestPeepScreen({Key? key}) : super(key: key);
@@ -112,7 +113,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
           SnackBar(
             content: Text(
                 'Request sent! Nearby users will be notified for 1 hour.'),
-            backgroundColor: Color(0xFF1565C0),
+            backgroundColor: PeeplAppTokens.shellNavy,
             duration: Duration(seconds: 3),
           ),
         );
@@ -135,18 +136,18 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Color(0xFF1565C0),
+      backgroundColor: PeeplAppTokens.shellNavy,
       appBar: AppBar(
-        backgroundColor: Color(0xFF1565C0),
+        backgroundColor: PeeplAppTokens.shellNavy,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.white),
+          icon: Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           'Request a Peep',
           style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontWeight: FontWeight.bold,
               fontSize: 20),
         ),
@@ -162,7 +163,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
               Text(
                 'Where do you want a peep?',
                 style: TextStyle(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     fontSize: 22,
                     fontWeight: FontWeight.bold),
               ),
@@ -177,11 +178,11 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
               // Search field
               Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: PeeplAppTokens.textPrimary,
                   borderRadius: BorderRadius.circular(14),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: PeeplAppTokens.textPrimary.withOpacity(0.1),
                       blurRadius: 8,
                       offset: Offset(0, 2),
                     ),
@@ -190,12 +191,12 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                 child: TextField(
                   controller: _locationController,
                   focusNode: _focusNode,
-                  style: TextStyle(fontSize: 16, color: Colors.black87),
+                  style: TextStyle(fontSize: 16, color: PeeplAppTokens.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Search for a place...',
                     hintStyle: TextStyle(color: Colors.grey[400]),
                     prefixIcon:
-                        Icon(Icons.search, color: Color(0xFF1565C0)),
+                        Icon(Icons.search, color: PeeplAppTokens.accentBlue),
                     suffixIcon: _isSearching
                         ? Padding(
                             padding: EdgeInsets.all(12),
@@ -204,7 +205,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                               height: 16,
                               child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  color: Color(0xFF1565C0)),
+                                  color: PeeplAppTokens.accentBlue),
                             ),
                           )
                         : _locationController.text.isNotEmpty
@@ -242,11 +243,11 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                 Container(
                   margin: EdgeInsets.only(top: 4),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: PeeplAppTokens.textPrimary,
                     borderRadius: BorderRadius.circular(14),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: PeeplAppTokens.textPrimary.withOpacity(0.1),
                         blurRadius: 8,
                         offset: Offset(0, 2),
                       ),
@@ -256,11 +257,11 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                     children: _suggestions.map((place) {
                       return ListTile(
                         leading: Icon(Icons.location_on,
-                            color: Color(0xFF1565C0), size: 20),
+                            color: PeeplAppTokens.accentBlue, size: 20),
                         title: Text(
                           place['name'] as String,
                           style: TextStyle(
-                              fontSize: 14, color: Colors.black87),
+                              fontSize: 14, color: PeeplAppTokens.textPrimary),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -291,7 +292,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                         child: Text(
                           _selectedPlace!['name'] as String,
                           style: TextStyle(
-                              color: Colors.white, fontSize: 14),
+                              color: PeeplAppTokens.textPrimary, fontSize: 14),
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -356,7 +357,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                           width: 22,
                           height: 22,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.black),
+                              strokeWidth: 2, color: PeeplAppTokens.textPrimary),
                         )
                       : Row(
                           mainAxisAlignment: MainAxisAlignment.center,

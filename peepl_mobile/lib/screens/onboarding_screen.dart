@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_meter.dart';
 
@@ -18,7 +19,7 @@ class OnboardingScreen extends StatefulWidget {
 
 class _OnboardingScreenState extends State<OnboardingScreen>
     with TickerProviderStateMixin {
-  static const _kBlue = Color(0xFF2244EE);
+  static const _kBlue = PeeplAppTokens.accentBlue;
 
   late final PageController _pageController;
   late final AnimationController _pulseController;
@@ -125,7 +126,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
     return PopScope(
       canPop: false,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: PeeplAppTokens.background,
         body: SafeArea(
           child: Column(
             children: [
@@ -166,7 +167,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
-                color: Color(0xFF666666),
+                color: PeeplAppTokens.textSecondary,
               ),
             ),
           ),
@@ -201,7 +202,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             width: active ? 20 : 8,
             height: 8,
             decoration: BoxDecoration(
-              color: active ? _kBlue : const Color(0xFFCCCCCC),
+              color: active ? _kBlue : PeeplAppTokens.textMuted,
               borderRadius: BorderRadius.circular(4),
             ),
           );
@@ -235,7 +236,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               onPressed: _onNext,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kBlue,
-                foregroundColor: Colors.white,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -264,7 +265,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
           const Text(
             'peepl',
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 56,
               fontWeight: FontWeight.bold,
               fontStyle: FontStyle.italic,
@@ -275,7 +276,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'Know Before You Go',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white,
+              color: PeeplAppTokens.textPrimary,
               fontSize: 28,
               fontWeight: FontWeight.bold,
             ),
@@ -341,7 +342,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'what to expect before you walk in.',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.grey.shade700,
+              color: PeeplAppTokens.textSecondary,
               height: 1.55,
             ),
           ),
@@ -372,7 +373,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
   Widget _buildStepArrow() {
     return Padding(
       padding: const EdgeInsets.only(left: 12, top: 6, bottom: 6),
-      child: Icon(Icons.arrow_downward, color: Colors.grey.shade400, size: 20),
+      child: Icon(Icons.arrow_downward, color: PeeplAppTokens.textMuted, size: 20),
     );
   }
 
@@ -395,7 +396,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             'Post a quick crowd report and help others know before they go',
             style: TextStyle(
               fontSize: 15,
-              color: Colors.grey.shade700,
+              color: PeeplAppTokens.textSecondary,
               height: 1.5,
             ),
           ),
@@ -419,7 +420,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+                  colors: [PeeplAppTokens.accentBlue, PeeplAppTokens.shellNavy],
                 ),
               ),
             ),
@@ -448,14 +449,14 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                         const Text(
                           'The Rooftop Bar',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: PeeplAppTokens.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             shadows: [
                               Shadow(
                                 offset: Offset(0, 1),
                                 blurRadius: 4,
-                                color: Colors.black54,
+                                color: PeeplAppTokens.textMuted,
                               ),
                             ],
                           ),
@@ -470,7 +471,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
                               Shadow(
                                 offset: Offset(0, 1),
                                 blurRadius: 4,
-                                color: Colors.black54,
+                                color: PeeplAppTokens.textMuted,
                               ),
                             ],
                           ),
@@ -519,7 +520,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 15,
-              color: Colors.grey.shade700,
+              color: PeeplAppTokens.textSecondary,
               height: 1.5,
             ),
           ),
@@ -553,7 +554,7 @@ class _OnboardingScreenState extends State<OnboardingScreen>
               onPressed: _completeOnboarding,
               style: ElevatedButton.styleFrom(
                 backgroundColor: _kBlue,
-                foregroundColor: Colors.white,
+                foregroundColor: PeeplAppTokens.textPrimary,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
