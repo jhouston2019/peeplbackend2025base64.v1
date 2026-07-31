@@ -13,6 +13,7 @@ import '../../widgets/merchant/merchant_metric_card.dart';
 import '../../widgets/merchant/merchant_notification_card.dart';
 import '../../widgets/merchant/merchant_billing_card.dart';
 import '../../widgets/merchant/merchant_profile_card.dart';
+import '../../widgets/merchant/merchant_rate_calculator.dart';
 import '../../widgets/merchant/merchant_empty_state.dart';
 import '../../widgets/merchant/merchant_skeleton.dart';
 import '../../widgets/merchant/peepl_merchant_tokens.dart';
