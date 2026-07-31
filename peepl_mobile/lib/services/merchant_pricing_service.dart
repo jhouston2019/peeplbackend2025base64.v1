@@ -23,7 +23,7 @@ class MerchantPricingService {
   };
 
   /// Radius multipliers keyed by miles.
-  static const radiusMultipliers = <double, double>{
+  static final radiusMultipliers = <double, double>{
     0.5: 0.75,
     1.0: 1.0,
     1.5: 1.35,

@@ -378,7 +378,7 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
               Navigator.pushNamed(context, '/merchant_account_number'),
           onRateCalculator: () => Navigator.of(context).push(
             MaterialPageRoute<void>(
-              builder: (_) => const MerchantRateCalculatorScreen(),
+              builder: (_) => MerchantRateCalculatorScreen(),
             ),
           ),
           onSignOut: _signOut,
