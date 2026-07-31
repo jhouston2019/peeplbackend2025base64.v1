@@ -7,7 +7,7 @@ class PeeplBottomNavigation extends StatelessWidget {
     super.key,
     required this.onExploreTap,
     required this.onSearchTap,
-    required this.onPostTap,
+    required this.onDealsTap,
     required this.onAlertsTap,
     required this.onProfileTap,
     this.showAlertDot = false,
@@ -15,7 +15,7 @@ class PeeplBottomNavigation extends StatelessWidget {
 
   final VoidCallback onExploreTap;
   final VoidCallback onSearchTap;
-  final VoidCallback onPostTap;
+  final VoidCallback onDealsTap;
   final VoidCallback onAlertsTap;
   final VoidCallback onProfileTap;
   final bool showAlertDot;
@@ -51,40 +51,36 @@ class PeeplBottomNavigation extends StatelessWidget {
               Expanded(
                 child: Center(
                   child: Semantics(
-                    label: 'Peep',
+                    label: 'Deals',
                     button: true,
                     child: GestureDetector(
-                      onTap: onPostTap,
+                      onTap: onDealsTap,
                       behavior: HitTestBehavior.opaque,
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         child: Container(
                           height: 36,
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 14),
                           decoration: BoxDecoration(
-                            color: PeeplHomeTokens.yellow,
+                            color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.14),
                             borderRadius: BorderRadius.circular(18),
-                            boxShadow: [
-                              BoxShadow(
-                                color: PeeplHomeTokens.yellow.withValues(alpha: 0.35),
-                                blurRadius: 8,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            border: Border.all(
+                              color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.55),
+                            ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(
-                                Icons.add,
-                                color: Color(0xFF111111),
+                                Icons.local_offer_outlined,
+                                color: PeeplHomeTokens.dealsGreen,
                                 size: 18,
                               ),
-                              SizedBox(width: 4),
+                              const SizedBox(width: 5),
                               Text(
-                                'Peep',
+                                'Deals',
                                 style: TextStyle(
-                                  color: Color(0xFF111111),
+                                  color: PeeplHomeTokens.dealsGreen,
                                   fontSize: 13,
                                   fontWeight: FontWeight.w800,
                                   height: 1.0,

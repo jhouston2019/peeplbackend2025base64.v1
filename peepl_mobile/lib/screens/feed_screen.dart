@@ -1205,7 +1205,6 @@ class _FeedScreenState extends State<FeedScreen> {
               onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
             ),
             QuickFilterRow(
-              onDealsTap: () => Navigator.pushNamed(context, '/deals'),
               onMapTap: () {
                 activeFilterNotifier.value = 'Map';
                 Navigator.pushNamed(context, '/map');
@@ -1470,7 +1469,7 @@ class FeedPreviewHost extends StatelessWidget {
           PeeplBottomNavigation(
             onExploreTap: () {},
             onSearchTap: () {},
-            onPostTap: () {},
+            onDealsTap: () {},
             onAlertsTap: () {},
             onProfileTap: () {},
           ),

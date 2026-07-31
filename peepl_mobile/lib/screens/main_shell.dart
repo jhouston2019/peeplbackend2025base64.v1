@@ -21,7 +21,7 @@ class _MainShellState extends State<MainShell> {
     final i = widget.initialBodyIndex;
     if (i == 2) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) Navigator.of(context).pushNamed('/post');
+        if (mounted) Navigator.of(context).pushNamed('/deals');
       });
     } else if (i == 4) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -37,7 +37,7 @@ class _MainShellState extends State<MainShell> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (v == 2) {
-        Navigator.of(context).pushNamed('/post');
+        Navigator.of(context).pushNamed('/deals');
       } else if (v == 4) {
         Navigator.of(context).pushNamed('/menu');
       }
@@ -59,7 +59,7 @@ class _MainShellState extends State<MainShell> {
       bottomNavigationBar: PeeplBottomNavigation(
         onExploreTap: () {},
         onSearchTap: () => Navigator.pushNamed(context, '/search'),
-        onPostTap: () => Navigator.pushNamed(context, '/post'),
+        onDealsTap: () => Navigator.pushNamed(context, '/deals'),
         onAlertsTap: () => Navigator.pushNamed(context, '/alerts'),
         onProfileTap: () => Navigator.pushNamed(context, '/profile'),
       ),

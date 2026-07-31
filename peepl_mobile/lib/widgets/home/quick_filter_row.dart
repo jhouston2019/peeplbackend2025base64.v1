@@ -6,13 +6,11 @@ import 'peepl_home_tokens.dart';
 class QuickFilterRow extends StatelessWidget {
   const QuickFilterRow({
     super.key,
-    required this.onDealsTap,
     required this.onMapTap,
     required this.onMoreTap,
     this.onRegionTap,
   });
 
-  final VoidCallback onDealsTap;
   final VoidCallback onMapTap;
   final VoidCallback onMoreTap;
   final VoidCallback? onRegionTap;
@@ -41,15 +39,6 @@ class QuickFilterRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final chipWidgets = <Widget>[
-      _FilterChip(
-        label: 'Deals',
-        icon: Icons.local_offer_outlined,
-        iconColor: PeeplHomeTokens.dealsGreen,
-        labelColor: PeeplHomeTokens.dealsGreen,
-        emphasized: true,
-        onTap: onDealsTap,
-      ),
-      const SizedBox(width: 8),
       _FilterChip(
         label: 'Map',
         icon: Icons.map_outlined,

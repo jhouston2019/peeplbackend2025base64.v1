@@ -42,7 +42,6 @@ class _HomeFeedViewportHarness extends StatelessWidget {
                     onRequestPeepTap: () {},
                   ),
                   QuickFilterRow(
-                    onDealsTap: () {},
                     onMapTap: () {},
                     onMoreTap: () {},
                   ),
@@ -80,7 +79,7 @@ class _HomeFeedViewportHarness extends StatelessWidget {
       bottomNavigationBar: PeeplBottomNavigation(
         onExploreTap: () {},
         onSearchTap: () {},
-        onPostTap: () {},
+        onDealsTap: () {},
         onAlertsTap: () {},
         onProfileTap: () {},
       ),

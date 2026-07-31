@@ -147,20 +147,24 @@ class PeeplHomeHeader extends StatelessWidget {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: PeeplHomeTokens.yellow,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.add_circle_outline, color: Colors.white, size: 20),
+                        Icon(
+                          Icons.add_circle_outline,
+                          color: Color(0xFF111111),
+                          size: 20,
+                        ),
                         SizedBox(width: 6),
                         Text(
-                          'POST',
+                          'PEEP',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: Color(0xFF111111),
                             fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w800,
                             letterSpacing: 0.5,
                           ),
                         ),
@@ -176,24 +180,27 @@ class PeeplHomeHeader extends StatelessWidget {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Color(0xFFFFC107),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.cell_tower, color: Colors.black, size: 20),
-                        SizedBox(width: 6),
-                        Text(
-                          'REQUEST A PEEP',
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.3,
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cell_tower, color: Colors.white, size: 20),
+                          const SizedBox(width: 6),
+                          Text(
+                            'REQUEST A PEEP',
+                            style: TextStyle(
+                              color: PeeplHomeTokens.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.3,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),

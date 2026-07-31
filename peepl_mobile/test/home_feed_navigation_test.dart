@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:peepl_mobile/notifiers/active_filter_notifier.dart';
+import 'package:peepl_mobile/widgets/home/peepl_bottom_navigation.dart';
 import 'package:peepl_mobile/widgets/home/quick_filter_row.dart';
 
 void main() {
-  testWidgets('Deals chip opens /deals route', (tester) async {
+  testWidgets('Deals footer item opens /deals route', (tester) async {
     var dealsOpened = false;
 
     await tester.pumpWidget(
       MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: PeeplBottomNavigation(
+            onExploreTap: () {},
+            onSearchTap: () {},
+            onDealsTap: () => Navigator.of(
+              tester.element(find.byType(PeeplBottomNavigation)),
+            ).pushNamed('/deals'),
+            onAlertsTap: () {},
+            onProfileTap: () {},
+          ),
+        ),
         routes: {
-          '/': (_) => Scaffold(
-                body: QuickFilterRow(
-                  onDealsTap: () =>
-                      Navigator.of(tester.element(find.byType(QuickFilterRow)))
-                          .pushNamed('/deals'),
-                  onMapTap: () {},
-                  onMoreTap: () {},
-                ),
-              ),
           '/deals': (_) {
             dealsOpened = true;
             return const Scaffold(body: Text('Deals Screen'));
@@ -43,7 +46,6 @@ void main() {
         routes: {
           '/': (_) => Scaffold(
                 body: QuickFilterRow(
-                  onDealsTap: () {},
                   onMapTap: () {
                     activeFilterNotifier.value = 'Map';
                     Navigator.of(tester.element(find.byType(QuickFilterRow)))
