@@ -21,6 +21,7 @@ import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../utils/crowd_display_mapper.dart';
+import '../widgets/home/feed_card_image.dart';
 import '../widgets/home/editorial_feed_layout.dart';
 import '../widgets/home/feed_loading_skeleton.dart';
 import '../widgets/home/happening_now_ticker.dart';
@@ -1180,123 +1181,145 @@ class _FeedScreenState extends State<FeedScreen> {
     final rawCta = (ad['ctaLabel'] ?? ad['cta'] ?? ad['ctaText'])?.toString();
     final ctaLabel =
         (rawCta != null && rawCta.isNotEmpty) ? rawCta : 'Learn More';
+    final accentColor = Color((ad['accentColor'] as int?) ?? 0xFF1565C0);
 
-    return GestureDetector(
-      onTap: () async {
-        if (destinationUrl.isNotEmpty) {
-          final uri = Uri.tryParse(destinationUrl);
-          if (uri != null && await canLaunchUrl(uri)) {
-            await launchUrl(uri, mode: LaunchMode.externalApplication);
-          }
-          return;
+    Future<void> handleTap() async {
+      if (destinationUrl.isNotEmpty) {
+        final uri = Uri.tryParse(destinationUrl);
+        if (uri != null && await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
         }
-        if (ad['isDummy'] == true && mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$headline (demo ad)'),
-              backgroundColor: _T.navy,
+        return;
+      }
+      if (ad['isDummy'] == true && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$headline (demo ad)'),
+            backgroundColor: _T.navy,
+          ),
+        );
+      }
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(
+        horizontal: PeeplHomeTokens.sponsoredHorizontalMargin,
+      ),
+      child: GestureDetector(
+        onTap: handleTap,
+        child: Container(
+          height: PeeplHomeTokens.sponsoredCardHeight,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+            border: Border.all(
+              color: PeeplHomeTokens.sponsoredBorder,
+              width: PeeplHomeTokens.sponsoredBorderWidth,
             ),
-          );
-        }
-      },
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        height: 90,
-        decoration: BoxDecoration(
-          color: const Color(0xFFE3F2FD),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.white.withOpacity(0.3)),
-        ),
-        child: Row(
-          children: [
-            if (imageSource.isNotEmpty)
-              ClipRRect(
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  bottomLeft: Radius.circular(16),
+            boxShadow: const [
+              PeeplHomeTokens.sponsoredGlowEdge,
+              PeeplHomeTokens.sponsoredGlowDrop,
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (imageSource.isNotEmpty)
+                FeedCardImage(source: imageSource)
+              else
+                ColoredBox(color: accentColor.withValues(alpha: 0.35)),
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withValues(alpha: 0.18),
+                        Colors.black.withValues(alpha: 0.62),
+                      ],
+                    ),
+                  ),
                 ),
-                child: imageSource.startsWith('assets/')
-                    ? Image.asset(
-                        imageSource,
-                        width: 90,
-                        height: 90,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const SizedBox(width: 90),
-                      )
-                    : Image.network(
-                        imageSource,
-                        width: 90,
-                        height: 90,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            const SizedBox(width: 90),
-                      ),
               ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
                       'SPONSORED',
                       style: TextStyle(
-                        color: Colors.grey[500],
+                        color: PeeplHomeTokens.white.withValues(alpha: 0.72),
                         fontSize: 9,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
                       ),
                     ),
-                    if (headline.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        headline,
-                        style: const TextStyle(
-                          color: Color(0xFF1565C0),
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
+                    const Spacer(),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (headline.isNotEmpty)
+                                Text(
+                                  headline,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: PeeplHomeTokens.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.1,
+                                  ),
+                                ),
+                              if (subtext.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  subtext,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: PeeplHomeTokens.white
+                                        .withValues(alpha: 0.82),
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                    if (subtext.isNotEmpty) ...[
-                      const SizedBox(height: 2),
-                      Text(
-                        subtext,
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                          fontSize: 11,
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: PeeplHomeTokens.white,
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Text(
+                            ctaLabel,
+                            style: const TextStyle(
+                              color: Color(0xFF111111),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
+                      ],
+                    ),
                   ],
                 ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF1565C0),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  ctaLabel,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
