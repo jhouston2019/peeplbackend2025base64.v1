@@ -105,11 +105,8 @@ class PeeplBottomNavigation extends StatelessWidget {
                     horizontal: _dealsHorizontalPadding,
                   ),
                   decoration: BoxDecoration(
-                    color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.14),
+                    color: PeeplHomeTokens.dealsYellow,
                     borderRadius: BorderRadius.circular(_dealsButtonRadius),
-                    border: Border.all(
-                      color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.55),
-                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,

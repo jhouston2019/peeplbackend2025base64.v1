@@ -166,6 +166,11 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeedData();
     _loadDealBanner();
     _loadAds();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _showPeepPrompt) {
+        _showAppOpenPeepPrompt();
+      }
+    });
     // TODO: Wire geofence entry callback here:
     // geofenceService.onEntry = (venueName) => _showVenueEntryPrompt(venueName);
     // Replace with actual GeofenceService event subscription per existing geofence_service implementation.
@@ -1287,7 +1292,6 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildHomeShellHeader(),
-            if (_showPeepPrompt) _buildPeepPromptBanner(),
             Expanded(child: _buildFeedContent()),
           ],
         ),
@@ -1330,39 +1334,102 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _buildPeepPromptBanner() {
-    return GestureDetector(
-      onTap: () {
-        setState(() => _showPeepPrompt = false);
-        QuickPeepSheet.show(context);
-      },
-      child: Container(
-        color: PeeplHomeTokens.actionGreen,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        child: Row(
-          children: [
-            const Icon(Icons.remove_red_eye_outlined, color: Colors.black),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Where are you right now? Peep it →',
-                style: TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+  void _showAppOpenPeepPrompt() {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      barrierColor: Colors.black.withOpacity(0.6),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 32),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 24,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Align(
+                alignment: Alignment.topRight,
+                child: IconButton(
+                  icon: const Icon(Icons.close, size: 20, color: Colors.grey),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                  onPressed: () {
+                    setState(() => _showPeepPrompt = false);
+                    Navigator.pop(ctx);
+                  },
                 ),
               ),
-            ),
-            IconButton(
-              icon: const Icon(Icons.close, size: 18, color: Colors.black),
-              padding: EdgeInsets.zero,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              onPressed: () => setState(() => _showPeepPrompt = false),
-            ),
-          ],
+              const Text('👁️', style: TextStyle(fontSize: 48)),
+              const SizedBox(height: 8),
+              const Text(
+                'Where are you right now?',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Quick crowd report — peep your spot in seconds',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                height: 48,
+                child: ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFFFC107),
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    elevation: 0,
+                  ),
+                  onPressed: () {
+                    setState(() => _showPeepPrompt = false);
+                    Navigator.pop(ctx);
+                    QuickPeepSheet.show(context);
+                  },
+                  child: const Text(
+                    'Peep It 👁️',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  setState(() => _showPeepPrompt = false);
+                  Navigator.pop(ctx);
+                },
+                child: Text(
+                  'Not now',
+                  style: TextStyle(color: Colors.grey[600]),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
+    ).then((_) {
+      if (mounted) setState(() => _showPeepPrompt = false);
+    });
   }
 
   void _showVenueEntryPrompt(String venueName) {

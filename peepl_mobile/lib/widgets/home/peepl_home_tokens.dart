@@ -12,7 +12,7 @@ class PeeplHomeTokens {
   static const skeletonHighlight = Color(0xFF132538);
 
   /// Green = user action / create a Peep.
-  static const actionGreen = Color(0xFF22C55E);
+  static const actionGreen = Color(0xFF178A4E);
 
   /// Yellow = deals / offers / savings.
   static const dealsYellow = Color(0xFFF4C430);
