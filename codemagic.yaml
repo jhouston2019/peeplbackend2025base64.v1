@@ -42,7 +42,7 @@ workflows:
           set -e
           cd ios
           pod repo update
-          pod install
+          pod install --repo-update
           test -d Pods
         working_directory: peepl_mobile
       - name: Flutter build iOS (release, no codesign)
