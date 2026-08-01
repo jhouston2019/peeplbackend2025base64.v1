@@ -8,6 +8,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 
@@ -15,6 +16,7 @@ import '../notifiers/active_filter_notifier.dart';
 import '../constants/local_deals.dart';
 import '../constants/national_brand_ads.dart';
 import '../services/ad_cadence_service.dart';
+import '../services/admob_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
@@ -75,6 +77,7 @@ class _FeedScreenState extends State<FeedScreen> {
   final NativeAdsService _adsService = NativeAdsService();
   final AdCadenceService _cadence = AdCadenceService();
   final ScrollController _scrollController = ScrollController();
+  final List<NativeAd?> _nativeAds = [];
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _feedSub;
 
@@ -180,6 +183,9 @@ class _FeedScreenState extends State<FeedScreen> {
     _feedSub?.cancel();
     _scrollController.dispose();
     _citySearchController.dispose();
+    for (final ad in _nativeAds) {
+      ad?.dispose();
+    }
     super.dispose();
   }
 
@@ -773,24 +779,17 @@ class _FeedScreenState extends State<FeedScreen> {
     var nextAdThreshold = _peepCardsBeforeAdPattern[0];
     var streamCardIndex = 0;
 
-    Map<String, dynamic> pickAd() {
-      final pool = _fallbackAds;
-      final ad = Map<String, dynamic>.from(pool[adIndex % pool.length]);
-      adIndex++;
-      return ad;
-    }
-
     for (final post in posts) {
       if (peepCardsSinceAd >= nextAdThreshold) {
         final lastIsAd = items.isNotEmpty && items.last['type'] == 'ad';
         if (!lastIsAd) {
           streamCardIndex++;
-          final ad = pickAd();
           items.add(<String, dynamic>{
             'type': 'ad',
             'feedPlacement': streamCardIndex,
-            ...ad,
+            'adIndex': adIndex,
           });
+          adIndex++;
           peepCardsSinceAd = 0;
           patternIndex++;
           nextAdThreshold =
@@ -1167,8 +1166,104 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         );
       case EditorialRowKind.sponsored:
-        return _buildSponsoredCard(row.items.first);
+        final item = row.items.first;
+        final feedIndex = _feedItems.indexWhere((e) => identical(e, item));
+        return _buildAdCard(_adIndexForFeedPosition(feedIndex));
     }
+  }
+
+  int _adIndexForFeedPosition(int feedIndex) {
+    var count = 0;
+    for (var i = 0; i < feedIndex; i++) {
+      if (_feedItems[i]['type'] == 'ad') count++;
+    }
+    return count;
+  }
+
+  void _loadNativeAd(int index) {
+    if (index < _nativeAds.length && _nativeAds[index] != null) return;
+
+    while (_nativeAds.length <= index) {
+      _nativeAds.add(null);
+    }
+
+    final ad = NativeAd(
+      adUnitId: AdmobService.nativeAdUnitId,
+      listener: NativeAdListener(
+        onAdLoaded: (ad) {
+          setState(() {
+            _nativeAds[index] = ad as NativeAd;
+          });
+        },
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+        },
+      ),
+      request: const AdRequest(),
+      nativeTemplateStyle: NativeTemplateStyle(
+        templateType: TemplateType.small,
+        mainBackgroundColor: const Color(0xFFE3F2FD),
+        cornerRadius: 16.0,
+        callToActionTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.white,
+          backgroundColor: const Color(0xFF1565C0),
+          style: NativeTemplateFontStyle.bold,
+          size: 12.0,
+        ),
+        primaryTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.black87,
+          style: NativeTemplateFontStyle.bold,
+          size: 14.0,
+        ),
+        secondaryTextStyle: NativeTemplateTextStyle(
+          textColor: Colors.grey,
+          style: NativeTemplateFontStyle.normal,
+          size: 11.0,
+        ),
+      ),
+    )..load();
+
+    _nativeAds[index] = ad;
+  }
+
+  Widget _buildAdCard(int adIndex) {
+    _loadNativeAd(adIndex);
+
+    final nativeAd = adIndex < _nativeAds.length ? _nativeAds[adIndex] : null;
+
+    if (nativeAd == null) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        height: 80,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE3F2FD),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: const Color(0xFF1565C0),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      height: 100,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(16),
+        color: const Color(0xFFE3F2FD),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: AdWidget(ad: nativeAd),
+      ),
+    );
   }
 
   @override

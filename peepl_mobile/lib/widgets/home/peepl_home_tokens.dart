@@ -16,7 +16,7 @@ class PeeplHomeTokens {
 
   static const chipBackground = Color(0x1AFFFFFF);
   static const chipBorder = Color(0x0AFFFFFF);
-  static const organicCardBorder = Color(0x2EFFFFFF);
+  static const organicCardBorder = Color(0x47FFFFFF);
   static const organicCardBorderWidth = 2.0;
   static const sponsoredBorder = Color(0xFF2D7BFF);
   static const sponsoredBorderWidth = 2.0;
@@ -75,7 +75,7 @@ class PeeplHomeTokens {
   static const cardRadius = 14.0;
   static const featuredCardHeight = 64.0;
   static const halfCardHeight = 64.0;
-  static const sponsoredCardHeight = 140.0;
+  static const sponsoredCardHeight = 98.0;
   static const bottomNavHeight = 56.0;
 
   // Legacy aliases

@@ -13,12 +13,12 @@ class PeeplBottomNavigation extends StatelessWidget {
     this.showAlertDot = false,
   });
 
-  static const _dealsButtonHeight = 54.0;
-  static const _dealsButtonRadius = 27.0;
-  static const _dealsHorizontalPadding = 21.0;
-  static const _dealsIconSize = 27.0;
-  static const _dealsFontSize = 19.5;
-  static const _dealsCenterReserve = 136.0;
+  static const _dealsButtonHeight = 43.2;
+  static const _dealsButtonRadius = 21.6;
+  static const _dealsHorizontalPadding = 16.8;
+  static const _dealsIconSize = 21.6;
+  static const _dealsFontSize = 15.6;
+  static const _dealsCenterReserve = 109.0;
   static const _navGroupInset = 10.0;
 
   final VoidCallback onExploreTap;

@@ -81,5 +81,7 @@
 	<string>Peepl uses your contacts to help you find and invite friends.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>GADApplicationIdentifier</key>
+	<string>ca-app-pub-3424798179321670~8779412219</string>
 </dict>
 </plist>

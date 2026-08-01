@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'config/constants.dart';
 import 'firebase_options.dart';
 import 'routes.dart';
+import 'services/admob_service.dart';
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
 import 'services/local_notification_service.dart';
@@ -27,6 +28,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await AdmobService.initialize();
 
   if (!kIsWeb) {
     Stripe.publishableKey = kStripePublishableKey;
