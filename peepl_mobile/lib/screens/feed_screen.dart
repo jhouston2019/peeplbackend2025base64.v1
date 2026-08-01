@@ -1191,12 +1191,20 @@ class _FeedScreenState extends State<FeedScreen> {
       adUnitId: AdmobService.nativeAdUnitId,
       listener: NativeAdListener(
         onAdLoaded: (ad) {
-          setState(() {
-            _nativeAds[index] = ad as NativeAd;
-          });
+          if (mounted) {
+            setState(() {
+              _nativeAds[index] = ad as NativeAd;
+            });
+          }
         },
         onAdFailedToLoad: (ad, error) {
+          debugPrint('NativeAd failed to load at index $index: $error');
           ad.dispose();
+          if (mounted) {
+            setState(() {
+              _nativeAds[index] = null;
+            });
+          }
         },
       ),
       request: const AdRequest(),
@@ -1221,9 +1229,10 @@ class _FeedScreenState extends State<FeedScreen> {
           size: 11.0,
         ),
       ),
-    )..load();
+    );
 
-    _nativeAds[index] = ad;
+    // Do NOT assign to _nativeAds yet — only assign after load confirms success
+    ad.load();
   }
 
   Widget _buildAdCard(int adIndex) {
