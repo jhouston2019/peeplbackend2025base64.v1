@@ -45,11 +45,29 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     'Packed',
   ];
 
+  static const _venueTypes = [
+    'Restaurant',
+    'Bar',
+    'Cafe',
+    'Other',
+  ];
+
+  static const _waitTimeOptions = [
+    'No wait',
+    '5–15 min',
+    '15–30 min',
+    '30+ min',
+  ];
+
   final _placeController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
 
   double _crowdLevel = 5;
+  double _malePercent = 50;
+  double _adultPercent = 50;
   String? _selectedVibe;
+  String? _venueType;
+  String? _selectedWaitTime;
   bool _isLoading = false;
   bool _fieldError = false;
   bool _isLocating = false;
@@ -174,7 +192,11 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         longitude: 0.0,
         crowdingLevel: _crowdLevel.round(),
         imageFile: File(photo.path),
-        description: _selectedVibe ?? '',
+        vibe: _selectedVibe,
+        waitTime: _venueType == 'Restaurant' ? _selectedWaitTime : null,
+        maleFemaleRatio: _malePercent.round(),
+        adultKidRatio: _adultPercent.round(),
+        venueType: _venueType,
       );
 
       if (context.mounted) {
@@ -354,7 +376,33 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                         ? null
                         : (v) => setState(() => _crowdLevel = v),
                   ),
+                  const SizedBox(height: 8),
+                  _buildRatioSlider(
+                    label: 'Male / female mix',
+                    value: _malePercent,
+                    display: 'M/F: ${_malePercent.round()}/${100 - _malePercent.round()}',
+                    leftHint: 'More female',
+                    rightHint: 'More male',
+                    onChanged: (v) => setState(() => _malePercent = v),
+                  ),
+                  const SizedBox(height: 12),
+                  _buildRatioSlider(
+                    label: 'Adults / kids mix',
+                    value: _adultPercent,
+                    display: 'A/K: ${_adultPercent.round()}/${100 - _adultPercent.round()}',
+                    leftHint: 'More kids',
+                    rightHint: 'More adults',
+                    onChanged: (v) => setState(() => _adultPercent = v),
+                  ),
                   const SizedBox(height: 16),
+                  const Text(
+                    'Vibe',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
                   SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
                     child: Row(
@@ -377,6 +425,74 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                       }).toList(),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Place type',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: _venueTypes.map((type) {
+                        final selected = _venueType == type;
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 8),
+                          child: ChoiceChip(
+                            label: Text(type),
+                            selected: selected,
+                            onSelected: _isLoading
+                                ? null
+                                : (_) {
+                                    setState(() {
+                                      _venueType = selected ? null : type;
+                                      if (_venueType != 'Restaurant') {
+                                        _selectedWaitTime = null;
+                                      }
+                                    });
+                                  },
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  if (_venueType == 'Restaurant') ...[
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Wait time',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: _waitTimeOptions.map((wait) {
+                          final selected = _selectedWaitTime == wait;
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text(wait),
+                              selected: selected,
+                              onSelected: _isLoading
+                                  ? null
+                                  : (_) {
+                                      setState(() {
+                                        _selectedWaitTime =
+                                            selected ? null : wait;
+                                      });
+                                    },
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -423,6 +539,62 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRatioSlider({
+    required String label,
+    required double value,
+    required String display,
+    required String leftHint,
+    required String rightHint,
+    required ValueChanged<double> onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            Text(
+              display,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Colors.grey[700],
+              ),
+            ),
+          ],
+        ),
+        Slider(
+          value: value.clamp(0, 100),
+          min: 0,
+          max: 100,
+          divisions: 20,
+          label: display,
+          onChanged: _isLoading ? null : onChanged,
+        ),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              leftHint,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+            Text(
+              rightHint,
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
