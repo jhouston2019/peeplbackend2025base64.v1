@@ -64,6 +64,21 @@ class NationalBrandAds {
       'accentColor': 0xFFD4AF37,
       'initial': 'S',
     },
+    {
+      'type': 'ad',
+      'isDummy': true,
+      'id': 'brand_bleu_de_chanel',
+      'advertiser': 'Bleu de Chanel',
+      'brandName': 'Chanel',
+      'headline': 'Bleu de Chanel',
+      'tagline': 'She Said Yeah',
+      'subline': 'The Rolling Stones',
+      'cta': 'Shop Now',
+      'ctaText': 'Shop Now',
+      'imageAsset': 'assets/ads/bleu_de_chanel.png',
+      'accentColor': 0xFF1A3A5C,
+      'initial': 'B',
+    },
   ];
 
   /// Bundled image path or remote URL for an ad map.

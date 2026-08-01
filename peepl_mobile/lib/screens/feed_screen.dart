@@ -147,12 +147,19 @@ class _FeedScreenState extends State<FeedScreen> {
     'Download',
   ];
 
-  /// National brand inventory when Firestore native_ads is empty (or web preview).
+  /// National brand inventory for all feed native ad slots.
   static List<Map<String, dynamic>> get _fallbackAds => NationalBrandAds.all;
+
+  List<Map<String, dynamic>> _nationalBrandAds() {
+    return _fallbackAds
+        .map((ad) => Map<String, dynamic>.from(ad))
+        .toList();
+  }
 
   @override
   void initState() {
     super.initState();
+    _availableAds = _nationalBrandAds();
     _activeFilter = activeFilterNotifier.value;
     activeFilterNotifier.addListener(_onFilterChanged);
     unawaited(
@@ -704,25 +711,11 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _loadAds() async {
-    try {
-      final ads = await _adsService.getAdsForFeed(
-        limit: 10,
-        userLat: _userLat,
-        userLng: _userLng,
-      );
-      if (!mounted) return;
-      setState(() {
-        _availableAds = ads;
-        _feedItems = _rebuildFeedItems();
-      });
-    } catch (e) {
-      debugPrint('Failed to load ads: $e');
-      if (!mounted) return;
-      setState(() {
-        _availableAds = [];
-        _feedItems = _rebuildFeedItems();
-      });
-    }
+    if (!mounted) return;
+    setState(() {
+      _availableAds = _nationalBrandAds();
+      _feedItems = _rebuildFeedItems();
+    });
   }
 
   void _processFeedData(List<QueryDocumentSnapshot> docs) {
@@ -785,9 +778,10 @@ class _FeedScreenState extends State<FeedScreen> {
         final lastIsAd = items.isNotEmpty && items.last['type'] == 'ad';
         if (!lastIsAd) {
           streamCardIndex++;
-          final adData = adIndex < _availableAds.length
-              ? _availableAds[adIndex]
-              : <String, dynamic>{};
+          final pool = _availableAds.isNotEmpty ? _availableAds : _fallbackAds;
+          final adData = Map<String, dynamic>.from(
+            pool[adIndex % pool.length],
+          );
           items.add(<String, dynamic>{
             'type': 'ad',
             ...adData,
@@ -1177,19 +1171,32 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Widget _buildAdCard(Map<String, dynamic> ad) {
-    final String? imageUrl = ad['imageUrl'] as String?;
-    final String? headline = ad['headline'] as String?;
-    final String? subtext = ad['subtext'] as String?;
-    final String? destinationUrl = ad['destinationUrl'] as String?;
-    final String ctaLabel = ad['ctaLabel'] as String? ?? 'Learn More';
+    final imageSource = NationalBrandAds.imageSource(ad);
+    final headline = NationalBrandAds.headline(ad);
+    final subtext = NationalBrandAds.subline(ad);
+    final destinationUrl =
+        (ad['destinationUrl'] ?? ad['ctaUrl'] ?? ad['landingUrl'] ?? '')
+            .toString();
+    final rawCta = (ad['ctaLabel'] ?? ad['cta'] ?? ad['ctaText'])?.toString();
+    final ctaLabel =
+        (rawCta != null && rawCta.isNotEmpty) ? rawCta : 'Learn More';
 
     return GestureDetector(
       onTap: () async {
-        if (destinationUrl == null || destinationUrl.isEmpty) return;
-        final uri = Uri.tryParse(destinationUrl);
-        if (uri == null) return;
-        if (await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        if (destinationUrl.isNotEmpty) {
+          final uri = Uri.tryParse(destinationUrl);
+          if (uri != null && await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+          return;
+        }
+        if (ad['isDummy'] == true && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$headline (demo ad)'),
+              backgroundColor: _T.navy,
+            ),
+          );
         }
       },
       child: Container(
@@ -1202,19 +1209,29 @@ class _FeedScreenState extends State<FeedScreen> {
         ),
         child: Row(
           children: [
-            if (imageUrl != null && imageUrl.isNotEmpty)
+            if (imageSource.isNotEmpty)
               ClipRRect(
                 borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(16),
                   bottomLeft: Radius.circular(16),
                 ),
-                child: Image.network(
-                  imageUrl,
-                  width: 90,
-                  height: 90,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox(width: 90),
-                ),
+                child: imageSource.startsWith('assets/')
+                    ? Image.asset(
+                        imageSource,
+                        width: 90,
+                        height: 90,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(width: 90),
+                      )
+                    : Image.network(
+                        imageSource,
+                        width: 90,
+                        height: 90,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            const SizedBox(width: 90),
+                      ),
               ),
             Expanded(
               child: Padding(
@@ -1232,7 +1249,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         letterSpacing: 0.8,
                       ),
                     ),
-                    if (headline != null && headline.isNotEmpty) ...[
+                    if (headline.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         headline,
@@ -1245,7 +1262,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
-                    if (subtext != null && subtext.isNotEmpty) ...[
+                    if (subtext.isNotEmpty) ...[
                       const SizedBox(height: 2),
                       Text(
                         subtext,
