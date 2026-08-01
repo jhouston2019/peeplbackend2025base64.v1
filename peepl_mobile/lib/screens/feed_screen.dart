@@ -28,6 +28,7 @@ import '../widgets/home/peepl_home_tokens.dart';
 import '../widgets/home/quick_filter_row.dart';
 import '../widgets/home/peepl_bottom_navigation.dart';
 import '../widgets/home/sponsored_native_card.dart';
+import '../widgets/quick_peep_sheet.dart';
 import 'location_detail_screen.dart';
 
 /// Peepl Home Feed — Sponsored Card Specification
@@ -84,6 +85,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   bool _isLoading = true;
   bool _hasError = false;
+  bool _showPeepPrompt = true;
   String? _errorMessage;
 
   String _activeFilter = 'Newest';
@@ -161,6 +163,9 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeedData();
     _loadDealBanner();
     _loadAds();
+    // TODO: Wire geofence entry callback here:
+    // geofenceService.onEntry = (venueName) => _showVenueEntryPrompt(venueName);
+    // Replace with actual GeofenceService event subscription per existing geofence_service implementation.
   }
 
   void _onFilterChanged() {
@@ -1178,6 +1183,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildHomeShellHeader(),
+            if (_showPeepPrompt) _buildPeepPromptBanner(),
             Expanded(child: _buildFeedContent()),
           ],
         ),
@@ -1199,7 +1205,7 @@ class _FeedScreenState extends State<FeedScreen> {
               onLocationTap: _showAreaPicker,
               onProfileTap: () => Navigator.pushNamed(context, '/profile'),
               onMenuTap: () => Navigator.pushNamed(context, '/settings'),
-              onPostTap: () => Navigator.pushNamed(context, '/post'),
+              onPostTap: () => QuickPeepSheet.show(context),
               onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
             ),
             QuickFilterRow(
@@ -1213,6 +1219,94 @@ class _FeedScreenState extends State<FeedScreen> {
             HappeningNowTicker(
               text: _happeningNowTickerText(),
               onTap: () => Navigator.pushNamed(context, '/deals'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPeepPromptBanner() {
+    return GestureDetector(
+      onTap: () {
+        setState(() => _showPeepPrompt = false);
+        QuickPeepSheet.show(context);
+      },
+      child: Container(
+        color: const Color(0xFFFFC107),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            const Icon(Icons.remove_red_eye_outlined, color: Colors.black),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Where are you right now? Peep it →',
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, size: 18, color: Colors.black),
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              onPressed: () => setState(() => _showPeepPrompt = false),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showVenueEntryPrompt(String venueName) {
+    showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        contentPadding: const EdgeInsets.all(20),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('👁️', style: TextStyle(fontSize: 40)),
+            const SizedBox(height: 8),
+            const Text(
+              'You just walked in!',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'How crowded is $venueName right now?',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: const Text('Skip'),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFFFC107),
+                      foregroundColor: Colors.black,
+                    ),
+                    onPressed: () {
+                      Navigator.pop(ctx);
+                      QuickPeepSheet.show(context, venueName: venueName);
+                    },
+                    child: const Text('Peep It 👁️'),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

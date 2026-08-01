@@ -4,6 +4,7 @@ import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
+import '../widgets/quick_peep_sheet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1198,6 +1199,17 @@ class _PostScreenState extends State<PostScreen> {
               color: PeeplAppTokens.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
+            ),
+          ),
+          const Spacer(),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              QuickPeepSheet.show(context);
+            },
+            child: const Text(
+              'Quick Mode',
+              style: TextStyle(color: Colors.white, fontSize: 13),
             ),
           ),
         ],
