@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
@@ -50,12 +52,16 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   String? _selectedVibe;
   bool _isLoading = false;
   bool _fieldError = false;
+  bool _isLocating = false;
+  String? _locationError;
 
   @override
   void initState() {
     super.initState();
-    if (widget.venueName != null && widget.venueName!.isNotEmpty) {
+    if (widget.venueName != null) {
       _placeController.text = widget.venueName!;
+    } else {
+      _detectLocation();
     }
   }
 
@@ -69,6 +75,65 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     if (level <= 3) return const Color(0xFF4CAF50);
     if (level <= 6) return const Color(0xFFFFA726);
     return const Color(0xFFFF5722);
+  }
+
+  Future<void> _detectLocation() async {
+    setState(() {
+      _isLocating = true;
+      _locationError = null;
+    });
+
+    try {
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+
+      if (permission == LocationPermission.deniedForever ||
+          permission == LocationPermission.denied) {
+        setState(() {
+          _locationError = 'Location permission denied';
+          _isLocating = false;
+        });
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+        timeLimit: Duration(seconds: 8),
+      );
+
+      final placemarks = await placemarkFromCoordinates(
+        position.latitude,
+        position.longitude,
+      );
+
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        final name = place.name ?? '';
+        final street = place.thoroughfare ?? '';
+        final locality = place.locality ?? '';
+
+        String locationName = '';
+        if (name.isNotEmpty && name != street) {
+          locationName = name;
+        } else if (street.isNotEmpty) {
+          locationName = '$street, $locality';
+        } else {
+          locationName = locality;
+        }
+
+        setState(() {
+          _placeController.text = locationName;
+          _isLocating = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _locationError = 'Could not detect location';
+        _isLocating = false;
+      });
+    }
   }
 
   Future<void> _submitPost() async {
@@ -182,37 +247,82 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 16),
-                  TextField(
-                    controller: _placeController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a place name...',
-                      prefixIcon: const Icon(Icons.search),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: _fieldError ? Colors.red : Colors.grey.shade300,
-                          width: _fieldError ? 2 : 1,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _placeController,
+                          decoration: InputDecoration(
+                            hintText: _isLocating
+                                ? 'Detecting your location...'
+                                : 'Type a place name...',
+                            prefixIcon: _isLocating
+                                ? Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF1565C0),
+                                      ),
+                                    ),
+                                  )
+                                : Icon(Icons.location_on,
+                                    color: Color(0xFF1565C0)),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: _fieldError
+                                    ? Colors.red
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide: BorderSide(
+                                color: _fieldError
+                                    ? Colors.red
+                                    : Colors.grey.shade300,
+                              ),
+                            ),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                          ),
+                          onChanged: (_) =>
+                              setState(() => _fieldError = false),
                         ),
                       ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: _fieldError ? Colors.red : Colors.grey.shade300,
-                          width: _fieldError ? 2 : 1,
+                      SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: _isLocating ? null : _detectLocation,
+                        child: Container(
+                          width: 44,
+                          height: 44,
+                          decoration: BoxDecoration(
+                            color: Color(0xFF1565C0).withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.my_location,
+                            color: _isLocating
+                                ? Colors.grey
+                                : Color(0xFF1565C0),
+                            size: 20,
+                          ),
                         ),
                       ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide(
-                          color: _fieldError ? Colors.red : Colors.blue,
-                          width: _fieldError ? 2 : 1.5,
-                        ),
-                      ),
-                    ),
-                    onChanged: (_) {
-                      if (_fieldError) setState(() => _fieldError = false);
-                    },
+                    ],
                   ),
+                  if (_locationError != null) ...[
+                    SizedBox(height: 4),
+                    Text(
+                      _locationError!,
+                      style: TextStyle(color: Colors.red, fontSize: 11),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
