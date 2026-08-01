@@ -6,8 +6,8 @@ class AdmobService {
   static const String _testNativeAdUnitId = 'ca-native-demo-app-pub-3940256099942544/3986624511';
 
   static String get nativeAdUnitId {
-    if (kDebugMode) return _testNativeAdUnitId;
-    return _nativeAdUnitId;
+    // Use test ID until AdMob app review is complete
+    return _testNativeAdUnitId;
   }
 
   static Future<void> initialize() async {
