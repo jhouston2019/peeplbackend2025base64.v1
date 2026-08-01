@@ -147,7 +147,7 @@ class PeeplHomeHeader extends StatelessWidget {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: PeeplHomeTokens.yellow,
+                      color: PeeplHomeTokens.actionGreen,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Row(

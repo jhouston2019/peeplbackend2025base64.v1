@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'peepl_home_tokens.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
@@ -500,7 +501,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _submitPost,
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFFFFC107),
+                        backgroundColor: PeeplHomeTokens.actionGreen,
                         foregroundColor: Colors.black,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(14),

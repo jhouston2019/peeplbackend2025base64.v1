@@ -11,18 +11,24 @@ class PeeplHomeTokens {
   static const skeletonSurface = Color(0xFF0C1A2C);
   static const skeletonHighlight = Color(0xFF132538);
 
-  static const yellow = Color(0xFFFFC107);
-  static const dealsGreen = Color(0xFF66E38D);
+  /// Green = user action / create a Peep.
+  static const actionGreen = Color(0xFF22C55E);
+
+  /// Yellow = deals / offers / savings.
+  static const dealsYellow = Color(0xFFF4C430);
+
+  /// Black on yellow surfaces (Deals banner + nav).
+  static const dealsForeground = Color(0xFF111111);
 
   static const chipBackground = Color(0x1AFFFFFF);
   static const chipBorder = Color(0x0AFFFFFF);
-  static const organicCardBorder = Color(0x47FFFFFF);
+  static const organicCardBorder = Color(0x38FFFFFF);
   static const organicCardBorderWidth = 2.0;
   static const sponsoredBorder = Color(0xFF2D7BFF);
   static const sponsoredBorderWidth = 2.0;
 
-  /// Same translucent green fill as the footer Deals pill.
-  static const tickerBackground = Color(0x2466E38D);
+  /// Premium yellow fill for the CURRENT DEALS banner.
+  static const tickerBackground = dealsYellow;
   static const white = Color(0xFFFFFFFF);
   static const mutedWhite = Color(0xB3FFFFFF);
   static const cardFallback = Color(0xFF0D2340);
@@ -81,7 +87,9 @@ class PeeplHomeTokens {
   // Legacy aliases
   static const navy = shellNavy;
   static const navyHeader = shellNavy;
-  static const tickerGreen = dealsGreen;
+  static const yellow = dealsYellow;
+  static const dealsGreen = dealsYellow;
+  static const tickerGreen = dealsYellow;
   static const cardHeight = featuredCardHeight;
   static const cardVerticalGap = rowVerticalGap;
 }

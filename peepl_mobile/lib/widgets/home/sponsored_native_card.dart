@@ -159,7 +159,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
-                                      color: PeeplHomeTokens.tickerGreen,
+                                      color: PeeplHomeTokens.dealsYellow,
                                       fontSize: 12,
                                       fontWeight: FontWeight.w700,
                                     ),

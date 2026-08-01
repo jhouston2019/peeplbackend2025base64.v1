@@ -1051,7 +1051,7 @@ class _FeedScreenState extends State<FeedScreen> {
                         trailing: selected
                             ? const Icon(
                                 Icons.check,
-                                color: PeeplHomeTokens.yellow,
+                                color: PeeplHomeTokens.white,
                               )
                             : null,
                         onTap: () {
@@ -1337,7 +1337,7 @@ class _FeedScreenState extends State<FeedScreen> {
         QuickPeepSheet.show(context);
       },
       child: Container(
-        color: const Color(0xFFFFC107),
+        color: PeeplHomeTokens.actionGreen,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         child: Row(
           children: [
@@ -1400,7 +1400,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 Expanded(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFFFC107),
+                      backgroundColor: PeeplHomeTokens.actionGreen,
                       foregroundColor: Colors.black,
                     ),
                     onPressed: () {
@@ -1471,7 +1471,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final rows = EditorialFeedLayout.rowsFromItems(items);
 
     return RefreshIndicator(
-      color: PeeplHomeTokens.yellow,
+      color: PeeplHomeTokens.actionGreen,
       backgroundColor: PeeplHomeTokens.feedBackground,
       onRefresh: _onRefresh,
       child: ListView.builder(

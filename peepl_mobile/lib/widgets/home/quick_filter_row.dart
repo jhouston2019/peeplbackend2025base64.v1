@@ -150,14 +150,14 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: emphasized
-              ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.12)
+              ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.12)
               : selected
                   ? PeeplHomeTokens.white.withValues(alpha: 0.14)
                   : PeeplHomeTokens.chipSurface.withValues(alpha: 0.85),
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: emphasized
-                ? PeeplHomeTokens.dealsGreen.withValues(alpha: 0.25)
+                ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.25)
                 : selected
                     ? PeeplHomeTokens.white.withValues(alpha: 0.20)
                     : PeeplHomeTokens.chipBorder,

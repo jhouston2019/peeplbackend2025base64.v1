@@ -56,7 +56,6 @@ class PeeplBottomNavigation extends StatelessWidget {
                               label: 'Explore',
                               icon: Icons.home_rounded,
                               selected: true,
-                              accentColor: PeeplHomeTokens.yellow,
                               onTap: onExploreTap,
                             ),
                             _NavItem(
@@ -106,10 +105,10 @@ class PeeplBottomNavigation extends StatelessWidget {
                     horizontal: _dealsHorizontalPadding,
                   ),
                   decoration: BoxDecoration(
-                    color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.14),
+                    color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(_dealsButtonRadius),
                     border: Border.all(
-                      color: PeeplHomeTokens.dealsGreen.withValues(alpha: 0.55),
+                      color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.55),
                     ),
                   ),
                   child: Row(
@@ -117,14 +116,14 @@ class PeeplBottomNavigation extends StatelessWidget {
                     children: [
                       Icon(
                         Icons.local_offer_outlined,
-                        color: PeeplHomeTokens.dealsGreen,
+                        color: PeeplHomeTokens.dealsForeground,
                         size: _dealsIconSize,
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Deals',
                         style: TextStyle(
-                          color: PeeplHomeTokens.dealsGreen,
+                          color: PeeplHomeTokens.dealsForeground,
                           fontSize: _dealsFontSize,
                           fontWeight: FontWeight.w800,
                           height: 1.0,
@@ -162,7 +161,7 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected
-        ? (accentColor ?? PeeplHomeTokens.yellow)
+        ? (accentColor ?? PeeplHomeTokens.white)
         : PeeplHomeTokens.white.withValues(alpha: 0.88);
 
     return GestureDetector(

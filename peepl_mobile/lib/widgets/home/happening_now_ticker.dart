@@ -32,14 +32,14 @@ class HappeningNowTicker extends StatelessWidget {
                 children: [
                   const Icon(
                     Icons.local_offer_outlined,
-                    color: PeeplHomeTokens.dealsGreen,
+                    color: PeeplHomeTokens.dealsForeground,
                     size: 14,
                   ),
                   const SizedBox(width: 6),
                   const Text(
                     'CURRENT DEALS',
                     style: TextStyle(
-                      color: PeeplHomeTokens.dealsGreen,
+                      color: PeeplHomeTokens.dealsForeground,
                       fontSize: 11,
                       fontWeight: FontWeight.w800,
                       letterSpacing: 0.6,
@@ -52,7 +52,7 @@ class HappeningNowTicker extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: PeeplHomeTokens.white,
+                        color: PeeplHomeTokens.dealsForeground,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -60,7 +60,7 @@ class HappeningNowTicker extends StatelessWidget {
                   ),
                   Icon(
                     Icons.chevron_right,
-                    color: PeeplHomeTokens.white.withValues(alpha: 0.7),
+                    color: PeeplHomeTokens.dealsForeground.withValues(alpha: 0.7),
                     size: 18,
                   ),
                 ],
