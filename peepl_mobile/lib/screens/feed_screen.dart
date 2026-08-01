@@ -77,7 +77,6 @@ class _FeedScreenState extends State<FeedScreen> {
   final NativeAdsService _adsService = NativeAdsService();
   final AdCadenceService _cadence = AdCadenceService();
   final ScrollController _scrollController = ScrollController();
-  final List<NativeAd?> _nativeAds = [];
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _feedSub;
 
@@ -188,9 +187,6 @@ class _FeedScreenState extends State<FeedScreen> {
     _feedSub?.cancel();
     _scrollController.dispose();
     _citySearchController.dispose();
-    for (final ad in _nativeAds) {
-      ad?.dispose();
-    }
     super.dispose();
   }
 
@@ -789,8 +785,12 @@ class _FeedScreenState extends State<FeedScreen> {
         final lastIsAd = items.isNotEmpty && items.last['type'] == 'ad';
         if (!lastIsAd) {
           streamCardIndex++;
+          final adData = adIndex < _availableAds.length
+              ? _availableAds[adIndex]
+              : <String, dynamic>{};
           items.add(<String, dynamic>{
             'type': 'ad',
+            ...adData,
             'feedPlacement': streamCardIndex,
             'adIndex': adIndex,
           });
@@ -1172,110 +1172,115 @@ class _FeedScreenState extends State<FeedScreen> {
         );
       case EditorialRowKind.sponsored:
         final item = row.items.first;
-        final feedIndex = _feedItems.indexWhere((e) => identical(e, item));
-        return _buildAdCard(_adIndexForFeedPosition(feedIndex));
+        return _buildAdCard(item);
     }
   }
 
-  int _adIndexForFeedPosition(int feedIndex) {
-    var count = 0;
-    for (var i = 0; i < feedIndex; i++) {
-      if (_feedItems[i]['type'] == 'ad') count++;
-    }
-    return count;
-  }
+  Widget _buildAdCard(Map<String, dynamic> ad) {
+    final String? imageUrl = ad['imageUrl'] as String?;
+    final String? headline = ad['headline'] as String?;
+    final String? subtext = ad['subtext'] as String?;
+    final String? destinationUrl = ad['destinationUrl'] as String?;
+    final String ctaLabel = ad['ctaLabel'] as String? ?? 'Learn More';
 
-  void _loadNativeAd(int index) {
-    if (index < _nativeAds.length && _nativeAds[index] != null) return;
-
-    while (_nativeAds.length <= index) {
-      _nativeAds.add(null);
-    }
-
-    final ad = NativeAd(
-      adUnitId: AdmobService.nativeAdUnitId,
-      listener: NativeAdListener(
-        onAdLoaded: (ad) {
-          if (mounted) {
-            setState(() {
-              _nativeAds[index] = ad as NativeAd;
-            });
-          }
-        },
-        onAdFailedToLoad: (ad, error) {
-          debugPrint('NativeAd failed to load at index $index: $error');
-          ad.dispose();
-          if (mounted) {
-            setState(() {
-              _nativeAds[index] = null;
-            });
-          }
-        },
-      ),
-      request: const AdRequest(),
-      nativeTemplateStyle: NativeTemplateStyle(
-        templateType: TemplateType.small,
-        mainBackgroundColor: const Color(0xFFE3F2FD),
-        cornerRadius: 16.0,
-        callToActionTextStyle: NativeTemplateTextStyle(
-          textColor: Colors.white,
-          backgroundColor: const Color(0xFF1565C0),
-          style: NativeTemplateFontStyle.bold,
-          size: 12.0,
-        ),
-        primaryTextStyle: NativeTemplateTextStyle(
-          textColor: Colors.black87,
-          style: NativeTemplateFontStyle.bold,
-          size: 14.0,
-        ),
-        secondaryTextStyle: NativeTemplateTextStyle(
-          textColor: Colors.grey,
-          style: NativeTemplateFontStyle.normal,
-          size: 11.0,
-        ),
-      ),
-    );
-
-    // Do NOT assign to _nativeAds yet — only assign after load confirms success
-    ad.load();
-  }
-
-  Widget _buildAdCard(int adIndex) {
-    _loadNativeAd(adIndex);
-
-    final nativeAd = adIndex < _nativeAds.length ? _nativeAds[adIndex] : null;
-
-    if (nativeAd == null) {
-      return Container(
+    return GestureDetector(
+      onTap: () async {
+        if (destinationUrl == null || destinationUrl.isEmpty) return;
+        final uri = Uri.tryParse(destinationUrl);
+        if (uri == null) return;
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        }
+      },
+      child: Container(
         margin: const EdgeInsets.only(bottom: 12),
-        height: 80,
+        height: 90,
         decoration: BoxDecoration(
           color: const Color(0xFFE3F2FD),
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: Colors.white.withOpacity(0.3)),
         ),
-        child: Center(
-          child: SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: const Color(0xFF1565C0),
+        child: Row(
+          children: [
+            if (imageUrl != null && imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  bottomLeft: Radius.circular(16),
+                ),
+                child: Image.network(
+                  imageUrl,
+                  width: 90,
+                  height: 90,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox(width: 90),
+                ),
+              ),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'SPONSORED',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 9,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    if (headline != null && headline.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        headline,
+                        style: const TextStyle(
+                          color: Color(0xFF1565C0),
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                    if (subtext != null && subtext.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtext,
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
             ),
-          ),
+            Padding(
+              padding: const EdgeInsets.only(right: 12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1565C0),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  ctaLabel,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
-      );
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      height: 100,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        color: const Color(0xFFE3F2FD),
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: AdWidget(ad: nativeAd),
       ),
     );
   }
