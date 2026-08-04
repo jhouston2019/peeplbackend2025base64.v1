@@ -32,6 +32,30 @@
         { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "crowd_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "DESCENDING" },
+        { "fieldPath": "hour", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crowd_history",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "weekday", "order": "ASCENDING" },
+        { "fieldPath": "crowdScore", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crowd_anomalies",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "venueKey", "order": "ASCENDING" },
+        { "fieldPath": "detectedAt", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

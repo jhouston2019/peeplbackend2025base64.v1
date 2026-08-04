@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import '../theme/peepl_app_tokens.dart';
 
+import '../services/ai_service.dart';
+import '../services/crowd_intelligence_service.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
 import '../widgets/quick_peep_sheet.dart';
@@ -170,8 +172,14 @@ class _PostScreenState extends State<PostScreen> {
   final TextEditingController _dressCode = TextEditingController();
   final ImagePicker _imagePicker = ImagePicker();
   final FeedService _feedService = FeedService();
+  final AiService _aiService = AiService();
 
   int _crowdingLevel = 5;
+  int? _aiSuggestedScore;
+  String? _aiSuggestedDescription;
+  bool _aiAnalyzing = false;
+  bool? _aiValidationPassed;
+  double? _aiValidationConfidence;
   double _noiseLevel = 5;
   double _staffAvailability = 5;
   bool _hasMusic = false;
@@ -401,7 +409,14 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   void _clearPhoto() {
-    setState(() => _selectedImage = null);
+    setState(() {
+      _selectedImage = null;
+      _aiSuggestedScore = null;
+      _aiSuggestedDescription = null;
+      _aiAnalyzing = false;
+      _aiValidationPassed = null;
+      _aiValidationConfidence = null;
+    });
   }
 
   Future<void> _clearVideo() async {
@@ -470,14 +485,40 @@ class _PostScreenState extends State<PostScreen> {
         imageQuality: 85,
       );
       if (pickedFile != null) {
+        final selectedFile = File(pickedFile.path);
         setState(() {
-          _selectedImage = File(pickedFile.path);
+          _selectedImage = selectedFile;
+          _aiSuggestedScore = null;
+          _aiSuggestedDescription = null;
+          _aiValidationPassed = null;
+          _aiValidationConfidence = null;
         });
+        _runAiAnalysis(selectedFile);
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not access image: $e')),
       );
+    }
+  }
+
+  Future<void> _runAiAnalysis(File imageFile) async {
+    setState(() => _aiAnalyzing = true);
+    try {
+      final result = await _aiService.analyzeVenueImage(imageFile);
+      if (result != null && mounted) {
+        final score = result['crowd_score'] as int?;
+        final desc = result['description'] as String?;
+        if (score != null && score >= 0 && score <= 10) {
+          setState(() {
+            _aiSuggestedScore = score;
+            _crowdingLevel = score;
+            if (desc != null) _aiSuggestedDescription = desc;
+          });
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _aiAnalyzing = false);
     }
   }
 
@@ -562,6 +603,22 @@ class _PostScreenState extends State<PostScreen> {
 
     try {
       final locationName = _locationController.text.trim();
+
+      if (_selectedImage != null && _aiSuggestedScore == null) {
+        final validation = await _aiService.validateCrowdScore(
+          _selectedImage!,
+          _crowdingLevel.round(),
+        );
+        if (validation != null) {
+          _aiValidationPassed = validation['valid'] as bool?;
+          _aiValidationConfidence =
+              (validation['confidence'] as num?)?.toDouble();
+        }
+      } else {
+        _aiValidationPassed = _aiSuggestedScore != null;
+        _aiValidationConfidence = _aiSuggestedScore != null ? 0.9 : null;
+      }
+
       await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
@@ -591,6 +648,10 @@ class _PostScreenState extends State<PostScreen> {
         ageRange: _ageRange,
         hasPets: _hasPets,
         venueType: _venueType,
+        aiEstimatedScore: _aiSuggestedScore,
+        aiValidationPassed: _aiValidationPassed,
+        aiValidationConfidence: _aiValidationConfidence,
+        aiDescription: _aiSuggestedDescription,
       );
 
       await NotificationService.instance.onPostSubmitted(
@@ -1526,6 +1587,32 @@ class _PostScreenState extends State<PostScreen> {
             ),
           ],
         ),
+        if (_aiAnalyzing)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 6),
+                Text(
+                  'AI analyzing...',
+                  style: TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+          )
+        else if (_aiSuggestedScore != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'AI suggested $_aiSuggestedScore',
+              style: TextStyle(fontSize: 11, color: Color(0xFF1565C0)),
+            ),
+          ),
       ],
     );
   }

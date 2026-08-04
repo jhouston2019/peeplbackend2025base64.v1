@@ -400,3 +400,56 @@ exports.onNewPost = functions.firestore
     console.log(`onNewPost: sent ${sends.length} notifications for ${locationName}`);
     return null;
   });
+
+// ─── FUNCTION 5: onPostCreated ────────────────────────────────────────────
+// Fires on every new location_posts document. Detects anomalous crowd scores
+// against venue hourly baseline and writes to crowd_anomalies when found.
+exports.onPostCreated = functions.firestore
+  .document('location_posts/{postId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const postId = context.params.postId;
+    const { latitude, longitude, crowdingLevel, locationName, userId } = data;
+
+    if (!latitude || !longitude || crowdingLevel === undefined) return null;
+
+    try {
+      const venueKey = `${Math.round(latitude * 1000) / 1000}_${Math.round(longitude * 1000) / 1000}`;
+      const venueRef = db.collection('venue_intelligence').doc(venueKey);
+      const venueDoc = await venueRef.get();
+
+      if (!venueDoc.exists) return null;
+
+      const venueData = venueDoc.data();
+      const totalReports = venueData.totalReports || 0;
+      if (totalReports < 5) return null;
+
+      const hour = new Date().getHours().toString();
+      const hourlyAggregates = venueData.hourlyAggregates || {};
+      const hourEntry = hourlyAggregates[hour];
+      if (!hourEntry || hourEntry.count < 3) return null;
+
+      const hourlyAvg = hourEntry.sum / hourEntry.count;
+      const deviation = Math.abs(crowdingLevel - hourlyAvg);
+
+      if (deviation > 3) {
+        await db.collection('crowd_anomalies').add({
+          postId,
+          venueKey,
+          locationName,
+          latitude,
+          longitude,
+          reportedScore: crowdingLevel,
+          expectedScore: hourlyAvg,
+          deviation,
+          userId,
+          detectedAt: FieldValue.serverTimestamp(),
+        });
+      }
+
+      return null;
+    } catch (err) {
+      console.error('onPostCreated error:', err);
+      return null;
+    }
+  });

@@ -2,6 +2,8 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'crowd_intelligence_service.dart';
+
 class FeedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
@@ -43,6 +45,10 @@ class FeedService {
     String? ageRange,
     bool hasPets = false,
     String? venueType,
+    int? aiEstimatedScore,
+    bool? aiValidationPassed,
+    double? aiValidationConfidence,
+    String? aiDescription,
   }) async {
     try {
       await _validateImageFile(imageFile);
@@ -87,7 +93,21 @@ class FeedService {
         doc['staffAvailability'] = staffAvailability;
       }
 
-      await _firestore.collection('location_posts').add(doc);
+      final docRef = await _firestore.collection('location_posts').add(doc);
+
+      // Fire-and-forget intelligence recording — never blocks post flow
+      CrowdIntelligenceService().recordPostIntelligence(
+        postId: docRef.id,
+        locationName: locationName,
+        latitude: latitude,
+        longitude: longitude,
+        crowdScore: crowdingLevel,
+        userId: userId,
+        aiEstimatedScore: aiEstimatedScore,
+        aiValidationPassed: aiValidationPassed,
+        aiValidationConfidence: aiValidationConfidence,
+        aiDescription: aiDescription,
+      );
     } catch (e) {
       throw Exception('Failed to create location post: ${e.toString()}');
     }
