@@ -262,7 +262,10 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
         'endDate': Timestamp.fromDate(campaignEnd),
         'priority': 1,
         'targetLocation': targetLocation,
+        'targetLocations': targetLocation.isNotEmpty ? [targetLocation] : [],
+        'targetRadiusKm': _radiusMiles * 1.60934,
         'createdAt': FieldValue.serverTimestamp(),
+        'contexts': ['feed', 'discover'],
       });
 
       if (mounted) {

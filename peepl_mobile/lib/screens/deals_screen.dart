@@ -159,6 +159,7 @@ class _DealsScreenState extends State<DealsScreen> {
     if (adId.isNotEmpty) {
       _adsService.recordAdClick(adId, uid);
     }
+    Navigator.pushNamed(context, '/deal_claimed', arguments: ad);
   }
 
   @override

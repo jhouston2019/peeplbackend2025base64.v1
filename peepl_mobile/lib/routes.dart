@@ -53,6 +53,8 @@ import 'screens/merchant/merchant_activity_screen.dart';
 import 'screens/merchant/merchant_portal_screen.dart';
 import 'screens/merchant/merchant_setup_step1_screen.dart';
 import 'screens/merchant/merchant_setup_step2_screen.dart';
+import 'screens/merchant/merchant_setup_step3_screen.dart';
+import 'screens/merchant/how_to_advertise_screen.dart';
 import 'screens/merchant/merchant_sign_in_screen.dart';
 import 'screens/gallery_screen.dart';
 import 'screens/scoreboard_screen.dart';
@@ -186,14 +188,14 @@ Map<String, WidgetBuilder> appRoutes = {
   '/venue': (_) => const VenueScreen(),
   '/trending': (_) => const TrendingScreen(),
   '/vip_peeps': (_) => const VIPeepsScreen(),
-  '/how_to_advertise': (_) => const MerchantPortalScreen(),
+  '/how_to_advertise': (_) => const HowToAdvertiseScreen(),
   '/merchant_account_info': (_) => const MerchantAccountInfoScreen(),
   '/merchant_account_number': (_) => const MerchantAccountNumberScreen(),
   '/merchant_activity': (_) => const MerchantActivityScreen(),
   '/merchant_portal': (_) => const MerchantPortalScreen(),
   '/merchant_setup_step1': (_) => const MerchantSetupStep1Screen(),
   '/merchant_setup_step2': (_) => const MerchantSetupStep2Screen(),
-  '/merchant_setup_step3': (_) => const MerchantSetupStep2Screen(),
+  '/merchant_setup_step3': (_) => const MerchantSetupStep3Screen(),
   '/merchant_sign_in': (_) => const MerchantSignInScreen(),
   '/gallery': (_) => const GalleryScreen(),
   if (kDebugMode && kIsWeb) '/feed_preview': (_) => const FeedPreviewHost(),

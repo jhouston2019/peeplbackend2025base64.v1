@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../shell_tab_bus.dart';
 import '../widgets/home/peepl_bottom_navigation.dart';
 import '../widgets/home/peepl_home_tokens.dart';
+import 'discover_screen.dart';
 import 'feed_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -15,9 +16,12 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  int _bodyIndex = 0;
+
   @override
   void initState() {
     super.initState();
+    _bodyIndex = widget.initialBodyIndex.clamp(0, 1);
     final i = widget.initialBodyIndex;
     if (i == 2) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -55,9 +59,9 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PeeplHomeTokens.feedBackground,
-      body: const IndexedStack(index: 0, children: [FeedScreen()]),
+      body: IndexedStack(index: _bodyIndex, children: const [FeedScreen(), DiscoverScreen()]),
       bottomNavigationBar: PeeplBottomNavigation(
-        onExploreTap: () {},
+        onExploreTap: () => Navigator.pushNamed(context, '/explore'),
         onSearchTap: () => Navigator.pushNamed(context, '/search'),
         onDealsTap: () => Navigator.pushNamed(context, '/deals'),
         onAlertsTap: () => Navigator.pushNamed(context, '/alerts'),
