@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:io';
 import '../theme/peepl_app_tokens.dart';
 
@@ -6,6 +5,7 @@ import '../services/ai_service.dart';
 import '../services/crowd_intelligence_service.dart';
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
+import '../services/venue_name_service.dart';
 import '../widgets/quick_peep_sheet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,7 +13,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
-import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 
 class PostScreen extends StatefulWidget {
@@ -336,27 +335,6 @@ class _PostScreenState extends State<PostScreen> {
     }
   }
 
-  Future<String?> _fetchVenueName(double lat, double lng) async {
-    const apiKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      '?location=$lat,$lng&rankby=distance&type=establishment&key=$apiKey',
-    );
-    try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final results = data['results'] as List?;
-        if (results != null && results.isNotEmpty) {
-          return results.first['name'] as String?;
-        }
-      }
-    } catch (e) {
-      print('Places API error: $e');
-    }
-    return null;
-  }
-
   Future<bool> _acquireLocation() async {
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -375,7 +353,8 @@ class _PostScreenState extends State<PostScreen> {
         _latitude = pos.latitude;
         _longitude = pos.longitude;
       });
-      final venueName = await _fetchVenueName(pos.latitude, pos.longitude);
+      final venueName =
+          await VenueNameService.getVenueName(pos.latitude, pos.longitude);
       if (venueName != null && venueName.isNotEmpty) {
         if (mounted) {
           setState(() => _locationController.text = venueName);

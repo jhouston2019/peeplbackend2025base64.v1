@@ -4,13 +4,13 @@ import '../theme/peepl_app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
 import '../services/notification_service.dart';
+import '../services/venue_name_service.dart';
 import '../widgets/crowd_meter.dart';
 
 class CreatePeepScreen extends StatefulWidget {
@@ -93,18 +93,6 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     super.dispose();
   }
 
-  static String _formatPlacemark(Placemark p) {
-    final street = p.street?.trim();
-    final name = p.name?.trim();
-    final placeName = (street != null && street.isNotEmpty)
-        ? street
-        : (name != null && name.isNotEmpty ? name : '');
-    final city = p.locality?.trim() ?? p.subAdministrativeArea?.trim() ?? '';
-    if (placeName.isNotEmpty && city.isNotEmpty) return '$placeName, $city';
-    if (placeName.isNotEmpty) return placeName;
-    return city;
-  }
-
   Future<void> _resolveLocationAndGeocode() async {
     if (!mounted || _hasNotificationLocation) return;
     setState(() => _isGeolocating = true);
@@ -137,18 +125,13 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         _locationPermissionDenied = false;
       });
 
-      try {
-        final placemarks =
-            await placemarkFromCoordinates(pos.latitude, pos.longitude);
-        if (!mounted) return;
-        if (placemarks.isNotEmpty) {
-          final label = _formatPlacemark(placemarks.first);
-          if (label.isNotEmpty) {
-            _locationController.text = label;
-          }
-        }
-      } catch (e) {
-        debugPrint('Reverse geocoding failed: $e');
+      final name = await VenueNameService.getVenueName(
+        pos.latitude,
+        pos.longitude,
+      );
+      if (!mounted) return;
+      if (name != null && name.isNotEmpty) {
+        _locationController.text = name;
       }
     } catch (e, st) {
       debugPrint('Geolocation/geocoding failed: $e\n$st');

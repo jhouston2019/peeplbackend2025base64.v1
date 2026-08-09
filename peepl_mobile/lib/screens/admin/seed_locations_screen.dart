@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/peepl_app_tokens.dart';
+import '../../theme/peepl_app_tokens.dart';
 
 const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 const _kAdminUid = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';

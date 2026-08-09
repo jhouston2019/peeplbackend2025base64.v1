@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'home/peepl_home_tokens.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
+import '../services/location_service.dart';
+import '../services/venue_name_service.dart';
 
 class QuickPeepSheet {
   QuickPeepSheet._();
@@ -74,11 +74,15 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   bool _isLocating = false;
   String? _locationError;
 
+  double? _latitude;
+  double? _longitude;
+
   @override
   void initState() {
     super.initState();
     if (widget.venueName != null) {
       _placeController.text = widget.venueName!;
+      _acquireCoordinates();
     } else {
       _detectLocation();
     }
@@ -96,6 +100,19 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     return const Color(0xFFFF5722);
   }
 
+  Future<void> _acquireCoordinates() async {
+    try {
+      final position = await LocationService.getCurrentLocation();
+      if (!mounted || position == null) return;
+      setState(() {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      });
+    } catch (e) {
+      debugPrint('QuickPeepSheet: coordinate acquisition failed: $e');
+    }
+  }
+
   Future<void> _detectLocation() async {
     setState(() {
       _isLocating = true;
@@ -103,55 +120,39 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     });
 
     try {
-      LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.deniedForever ||
-          permission == LocationPermission.denied) {
-        setState(() {
-          _locationError = 'Location permission denied';
-          _isLocating = false;
-        });
+      final position = await LocationService.getCurrentLocation();
+      if (position == null) {
+        if (mounted) {
+          setState(() {
+            _locationError = 'Location permission denied';
+            _isLocating = false;
+          });
+        }
         return;
       }
 
-      final position = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high,
-        timeLimit: Duration(seconds: 8),
-      );
+      _latitude = position.latitude;
+      _longitude = position.longitude;
 
-      final placemarks = await placemarkFromCoordinates(
+      final name = await VenueNameService.getVenueName(
         position.latitude,
         position.longitude,
       );
 
-      if (placemarks.isNotEmpty) {
-        final place = placemarks.first;
-        final name = place.name ?? '';
-        final street = place.thoroughfare ?? '';
-        final locality = place.locality ?? '';
-
-        String locationName = '';
-        if (name.isNotEmpty && name != street) {
-          locationName = name;
-        } else if (street.isNotEmpty) {
-          locationName = '$street, $locality';
-        } else {
-          locationName = locality;
+      if (!mounted) return;
+      setState(() {
+        if (name != null && name.isNotEmpty) {
+          _placeController.text = name;
         }
-
+        _isLocating = false;
+      });
+    } catch (e) {
+      if (mounted) {
         setState(() {
-          _placeController.text = locationName;
+          _locationError = 'Could not detect location';
           _isLocating = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        _locationError = 'Could not detect location';
-        _isLocating = false;
-      });
     }
   }
 
@@ -185,12 +186,16 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     setState(() => _isLoading = true);
 
     try {
+      if (_latitude == null || _longitude == null) {
+        await _acquireCoordinates();
+      }
+
       final postId = await FeedService().addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: _placeController.text.trim(),
-        latitude: 0.0,
-        longitude: 0.0,
+        latitude: _latitude ?? 0.0,
+        longitude: _longitude ?? 0.0,
         crowdingLevel: _crowdLevel.round(),
         imageFile: File(photo.path),
         vibe: _selectedVibe,
