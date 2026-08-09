@@ -13,6 +13,13 @@ service cloud.firestore {
       );
     }
 
+    function isGrowthAdmin() {
+      return request.auth != null && (
+        isAppAdmin() ||
+        get(/databases/$(database)/documents/CAASNAhaDbPrl0zH1yDn5qRqAtJ3/$(request.auth.uid)).data.isAdmin == true
+      );
+    }
+
     // Users: own profile, or full access for admins (moderation / admin panel)
     match /users/{userId} {
       allow read: if request.auth != null && (request.auth.uid == userId || isAppAdmin());
@@ -194,6 +201,43 @@ service cloud.firestore {
     match /crowd_anomalies/{doc} {
       allow read: if request.auth != null;
       allow write: if false;
+    }
+
+    // Geofence venue registry — public read for client geofencing.
+    match /locations/{locationId} {
+      allow read: if true;
+      allow write: if isGrowthAdmin();
+    }
+
+    // Growth funnel analytics (Phase 1).
+    match /growth_events/{eventId} {
+      allow write: if request.auth != null;
+      allow read: if isGrowthAdmin();
+    }
+
+    // Per-post / venue share tracking (Phase 2).
+    match /peep_shares/{shareId} {
+      allow create: if request.auth != null
+        && request.resource.data.sharingUserId == request.auth.uid;
+      allow read: if request.auth != null
+        && resource.data.sharingUserId == request.auth.uid;
+    }
+
+    // Share link opens — written by Railway backend (Admin SDK) only.
+    match /peep_link_opens/{openId} {
+      allow read, write: if false;
+    }
+
+    // Saved location alerts (Phase 6).
+    match /location_follows/{followId} {
+      allow read: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update: if request.auth != null
+        && resource.data.userId == request.auth.uid;
+      allow delete: if request.auth != null
+        && resource.data.userId == request.auth.uid;
     }
   }
 }

@@ -245,7 +245,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
       final locationName = _locationController.text.trim();
       final imageFile = await _resolveImageFile();
 
-      await _feedService.addLocationPost(
+      final postId = await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: locationName,

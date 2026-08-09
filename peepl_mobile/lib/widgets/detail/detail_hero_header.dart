@@ -15,6 +15,9 @@ class DetailHeroHeader extends StatelessWidget {
     required this.onBack,
     required this.onShare,
     required this.onMenu,
+    this.onFollow,
+    this.isFollowing = false,
+    this.isFollowLoading = false,
   });
 
   final String? imageUrl;
@@ -26,6 +29,9 @@ class DetailHeroHeader extends StatelessWidget {
   final VoidCallback onBack;
   final VoidCallback onShare;
   final VoidCallback onMenu;
+  final VoidCallback? onFollow;
+  final bool isFollowing;
+  final bool isFollowLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -92,6 +98,18 @@ class DetailHeroHeader extends StatelessWidget {
                 onTap: onShare,
                 tooltip: 'Share',
               ),
+              if (onFollow != null) ...[
+                const SizedBox(width: 8),
+                DetailGlassIconButton(
+                  icon: isFollowLoading
+                      ? Icons.hourglass_empty_rounded
+                      : (isFollowing
+                          ? Icons.bookmark_rounded
+                          : Icons.bookmark_border_rounded),
+                  onTap: isFollowLoading ? () {} : onFollow!,
+                  tooltip: isFollowing ? 'Unfollow location' : 'Follow location',
+                ),
+              ],
               const SizedBox(width: 8),
               DetailGlassIconButton(
                 icon: Icons.more_horiz_rounded,

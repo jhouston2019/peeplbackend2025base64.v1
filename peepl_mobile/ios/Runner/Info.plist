@@ -83,5 +83,18 @@
 	<false/>
 	<key>GADApplicationIdentifier</key>
 	<string>ca-app-pub-3424798179321670~8779412219</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>com.peepl.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>peepl</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

@@ -1,4 +1,7 @@
-// NOTE on navigatorKey:
+// Walk-in venue prompts are handled by NotificationService (peepl_walk_in
+// channel, walk_in_prompt payload). This service is legacy — its separate
+// FlutterLocalNotificationsPlugin instance and peepl_geofence channel are
+// not used for geofence walk-in prompts in Phase 1.
 // main.dart's _MyAppState declares a single GlobalKey<NavigatorState> that is
 // shared between PeeplApp (MaterialApp.navigatorKey) and NotificationService
 // via .init(navKey: navigatorKey). It is an instance variable, not a static,

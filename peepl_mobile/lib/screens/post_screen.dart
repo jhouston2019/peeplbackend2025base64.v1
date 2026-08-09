@@ -200,6 +200,7 @@ class _PostScreenState extends State<PostScreen> {
   bool _isGeolocating = false;
   bool _locationPreFilled = false;
   bool _hasNotificationLocation = false;
+  bool _fromVenueEntry = false;
 
   double _kidsPercentage = 0;
   double _femalePercentage = 50;
@@ -322,6 +323,7 @@ class _PostScreenState extends State<PostScreen> {
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map && args['locationName'] != null) {
         _hasNotificationLocation = true;
+        _fromVenueEntry = args['fromVenueEntry'] == true || _hasNotificationLocation;
         _locationController.text = args['locationName'] as String;
         final lat = args['latitude'];
         final lng = args['longitude'];
@@ -619,7 +621,7 @@ class _PostScreenState extends State<PostScreen> {
         _aiValidationConfidence = _aiSuggestedScore != null ? 0.9 : null;
       }
 
-      await _feedService.addLocationPost(
+      final postId = await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: locationName,
@@ -670,17 +672,23 @@ class _PostScreenState extends State<PostScreen> {
           .get();
 
       if (mounted) {
+        final successArgs = {
+          'postId': postId,
+          'locationName': locationName,
+          'crowdingLevel': _crowdingLevel.round(),
+          'fromVenueEntry': _fromVenueEntry,
+        };
         if ((pioneerCount.count ?? 0) == 1) {
           Navigator.pushReplacementNamed(
             context,
             '/pioneer_congrat',
-            arguments: locationName,
+            arguments: successArgs,
           );
         } else {
           Navigator.pushReplacementNamed(
             context,
             '/peep_submitted',
-            arguments: locationName,
+            arguments: successArgs,
           );
         }
       }

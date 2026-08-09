@@ -6,6 +6,7 @@ import 'package:confetti/confetti.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../utils/post_peep_share_prompt.dart';
 
 class PioneerCongratScreen extends StatefulWidget {
   /// Optionally supplied when pushed directly. If null the screen reads the
@@ -21,6 +22,7 @@ class PioneerCongratScreen extends StatefulWidget {
 class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
   late final ConfettiController _confettiController;
   String _resolvedName = '';
+  PostPeepShareArgs? _shareArgs;
   bool _didInit = false;
   bool _recording = false;
 
@@ -37,7 +39,12 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
     super.didChangeDependencies();
     if (!_didInit) {
       _didInit = true;
-      _resolvedName = widget.locationName ??
+      _shareArgs = PostPeepShareArgs.fromRoute(
+        ModalRoute.of(context)?.settings.arguments,
+        widgetLocationName: widget.locationName,
+      );
+      _resolvedName = _shareArgs?.locationName ??
+          widget.locationName ??
           (ModalRoute.of(context)?.settings.arguments as String?) ??
           '';
       _recordPioneerAndCelebrate();
@@ -82,6 +89,13 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
     }
 
     _confettiController.play();
+
+    if (_shareArgs != null) {
+      await schedulePostPeepSharePrompt(
+        context: context,
+        args: _shareArgs!,
+      );
+    }
   }
 
   Future<void> _shareAchievement() async {

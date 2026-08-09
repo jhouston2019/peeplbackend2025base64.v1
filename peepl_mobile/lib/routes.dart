@@ -9,6 +9,7 @@ import 'screens/post_screen.dart';
 import 'screens/settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/admin_screen.dart';
+import 'screens/admin/seed_locations_screen.dart';
 import 'screens/alerts_screen.dart';
 import 'screens/main_shell.dart';
 import 'screens/chat_screen.dart';
@@ -95,6 +96,7 @@ Map<String, WidgetBuilder> appRoutes = {
   '/settings': (_) => SettingsScreen(),
   '/login': (_) => LoginScreen(),
   '/admin': (_) => const AdminScreen(),
+  '/admin/seed_locations': (_) => const SeedLocationsScreen(),
   '/alerts': (_) => const AlertsScreen(),
   '/location_detail_demo': (_) => LocationDetailScreen(
         postData: Map<String, dynamic>.from(kLocationDetailDemoPostData),

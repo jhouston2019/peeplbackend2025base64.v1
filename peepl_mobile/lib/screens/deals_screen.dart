@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import '../constants/local_deals.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/share_service.dart';
 
 class DealsScreen extends StatefulWidget {
   const DealsScreen({super.key});
@@ -162,6 +163,32 @@ class _DealsScreenState extends State<DealsScreen> {
     Navigator.pushNamed(context, '/deal_claimed', arguments: ad);
   }
 
+  Future<void> _onShareDeal(Map<String, dynamic> ad) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to share this deal.')),
+      );
+      return;
+    }
+
+    final dealId = (ad['id'] ?? '').toString();
+    if (dealId.isEmpty) return;
+
+    final dealTitle = _discountText(ad).isNotEmpty
+        ? _discountText(ad)
+        : _advertiserName(ad);
+    final venueName = _advertiserName(ad);
+
+    await ShareService.instance.shareDeal(
+      dealId: dealId,
+      dealTitle: dealTitle,
+      venueName: venueName,
+      sharingUserId: uid,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -193,6 +220,7 @@ class _DealsScreenState extends State<DealsScreen> {
                         accentColor: _accentColor(ad),
                         ctaLabel: _ctaLabel(ad),
                         onCta: () => _onCtaTap(ad),
+                        onShare: () => _onShareDeal(ad),
                       );
                     },
                   ),
@@ -229,6 +257,7 @@ class _DealCard extends StatelessWidget {
     required this.accentColor,
     required this.ctaLabel,
     required this.onCta,
+    required this.onShare,
   });
 
   final Map<String, dynamic> ad;
@@ -240,6 +269,7 @@ class _DealCard extends StatelessWidget {
   final Color accentColor;
   final String ctaLabel;
   final VoidCallback onCta;
+  final VoidCallback onShare;
 
   @override
   Widget build(BuildContext context) {
@@ -277,6 +307,26 @@ class _DealCard extends StatelessWidget {
                   Colors.black.withValues(alpha: 0.72),
                   Colors.black.withValues(alpha: 0.25),
                 ],
+              ),
+            ),
+          ),
+          Positioned(
+            top: 10,
+            right: 10,
+            child: Material(
+              color: Colors.black.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(20),
+              child: InkWell(
+                onTap: onShare,
+                borderRadius: BorderRadius.circular(20),
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(
+                    Icons.ios_share_rounded,
+                    color: PeeplAppTokens.textPrimary,
+                    size: 18,
+                  ),
+                ),
               ),
             ),
           ),

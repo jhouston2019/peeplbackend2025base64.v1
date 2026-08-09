@@ -1,10 +1,11 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/peepl_app_tokens.dart';
 
-import '../widgets/crowd_dot_ring_meter.dart';
+import '../services/share_service.dart';
 
 class ShareScreen extends StatefulWidget {
   const ShareScreen({
@@ -84,19 +85,70 @@ class _ShareScreenState extends State<ShareScreen> {
     }
   }
 
-  String get _crowdingWord {
-    final level = _crowdingLevel ?? 5;
-    return CrowdDotRingMeter.statusWord(level).toLowerCase();
-  }
+  String get _postSharePreview => ShareService.instance.buildShareText(
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        shareUrl:
+            '${ShareService.baseUrl}/p/${_postId ?? '…'}?ref=…&uid=…&src=share_screen',
+        shareContext: 'share_screen',
+      );
 
-  String get _postShareText =>
-      "I'm at $_locationName — it's $_crowdingWord! Know before you go 📍 $_kAppLink";
-
-  String get _locationShareText =>
-      'Check out $_locationName on Peepl for real-time crowd info! $_kAppLink';
+  String get _locationSharePreview => ShareService.instance.buildShareText(
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        shareUrl:
+            '${ShareService.baseUrl}/v/${Uri.encodeComponent(_locationName)}?ref=…&uid=…&src=venue_share',
+        shareContext: 'venue_share',
+      );
 
   String get _appShareText =>
       'Know before you go! Peepl shows you how crowded any place is in real time. Download: $_kAppLink';
+
+  Future<void> _sharePostCard() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _postId == null || _postId!.isEmpty) return;
+    await ShareService.instance.sharePeep(
+      peepId: _postId!,
+      locationName: _locationName,
+      crowdingLevel: _crowdingLevel ?? 5,
+      sharingUserId: uid,
+      shareContext: 'share_screen',
+    );
+  }
+
+  Future<void> _copyPostShare() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null || _postId == null || _postId!.isEmpty) return;
+    final text = await ShareService.instance.buildPeepShareMessage(
+      peepId: _postId!,
+      locationName: _locationName,
+      crowdingLevel: _crowdingLevel ?? 5,
+      sharingUserId: uid,
+      shareContext: 'share_screen',
+    );
+    await _copyLink(text);
+  }
+
+  Future<void> _shareLocationCard() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    await ShareService.instance.shareVenueStatus(
+      locationName: _locationName,
+      crowdingLevel: _crowdingLevel ?? 5,
+      sharingUserId: uid,
+    );
+  }
+
+  Future<void> _copyLocationShare() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    final text = await ShareService.instance.buildVenueShareMessage(
+      locationName: _locationName,
+      crowdingLevel: _crowdingLevel ?? 5,
+      sharingUserId: uid,
+    );
+    await _copyLink(text);
+  }
 
   Future<void> _share(String text) async {
     try {
@@ -129,16 +181,16 @@ class _ShareScreenState extends State<ShareScreen> {
         _ShareCard(
           icon: Icons.post_add_outlined,
           title: 'Share this Post',
-          message: _postShareText,
-          onShare: () => _share(_postShareText),
-          onCopy: () => _copyLink(_postShareText),
+          message: _postSharePreview,
+          onShare: _sharePostCard,
+          onCopy: _copyPostShare,
         ),
       _ShareCard(
         icon: Icons.place_outlined,
         title: 'Share this Location',
-        message: _locationShareText,
-        onShare: () => _share(_locationShareText),
-        onCopy: () => _copyLink(_locationShareText),
+        message: _locationSharePreview,
+        onShare: _shareLocationCard,
+        onCopy: _copyLocationShare,
       ),
       _ShareCard(
         icon: Icons.phone_android_outlined,

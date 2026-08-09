@@ -8,6 +8,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
+import '../services/share_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
@@ -50,14 +51,72 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   List<Map<String, dynamic>> _availableAds = [];
   List<Map<String, dynamic>> _venuePeeps = [];
   bool _loadingVenuePeeps = true;
+  bool _isFollowing = false;
+  bool _isFollowLoading = false;
+  late final String _locationId;
+
+  static String _resolveLocationId(Map<String, dynamic> post) {
+    final venueId = post['venueId'] as String?;
+    if (venueId != null && venueId.trim().isNotEmpty) return venueId.trim();
+    final locationName = post['locationName'] as String?;
+    if (locationName != null && locationName.trim().isNotEmpty) {
+      return locationName.trim();
+    }
+    return 'unknown';
+  }
 
   @override
   void initState() {
     super.initState();
+    _locationId = _resolveLocationId(widget.postData);
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
+    _loadFollowState();
     _initAds();
     _loadVenuePeeps();
+  }
+
+  Future<void> _loadFollowState() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final followed =
+        await _feedService.isLocationFollowed(user.uid, _locationId);
+    if (!mounted) return;
+    setState(() => _isFollowing = followed);
+  }
+
+  Future<void> _toggleFollow(String locationName) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to follow this location.')),
+      );
+      return;
+    }
+
+    setState(() => _isFollowLoading = true);
+    try {
+      if (_isFollowing) {
+        await _feedService.unfollowLocation(user.uid, _locationId);
+      } else {
+        await _feedService.followLocation(
+          user.uid,
+          _locationId,
+          locationName,
+        );
+      }
+      if (!mounted) return;
+      setState(() => _isFollowing = !_isFollowing);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update follow status: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isFollowLoading = false);
+    }
   }
 
   Future<void> _loadVenuePeeps() async {
@@ -533,18 +592,24 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           peepCountLabel: null,
           address: address,
           onBack: () => Navigator.pop(context),
-          onShare: () {
-            Navigator.pushNamed(
-              context,
-              '/share',
-              arguments: {
-                ...post,
-                'postId': post['id'] as String? ?? post['postId'] as String?,
-                'locationName': post['locationName'] as String?,
-                'crowdingLevel': crowdingLevel,
-              },
+          onShare: () async {
+            final user = FirebaseAuth.instance.currentUser;
+            if (user == null) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Sign in to share this venue.')),
+              );
+              return;
+            }
+            await ShareService.instance.shareVenueStatus(
+              locationName: locationName,
+              crowdingLevel: crowdingLevel,
+              sharingUserId: user.uid,
+              venueId: post['venueId'] as String?,
             );
           },
+          onFollow: () => _toggleFollow(locationName),
+          isFollowing: _isFollowing,
+          isFollowLoading: _isFollowLoading,
           onMenu: () => Navigator.pushNamed(
             context,
             '/report',

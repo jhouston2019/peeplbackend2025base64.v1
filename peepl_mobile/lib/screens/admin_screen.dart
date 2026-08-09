@@ -138,6 +138,15 @@ class _AdminScreenState extends State<AdminScreen>
               fontWeight: FontWeight.bold,
             ),
           ),
+          const Spacer(),
+          TextButton(
+            onPressed: () =>
+                Navigator.pushNamed(context, '/admin/seed_locations'),
+            child: const Text(
+              'Seed Locations',
+              style: TextStyle(color: PeeplAppTokens.textPrimary),
+            ),
+          ),
         ],
       ),
     );

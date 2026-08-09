@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
+import 'growth_analytics_service.dart';
 import 'notification_service.dart';
 
 class PeeplGeofenceService {
@@ -140,6 +141,9 @@ class PeeplGeofenceService {
       final geofences = <Geofence>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
+        final isActive = data['isActive'] as bool? ?? true;
+        if (!isActive) continue;
+
         final name = data['locationName'] as String?;
         final lat = (data['latitude'] as num?)?.toDouble();
         final lng = (data['longitude'] as num?)?.toDouble();
@@ -183,6 +187,15 @@ class PeeplGeofenceService {
 
     final locationId = geofence.id;
     final locationName = _locationNames[locationId] ?? locationId;
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_venue_entry_detected',
+      {
+        'venueId': locationId,
+        'venueName': locationName,
+        'accuracy': location.accuracy,
+      },
+    );
 
     await NotificationService.instance.handleGeofenceWalkIn(
       locationId: locationId,

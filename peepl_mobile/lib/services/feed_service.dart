@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import 'crowd_intelligence_service.dart';
+import 'growth_analytics_service.dart';
 
 class FeedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -10,6 +11,66 @@ class FeedService {
 
   static const int maxFileSizeBytes = 5 * 1024 * 1024;
   static const List<String> allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+
+  static String followDocumentId(String userId, String locationId) =>
+      '${userId}_$locationId';
+
+  Future<void> followLocation(
+    String userId,
+    String locationId,
+    String locationName,
+  ) async {
+    final docId = followDocumentId(userId, locationId);
+    await _firestore.collection('location_follows').doc(docId).set({
+      'userId': userId,
+      'locationId': locationId,
+      'locationName': locationName,
+      'followedAt': FieldValue.serverTimestamp(),
+      'alertsEnabled': true,
+      'lastAlertedAt': null,
+      'lastKnownCrowdingLevel': null,
+    });
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_location_followed',
+      {
+        'userId': userId,
+        'locationId': locationId,
+        'locationName': locationName,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  Future<void> unfollowLocation(String userId, String locationId) async {
+    final docId = followDocumentId(userId, locationId);
+    final doc = await _firestore.collection('location_follows').doc(docId).get();
+    final locationName = doc.data()?['locationName'] as String? ?? locationId;
+
+    await _firestore.collection('location_follows').doc(docId).delete();
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_location_unfollowed',
+      {
+        'userId': userId,
+        'locationId': locationId,
+        'locationName': locationName,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+  }
+
+  Future<bool> isLocationFollowed(String userId, String locationId) async {
+    try {
+      final doc = await _firestore
+          .collection('location_follows')
+          .doc(followDocumentId(userId, locationId))
+          .get();
+      return doc.exists;
+    } catch (_) {
+      return false;
+    }
+  }
 
   Stream<QuerySnapshot> getLocationFeedStream() {
     return _firestore
@@ -21,7 +82,7 @@ class FeedService {
         .snapshots();
   }
 
-  Future<void> addLocationPost({
+  Future<String> addLocationPost({
     required String userId,
     required String username,
     required String locationName,
@@ -108,6 +169,8 @@ class FeedService {
         aiValidationConfidence: aiValidationConfidence,
         aiDescription: aiDescription,
       );
+
+      return docRef.id;
     } catch (e) {
       throw Exception('Failed to create location post: ${e.toString()}');
     }

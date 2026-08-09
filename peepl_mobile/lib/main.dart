@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'config/constants.dart';
+import 'deep_link_handler.dart';
 import 'firebase_options.dart';
 import 'routes.dart';
 import 'services/admob_service.dart';
@@ -15,6 +16,7 @@ import 'services/geofence_service.dart' as geofence_svc;
 import 'services/local_notification_service.dart';
 import 'services/notification_service.dart';
 import 'services/presence_service.dart';
+import 'services/remote_config_service.dart';
 import 'theme/peepl_app_tokens.dart';
 import 'theme_notifier.dart';
 
@@ -28,6 +30,8 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  await RemoteConfigService.instance.initialize();
 
   await AdmobService.initialize();
 
@@ -63,6 +67,7 @@ class _MyAppState extends State<MyApp> {
         await PresenceService.instance.recordArrival(name, lat, lng);
       };
       await geofenceService.initialize();
+      await DeepLinkHandler.initialize(navigatorKey);
 
       if (mounted) setState(() => _ready = true);
     });
@@ -137,6 +142,9 @@ class _AuthGateState extends State<_AuthGate> {
       final route = _webDebugEntryRoute();
       if (!mounted) return;
       Navigator.pushReplacementNamed(context, route);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        DeepLinkHandler.markStartupComplete();
+      });
       return;
     }
 
@@ -168,6 +176,7 @@ class _AuthGateState extends State<_AuthGate> {
       Navigator.pushReplacementNamed(context, route);
       WidgetsBinding.instance.addPostFrameCallback((_) {
         NotificationService.instance.processPendingNotification();
+        DeepLinkHandler.markStartupComplete();
       });
     }
   }

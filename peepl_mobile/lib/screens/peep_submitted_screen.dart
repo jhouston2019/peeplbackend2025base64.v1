@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
+import '../utils/post_peep_share_prompt.dart';
 
 class PeepSubmittedScreen extends StatefulWidget {
   /// Optionally supplied when pushed directly. If null the screen reads from
@@ -16,16 +17,18 @@ class PeepSubmittedScreen extends StatefulWidget {
 
 class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
   bool _didInit = false;
+  PostPeepShareArgs? _shareArgs;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (!_didInit) {
       _didInit = true;
-      final name = widget.locationName ??
-          (ModalRoute.of(context)?.settings.arguments as String?) ??
-          '';
-      _checkPioneer(name);
+      _shareArgs = PostPeepShareArgs.fromRoute(
+        ModalRoute.of(context)?.settings.arguments,
+        widgetLocationName: widget.locationName,
+      );
+      _checkPioneer(_shareArgs?.locationName ?? '');
     }
   }
 
@@ -59,7 +62,17 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
         Navigator.pushReplacementNamed(
           context,
           '/pioneer_congrat',
-          arguments: locationName,
+          arguments: _shareArgs?.toMap() ?? locationName,
+        );
+      } else if (_shareArgs != null) {
+        await schedulePostPeepSharePrompt(
+          context: context,
+          args: _shareArgs!,
+          onSheetFullyDismissed: () {
+            if (mounted) {
+              Navigator.pushReplacementNamed(context, '/home');
+            }
+          },
         );
       } else {
         Navigator.pushReplacementNamed(context, '/home');

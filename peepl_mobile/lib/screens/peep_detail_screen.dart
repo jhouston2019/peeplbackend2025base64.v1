@@ -1,11 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:share_plus/share_plus.dart';
 import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
+import '../services/share_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
 
@@ -87,23 +88,24 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
 
   Future<void> _sharePost() async {
     final post = _post;
-    if (post == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (post == null || user == null) return;
+
+    final postId = post['id'] as String?;
+    if (postId == null || postId.isEmpty) return;
+
     final name = post['locationName']?.toString().trim().isNotEmpty == true
         ? post['locationName'].toString().trim()
         : 'this spot';
     final level = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
-    final crowdingWord = CrowdMeter.wordLabel(level);
-    final text =
-        "I'm at $name right now — it's $crowdingWord! 📍 Know before you go with Peepl: https://peepl.app";
-    try {
-      await Share.share(text);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not share: $e')),
-        );
-      }
-    }
+
+    await ShareService.instance.sharePeep(
+      peepId: postId,
+      locationName: name,
+      crowdingLevel: level,
+      sharingUserId: user.uid,
+      shareContext: 'detail_view',
+    );
   }
 
   Future<void> _submitComment() async {

@@ -185,7 +185,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     setState(() => _isLoading = true);
 
     try {
-      await FeedService().addLocationPost(
+      final postId = await FeedService().addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
         locationName: _placeController.text.trim(),

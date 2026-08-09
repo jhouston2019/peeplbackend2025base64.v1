@@ -12,13 +12,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import 'crowdsource_service.dart';
 import 'debug_log_service.dart';
+import 'growth_analytics_service.dart';
+import 'peep_prompt_suppression_service.dart';
 
 /// Firestore collection used for user profile documents (includes fcmToken).
 const kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 const _kHasRequestedPushPermissionKey = 'hasRequestedPushPermission';
 const _kPushPermissionShownKey = 'push_permission_shown';
-const _kWalkInPromptCooldown = Duration(hours: 2);
 
 // Must be top-level — FCM requirement for background handling.
 @pragma('vm:entry-point')
@@ -112,39 +113,61 @@ class NotificationService {
     _startCrowdsourceResponseListener();
   }
 
-  /// Flow 1 — geofence walk-in prompt (max once per location per 2 hours).
+  /// Flow 1 — geofence walk-in prompt via `peepl_walk_in` channel.
+  /// Suppression thresholds come from Remote Config via
+  /// [PeepPromptSuppressionService]. Walk-in notifications are owned here;
+  /// [LocalNotificationService] is legacy and not used for this flow.
   Future<void> handleGeofenceWalkIn({
     required String locationId,
     required String locationName,
     required double latitude,
     required double longitude,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    final key = 'last_prompted_$locationId';
-    final lastMs = prefs.getInt(key);
-    if (lastMs != null) {
-      final elapsed = DateTime.now().millisecondsSinceEpoch - lastMs;
-      if (elapsed < _kWalkInPromptCooldown.inMilliseconds) {
-        debugPrint('[FCM] Walk-in prompt skipped for $locationId (cooldown)');
-        return;
-      }
+    if (latitude.isNaN ||
+        longitude.isNaN ||
+        (latitude == 0 && longitude == 0)) {
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_suppressed',
+        {
+          'venueId': locationId,
+          'reason': 'missing_coordinates',
+        },
+      );
+      debugPrint('[FCM] Walk-in prompt skipped for $locationId (no coordinates)');
+      return;
     }
 
-    await prefs.setInt(key, DateTime.now().millisecondsSinceEpoch);
+    final suppression =
+        await PeepPromptSuppressionService.instance.check(locationId);
+    if (suppression.suppress) {
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_suppressed',
+        {
+          'venueId': locationId,
+          'reason': suppression.reason ?? 'unknown',
+        },
+      );
+      debugPrint(
+        '[FCM] Walk-in prompt suppressed for $locationId (${suppression.reason})',
+      );
+      return;
+    }
+
+    await PeepPromptSuppressionService.instance.recordPromptSent(locationId);
     await _updateUserLastLocation(latitude, longitude);
 
     final payload = jsonEncode({
       'type': 'walk_in_prompt',
-      'locationId': locationId,
       'locationName': locationName,
       'latitude': latitude,
       'longitude': longitude,
+      'venueId': locationId,
     });
 
     await _localNotifications.show(
       locationId.hashCode,
-      "You're at $locationName!",
-      "How's the crowd right now? Tap to share.",
+      "👀 You're at $locationName",
+      'How is it right now? Peep it.',
       NotificationDetails(
         android: AndroidNotificationDetails(
           _walkInChannel.id,
@@ -161,6 +184,14 @@ class NotificationService {
         ),
       ),
       payload: payload,
+    );
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_peep_prompt_delivered',
+      {
+        'venueId': locationId,
+        'venueName': locationName,
+      },
     );
   }
 
@@ -607,10 +638,21 @@ class NotificationService {
         );
         break;
       case 'walk_in_prompt':
+        final venueId = (data['venueId'] ?? data['locationId'])?.toString();
+        final venueName = data['locationName'] as String? ?? '';
+        unawaited(
+          GrowthAnalyticsService.logEvent(
+            'growth_peep_prompt_tapped',
+            {
+              if (venueId != null) 'venueId': venueId,
+              'venueName': venueName,
+            },
+          ),
+        );
         nav.pushNamed(
           '/post',
           arguments: {
-            'locationName': data['locationName'] as String? ?? '',
+            'locationName': venueName,
             'latitude': (data['latitude'] as num?)?.toDouble(),
             'longitude': (data['longitude'] as num?)?.toDouble(),
           },
@@ -624,8 +666,48 @@ class NotificationService {
           nav.pushNamed('/feed');
         }
         break;
+      case 'crowd_change_alert':
+        final postId =
+            (data['peepId'] ?? data['postId'])?.toString().trim();
+        final locationId = data['locationId']?.toString();
+        final userId = FirebaseAuth.instance.currentUser?.uid;
+        unawaited(
+          GrowthAnalyticsService.logEvent(
+            'growth_crowd_alert_tapped',
+            {
+              if (userId != null) 'userId': userId,
+              if (locationId != null && locationId.isNotEmpty)
+                'locationId': locationId,
+              'timestamp': DateTime.now().toIso8601String(),
+            },
+          ),
+        );
+        if (postId != null && postId.isNotEmpty) {
+          await _navigateToLocationDetail(postId);
+        } else {
+          nav.pushNamed('/feed');
+        }
+        break;
       default:
         nav.pushNamed('/feed');
+    }
+  }
+
+  Future<void> _navigateToLocationDetail(String postId) async {
+    final nav = navigatorKey?.currentState;
+    if (nav == null) return;
+
+    try {
+      final snap = await _db.collection('location_posts').doc(postId).get();
+      if (!snap.exists) {
+        nav.pushNamed('/feed');
+        return;
+      }
+      final postData = <String, dynamic>{'id': snap.id, ...?snap.data()};
+      nav.pushNamed('/location_detail', arguments: postData);
+    } catch (e) {
+      debugPrint('[FCM] Location detail fetch error: $e');
+      nav.pushNamed('/feed');
     }
   }
 

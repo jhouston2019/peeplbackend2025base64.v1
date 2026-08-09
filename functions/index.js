@@ -453,3 +453,159 @@ exports.onPostCreated = functions.firestore
       return null;
     }
   });
+
+// ─── FUNCTION 6: onPeepCreatedCrowdAlert ───────────────────────────────────
+// Separate onCreate trigger for location_posts — does not modify onPostCreated.
+// Notifies users who follow a location when crowd level changes meaningfully.
+//
+// FIRESTORE INDEXES (create in Firebase Console if prompted):
+//   location_follows: locationId ASC, alertsEnabled ASC
+//   location_follows: locationName ASC, alertsEnabled ASC
+
+const CROWD_ALERT_COOLDOWN_MS = 2 * 60 * 60 * 1000;
+
+function crowdWordLabel(level) {
+  const value = Math.max(0, Math.min(10, Number(level) || 0));
+  if (value === 0) return 'Empty';
+  if (value <= 2) return 'Quiet';
+  if (value <= 4) return 'Moderate';
+  if (value <= 6) return 'Busy';
+  if (value <= 8) return 'Crowded';
+  return 'Packed';
+}
+
+function shouldSendCrowdAlert(previousLevel, newLevel) {
+  if (previousLevel === null || previousLevel === undefined) return true;
+  const prev = Number(previousLevel);
+  const next = Number(newLevel);
+  if (Number.isNaN(prev) || Number.isNaN(next)) return true;
+  if (Math.abs(next - prev) >= 3) return true;
+  if (next >= 8 && prev < 8) return true;
+  if (next <= 3 && prev > 5) return true;
+  return false;
+}
+
+function isCrowdAlertCooldownExpired(lastAlertedAt) {
+  if (!lastAlertedAt) return true;
+  const lastMs = typeof lastAlertedAt.toDate === 'function'
+    ? lastAlertedAt.toDate().getTime()
+    : (lastAlertedAt._seconds ? lastAlertedAt._seconds * 1000 : 0);
+  if (!lastMs) return true;
+  return Date.now() - lastMs >= CROWD_ALERT_COOLDOWN_MS;
+}
+
+async function fetchLocationFollowers(locationId, locationName) {
+  const seen = new Map();
+
+  if (locationId) {
+    const byId = await db.collection('location_follows')
+      .where('locationId', '==', locationId)
+      .where('alertsEnabled', '==', true)
+      .get();
+    for (const doc of byId.docs) {
+      seen.set(doc.id, doc);
+    }
+  }
+
+  if (locationName) {
+    const byName = await db.collection('location_follows')
+      .where('locationName', '==', locationName)
+      .where('alertsEnabled', '==', true)
+      .get();
+    for (const doc of byName.docs) {
+      seen.set(doc.id, doc);
+    }
+  }
+
+  return [...seen.values()];
+}
+
+exports.onPeepCreatedCrowdAlert = functions.firestore
+  .document('location_posts/{postId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const postId = context.params.postId;
+    const {
+      locationName,
+      crowdingLevel,
+      userId: posterId,
+      venueId,
+      locationId: postLocationId,
+    } = data;
+
+    if (!locationName || crowdingLevel === undefined || crowdingLevel === null) {
+      return null;
+    }
+
+    const resolvedLocationId = venueId || postLocationId || locationName;
+
+    try {
+      const followerDocs = await fetchLocationFollowers(
+        resolvedLocationId,
+        locationName,
+      );
+
+      if (followerDocs.length === 0) {
+        return null;
+      }
+
+      const label = crowdWordLabel(crowdingLevel);
+      const title = `${locationName} update 👀`;
+      const body = `Now ${crowdingLevel}/10 — ${label}`;
+
+      const sends = followerDocs.map(async (followDoc) => {
+        const follow = followDoc.data();
+        const followerUserId = follow.userId;
+        if (!followerUserId) return;
+        if (posterId && followerUserId === posterId) return;
+        if (!follow.alertsEnabled) return;
+        if (!isCrowdAlertCooldownExpired(follow.lastAlertedAt)) return;
+
+        const previousLevel = follow.lastKnownCrowdingLevel;
+        if (!shouldSendCrowdAlert(previousLevel, crowdingLevel)) return;
+
+        const token = await getFcmToken(followerUserId);
+        if (!token) return;
+
+        await sendFcm(token, title, body, {
+          type: 'crowd_change_alert',
+          locationName: String(locationName),
+          crowdingLevel: String(crowdingLevel),
+          peepId: postId,
+          postId,
+          locationId: String(follow.locationId || resolvedLocationId),
+        });
+
+        await followDoc.ref.update({
+          lastAlertedAt: FieldValue.serverTimestamp(),
+          lastKnownCrowdingLevel: Number(crowdingLevel),
+        });
+
+        const prev = previousLevel == null ? null : Number(previousLevel);
+        const next = Number(crowdingLevel);
+        await db.collection('growth_events').add({
+          eventName: 'growth_crowd_alert_sent',
+          properties: {
+            userId: followerUserId,
+            locationId: follow.locationId || resolvedLocationId,
+            locationName,
+            previousLevel: prev,
+            newLevel: next,
+            delta: prev == null ? null : Math.abs(next - prev),
+            peepId: postId,
+            timestamp: new Date().toISOString(),
+          },
+          userId: followerUserId,
+          timestamp: FieldValue.serverTimestamp(),
+          appVersion: 'cloud_function',
+          platform: 'server',
+        });
+      });
+
+      await Promise.all(sends);
+      return null;
+    } catch (err) {
+      console.error('onPeepCreatedCrowdAlert error:', err);
+      return null;
+    }
+  });
