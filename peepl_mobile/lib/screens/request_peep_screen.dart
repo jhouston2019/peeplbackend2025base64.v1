@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import '../theme/peepl_app_tokens.dart';
+import '../services/crowdsource_service.dart';
 
 class RequestPeepScreen extends StatefulWidget {
   const RequestPeepScreen({Key? key}) : super(key: key);
@@ -90,23 +90,13 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      final expiresAt = DateTime.now().add(Duration(hours: 1));
-
-      await FirebaseFirestore.instance
-          .collection('crowdsource_requests')
-          .add({
-        'requestedBy': user.uid,
-        'locationName': locationName,
-        'latitude': _selectedPlace!['lat'],
-        'longitude': _selectedPlace!['lng'],
-        'radiusKm': 0.2,
-        'message':
-            'Someone is curious about $locationName, would you mind sharing a peep?',
-        'timestamp': FieldValue.serverTimestamp(),
-        'expiresAt': Timestamp.fromDate(expiresAt),
-        'status': 'pending',
-        'source': 'request_peep_screen',
-      });
+      await CrowdsourceService.instance.createRequest(
+        requestedBy: user.uid,
+        locationName: locationName,
+        latitude: (_selectedPlace!['lat'] as num).toDouble(),
+        longitude: (_selectedPlace!['lng'] as num).toDouble(),
+        source: 'request_peep_screen',
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -118,6 +108,12 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
           ),
         );
         Navigator.pop(context);
+      }
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Please enter a valid location')),
+        );
       }
     } catch (e) {
       if (mounted) {

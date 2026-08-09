@@ -277,6 +277,33 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               ),
             ),
           ),
+          TextButton(
+            onPressed: () {
+              if (_items.length < 2) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Save at least 2 favorites to compare.'),
+                  ),
+                );
+                return;
+              }
+              Navigator.pushNamed(
+                context,
+                '/where_should_we_go',
+                arguments: {
+                  'presetVenueNames':
+                      _items.map((item) => item.locationName).toList(),
+                },
+              );
+            },
+            child: const Text(
+              'Compare',
+              style: TextStyle(
+                color: PeeplAppTokens.textPrimary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
         ],
       ),
     );

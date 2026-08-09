@@ -46,6 +46,7 @@ import 'screens/sign_up_confirmed_screen.dart';
 import 'screens/user_profile_screen.dart';
 import 'screens/venue_list_screen.dart';
 import 'screens/venue_screen.dart';
+import 'screens/where_should_we_go_screen.dart';
 import 'screens/trending_screen.dart';
 import 'screens/vip_peeps_screen.dart';
 import 'screens/merchant/merchant_account_info_screen.dart';
@@ -188,6 +189,22 @@ Map<String, WidgetBuilder> appRoutes = {
   },
   '/venue_list': (_) => const VenueListScreen(),
   '/venue': (_) => const VenueScreen(),
+  '/where_should_we_go': (ctx) {
+    final args = ModalRoute.of(ctx)?.settings.arguments;
+    String? groupId;
+    List<String>? presetVenueNames;
+    if (args is Map<String, dynamic>) {
+      groupId = args['groupId'] as String?;
+      final preset = args['presetVenueNames'];
+      if (preset is List) {
+        presetVenueNames = preset.whereType<String>().toList();
+      }
+    }
+    return WhereShouldWeGoScreen(
+      groupId: groupId,
+      presetVenueNames: presetVenueNames,
+    );
+  },
   '/trending': (_) => const TrendingScreen(),
   '/vip_peeps': (_) => const VIPeepsScreen(),
   '/how_to_advertise': (_) => const HowToAdvertiseScreen(),

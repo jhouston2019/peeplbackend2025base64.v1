@@ -14,6 +14,7 @@ class RemoteConfigService {
     'geofence_jitter_window_seconds': 30,
     'post_peep_share_prompt_enabled': true,
     'debug_logging_enabled': false,
+    'public_social_sharing_enabled': false,
   };
 
   FirebaseRemoteConfig? _remoteConfig;
@@ -62,6 +63,9 @@ class RemoteConfigService {
       _rc.getBool('post_peep_share_prompt_enabled');
 
   bool get debugLoggingEnabled => _rc.getBool('debug_logging_enabled');
+
+  bool get publicSocialSharingEnabled =>
+      _rc.getBool('public_social_sharing_enabled');
 
   Future<void> fetchAndActivate() async {
     try {

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
 import '../services/share_service.dart';
+import '../services/crowdsource_service.dart';
 import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
@@ -644,6 +645,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final username = post['username'] as String? ?? 'Unknown';
     final timeLabel = _relativeTime(post['timestamp']);
     final hasDeals = post['hasDeals'] == true;
+    final locationName = post['locationName'] as String? ?? '';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -659,36 +661,63 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         _buildVenuePeepsSection(post),
         Padding(
           padding: const EdgeInsets.only(bottom: 12),
-          child: ElevatedButton(
-            onPressed:
-                _isSubmittingCrowdsource ? null : _sendExploreLiveRequest,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: PeeplDetailTokens.accentBlue,
-              foregroundColor: PeeplAppTokens.textPrimary,
-              minimumSize: const Size.fromHeight(52),
-              shape: RoundedRectangleBorder(
-                borderRadius:
-                    BorderRadius.circular(PeeplDetailTokens.cardRadius),
-              ),
-              elevation: 0,
-            ),
-            child: _isSubmittingCrowdsource
-                ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: PeeplAppTokens.textPrimary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                stream: CrowdsourceService.instance
+                    .getActiveRequestsForLocation(locationName),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError || !snapshot.hasData) {
+                    return const SizedBox.shrink();
+                  }
+                  final count = snapshot.data!.docs.length;
+                  if (count <= 0) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Text(
+                      '👀 $count people want a Peep here',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: PeeplDetailTokens.textSecondary,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  )
-                : const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.cell_tower, size: 18),
-                      SizedBox(width: 8),
-                      Text('Explore Live'),
-                    ],
+                  );
+                },
+              ),
+              ElevatedButton(
+                onPressed:
+                    _isSubmittingCrowdsource ? null : _sendExploreLiveRequest,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PeeplDetailTokens.accentBlue,
+                  foregroundColor: PeeplAppTokens.textPrimary,
+                  minimumSize: const Size.fromHeight(52),
+                  shape: RoundedRectangleBorder(
+                    borderRadius:
+                        BorderRadius.circular(PeeplDetailTokens.cardRadius),
                   ),
+                  elevation: 0,
+                ),
+                child: _isSubmittingCrowdsource
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: PeeplAppTokens.textPrimary,
+                        ),
+                      )
+                    : const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.cell_tower, size: 18),
+                          SizedBox(width: 8),
+                          Text('Explore Live'),
+                        ],
+                      ),
+              ),
+            ],
           ),
         ),
         DetailSocialBar(
@@ -786,19 +815,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     setState(() => _isSubmittingCrowdsource = true);
 
     try {
-      await FirebaseFirestore.instance
-          .collection('crowdsource_requests')
-          .add({
-        'requestedBy': user.uid,
-        'locationName': locationName,
-        'latitude': latitude,
-        'longitude': longitude,
-        'radiusKm': 0.2,
-        'message':
-            'Someone is curious about $locationName, would you mind sharing a peep?',
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'pending',
-      });
+      await CrowdsourceService.instance.createRequest(
+        requestedBy: user.uid,
+        locationName: locationName,
+        latitude: latitude,
+        longitude: longitude,
+        source: 'location_detail',
+      );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -806,6 +829,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           content: Text('Request sent! Nearby users will be notified.'),
           backgroundColor: PeeplAppTokens.shellNavy,
         ),
+      );
+    } on ArgumentError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Invalid location')),
       );
     } catch (e) {
       if (!mounted) return;

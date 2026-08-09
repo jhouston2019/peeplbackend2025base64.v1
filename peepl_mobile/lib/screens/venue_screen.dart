@@ -115,14 +115,28 @@ class _VenueScreenState extends State<VenueScreen> {
 
   Future<void> _sendAskRequest() async {
     if (_venueName.isEmpty) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    if (_latitude == null || _longitude == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Location data not available')),
+        );
+      }
+      return;
+    }
+
     try {
-      final requestId = await CrowdsourceService.instance.createRequest(
-        locationId: _latestPostId ?? _venueName,
+      await CrowdsourceService.instance.createRequest(
+        requestedBy: user.uid,
         locationName: _venueName,
-        latitude: _latitude ?? 0.0,
-        longitude: _longitude ?? 0.0,
+        latitude: _latitude!,
+        longitude: _longitude!,
+        source: 'venue_screen',
       );
-      if (mounted && requestId != null) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -131,6 +145,12 @@ class _VenueScreenState extends State<VenueScreen> {
             duration: const Duration(seconds: 3),
             backgroundColor: PeeplAppTokens.shellNavy,
           ),
+        );
+      }
+    } on ArgumentError catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Invalid location')),
         );
       }
     } catch (e) {
@@ -595,44 +615,71 @@ class _VenueScreenState extends State<VenueScreen> {
             ),
           ],
         ),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: _openPostScreen,
-                icon: const Icon(Icons.camera_alt_outlined),
-                label: const Text(
-                  'Post Here',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: PeeplAppTokens.background,
-                  foregroundColor: PeeplAppTokens.textPrimary,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: CrowdsourceService.instance
+                  .getActiveRequestsForLocation(_venueName),
+              builder: (context, snapshot) {
+                if (snapshot.hasError || !snapshot.hasData) {
+                  return const SizedBox.shrink();
+                }
+                final count = snapshot.data!.docs.length;
+                if (count <= 0) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '👀 $count people want a Peep here',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: PeeplAppTokens.accentBlue,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _sendAskRequest,
-                icon: const Icon(Icons.campaign_outlined),
-                label: const Text(
-                  'Ask Here Now',
-                  style: TextStyle(fontWeight: FontWeight.w600),
-                ),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: PeeplAppTokens.accentBlue,
-                  side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _openPostScreen,
+                    icon: const Icon(Icons.camera_alt_outlined),
+                    label: const Text(
+                      'Post Here',
+                      style: TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PeeplAppTokens.background,
+                      foregroundColor: PeeplAppTokens.textPrimary,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _sendAskRequest,
+                    icon: const Icon(Icons.campaign_outlined),
+                    label: const Text(
+                      'Ask Here Now',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: PeeplAppTokens.accentBlue,
+                      side: const BorderSide(color: PeeplAppTokens.accentBlue),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

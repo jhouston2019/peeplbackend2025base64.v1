@@ -159,6 +159,12 @@ class MenuScreen extends StatelessWidget {
         ),
         const _Divider(),
         _NavRow(
+          icon: Icons.balance_outlined,
+          label: 'Where Should We Go?',
+          onTap: () => Navigator.pushNamed(context, '/where_should_we_go'),
+        ),
+        const _Divider(),
+        _NavRow(
           icon: Icons.whatshot_outlined,
           label: 'Trending',
           onTap: () => Navigator.pushNamed(context, '/trending'),

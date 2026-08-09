@@ -179,7 +179,17 @@ service cloud.firestore {
 
     match /crowdsource_requests/{requestId} {
       allow create: if request.auth != null;
-      allow read, update: if isAppAdmin();
+      allow read: if request.auth != null &&
+        (resource.data.requestedBy == request.auth.uid ||
+         isGrowthAdmin());
+      allow update: if request.auth != null &&
+        isGrowthAdmin();
+    }
+
+    match /crowdsource_responses/{responseId} {
+      allow create: if request.auth != null;
+      allow read: if request.auth != null &&
+        resource.data.requesterId == request.auth.uid;
     }
 
     // AI config — key set manually in Firebase console; read by authenticated clients.
@@ -238,6 +248,17 @@ service cloud.firestore {
         && resource.data.userId == request.auth.uid;
       allow delete: if request.auth != null
         && resource.data.userId == request.auth.uid;
+    }
+
+    match /venue_comparisons/{groupId} {
+      allow create: if request.auth != null;
+      allow read: if true;
+    }
+
+    match /social_share_cards/{cardId} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        isGrowthAdmin();
     }
   }
 }

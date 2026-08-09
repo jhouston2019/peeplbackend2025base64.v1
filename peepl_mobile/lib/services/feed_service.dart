@@ -240,4 +240,88 @@ class FeedService {
       return false;
     }
   }
+
+  /// Aggregates [location_posts] by [locationName] (same query as VenueListScreen).
+  Future<List<VenueSummary>> fetchVenueSummaries({int limit = 2000}) async {
+    final snap = await _firestore
+        .collection('location_posts')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .get();
+
+    final byName = <String, VenueSummary>{};
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final name = data['locationName'] as String? ?? '';
+      if (name.isEmpty) continue;
+
+      final existing = byName[name];
+      if (existing == null) {
+        byName[name] = VenueSummary.fromPost(name, data, 1);
+      } else {
+        byName[name] = existing.copyWith(postCount: existing.postCount + 1);
+      }
+    }
+
+    final list = byName.values.toList()
+      ..sort((a, b) => b.lastPosted.compareTo(a.lastPosted));
+    return list;
+  }
+}
+
+/// Venue row aggregated from location_posts (shared with venue list / compare).
+class VenueSummary {
+  final String locationName;
+  final String? venueType;
+  final int currentCrowd;
+  final int postCount;
+  final DateTime lastPosted;
+  final double? latitude;
+  final double? longitude;
+
+  const VenueSummary({
+    required this.locationName,
+    required this.venueType,
+    required this.currentCrowd,
+    required this.postCount,
+    required this.lastPosted,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  factory VenueSummary.fromPost(
+    String name,
+    Map<String, dynamic> data,
+    int count,
+  ) {
+    DateTime lastPosted = DateTime.fromMillisecondsSinceEpoch(0);
+    final ts = data['timestamp'];
+    if (ts is Timestamp) {
+      lastPosted = ts.toDate();
+    } else if (ts is DateTime) {
+      lastPosted = ts;
+    }
+
+    return VenueSummary(
+      locationName: name,
+      venueType: data['venueType'] as String?,
+      currentCrowd: (data['crowdingLevel'] as num?)?.toInt() ?? 0,
+      postCount: count,
+      lastPosted: lastPosted,
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+    );
+  }
+
+  VenueSummary copyWith({int? postCount}) {
+    return VenueSummary(
+      locationName: locationName,
+      venueType: venueType,
+      currentCrowd: currentCrowd,
+      postCount: postCount ?? this.postCount,
+      lastPosted: lastPosted,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
 }

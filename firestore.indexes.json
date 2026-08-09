@@ -56,6 +56,25 @@
         { "fieldPath": "venueKey", "order": "ASCENDING" },
         { "fieldPath": "detectedAt", "order": "DESCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "crowdsource_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationName", "order": "ASCENDING" },
+        { "fieldPath": "fulfilled", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crowdsource_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationName", "order": "ASCENDING" },
+        { "fieldPath": "fulfilled", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

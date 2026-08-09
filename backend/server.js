@@ -514,6 +514,132 @@ function renderPreviewPage({
 </html>`;
 }
 
+function minutesFromIsoString(iso) {
+  if (!iso) return 'recently';
+  try {
+    const date = new Date(iso);
+    const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+    if (minutes < 1) return 'just now';
+    if (minutes === 1) return '1 min ago';
+    return `${minutes} min ago`;
+  } catch (err) {
+    return 'recently';
+  }
+}
+
+function isExpiredFirestoreTimestamp(expiresAt) {
+  if (!expiresAt) return false;
+  const ms = typeof expiresAt.toMillis === 'function'
+    ? expiresAt.toMillis()
+    : expiresAt._seconds * 1000;
+  return Date.now() > ms;
+}
+
+function renderGroupComparisonPage({ venues, storePlatform }) {
+  const list = Array.isArray(venues) ? venues : [];
+  const safeVenues = list.map((v) => {
+    const level = v.crowdingLevel != null
+      ? Math.max(0, Math.min(10, Number(v.crowdingLevel) || 0))
+      : null;
+    return {
+      name: escapeHtml(v.locationName || 'Venue'),
+      level,
+      label: escapeHtml(
+        v.crowdLabel || (level != null ? crowdLabel(level) : 'No recent data'),
+      ),
+      minutes: escapeHtml(minutesFromIsoString(v.lastPeeped)),
+      badgeColor: level != null ? crowdBadgeColor(level) : '#9E9E9E',
+    };
+  });
+
+  const ogDescription = safeVenues
+    .map((v) => (v.level != null ? `${v.name} ${v.level}/10` : v.name))
+    .join(' vs ');
+
+  const cardsHtml = safeVenues.map((v) => {
+    const badge = v.level != null
+      ? `<div class="badge" style="background:${v.badgeColor}">${v.level}</div>`
+      : '<div class="badge stale">—</div>';
+    return `
+      <div class="card venue-card">
+        <div class="venue">${v.name}</div>
+        <div class="crowd-row">
+          ${badge}
+          <div class="crowd-label">${v.label}</div>
+        </div>
+        <div class="time">Last updated ${v.minutes}</div>
+      </div>`;
+  }).join('');
+
+  let ctaHtml;
+  if (storePlatform === 'ios') {
+    ctaHtml = `<a class="cta" href="${APP_STORE_URL}">See live crowd data → Get Peepl</a>`;
+  } else if (storePlatform === 'android') {
+    ctaHtml = `<a class="cta" href="${PLAY_STORE_URL}">See live crowd data → Get Peepl</a>`;
+  } else {
+    ctaHtml = `
+      <a class="cta" href="${APP_STORE_URL}">See live crowd data → Get Peepl</a>
+      <a class="cta secondary" href="${PLAY_STORE_URL}">Get Peepl on Google Play</a>`;
+  }
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Where should we go? — Peepl</title>
+  <meta property="og:title" content="Where should we go?">
+  <meta property="og:description" content="${escapeHtml(ogDescription)}">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #212121;
+      line-height: 1.4;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 40px; }
+    .logo { color: #1565C0; font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+    .headline { font-size: 24px; font-weight: 700; margin-bottom: 16px; }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+      margin-bottom: 12px;
+    }
+    .venue { font-size: 22px; font-weight: 700; margin-bottom: 12px; }
+    .crowd-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .badge {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 18px;
+    }
+    .badge.stale { background: #9E9E9E; }
+    .crowd-label { font-size: 18px; font-weight: 600; }
+    .time { color: #757575; font-size: 14px; }
+    .cta {
+      display: block; text-align: center; text-decoration: none;
+      background: #1565C0; color: #fff; font-weight: 700;
+      padding: 14px 18px; border-radius: 12px; margin-top: 12px;
+    }
+    .cta.secondary { background: #fff; color: #1565C0; border: 2px solid #1565C0; }
+    .footer { text-align: center; color: #9e9e9e; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Peepl</div>
+    <div class="headline">Where should we go? 🤔</div>
+    ${cardsHtml}
+    ${ctaHtml}
+    <div class="footer">Real-time crowd levels, wherever you go.</div>
+  </div>
+</body>
+</html>`;
+}
+
 function renderSimplePage(title, message, statusCode) {
   const safeTitle = escapeHtml(title);
   const safeMessage = escapeHtml(message);
@@ -765,7 +891,7 @@ app.get('/.well-known/apple-app-site-association', (req, res) => {
       apps: [],
       details: [{
         appID: `${APPLE_TEAM_ID}.${APPLE_BUNDLE_ID}`,
-        paths: ['/p/*'],
+        paths: ['/p/*', '/w/*'],
       }],
     },
   });
@@ -930,6 +1056,66 @@ app.get('/d/:dealId', async (req, res) => {
     res.status(500).send(renderSimplePage(
       'Something went wrong',
       'We could not load this deal right now. Please try again later.',
+      500,
+    ));
+  }
+});
+
+app.get('/w/:groupId', async (req, res) => {
+  const { groupId } = req.params;
+  const userAgent = req.headers['user-agent'] || '';
+
+  if (!admin.apps.length) {
+    res.status(503).send(renderSimplePage(
+      'Peepl',
+      'Preview is temporarily unavailable. Please try again later.',
+      503,
+    ));
+    return;
+  }
+
+  try {
+    const db = admin.firestore();
+    const doc = await db.collection('venue_comparisons').doc(groupId).get();
+    if (!doc.exists || isExpiredFirestoreTimestamp(doc.data()?.expiresAt)) {
+      res.status(404).send(renderSimplePage(
+        'Comparison unavailable',
+        'This comparison has expired or is no longer available.',
+        404,
+      ));
+      return;
+    }
+
+    const data = doc.data();
+    const venues = data.venues || [];
+    const storePlatform = detectStorePlatform(userAgent);
+
+    try {
+      await db.collection('growth_events').add({
+        eventName: 'growth_group_preview_viewed',
+        properties: {
+          groupId,
+          timestamp: new Date().toISOString(),
+          userAgent: String(userAgent).slice(0, 200),
+        },
+        userId: null,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        appVersion: 'backend',
+        platform: 'web',
+      });
+    } catch (err) {
+      console.warn('[Growth] growth_group_preview_viewed write failed:', err.message);
+    }
+
+    res.type('html').send(renderGroupComparisonPage({
+      venues,
+      storePlatform,
+    }));
+  } catch (err) {
+    console.error('[Growth] /w/:groupId error:', err.message);
+    res.status(500).send(renderSimplePage(
+      'Something went wrong',
+      'We could not load this comparison right now. Please try again later.',
       500,
     ));
   }

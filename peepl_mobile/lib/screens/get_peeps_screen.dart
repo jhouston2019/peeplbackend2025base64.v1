@@ -212,36 +212,41 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
 
     setState(() => _sending = true);
     try {
-      final requestId = await CrowdsourceService.instance.createRequest(
-        locationId: loc.locationId,
+      await CrowdsourceService.instance.createRequest(
+        requestedBy: _uid,
         locationName: loc.locationName,
         latitude: loc.latitude,
         longitude: loc.longitude,
+        source: 'get_peeps',
       );
 
       if (!mounted) return;
 
-      if (requestId != null) {
-        await _saveRecentRequest(loc.locationName);
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              "Request sent! We'll notify you when someone responds.",
-            ),
-            backgroundColor: PeeplAppTokens.shellNavy,
+      await _saveRecentRequest(loc.locationName);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Request sent! We'll notify you when someone responds.",
           ),
-        );
-        setState(() {
-          _selected = null;
-          _searchController.clear();
-          _searchTerm = '';
-        });
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send request. Try again.')),
-        );
-      }
+          backgroundColor: PeeplAppTokens.shellNavy,
+        ),
+      );
+      setState(() {
+        _selected = null;
+        _searchController.clear();
+        _searchTerm = '';
+      });
+    } on ArgumentError catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Invalid location')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to send request. Try again.')),
+      );
     } finally {
       if (mounted) setState(() => _sending = false);
     }

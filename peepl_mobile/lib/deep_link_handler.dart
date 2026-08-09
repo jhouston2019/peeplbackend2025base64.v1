@@ -8,11 +8,12 @@ import 'package:flutter/material.dart';
 
 import 'services/growth_analytics_service.dart';
 
-/// Handles https://peepl2025v1-production.up.railway.app/p/{peepId} deep links.
+/// Handles Peepl growth deep links (/p/{peepId}, /w/{groupId}).
 class DeepLinkHandler {
   DeepLinkHandler._();
 
   static String? pendingPeepId;
+  static String? pendingGroupId;
   static GlobalKey<NavigatorState>? _navigatorKey;
   static StreamSubscription<Uri>? _linkSub;
   static StreamSubscription<User?>? _authSub;
@@ -25,7 +26,7 @@ class DeepLinkHandler {
     _navigatorKey = navigatorKey;
 
     _authSub ??= FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null && pendingPeepId != null) {
+      if (user != null && (pendingPeepId != null || pendingGroupId != null)) {
         unawaited(processPending());
       }
     });
@@ -60,23 +61,57 @@ class DeepLinkHandler {
 
   static Future<void> processPending() async {
     final peepId = pendingPeepId;
-    if (peepId == null || peepId.isEmpty) return;
-    if (FirebaseAuth.instance.currentUser == null) return;
-    pendingPeepId = null;
-    await navigateToPeep(peepId);
+    if (peepId != null && peepId.isNotEmpty) {
+      pendingPeepId = null;
+      if (FirebaseAuth.instance.currentUser != null) {
+        await navigateToPeep(peepId);
+      } else {
+        pendingPeepId = peepId;
+      }
+    }
+
+    final groupId = pendingGroupId;
+    if (groupId != null && groupId.isNotEmpty) {
+      pendingGroupId = null;
+      if (FirebaseAuth.instance.currentUser != null) {
+        await navigateToGroup(groupId);
+      } else {
+        pendingGroupId = groupId;
+      }
+    }
   }
 
   static Future<void> _handleUri(Uri uri) async {
     final peepId = _parsePeepId(uri);
-    if (peepId == null || peepId.isEmpty) return;
+    if (peepId != null && peepId.isNotEmpty) {
+      pendingPeepId = peepId;
+      final wasAuthenticated = FirebaseAuth.instance.currentUser != null;
 
-    pendingPeepId = peepId;
+      await GrowthAnalyticsService.logEvent(
+        'growth_deep_link_received',
+        {
+          'peepId': peepId,
+          'wasAuthenticated': wasAuthenticated,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+
+      if (wasAuthenticated && _startupComplete) {
+        await processPending();
+      }
+      return;
+    }
+
+    final groupId = _parseGroupId(uri);
+    if (groupId == null || groupId.isEmpty) return;
+
+    pendingGroupId = groupId;
     final wasAuthenticated = FirebaseAuth.instance.currentUser != null;
 
     await GrowthAnalyticsService.logEvent(
       'growth_deep_link_received',
       {
-        'peepId': peepId,
+        'groupId': groupId,
         'wasAuthenticated': wasAuthenticated,
         'timestamp': DateTime.now().toIso8601String(),
       },
@@ -125,10 +160,36 @@ class DeepLinkHandler {
     }
   }
 
+  static Future<void> navigateToGroup(String groupId) async {
+    final nav = _navigatorKey?.currentState;
+    if (nav == null) {
+      pendingGroupId = groupId;
+      return;
+    }
+
+    try {
+      nav.pushNamed(
+        '/where_should_we_go',
+        arguments: {'groupId': groupId},
+      );
+    } catch (e) {
+      debugPrint('[DeepLink] navigateToGroup failed: $e');
+      pendingGroupId = groupId;
+    }
+  }
+
   static String? _parsePeepId(Uri uri) {
     if (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'p') {
       final peepId = uri.pathSegments[1].trim();
       return peepId.isEmpty ? null : peepId;
+    }
+    return null;
+  }
+
+  static String? _parseGroupId(Uri uri) {
+    if (uri.pathSegments.length >= 2 && uri.pathSegments.first == 'w') {
+      final groupId = uri.pathSegments[1].trim();
+      return groupId.isEmpty ? null : groupId;
     }
     return null;
   }

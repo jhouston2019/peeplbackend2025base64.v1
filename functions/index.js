@@ -82,7 +82,38 @@ exports.onCrowdsourceRequest = functions.firestore
       longitude,
       radiusKm = 0.2,
       message,
+      expiresAt,
+      source,
     } = data;
+
+    if (expiresAt) {
+      const expiresMs =
+        typeof expiresAt.toMillis === 'function'
+          ? expiresAt.toMillis()
+          : expiresAt._seconds * 1000;
+      if (Date.now() > expiresMs) {
+        await snap.ref.update({ status: 'expired' });
+        await db.collection('growth_events').add({
+          eventName: 'growth_peep_request_expired',
+          properties: {
+            requestId: context.params.requestId,
+            locationName: locationName || '',
+            userId: requestedBy || '',
+            timestamp: new Date().toISOString(),
+          },
+          userId: requestedBy || null,
+          timestamp: FieldValue.serverTimestamp(),
+          appVersion: 'cloud_function',
+          platform: 'server',
+        });
+        console.log('Crowdsource request expired:', context.params.requestId);
+        return null;
+      }
+    }
+
+    if (source) {
+      console.log('Crowdsource request source:', source);
+    }
 
     if (latitude == null || longitude == null || !locationName) {
       console.log('Missing required fields, skipping.');

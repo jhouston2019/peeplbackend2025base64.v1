@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/growth_analytics_service.dart';
+import '../services/remote_config_service.dart';
 import '../services/share_service.dart';
 
 class PostPeepShareSheet extends StatelessWidget {
@@ -23,6 +24,10 @@ class PostPeepShareSheet extends StatelessWidget {
   final String shareContext;
   final VoidCallback onDismissed;
   final VoidCallback onDismissAnalytics;
+
+  bool get _showStoryButton =>
+      RemoteConfigService.instance.publicSocialSharingEnabled &&
+      shareContext == 'bring_the_crew';
 
   ({String headline, String subtext, String? primaryLabel, String? secondaryLabel, String dismissLabel})
       get _copy {
@@ -135,6 +140,22 @@ class PostPeepShareSheet extends StatelessWidget {
     onDismissed();
   }
 
+  Future<void> _launchSocialCard() async {
+    try {
+      await ShareService.instance.generateSocialCard(
+        peepId: peepId,
+        locationName: locationName,
+        crowdingLevel: crowdingLevel,
+        sharingUserId: sharingUserId,
+      );
+    } on UnimplementedError catch (e) {
+      debugPrint('[PostPeepShareSheet] social card stub: $e');
+    } catch (e) {
+      debugPrint('[PostPeepShareSheet] social card failed: $e');
+    }
+    onDismissed();
+  }
+
   void _dismissWithAnalytics() {
     onDismissAnalytics();
     onDismissed();
@@ -193,6 +214,22 @@ class PostPeepShareSheet extends StatelessWidget {
                   ),
                 ),
                 child: Text(copy.secondaryLabel!),
+              ),
+            ),
+          ],
+          if (_showStoryButton) ...[
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 48,
+              child: OutlinedButton.icon(
+                onPressed: () => _launchSocialCard(),
+                icon: const Icon(Icons.auto_stories_outlined),
+                label: const Text('Share to Story'),
+                style: OutlinedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
           ],

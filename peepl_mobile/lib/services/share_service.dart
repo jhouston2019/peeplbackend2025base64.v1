@@ -4,6 +4,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:uuid/uuid.dart';
 
 import 'growth_analytics_service.dart';
+import 'remote_config_service.dart';
 
 /// Centralized share URL generation and share-sheet orchestration.
 class ShareService {
@@ -42,6 +43,24 @@ class ShareService {
     required String shareUrl,
   }) {
     return '$dealTitle at $venueName 🍹 — found on Peepl → $shareUrl';
+  }
+
+  /// Pure function — multi-venue comparison share message (Phase 7B).
+  String buildGroupShareText({
+    required List<Map<String, dynamic>> venues,
+    required String shareUrl,
+  }) {
+    final buffer = StringBuffer('Where should we go tonight? 🤔\n\n');
+    for (final venue in venues) {
+      final name = venue['locationName'] as String? ?? 'Venue';
+      final level = venue['crowdingLevel'];
+      final label = venue['crowdLabel'] as String? ??
+          (level is num ? crowdWordLabel(level.toInt()) : 'No recent data');
+      final levelText = level is num ? '${level.toInt()}' : '—';
+      buffer.writeln('$name: $levelText/10 — $label');
+    }
+    buffer.write('\nVote → $shareUrl');
+    return buffer.toString().trim();
   }
 
   Future<String> generatePeepShareUrl({
@@ -155,6 +174,27 @@ class ShareService {
     }
   }
 
+  /// Phase 8 stub — public social card generation (not yet implemented).
+  Future<void> generateSocialCard({
+    required String peepId,
+    required String locationName,
+    required int crowdingLevel,
+    required String sharingUserId,
+  }) async {
+    if (!RemoteConfigService.instance.publicSocialSharingEnabled) {
+      await GrowthAnalyticsService.logEvent(
+        'growth_social_card_blocked_by_flag',
+        {'peepId': peepId, 'userId': sharingUserId},
+      );
+      return;
+    }
+    throw UnimplementedError(
+      'Public social sharing not yet implemented. '
+      'Activate by implementing this method when '
+      'publicSocialSharingEnabled is set to true.',
+    );
+  }
+
   Future<void> shareVenueStatus({
     required String locationName,
     required int crowdingLevel,
@@ -208,6 +248,73 @@ class ShareService {
     } catch (e) {
       debugPrint('[ShareService] shareVenueStatus failed: $e');
     }
+  }
+
+  Future<void> shareVenueGroup({
+    required List<Map<String, dynamic>> venues,
+    required String sharingUserId,
+  }) async {
+    if (venues.length < 2) {
+      debugPrint('[ShareService] shareVenueGroup requires at least 2 venues');
+      return;
+    }
+
+    final groupId = _uuid.v4();
+    final shareUrl = '$baseUrl/w/$groupId';
+    final expiresAt = DateTime.now().add(const Duration(hours: 24));
+    final venueNames = venues
+        .map((v) => v['locationName'] as String? ?? '')
+        .where((n) => n.isNotEmpty)
+        .toList();
+
+    try {
+      await _db.collection('venue_comparisons').doc(groupId).set({
+        'groupId': groupId,
+        'createdBy': sharingUserId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'venues': venues
+            .map(
+              (v) => {
+                'locationName': v['locationName'],
+                'crowdingLevel': v['crowdingLevel'],
+                'crowdLabel': v['crowdLabel'],
+                'lastPeeped': v['lastPeeped'],
+                'peepId': v['peepId'],
+              },
+            )
+            .toList(),
+        'shareUrl': shareUrl,
+        'expiresAt': Timestamp.fromDate(expiresAt),
+      });
+
+      await GrowthAnalyticsService.logEvent(
+        'growth_venue_group_created',
+        {
+          'groupId': groupId,
+          'userId': sharingUserId,
+          'venueCount': venues.length,
+          'venueNames': venueNames,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      debugPrint('[ShareService] venue_comparisons write failed: $e');
+      rethrow;
+    }
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_venue_group_shared',
+      {
+        'groupId': groupId,
+        'userId': sharingUserId,
+        'venueCount': venues.length,
+        'shareId': groupId,
+        'timestamp': DateTime.now().toIso8601String(),
+      },
+    );
+
+    final text = buildGroupShareText(venues: venues, shareUrl: shareUrl);
+    await Share.share(text);
   }
 
   Future<void> shareDeal({
