@@ -354,6 +354,587 @@ app.post('/notifications/proximity', async (req, res) => {
 //   }
 // });
 
+// ── Growth Phase 4: Peep web preview + deep link association files ───────────
+
+const PEEPL_SHARE_HOST = 'peepl2025v1-production.up.railway.app';
+// TODO: Replace with real App Store ID once published.
+const APP_STORE_URL = 'https://apps.apple.com/app/peepl/id0000000000';
+const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.peepl.app';
+// TODO: Replace TEAM_ID with your Apple Developer Team ID.
+const APPLE_TEAM_ID = 'TEAM_ID';
+const APPLE_BUNDLE_ID = 'com.peepl.app';
+// TODO: Replace with release keystore SHA-256 fingerprint for Android App Links.
+const ANDROID_SHA256_FINGERPRINT = 'SHA256_FINGERPRINT_PLACEHOLDER';
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function crowdLabel(level) {
+  const value = Math.max(0, Math.min(10, Number(level) || 0));
+  if (value === 0) return 'Empty';
+  if (value <= 2) return 'Quiet';
+  if (value <= 4) return 'Moderate';
+  if (value <= 6) return 'Busy';
+  if (value <= 8) return 'Crowded';
+  return 'Packed';
+}
+
+function crowdBadgeColor(level) {
+  const value = Math.max(0, Math.min(10, Number(level) || 0));
+  if (value <= 4) return '#4CAF50';
+  if (value <= 7) return '#FFA726';
+  return '#FF5722';
+}
+
+function minutesAgoLabel(timestamp) {
+  if (!timestamp) return 'recently';
+  let date;
+  if (typeof timestamp.toDate === 'function') {
+    date = timestamp.toDate();
+  } else if (timestamp instanceof Date) {
+    date = timestamp;
+  } else if (timestamp._seconds != null) {
+    date = new Date(timestamp._seconds * 1000);
+  } else {
+    return 'recently';
+  }
+  const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes === 1) return '1 minute ago';
+  return `${minutes} minutes ago`;
+}
+
+function detectStorePlatform(userAgent) {
+  const ua = String(userAgent || '').toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'desktop';
+}
+
+function renderPreviewPage({
+  venueName,
+  crowdingLevel,
+  crowdLabelText,
+  minutesLabel,
+  imageUrl,
+  storePlatform,
+}) {
+  const safeVenue = escapeHtml(venueName);
+  const safeLabel = escapeHtml(crowdLabelText);
+  const safeMinutes = escapeHtml(minutesLabel);
+  const safeImageUrl = imageUrl ? escapeHtml(imageUrl) : '';
+  const badgeColor = crowdBadgeColor(crowdingLevel);
+  const level = Math.max(0, Math.min(10, Number(crowdingLevel) || 0));
+
+  let ctaHtml;
+  if (storePlatform === 'ios') {
+    ctaHtml = `<a class="cta" href="${APP_STORE_URL}">See what's happening around you</a>`;
+  } else if (storePlatform === 'android') {
+    ctaHtml = `<a class="cta" href="${PLAY_STORE_URL}">See what's happening around you</a>`;
+  } else {
+    ctaHtml = `
+      <a class="cta" href="${APP_STORE_URL}">Get Peepl on the App Store</a>
+      <a class="cta secondary" href="${PLAY_STORE_URL}">Get Peepl on Google Play</a>`;
+  }
+
+  const imageBlock = safeImageUrl
+    ? `<img class="hero" src="${safeImageUrl}" alt="${safeVenue}">`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeVenue} — Peepl</title>
+  <meta property="og:title" content="${safeVenue} — Peepl">
+  <meta property="og:description" content="${safeLabel} right now. ${level}/10">
+  ${safeImageUrl ? `<meta property="og:image" content="${safeImageUrl}">` : ''}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5;
+      color: #212121;
+      line-height: 1.4;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 40px; }
+    .logo { color: #1565C0; font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .venue { font-size: 26px; font-weight: 700; margin-bottom: 14px; }
+    .crowd-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+    .badge {
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-weight: 800; font-size: 18px;
+    }
+    .crowd-label { font-size: 18px; font-weight: 600; }
+    .time { color: #757575; font-size: 14px; margin-bottom: 16px; }
+    .hero {
+      width: 100%; max-height: 300px; object-fit: cover;
+      border-radius: 12px; margin-bottom: 20px; display: block;
+    }
+    .cta {
+      display: block; text-align: center; text-decoration: none;
+      background: #1565C0; color: #fff; font-weight: 700;
+      padding: 14px 18px; border-radius: 12px; margin-top: 12px;
+    }
+    .cta.secondary { background: #fff; color: #1565C0; border: 2px solid #1565C0; }
+    .footer { text-align: center; color: #9e9e9e; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Peepl</div>
+    <div class="card">
+      <div class="venue">${safeVenue}</div>
+      <div class="crowd-row">
+        <div class="badge" style="background:${badgeColor}">${level}</div>
+        <div class="crowd-label">${safeLabel}</div>
+      </div>
+      <div class="time">Peeped ${safeMinutes}</div>
+      ${imageBlock}
+      ${ctaHtml}
+    </div>
+    <div class="footer">Real-time crowd levels, wherever you go.</div>
+  </div>
+</body>
+</html>`;
+}
+
+function renderSimplePage(title, message, statusCode) {
+  const safeTitle = escapeHtml(title);
+  const safeMessage = escapeHtml(message);
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle}</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5; color: #212121;
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 24px; text-align: center;
+    }
+    h1 { font-size: 22px; margin-bottom: 12px; color: #1565C0; }
+    p { color: #616161; }
+  </style>
+</head>
+<body>
+  <div>
+    <h1>Peepl</h1>
+    <p>${safeMessage}</p>
+  </div>
+</body>
+</html>`;
+}
+
+async function fetchPeepDocument(peepId) {
+  const db = admin.firestore();
+  const locationDoc = await db.collection('location_posts').doc(peepId).get();
+  if (locationDoc.exists) {
+    return { id: locationDoc.id, ...locationDoc.data(), _collection: 'location_posts' };
+  }
+  const peepDoc = await db.collection('peeps').doc(peepId).get();
+  if (peepDoc.exists) {
+    return { id: peepDoc.id, ...peepDoc.data(), _collection: 'peeps' };
+  }
+  return null;
+}
+
+function peepTimestamp(data) {
+  const ts = data?.timestamp || data?.createdAt || data?.updatedAt;
+  if (!ts) return 0;
+  if (typeof ts.toDate === 'function') return ts.toDate().getTime();
+  if (ts instanceof Date) return ts.getTime();
+  if (ts._seconds != null) return ts._seconds * 1000;
+  return 0;
+}
+
+async function fetchLatestVenuePeep(venueKey) {
+  const db = admin.firestore();
+  const decoded = decodeURIComponent(venueKey);
+  const keysToTry = [...new Set([decoded, venueKey].filter(Boolean))];
+
+  for (const key of keysToTry) {
+    const byName = await db.collection('location_posts')
+      .where('locationName', '==', key)
+      .limit(50)
+      .get();
+    if (!byName.empty) {
+      const latest = byName.docs.sort((a, b) => peepTimestamp(b.data()) - peepTimestamp(a.data()))[0];
+      return { id: latest.id, ...latest.data() };
+    }
+
+    const byVenueId = await db.collection('location_posts')
+      .where('venueId', '==', key)
+      .limit(50)
+      .get();
+    if (!byVenueId.empty) {
+      const latest = byVenueId.docs.sort((a, b) => peepTimestamp(b.data()) - peepTimestamp(a.data()))[0];
+      return { id: latest.id, ...latest.data() };
+    }
+  }
+
+  const venueDoc = await db.collection('venues').doc(venueKey).get();
+  if (venueDoc.exists) {
+    const venue = venueDoc.data();
+    const venueName = venue.name || venue.locationName;
+    if (venueName) {
+      const byVenueName = await db.collection('location_posts')
+        .where('locationName', '==', venueName)
+        .limit(50)
+        .get();
+      if (!byVenueName.empty) {
+        const latest = byVenueName.docs.sort((a, b) => peepTimestamp(b.data()) - peepTimestamp(a.data()))[0];
+        return { id: latest.id, ...latest.data() };
+      }
+    }
+  }
+
+  return null;
+}
+
+async function fetchDealDocument(dealId) {
+  const db = admin.firestore();
+  const nativeDoc = await db.collection('native_ads').doc(dealId).get();
+  if (nativeDoc.exists) {
+    return { id: nativeDoc.id, ...nativeDoc.data() };
+  }
+  const merchantDoc = await db.collection('merchant_ads').doc(dealId).get();
+  if (merchantDoc.exists) {
+    return { id: merchantDoc.id, ...merchantDoc.data() };
+  }
+  return null;
+}
+
+function dealTitleFromDoc(deal) {
+  for (const key of ['dealHeadline', 'discount', 'subtitle', 'bodyText', 'body', 'headline', 'title']) {
+    const value = deal[key];
+    if (value && String(value).trim()) return String(value).trim();
+  }
+  return 'Special offer';
+}
+
+function dealVenueNameFromDoc(deal) {
+  for (const key of ['advertiser', 'businessName', 'venueName', 'headline', 'title', 'brandName']) {
+    const value = deal[key];
+    if (value && String(value).trim()) return String(value).trim();
+  }
+  return 'Local venue';
+}
+
+function renderDealPreviewPage({
+  dealTitle,
+  venueName,
+  description,
+  imageUrl,
+  storePlatform,
+}) {
+  const safeTitle = escapeHtml(dealTitle);
+  const safeVenue = escapeHtml(venueName);
+  const safeDescription = escapeHtml(description);
+  const safeImageUrl = imageUrl ? escapeHtml(imageUrl) : '';
+
+  let ctaHtml;
+  if (storePlatform === 'ios') {
+    ctaHtml = `<a class="cta" href="${APP_STORE_URL}">See what's happening around you</a>`;
+  } else if (storePlatform === 'android') {
+    ctaHtml = `<a class="cta" href="${PLAY_STORE_URL}">See what's happening around you</a>`;
+  } else {
+    ctaHtml = `
+      <a class="cta" href="${APP_STORE_URL}">Get Peepl on the App Store</a>
+      <a class="cta secondary" href="${PLAY_STORE_URL}">Get Peepl on Google Play</a>`;
+  }
+
+  const imageBlock = safeImageUrl
+    ? `<img class="hero" src="${safeImageUrl}" alt="${safeTitle}">`
+    : '';
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${safeTitle} — Peepl</title>
+  <meta property="og:title" content="${safeTitle} at ${safeVenue} — Peepl">
+  <meta property="og:description" content="${safeDescription || `${safeTitle} at ${safeVenue}`}">
+  ${safeImageUrl ? `<meta property="og:image" content="${safeImageUrl}">` : ''}
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f5f5f5; color: #212121; line-height: 1.4; min-height: 100vh;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; padding: 24px 20px 40px; }
+    .logo { color: #1565C0; font-size: 22px; font-weight: 700; margin-bottom: 20px; }
+    .card {
+      background: #fff; border-radius: 16px; padding: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    .deal-title { font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+    .venue { color: #616161; font-size: 16px; font-weight: 600; margin-bottom: 12px; }
+    .description { color: #424242; font-size: 15px; margin-bottom: 16px; }
+    .hero {
+      width: 100%; max-height: 300px; object-fit: cover;
+      border-radius: 12px; margin-bottom: 20px; display: block;
+    }
+    .cta {
+      display: block; text-align: center; text-decoration: none;
+      background: #1565C0; color: #fff; font-weight: 700;
+      padding: 14px 18px; border-radius: 12px; margin-top: 12px;
+    }
+    .cta.secondary { background: #fff; color: #1565C0; border: 2px solid #1565C0; }
+    .footer { text-align: center; color: #9e9e9e; font-size: 12px; margin-top: 24px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="logo">Peepl</div>
+    <div class="card">
+      <div class="deal-title">${safeTitle}</div>
+      <div class="venue">${safeVenue}</div>
+      ${safeDescription ? `<div class="description">${safeDescription}</div>` : ''}
+      ${imageBlock}
+      ${ctaHtml}
+    </div>
+    <div class="footer">Deals and live crowd levels, wherever you go.</div>
+  </div>
+</body>
+</html>`;
+}
+
+async function recordPreviewOpen({ peepId, shareId, uid, src, userAgent }) {
+  if (!admin.apps.length) return;
+  const db = admin.firestore();
+  const truncatedUa = String(userAgent || '').slice(0, 200);
+  const openedAt = admin.firestore.FieldValue.serverTimestamp();
+
+  const openPayload = {
+    shareId: shareId || null,
+    peepId,
+    openedAt,
+    userAgent: truncatedUa,
+    hasApp: false,
+  };
+  if (uid) openPayload.uid = uid;
+  if (src) openPayload.src = src;
+
+  try {
+    await db.collection('peep_link_opens').add(openPayload);
+  } catch (err) {
+    console.warn('[Growth] peep_link_opens write failed:', err.message);
+  }
+
+  try {
+    await db.collection('growth_events').add({
+      eventName: 'growth_preview_viewed',
+      properties: {
+        shareId: shareId || null,
+        peepId,
+        userAgent: truncatedUa,
+      },
+      userId: uid || null,
+      timestamp: openedAt,
+      appVersion: 'backend',
+      platform: 'web',
+    });
+  } catch (err) {
+    console.warn('[Growth] growth_preview_viewed write failed:', err.message);
+  }
+}
+
+app.get('/.well-known/apple-app-site-association', (req, res) => {
+  res.type('application/json');
+  res.json({
+    applinks: {
+      apps: [],
+      details: [{
+        appID: `${APPLE_TEAM_ID}.${APPLE_BUNDLE_ID}`,
+        paths: ['/p/*'],
+      }],
+    },
+  });
+});
+
+app.get('/.well-known/assetlinks.json', (req, res) => {
+  res.type('application/json');
+  res.json([{
+    relation: ['delegate_permission/common.handle_all_urls'],
+    target: {
+      namespace: 'android_app',
+      package_name: APPLE_BUNDLE_ID,
+      sha256_cert_fingerprints: [ANDROID_SHA256_FINGERPRINT],
+    },
+  }]);
+});
+
+app.get('/p/:peepId', async (req, res) => {
+  const { peepId } = req.params;
+  const shareId = req.query.ref || null;
+  const uid = req.query.uid || null;
+  const src = req.query.src || null;
+  const userAgent = req.headers['user-agent'] || '';
+
+  if (!admin.apps.length) {
+    res.status(503).send(renderSimplePage(
+      'Peepl',
+      'Preview is temporarily unavailable. Please try again later.',
+      503,
+    ));
+    return;
+  }
+
+  try {
+    const peep = await fetchPeepDocument(peepId);
+    if (!peep) {
+      res.status(404).send(renderSimplePage(
+        'Peep unavailable',
+        'This Peep is no longer available.',
+        404,
+      ));
+      return;
+    }
+
+    const venueName = peep.locationName || peep.venueName || peep.name || 'Unknown venue';
+    const crowdingLevel = (peep.crowdingLevel ?? peep.crowdLevel ?? 0);
+    const label = crowdLabel(crowdingLevel);
+    const minutesLabel = minutesAgoLabel(peep.timestamp || peep.createdAt || peep.updatedAt);
+    const imageUrl = peep.imageUrl || peep.photoUrl || null;
+    const storePlatform = detectStorePlatform(userAgent);
+
+    recordPreviewOpen({ peepId, shareId, uid, src, userAgent }).catch((err) => {
+      console.warn('[Growth] recordPreviewOpen error:', err.message);
+    });
+
+    res.type('html').send(renderPreviewPage({
+      venueName,
+      crowdingLevel,
+      crowdLabelText: label,
+      minutesLabel,
+      imageUrl,
+      storePlatform,
+    }));
+  } catch (err) {
+    console.error('[Growth] /p/:peepId error:', err.message);
+    res.status(500).send(renderSimplePage(
+      'Something went wrong',
+      'We could not load this Peep right now. Please try again later.',
+      500,
+    ));
+  }
+});
+
+app.get('/v/:venueKey', async (req, res) => {
+  const { venueKey } = req.params;
+  const userAgent = req.headers['user-agent'] || '';
+
+  if (!admin.apps.length) {
+    res.status(503).send(renderSimplePage(
+      'Peepl',
+      'Preview is temporarily unavailable. Please try again later.',
+      503,
+    ));
+    return;
+  }
+
+  try {
+    const peep = await fetchLatestVenuePeep(venueKey);
+    if (!peep) {
+      res.status(404).send(renderSimplePage(
+        'Venue unavailable',
+        'No live crowd data is available for this venue right now.',
+        404,
+      ));
+      return;
+    }
+
+    const venueName = peep.locationName || peep.venueName || decodeURIComponent(venueKey);
+    const crowdingLevel = (peep.crowdingLevel ?? peep.crowdLevel ?? 0);
+    const label = crowdLabel(crowdingLevel);
+    const minutesLabel = minutesAgoLabel(peep.timestamp || peep.createdAt || peep.updatedAt);
+    const imageUrl = peep.imageUrl || peep.photoUrl || null;
+    const storePlatform = detectStorePlatform(userAgent);
+
+    res.type('html').send(renderPreviewPage({
+      venueName,
+      crowdingLevel,
+      crowdLabelText: label,
+      minutesLabel,
+      imageUrl,
+      storePlatform,
+    }));
+  } catch (err) {
+    console.error('[Growth] /v/:venueKey error:', err.message);
+    res.status(500).send(renderSimplePage(
+      'Something went wrong',
+      'We could not load this venue right now. Please try again later.',
+      500,
+    ));
+  }
+});
+
+app.get('/d/:dealId', async (req, res) => {
+  const { dealId } = req.params;
+  const userAgent = req.headers['user-agent'] || '';
+
+  if (!admin.apps.length) {
+    res.status(503).send(renderSimplePage(
+      'Peepl',
+      'Preview is temporarily unavailable. Please try again later.',
+      503,
+    ));
+    return;
+  }
+
+  try {
+    const deal = await fetchDealDocument(dealId);
+    if (!deal) {
+      res.status(404).send(renderSimplePage(
+        'Deal unavailable',
+        'This deal is no longer available.',
+        404,
+      ));
+      return;
+    }
+
+    const dealTitle = dealTitleFromDoc(deal);
+    const venueName = dealVenueNameFromDoc(deal);
+    const description = deal.bodyText || deal.body || deal.tagline || deal.subline || '';
+    const imageUrl = deal.imageUrl || deal.logoUrl || deal.merchantLogo || null;
+    const storePlatform = detectStorePlatform(userAgent);
+
+    res.type('html').send(renderDealPreviewPage({
+      dealTitle,
+      venueName,
+      description,
+      imageUrl,
+      storePlatform,
+    }));
+  } catch (err) {
+    console.error('[Growth] /d/:dealId error:', err.message);
+    res.status(500).send(renderSimplePage(
+      'Something went wrong',
+      'We could not load this deal right now. Please try again later.',
+      500,
+    ));
+  }
+});
+
 app.use((req, res) => {
   res.status(404).json({ error: 'Not Found' });
 });
