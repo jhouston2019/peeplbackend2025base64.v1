@@ -8,7 +8,7 @@ class GrowthAnalyticsService {
   GrowthAnalyticsService._();
 
   /// Keep in sync with pubspec.yaml version.
-  static const String appVersion = '1.0.0+111';
+  static const String appVersion = '1.0.0+112';
 
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
 
