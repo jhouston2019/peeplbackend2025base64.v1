@@ -1,19 +1,17 @@
-// Walk-in venue prompts are handled by NotificationService (peepl_walk_in
-// channel, walk_in_prompt payload). This service is legacy — its separate
-// FlutterLocalNotificationsPlugin instance and peepl_geofence channel are
-// not used for geofence walk-in prompts in Phase 1.
-// main.dart's _MyAppState declares a single GlobalKey<NavigatorState> that is
-// shared between PeeplApp (MaterialApp.navigatorKey) and NotificationService
-// via .init(navKey: navigatorKey). It is an instance variable, not a static,
-// so it cannot be imported directly. We follow the same pattern used by
-// NotificationService: accept the key at initialize() time and store it
-// as an instance field. The caller (main.dart) passes its existing key so
-// only ONE key is ever created across the whole app.
+/// @deprecated Consolidated into [NotificationService]. Walk-in venue prompts,
+/// geofence arrival taps, and the `peepl_walk_in` channel are owned by
+/// [NotificationService.handleVenueEntry]. This file is retained temporarily
+/// and must not be initialized from [main].
+//
+// Legacy — see NotificationService.handleVenueEntry.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../theme/peepl_app_tokens.dart';
 
+/// @deprecated Consolidated into [NotificationService.handleVenueEntry].
+/// Do not initialize from [main].
+@Deprecated('Use NotificationService.handleVenueEntry instead')
 class LocalNotificationService {
   LocalNotificationService._();
   static final LocalNotificationService _instance =

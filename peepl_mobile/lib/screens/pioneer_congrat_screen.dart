@@ -6,11 +6,12 @@ import 'package:confetti/confetti.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/share_service.dart';
 import '../utils/post_peep_share_prompt.dart';
 
 class PioneerCongratScreen extends StatefulWidget {
-  /// Optionally supplied when pushed directly. If null the screen reads the
-  /// location name from named-route arguments (a plain String).
+  /// Optionally supplied when pushed directly. If null the screen reads
+  /// [PostPeepShareArgs] from named-route arguments (a map).
   final String? locationName;
 
   const PioneerCongratScreen({super.key, this.locationName});
@@ -43,10 +44,8 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
         ModalRoute.of(context)?.settings.arguments,
         widgetLocationName: widget.locationName,
       );
-      _resolvedName = _shareArgs?.locationName ??
-          widget.locationName ??
-          (ModalRoute.of(context)?.settings.arguments as String?) ??
-          '';
+      _resolvedName =
+          _shareArgs?.locationName ?? widget.locationName ?? '';
       _recordPioneerAndCelebrate();
     }
   }
@@ -100,9 +99,26 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
 
   Future<void> _shareAchievement() async {
     if (_resolvedName.isEmpty) return;
+
+    final postId = _shareArgs?.postId;
+    final user = FirebaseAuth.instance.currentUser;
+    if (postId == null || postId.isEmpty || user == null) {
+      await Share.share(
+        'I just became the Pioneer of $_resolvedName on Peepl! 🏆 '
+        'Know before you go: https://peepl.app',
+      );
+      return;
+    }
+
+    final shareUrl = await ShareService.instance.generatePeepShareUrl(
+      peepId: postId,
+      sharingUserId: user.uid,
+      shareContext: 'pioneer_achievement',
+    );
+
     await Share.share(
       'I just became the Pioneer of $_resolvedName on Peepl! 🏆 '
-      'Know before you go: https://peepl.app',
+      'Know before you go: $shareUrl',
     );
   }
 

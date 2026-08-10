@@ -440,6 +440,99 @@ function generateLocationId(locationName) {
     .substring(0, 100);
 }
 
+// ─── CALLABLE: seedLocation ───────────────────────────────────────────────
+// Authenticated clients seed the geofence registry after Prompt A locked
+// direct `locations` writes. Same schema as PlacesVenueDetector / admin seed.
+exports.seedLocation = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Authentication required.',
+    );
+  }
+
+  const payload = data || {};
+  const locationName = typeof payload.locationName === 'string'
+    ? payload.locationName.trim()
+    : '';
+  const latitude = payload.latitude;
+  const longitude = payload.longitude;
+  const crowdingLevel = payload.crowdingLevel;
+
+  if (!locationName) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'locationName is required.',
+    );
+  }
+  if (typeof latitude !== 'number' || Number.isNaN(latitude)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'latitude is required.',
+    );
+  }
+  if (typeof longitude !== 'number' || Number.isNaN(longitude)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'longitude is required.',
+    );
+  }
+  if (typeof crowdingLevel !== 'number' || Number.isNaN(crowdingLevel)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'crowdingLevel is required.',
+    );
+  }
+
+  const locationId = generateLocationId(locationName);
+  if (!locationId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Could not derive locationId from locationName.',
+    );
+  }
+
+  const venueId = payload.venueId != null
+    ? String(payload.venueId).trim()
+    : '';
+  const geofenceRadiusMeters = typeof payload.geofenceRadiusMeters === 'number'
+    && !Number.isNaN(payload.geofenceRadiusMeters)
+    ? payload.geofenceRadiusMeters
+    : 150;
+  const isActive = payload.isActive !== false;
+  const venueType = typeof payload.venueType === 'string'
+    && payload.venueType.trim()
+    ? payload.venueType.trim()
+    : null;
+
+  const locationRef = db.collection('locations').doc(locationId);
+  const locationDoc = await locationRef.get();
+
+  const docData = {
+    locationName,
+    latitude,
+    longitude,
+    geofenceRadiusMeters,
+    isActive,
+    lastPeeped: FieldValue.serverTimestamp(),
+    createdBy: context.auth.uid,
+    ...(venueId ? { placeId: venueId } : {}),
+    ...(venueType ? { venueType } : {}),
+  };
+
+  if (!locationDoc.exists) {
+    await locationRef.set({
+      ...docData,
+      createdAt: FieldValue.serverTimestamp(),
+      peepCount: 0,
+    });
+  } else {
+    await locationRef.set(docData, { merge: true });
+  }
+
+  return { success: true, locationId };
+});
+
 // ─── HELPER: upsert locations collection from a location_posts document ────
 async function upsertLocationFromPost(postData) {
   const locationName = postData.locationName;

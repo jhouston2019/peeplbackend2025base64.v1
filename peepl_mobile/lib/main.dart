@@ -16,9 +16,7 @@ import 'screens/feed_screen.dart';
 import 'services/admob_service.dart';
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
-import 'services/local_notification_service.dart';
 import 'services/notification_service.dart';
-import 'services/presence_service.dart';
 import 'services/remote_config_service.dart';
 import 'theme/peepl_app_tokens.dart';
 import 'theme_notifier.dart';
@@ -72,20 +70,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NotificationService.instance.attachNavigator(navigatorKey).then((_) async {
-      final geofenceService = geofence_svc.PeeplGeofenceService.instance;
-      await LocalNotificationService.instance
-          .initialize(navigatorKey: navigatorKey);
-      geofenceService.onLocationEntered = (locationId, name, lat, lng) async {
-        debugPrint('GEOFENCE ENTERED: $name ($locationId) at $lat, $lng');
-        await PresenceService.instance.recordArrival(name, lat, lng);
-        await NotificationService.instance.writeVenueEntryEvent(
-          venueId: locationId,
-          venueName: name,
-          latitude: lat,
-          longitude: lng,
-        );
+      NotificationService.instance.onVenueEntryInAppPrompt = (name) {
         FeedScreen.onGeofenceVenueEntry?.call(name);
       };
+      final geofenceService = geofence_svc.PeeplGeofenceService.instance;
       await geofenceService.initialize();
       await DeepLinkHandler.initialize(navigatorKey);
 

@@ -16,6 +16,20 @@ import 'crowdsource_service.dart';
 import 'debug_log_service.dart';
 import 'growth_analytics_service.dart';
 import 'peep_prompt_suppression_service.dart';
+import 'presence_service.dart';
+import 'venue_name_service.dart';
+
+/// Firestore composite indexes required before production deploy.
+///
+/// `onPeepCreatedCrowdAlert` (Cloud Function) — `location_follows` queries:
+///   - collection: location_follows — fields: locationId ASC, alertsEnabled ASC
+///   - collection: location_follows — fields: locationName ASC, alertsEnabled ASC
+///
+/// `onVenueEntryEvent` (Cloud Function) — `venue_entry_events` cooldown queries:
+///   - collection: venue_entry_events — fields: userId ASC, venueId ASC,
+///     notificationSent ASC, timestamp ASC
+///   - collection: venue_entry_events — fields: userId ASC, notificationSent ASC,
+///     timestamp ASC
 
 /// Firestore collection used for user profile documents (includes fcmToken).
 const kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
@@ -59,18 +73,26 @@ Future<void> _showWalkInLocalNotificationFromData(
   String? title,
   String? body,
 }) async {
-  final venueName =
+  final rawVenueName =
       data['venueName']?.toString() ?? data['locationName']?.toString() ?? '';
   final venueId =
-      (data['venueId'] ?? data['locationId'])?.toString() ?? venueName;
+      (data['venueId'] ?? data['locationId'])?.toString() ?? rawVenueName;
   final lat = double.tryParse(data['latitude']?.toString() ?? '');
   final lng = double.tryParse(data['longitude']?.toString() ?? '');
+
+  var displayName = rawVenueName;
+  if (lat != null && lng != null) {
+    final resolved = await VenueNameService.resolveVenueName(lat, lng);
+    if (resolved != null && resolved.isNotEmpty) {
+      displayName = resolved;
+    }
+  }
 
   final notificationTitle =
       title ?? "You just walked in 👀";
   final notificationBody =
-      body ?? (venueName.isNotEmpty
-          ? "How's $venueName right now?"
+      body ?? (displayName.isNotEmpty
+          ? "How's $displayName right now?"
           : 'How is it right now? Peep it.');
 
   const walkInChannel = AndroidNotificationChannel(
@@ -94,8 +116,8 @@ Future<void> _showWalkInLocalNotificationFromData(
 
   final payload = jsonEncode({
     'type': 'walk_in_prompt',
-    'locationName': venueName,
-    'venueName': venueName,
+    'locationName': displayName,
+    'venueName': displayName,
     'latitude': lat,
     'longitude': lng,
     'venueId': venueId,
@@ -200,6 +222,10 @@ class NotificationService {
   bool _crowdsourceListenerPrimed = false;
   bool _coldStartWalkInCaptured = false;
 
+  /// Optional in-app walk-in prompt (e.g. FeedScreen dialog). Registered from
+  /// [main.dart] to forward to [FeedScreen.onGeofenceVenueEntry].
+  void Function(String venueName)? onVenueEntryInAppPrompt;
+
   /// Records a walk-in push that launched the app from a killed state.
   /// Call from [main] before [runApp] so the tap survives auth routing.
   void captureColdStartWalkIn(RemoteMessage message) {
@@ -208,22 +234,161 @@ class NotificationService {
     _coldStartWalkInCaptured = true;
   }
 
-  /// Writes a venue-entry event for [onVenueEntryEvent] to send FCM push.
-  Future<void> writeVenueEntryEvent({
-    required String venueId,
+  /// Single entry point for all venue-entry walk-in prompts — geofence registry,
+  /// Places API detector, and in-app dialog triggers all route here.
+  Future<void> handleVenueEntry({
     required String venueName,
-    required double latitude,
-    required double longitude,
+    required String venueId,
+    required double lat,
+    required double lng,
   }) async {
+    if (lat.isNaN || lng.isNaN || (lat == 0 && lng == 0)) {
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_suppressed',
+        {
+          'venueId': venueId,
+          'reason': 'missing_coordinates',
+        },
+      );
+      debugPrint(
+        '[NotificationService] Venue entry skipped for $venueId (no coordinates)',
+      );
+      return;
+    }
+
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
+    if (!await PeepPromptSuppressionService.instance.shouldShowPrompt(venueId)) {
+      final suppression =
+          await PeepPromptSuppressionService.instance.check(venueId);
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_suppressed',
+        {
+          'venueId': venueId,
+          'reason': suppression.reason ?? 'unknown',
+        },
+      );
+      debugPrint(
+        '[NotificationService] Venue entry suppressed for $venueId '
+        '(${suppression.reason})',
+      );
+      return;
+    }
+
+    await _updateUserLastLocation(lat, lng);
+
+    final resolved = await VenueNameService.resolveVenueName(lat, lng);
+    final displayName =
+        (resolved != null && resolved.isNotEmpty) ? resolved : venueName;
+
+    await GrowthAnalyticsService.logEvent(
+      'growth_venue_entry_detected',
+      {
+        'venueId': venueId,
+        'venueName': displayName,
+      },
+    );
+
+    try {
+      await PresenceService.instance.recordArrival(displayName, lat, lng);
+    } catch (e) {
+      debugPrint('[NotificationService] recordArrival error: $e');
+    }
+
+    final inApp = onVenueEntryInAppPrompt;
+    if (inApp != null && _isAppForeground) {
+      inApp(displayName);
+      await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_delivered',
+        {
+          'venueId': venueId,
+          'venueName': displayName,
+          'channel': 'in_app',
+        },
+      );
+      return;
+    }
+
+    if (_isAppForeground) {
+      await _deliverWalkInLocalNotification(
+        venueName: displayName,
+        venueId: venueId,
+        lat: lat,
+        lng: lng,
+      );
+      await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
+      await GrowthAnalyticsService.logEvent(
+        'growth_peep_prompt_delivered',
+        {
+          'venueId': venueId,
+          'venueName': displayName,
+          'channel': 'local',
+        },
+      );
+      return;
+    }
+
+    // Background — FCM path via Cloud Function onVenueEntryEvent.
     await _writeVenueEntryEventToFirestore(
       userId: uid,
-      venueName: venueName,
+      venueName: displayName,
       venueId: venueId,
-      latitude: latitude,
-      longitude: longitude,
+      latitude: lat,
+      longitude: lng,
+    );
+    await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
+    await GrowthAnalyticsService.logEvent(
+      'growth_peep_prompt_delivered',
+      {
+        'venueId': venueId,
+        'venueName': displayName,
+        'channel': 'fcm_event',
+      },
+    );
+  }
+
+  bool get _isAppForeground {
+    final state = WidgetsBinding.instance.lifecycleState;
+    return state == null || state == AppLifecycleState.resumed;
+  }
+
+  Future<void> _deliverWalkInLocalNotification({
+    required String venueName,
+    required String venueId,
+    required double lat,
+    required double lng,
+  }) async {
+    final payload = jsonEncode({
+      'type': 'walk_in_prompt',
+      'locationName': venueName,
+      'venueName': venueName,
+      'latitude': lat,
+      'longitude': lng,
+      'venueId': venueId,
+    });
+
+    await _localNotifications.show(
+      venueId.hashCode,
+      "👀 You're at $venueName",
+      'How is it right now? Peep it.',
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          _walkInChannel.id,
+          _walkInChannel.name,
+          channelDescription: _walkInChannel.description,
+          importance: Importance.high,
+          priority: Priority.high,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: payload,
     );
   }
 
@@ -276,88 +441,6 @@ class NotificationService {
     }
 
     _startCrowdsourceResponseListener();
-  }
-
-  /// Flow 1 — geofence walk-in prompt via `peepl_walk_in` channel.
-  /// Suppression thresholds come from Remote Config via
-  /// [PeepPromptSuppressionService]. Walk-in notifications are owned here;
-  /// [LocalNotificationService] is legacy and not used for this flow.
-  Future<void> handleGeofenceWalkIn({
-    required String locationId,
-    required String locationName,
-    required double latitude,
-    required double longitude,
-  }) async {
-    if (latitude.isNaN ||
-        longitude.isNaN ||
-        (latitude == 0 && longitude == 0)) {
-      await GrowthAnalyticsService.logEvent(
-        'growth_peep_prompt_suppressed',
-        {
-          'venueId': locationId,
-          'reason': 'missing_coordinates',
-        },
-      );
-      debugPrint('[FCM] Walk-in prompt skipped for $locationId (no coordinates)');
-      return;
-    }
-
-    final suppression =
-        await PeepPromptSuppressionService.instance.check(locationId);
-    if (suppression.suppress) {
-      await GrowthAnalyticsService.logEvent(
-        'growth_peep_prompt_suppressed',
-        {
-          'venueId': locationId,
-          'reason': suppression.reason ?? 'unknown',
-        },
-      );
-      debugPrint(
-        '[FCM] Walk-in prompt suppressed for $locationId (${suppression.reason})',
-      );
-      return;
-    }
-
-    await PeepPromptSuppressionService.instance.recordPromptSent(locationId);
-    await _updateUserLastLocation(latitude, longitude);
-
-    final payload = jsonEncode({
-      'type': 'walk_in_prompt',
-      'locationName': locationName,
-      'latitude': latitude,
-      'longitude': longitude,
-      'venueId': locationId,
-    });
-
-    await _localNotifications.show(
-      locationId.hashCode,
-      "👀 You're at $locationName",
-      'How is it right now? Peep it.',
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _walkInChannel.id,
-          _walkInChannel.name,
-          channelDescription: _walkInChannel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: payload,
-    );
-
-    await GrowthAnalyticsService.logEvent(
-      'growth_peep_prompt_delivered',
-      {
-        'venueId': locationId,
-        'venueName': locationName,
-      },
-    );
   }
 
   /// Flow 3 — record trigger doc and fulfill crowdsource requests after a post.

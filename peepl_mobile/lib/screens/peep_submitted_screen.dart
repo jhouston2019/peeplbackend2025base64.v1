@@ -6,7 +6,7 @@ import '../utils/post_peep_share_prompt.dart';
 
 class PeepSubmittedScreen extends StatefulWidget {
   /// Optionally supplied when pushed directly. If null the screen reads from
-  /// route arguments (Navigator.pushReplacementNamed with String argument).
+  /// route arguments (a map or legacy plain String for locationName only).
   final String? locationName;
 
   const PeepSubmittedScreen({super.key, this.locationName});
@@ -30,6 +30,15 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
       );
       _checkPioneer(_shareArgs?.locationName ?? '');
     }
+  }
+
+  Map<String, dynamic> _pioneerCongratArgs(String locationName) {
+    return {
+      if (_shareArgs?.postId != null) 'postId': _shareArgs!.postId,
+      'locationName': locationName,
+      'crowdingLevel': _shareArgs?.crowdingLevel ?? 5,
+      'fromVenueEntry': _shareArgs?.fromVenueEntry ?? false,
+    };
   }
 
   Future<void> _checkPioneer(String locationName) async {
@@ -62,7 +71,7 @@ class _PeepSubmittedScreenState extends State<PeepSubmittedScreen> {
         Navigator.pushReplacementNamed(
           context,
           '/pioneer_congrat',
-          arguments: _shareArgs?.toMap() ?? locationName,
+          arguments: _pioneerCongratArgs(locationName),
         );
       } else if (_shareArgs != null) {
         await schedulePostPeepSharePrompt(

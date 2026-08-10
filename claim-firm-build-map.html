@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Claim Firm — Build Map</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --ink: #0F0F0F;
+    --ink-mid: #3A3A3A;
+    --ink-light: #7A7A7A;
+    --paper: #F7F5F0;
+    --rule: #E0DDD6;
+    --signal: #C8401A;
+    --signal-pale: #F5E8E3;
+    --confirm: #1A6B3C;
+    --confirm-pale: #E3F0E8;
+    --arc: #1A3A6B;
+    --arc-pale: #E3EAF0;
+    --amber: #B87A00;
+    --amber-pale: #F5EED6;
+  }
+
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    padding: 48px 32px 80px;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 20px;
+    margin-bottom: 40px;
+  }
+
+  .header-left {}
+
+  .eyebrow {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--signal);
+    margin-bottom: 6px;
+  }
+
+  .title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 36px;
+    line-height: 1.1;
+    color: var(--ink);
+  }
+
+  .subtitle {
+    font-size: 13px;
+    color: var(--ink-light);
+    margin-top: 6px;
+  }
+
+  .header-right {
+    text-align: right;
+  }
+
+  .meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-light);
+    letter-spacing: 0.08em;
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 36px;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    color: var(--ink-mid);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  /* Layers */
+  .layer {
+    margin-bottom: 12px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+  }
+
+  .layer-header {
+    display: grid;
+    grid-template-columns: 200px 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 16px 20px;
+    background: white;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .layer-id {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .layer-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-light);
+    letter-spacing: 0.1em;
+  }
+
+  .layer-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 17px;
+    color: var(--ink);
+  }
+
+  .layer-desc {
+    font-size: 12px;
+    color: var(--ink-mid);
+    line-height: 1.4;
+  }
+
+  .layer-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  }
+
+  .week-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    background: var(--ink);
+    color: white;
+    white-space: nowrap;
+  }
+
+  .priority-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.08em;
+    padding: 3px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .priority-pilot { background: var(--signal-pale); color: var(--signal); }
+  .priority-core { background: var(--arc-pale); color: var(--arc); }
+  .priority-ops { background: var(--confirm-pale); color: var(--confirm); }
+  .priority-ai { background: var(--amber-pale); color: var(--amber); }
+
+  /* Components grid */
+  .components {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+  }
+
+  .component {
+    background: var(--paper);
+    padding: 14px 16px;
+  }
+
+  .component-name {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .component-detail {
+    font-size: 11px;
+    color: var(--ink-light);
+    line-height: 1.4;
+  }
+
+  .component-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 2px;
+    margin-top: 6px;
+    letter-spacing: 0.06em;
+  }
+
+  .tag-exists { background: var(--confirm-pale); color: var(--confirm); }
+  .tag-build { background: var(--arc-pale); color: var(--arc); }
+  .tag-ai { background: var(--amber-pale); color: var(--amber); }
+  .tag-legal { background: var(--signal-pale); color: var(--signal); }
+
+  /* Flow diagram */
+  .flow-section {
+    margin-bottom: 40px;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-light);
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  /* Client journey */
+  .journey {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    margin-bottom: 40px;
+    overflow-x: auto;
+  }
+
+  .journey-step {
+    flex: 1;
+    min-width: 130px;
+    position: relative;
+  }
+
+  .journey-step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 0;
+    height: 0;
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 10px solid var(--ink);
+    z-index: 2;
+  }
+
+  .step-inner {
+    border: 1px solid var(--rule);
+    border-right: none;
+    padding: 16px 20px 16px 16px;
+    height: 100%;
+    background: white;
+  }
+
+  .journey-step:last-child .step-inner {
+    border-right: 1px solid var(--rule);
+  }
+
+  .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    color: var(--ink-light);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .step-title {
+    font-family: 'DM Serif Display', serif;
+    font-size: 14px;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .step-fee {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--signal);
+    font-weight: 500;
+    margin-bottom: 6px;
+  }
+
+  .step-note {
+    font-size: 10px;
+    color: var(--ink-light);
+    line-height: 1.4;
+  }
+
+  /* Pricing table */
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+
+  .price-cell {
+    background: white;
+    padding: 16px;
+  }
+
+  .price-range {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-light);
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  .price-amount {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px;
+    color: var(--signal);
+    line-height: 1;
+    margin-bottom: 8px;
+  }
+
+  .price-split {
+    font-size: 10px;
+    color: var(--ink-light);
+    line-height: 1.6;
+  }
+
+  .price-split span {
+    color: var(--ink-mid);
+    font-weight: 500;
+  }
+
+  /* Stack */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 40px;
+  }
+
+  .stack-cell {
+    background: white;
+    padding: 14px 16px;
+  }
+
+  .stack-role {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    color: var(--ink-light);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  .stack-tech {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: 4px;
+  }
+
+  .stack-note {
+    font-size: 11px;
+    color: var(--ink-light);
+  }
+
+  /* Referral flow */
+  .referral-box {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 16px;
+    align-items: center;
+    padding: 24px;
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    background: white;
+    margin-bottom: 40px;
+  }
+
+  .ref-entity {
+    padding: 16px;
+    border-radius: 4px;
+  }
+
+  .ref-entity-name {
+    font-family: 'DM Serif Display', serif;
+    font-size: 18px;
+    margin-bottom: 4px;
+  }
+
+  .ref-entity-desc {
+    font-size: 11px;
+    color: var(--ink-light);
+    line-height: 1.4;
+  }
+
+  .ref-arrow {
+    text-align: center;
+    color: var(--ink-light);
+  }
+
+  .ref-arrow-line {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--signal);
+    letter-spacing: 0.08em;
+    margin-top: 4px;
+  }
+
+  .entity-axis { background: var(--arc-pale); }
+  .entity-scc { background: var(--signal-pale); }
+
+  /* Footer */
+  .footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .footer-note {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--ink-light);
+    letter-spacing: 0.08em;
+  }
+
+  .pilot-flag {
+    background: var(--signal);
+    color: white;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    padding: 6px 14px;
+    letter-spacing: 0.1em;
+    border-radius: 2px;
+  }
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <div class="eyebrow">Axis Strategic Labs — Internal</div>
+    <div class="title">AI Claim Firm<br>Build Map</div>
+    <div class="subtitle">Architecture, flow, and build sequence for the SCC AI claim vertical</div>
+  </div>
+  <div class="header-right">
+    <div class="meta">VERSION 0.1</div>
+    <div class="meta">CONFIDENTIAL</div>
+    <div class="meta" style="margin-top:8px;">6-WEEK BUILD</div>
+  </div>
+</div>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#1A6B3C"></div> Already exists in CCP</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#1A3A6B"></div> New build required</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#B87A00"></div> AI / Anthropic API layer</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#C8401A"></div> Legal / licensing touchpoint</div>
+</div>
+
+<!-- Client Journey -->
+<div class="flow-section">
+  <div class="section-label">Client Journey — End to End</div>
+  <div class="journey">
+    <div class="journey-step">
+      <div class="step-inner">
+        <div class="step-num">01</div>
+        <div class="step-title">Triage</div>
+        <div class="step-fee">Free</div>
+        <div class="step-note">Qualify loss type, peril, estimated damage. Filter obvious non-starters before payment.</div>
+      </div>
+    </div>
+    <div class="journey-step">
+      <div class="step-inner">
+        <div class="step-num">02</div>
+        <div class="step-title">Assessment</div>
+        <div class="step-fee">$500 NR</div>
+        <div class="step-note">Policy upload, coverage analysis, viability report. PA reviews before delivery.</div>
+      </div>
+    </div>
+    <div class="journey-step">
+      <div class="step-inner">
+        <div class="step-num">03</div>
+        <div class="step-title">Engagement</div>
+        <div class="step-fee">Balance due</div>
+        <div class="step-note">Tier confirmed. Balance invoiced. $500 applied toward flat fee.</div>
+      </div>
+    </div>
+    <div class="journey-step">
+      <div class="step-inner">
+        <div class="step-num">04</div>
+        <div class="step-title">Documentation</div>
+        <div class="step-fee">In progress</div>
+        <div class="step-note">Contents inventory, ALE tracking, damage scope. AI-driven, client uploads.</div>
+      </div>
+    </div>
+    <div class="journey-step">
+      <div class="step-inner">
+        <div class="step-num">05</div>
+        <div class="step-title">Delivery</div>
+        <div class="step-fee">In progress</div>
+        <div class="step-note">Demand package generated. PA reviews, signs. Submitted to carrier.</div>
+      </div>
+    </div>
+    <div class="journey-step">
+      <div class="step-inner" style="border-right: 1px solid var(--rule);">
+        <div class="step-num">06</div>
+        <div class="step-title">Resolution</div>
+        <div class="step-fee">Closed</div>
+        <div class="step-note">Settlement tracked. Supplements flagged. Above $150K referred to SCC.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Pricing Tiers -->
+<div class="flow-section">
+  <div class="section-label">Pricing Tiers</div>
+  <div class="pricing-grid">
+    <div class="price-cell">
+      <div class="price-range">UP TO $50K RESERVE</div>
+      <div class="price-amount">$2,500</div>
+      <div class="price-split">
+        <span>$500</span> Assessment (NR)<br>
+        <span>$2,000</span> Balance on engagement
+      </div>
+    </div>
+    <div class="price-cell">
+      <div class="price-range">$50K – $75K RESERVE</div>
+      <div class="price-amount">$5,000</div>
+      <div class="price-split">
+        <span>$500</span> Assessment (NR)<br>
+        <span>$4,500</span> Balance on engagement
+      </div>
+    </div>
+    <div class="price-cell">
+      <div class="price-range">$75K – $100K RESERVE</div>
+      <div class="price-amount">$7,500</div>
+      <div class="price-split">
+        <span>$500</span> Assessment (NR)<br>
+        <span>$7,000</span> Balance on engagement
+      </div>
+    </div>
+    <div class="price-cell">
+      <div class="price-range">$100K – $150K RESERVE</div>
+      <div class="price-amount">$10,000</div>
+      <div class="price-split">
+        <span>$500</span> Assessment (NR)<br>
+        <span>$9,500</span> Balance on engagement<br>
+        <span style="color:var(--signal)">Above $150K → SCC referral</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Build Layers -->
+<div class="flow-section">
+  <div class="section-label">Build Layers — 6-Week Sequence</div>
+
+  <!-- Layer 1 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 01</div>
+          <div class="layer-name">Foundation</div>
+        </div>
+      </div>
+      <div class="layer-desc">Domain, database schema, auth, and payment infrastructure. Everything else builds on this.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 1</div>
+        <div class="priority-badge priority-pilot">PILOT GATE</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Domain & Brand</div>
+        <div class="component-detail">New domain. Separate from CCP. Firm identity, not tool identity.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Supabase Schema</div>
+        <div class="component-detail">Claims, clients, documents, status, payments, PA assignments, referrals.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Auth Layer</div>
+        <div class="component-detail">Client portal auth. PA dashboard auth. Admin access. Role-based permissions.</div>
+        <div><span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Stripe Integration</div>
+        <div class="component-detail">Two-stage collection. $500 assessment gate. Tier balance invoice on engagement.</div>
+        <div><span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 2 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 02</div>
+          <div class="layer-name">Intake & Triage</div>
+        </div>
+      </div>
+      <div class="layer-desc">Landing page through $500 payment gate. Qualifies clients before any work begins.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 2</div>
+        <div class="priority-badge priority-pilot">PILOT GATE</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Landing Page</div>
+        <div class="component-detail">Positioning, pricing tiers, low-contact model disclosure, CTA to start triage.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Triage Form</div>
+        <div class="component-detail">Loss type, peril, date of loss, property type, estimated damage. Pre-payment.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Qualification Logic</div>
+        <div class="component-detail">Rule-based filter. Flags uncoverable losses before client pays anything.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">$500 Payment Gate</div>
+        <div class="component-detail">Stripe checkout. Non-refundable. Triggers assessment workflow on success.</div>
+        <div><span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 3 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 03</div>
+          <div class="layer-name">Assessment Phase</div>
+        </div>
+      </div>
+      <div class="layer-desc">Policy analysis, coverage mapping, viability report. PA reviews before client sees output.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 2–3</div>
+        <div class="priority-badge priority-ai">AI LAYER</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Policy Upload & Parse</div>
+        <div class="component-detail">PDF ingestion. Extracts coverage limits, deductibles, exclusions, endorsements.</div>
+        <div><span class="component-tag tag-ai">AI</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Coverage Analysis</div>
+        <div class="component-detail">Maps loss to covered perils. Flags exclusions. Identifies applicable endorsements.</div>
+        <div><span class="component-tag tag-ai">AI</span> <span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Viability Report</div>
+        <div class="component-detail">Structured claim opinion. Tier recommendation. Delivered to client after PA approval.</div>
+        <div><span class="component-tag tag-ai">AI</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">PA Review Queue</div>
+        <div class="component-detail">PA sees assessment output before client. Approves, flags, or requests more info.</div>
+        <div><span class="component-tag tag-build">BUILD</span> <span class="component-tag tag-legal">PA TOUCHPOINT</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Tier Determination</div>
+        <div class="component-detail">Confirms reserve range. Triggers balance invoice at correct tier pricing.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 4 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 04</div>
+          <div class="layer-name">Claim Delivery</div>
+        </div>
+      </div>
+      <div class="layer-desc">The full claim built and packaged. Contents, ALE, scope, demand. PA signs, firm submits.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 3–4</div>
+        <div class="priority-badge priority-core">CORE</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Contents Inventory</div>
+        <div class="component-detail">Room-by-room guided capture. ACV/RCV assignment. Reconstructs from receipts, photos, purchase history.</div>
+        <div><span class="component-tag tag-ai">AI</span> <span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">ALE Tracker</div>
+        <div class="component-detail">Expense capture by category. Running total vs. policy limit. Flags entitlement gaps.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Scope Builder</div>
+        <div class="component-detail">Damage documentation to Xactimate-compatible scope. Line item generation.</div>
+        <div><span class="component-tag tag-ai">AI</span> <span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Demand Package</div>
+        <div class="component-detail">Proof of loss draft, demand letter, exhibit compilation. Full submission-ready package.</div>
+        <div><span class="component-tag tag-ai">AI</span> <span class="component-tag tag-exists">EXISTS IN CCP</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">PA Approval & Signature</div>
+        <div class="component-detail">PA reviews each deliverable. DocuSign for proof of loss. PA signs demand letter.</div>
+        <div><span class="component-tag tag-build">BUILD</span> <span class="component-tag tag-legal">PA TOUCHPOINT</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Carrier Submission</div>
+        <div class="component-detail">Routes to carrier preferred channel. Email, portal, or flags for manual submission.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 5 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 05</div>
+          <div class="layer-name">Client Portal</div>
+        </div>
+      </div>
+      <div class="layer-desc">Low-contact experience. Status visibility replaces human communication. Milestone updates.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 4</div>
+        <div class="priority-badge priority-core">CORE</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Status Dashboard</div>
+        <div class="component-detail">Where is my claim right now. Clear stage indicators. No ambiguity.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Document Library</div>
+        <div class="component-detail">All generated and signed deliverables. Organized by claim stage.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Milestone Notifications</div>
+        <div class="component-detail">Email or SMS at key stage completions. Replaces check-in calls.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">ALE Running Total</div>
+        <div class="component-detail">Live view of ALE spending vs. policy limit. Client-facing.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Exception Contact</div>
+        <div class="component-detail">Secure message path for urgent issues only. Not a general inbox.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 6 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 06</div>
+          <div class="layer-name">PA Dashboard</div>
+        </div>
+      </div>
+      <div class="layer-desc">Review queue, approval workflow, earnings tracking. PA touches only judgment and signature moments.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 5</div>
+        <div class="priority-badge priority-core">CORE</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">File Queue</div>
+        <div class="component-detail">All active files sorted by tier and stage. Priority flags for time-sensitive items.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Review Interface</div>
+        <div class="component-detail">Side-by-side view of AI output and source documents. Approve, edit, or flag.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Signature Workflow</div>
+        <div class="component-detail">DocuSign integrated. PA signs demand letters and approved deliverables.</div>
+        <div><span class="component-tag tag-build">BUILD</span> <span class="component-tag tag-legal">PA TOUCHPOINT</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Earnings Tracker</div>
+        <div class="component-detail">Per-file earnings. Monthly totals. Payment status per claim.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Layer 7 -->
+  <div class="layer">
+    <div class="layer-header">
+      <div class="layer-id">
+        <div>
+          <div class="layer-number">LAYER 07</div>
+          <div class="layer-name">Operations & Admin</div>
+        </div>
+      </div>
+      <div class="layer-desc">Full pipeline visibility, referral routing, revenue reporting. PostHog instrumented throughout.</div>
+      <div class="layer-meta">
+        <div class="week-badge">WEEK 5–6</div>
+        <div class="priority-badge priority-ops">OPS</div>
+      </div>
+    </div>
+    <div class="components">
+      <div class="component">
+        <div class="component-name">Admin Dashboard</div>
+        <div class="component-detail">All files, all status, all revenue. Full pipeline view across tiers.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Referral Routing</div>
+        <div class="component-detail">Flags files approaching $150K. Triggers SCC referral workflow automatically.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">Revenue Reporting</div>
+        <div class="component-detail">Conversion rates, average claim value, PA productivity, monthly revenue by tier.</div>
+        <div><span class="component-tag tag-build">BUILD</span></div>
+      </div>
+      <div class="component">
+        <div class="component-name">PostHog Instrumentation</div>
+        <div class="component-detail">Full funnel tracking. Drop-off analysis at each stage. Already used across Axis.</div>
+        <div><span class="component-tag tag-exists">EXISTS IN AXIS</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Tech Stack -->
+<div class="flow-section">
+  <div class="section-label">Technology Stack</div>
+  <div class="stack-grid">
+    <div class="stack-cell">
+      <div class="stack-role">FRONTEND</div>
+      <div class="stack-tech">Netlify</div>
+      <div class="stack-note">Existing Axis infrastructure. Deploy reskinned firm site.</div>
+    </div>
+    <div class="stack-cell">
+      <div class="stack-role">DATABASE</div>
+      <div class="stack-tech">Supabase</div>
+      <div class="stack-note">New schema. Separate project from CCP. Auth, storage, real-time status.</div>
+    </div>
+    <div class="stack-cell">
+      <div class="stack-role">PAYMENTS</div>
+      <div class="stack-tech">Stripe</div>
+      <div class="stack-note">Two-stage collection. Assessment gate + tier balance invoice.</div>
+    </div>
+    <div class="stack-cell">
+      <div class="stack-role">AI ENGINE</div>
+      <div class="stack-tech">Anthropic API</div>
+      <div class="stack-note">Policy parsing, coverage analysis, scope generation, demand drafting.</div>
+    </div>
+    <div class="stack-cell">
+      <div class="stack-role">SIGNATURES</div>
+      <div class="stack-tech">DocuSign</div>
+      <div class="stack-note">Proof of loss execution. PA demand letter signing. Client authorization.</div>
+    </div>
+    <div class="stack-cell">
+      <div class="stack-role">ANALYTICS</div>
+      <div class="stack-tech">PostHog</div>
+      <div class="stack-note">Full funnel instrumentation. Already deployed across all Axis products.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Referral Structure -->
+<div class="flow-section">
+  <div class="section-label">Partnership Structure — Above $150K Ceiling</div>
+  <div class="referral-box">
+    <div class="ref-entity entity-axis">
+      <div class="ref-entity-name" style="color: var(--arc);">Axis AI Firm</div>
+      <div class="ref-entity-desc">Handles all claims up to $150K reserve. Flat fee model. AI-driven delivery. Licensed PA on contract. Owns the technology and client relationship.</div>
+    </div>
+    <div class="ref-arrow">
+      <div style="font-size: 24px; color: var(--ink-light);">→</div>
+      <div class="ref-arrow-line">CLAIMS &gt; $150K</div>
+      <div class="ref-arrow-line">REFERRAL FEE</div>
+    </div>
+    <div class="ref-entity entity-scc">
+      <div class="ref-entity-name" style="color: var(--signal);">SCC Traditional Practice</div>
+      <div class="ref-entity-desc">Receives warm, pre-documented large loss referrals. Percentage-based engagement. Client already triaged and documented. Pays referral fee to Axis firm.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<div class="footer">
+  <div class="footer-note">AXIS STRATEGIC LABS — CONFIDENTIAL WORKING DOCUMENT</div>
+  <div class="pilot-flag">PILOT: 5 CLAIMS BEFORE FULL BUILD</div>
+</div>
+
+</body>
+</html>

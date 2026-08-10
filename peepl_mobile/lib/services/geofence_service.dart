@@ -4,9 +4,12 @@ import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
-import 'growth_analytics_service.dart';
 import 'notification_service.dart';
 import 'places_venue_detector.dart';
+
+// FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
+// onPeepCreatedCrowdAlert: location_follows (locationId+alertsEnabled,
+//   locationName+alertsEnabled).
 class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
@@ -31,9 +34,6 @@ class PeeplGeofenceService {
   bool _alreadyActiveLogged = false;
   bool _denialLogged = false;
   bool _firestoreErrorLogged = false;
-
-  Function(String locationId, String locationName, double latitude, double longitude)?
-      onLocationEntered;
 
   bool get isActive => _isActive;
 
@@ -196,20 +196,11 @@ class PeeplGeofenceService {
     final locationId = geofence.id;
     final locationName = _locationNames[locationId] ?? locationId;
 
-    await GrowthAnalyticsService.logEvent(
-      'growth_venue_entry_detected',
-      {
-        'venueId': locationId,
-        'venueName': locationName,
-        'accuracy': location.accuracy,
-      },
-    );
-
-    onLocationEntered?.call(
-      locationId,
-      locationName,
-      geofence.latitude,
-      geofence.longitude,
+    await NotificationService.instance.handleVenueEntry(
+      venueName: locationName,
+      venueId: locationId,
+      lat: geofence.latitude,
+      lng: geofence.longitude,
     );
   }
 

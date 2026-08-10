@@ -92,6 +92,11 @@ class PeepPromptSuppressionService {
     return result.suppress;
   }
 
+  /// Returns true when a walk-in prompt may be shown for [venueId].
+  Future<bool> shouldShowPrompt(String venueId) async {
+    return !(await shouldSuppress(venueId));
+  }
+
   Future<void> recordPromptSent(String venueId) async {
     final prefs = await SharedPreferences.getInstance();
     final nowMs = DateTime.now().millisecondsSinceEpoch;
@@ -107,6 +112,10 @@ class PeepPromptSuppressionService {
     await prefs.setString(_dailyDateKey, today);
     await prefs.setInt(_dailyCountKey, dailyCount);
   }
+
+  /// Alias for [recordPromptSent] — call after a walk-in prompt is delivered.
+  Future<void> recordPromptShown(String venueId) =>
+      recordPromptSent(venueId);
 
   Future<void> recordPromptDismissed(String venueId) async {
     final prefs = await SharedPreferences.getInstance();

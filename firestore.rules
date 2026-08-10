@@ -112,6 +112,12 @@ service cloud.firestore {
       allow read, write: if request.auth != null && 
         request.auth.uid == userId;
     }
+
+    // Live check-in presence — doc id is the user's UID.
+    match /presence/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+    }
     
     // Geofence events are private
     match /geofence_events/{eventId} {
@@ -219,11 +225,20 @@ service cloud.firestore {
     }
 
     // Geofence venue registry — public read for client geofencing.
+    // Writes are Admin SDK only (e.g. onPostCreated, backfillLocationsFromPosts).
+    // Client writes removed: admin SeedLocationsScreen and PlacesVenueDetector
+    // auto-seed will fail until routed through a Cloud Function or backend.
     match /locations/{locationId} {
       allow read: if true;
-      allow write: if request.auth != null &&
-        get(/databases/$(database)/documents/CAASNAhaDbPrl0zH1yDn5qRqAtJ3/$(request.auth.uid)).data.isAdmin == true;
-      allow create, update: if request.auth != null;
+      allow write: if false;
+    }
+
+    // First-to-Peep achievements — client create only; no client update/delete.
+    match /pioneers/{pioneerId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if false;
     }
 
     // Growth funnel analytics (Phase 1).

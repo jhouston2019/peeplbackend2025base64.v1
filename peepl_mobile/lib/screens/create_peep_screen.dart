@@ -33,7 +33,9 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   bool _isGeolocating = false;
   bool _locationPreFilled = false;
   bool _hasNotificationLocation = false;
+  bool _fromVenueEntry = false;
   bool _locationPermissionDenied = false;
+  bool _isResolvingVenueName = false;
 
   double? _latitude;
   double? _longitude;
@@ -79,11 +81,39 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     final args = ModalRoute.of(context)?.settings.arguments;
     if (args is Map && args['locationName'] != null) {
       _hasNotificationLocation = true;
+      _fromVenueEntry =
+          args['fromVenueEntry'] == true || _hasNotificationLocation;
       _locationController.text = args['locationName'] as String;
       final lat = args['latitude'];
       final lng = args['longitude'];
       if (lat is num) _latitude = lat.toDouble();
       if (lng is num) _longitude = lng.toDouble();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _resolveNotificationVenueName();
+      });
+    }
+  }
+
+  Future<void> _resolveNotificationVenueName() async {
+    if (!mounted) return;
+
+    final raw = _locationController.text.trim();
+    if (raw.isEmpty) return;
+    if (!VenueNameService.looksLikeAddress(raw)) return;
+
+    final lat = _latitude;
+    final lng = _longitude;
+    if (lat == null || lng == null) return;
+
+    setState(() => _isResolvingVenueName = true);
+    try {
+      final resolved = await VenueNameService.resolveVenueName(lat, lng);
+      if (!mounted) return;
+      if (resolved != null && resolved.isNotEmpty) {
+        setState(() => _locationController.text = resolved);
+      }
+    } finally {
+      if (mounted) setState(() => _isResolvingVenueName = false);
     }
   }
 
@@ -125,7 +155,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         _locationPermissionDenied = false;
       });
 
-      final name = await VenueNameService.getVenueName(
+      final name = await VenueNameService.resolveVenueName(
         pos.latitude,
         pos.longitude,
       );
@@ -258,17 +288,23 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
           .get();
 
       if (mounted) {
+        final successArgs = {
+          'postId': postId,
+          'locationName': locationName,
+          'crowdingLevel': _crowdingLevel,
+          'fromVenueEntry': _fromVenueEntry,
+        };
         if ((pioneerCount.count ?? 0) == 1) {
           Navigator.pushReplacementNamed(
             context,
             '/pioneer_congrat',
-            arguments: locationName,
+            arguments: successArgs,
           );
         } else {
           Navigator.pushReplacementNamed(
             context,
             '/peep_submitted',
-            arguments: locationName,
+            arguments: successArgs,
           );
         }
       }
@@ -386,9 +422,11 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
           ),
           const SizedBox(width: 6),
           Expanded(
-            child: _isGeolocating
+            child: (_isGeolocating || _isResolvingVenueName)
                 ? Text(
-                    'Finding your location…',
+                    _isResolvingVenueName
+                        ? 'Finding venue name…'
+                        : 'Finding your location…',
                     style: TextStyle(
                       color: Colors.white.withValues(alpha: 0.7),
                       fontSize: 15,

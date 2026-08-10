@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -97,15 +98,15 @@ class _SeedLocationsScreenState extends State<SeedLocationsScreen> {
           double.tryParse(_radiusController.text.trim()) ?? 150.0;
       final venueType = _venueTypeController.text.trim();
 
-      await FirebaseFirestore.instance.collection('locations').add({
+      final callable = FirebaseFunctions.instance.httpsCallable('seedLocation');
+      await callable.call<Map<String, dynamic>>({
         'locationName': _nameController.text.trim(),
         'latitude': double.parse(_latController.text.trim()),
         'longitude': double.parse(_lngController.text.trim()),
+        'crowdingLevel': 0,
         'geofenceRadiusMeters': radius,
         'isActive': _isActive,
         if (venueType.isNotEmpty) 'venueType': venueType,
-        'createdAt': FieldValue.serverTimestamp(),
-        'createdBy': FirebaseAuth.instance.currentUser?.uid,
       });
 
       _nameController.clear();
