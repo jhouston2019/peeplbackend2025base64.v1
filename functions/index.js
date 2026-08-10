@@ -432,6 +432,91 @@ exports.onNewPost = functions.firestore
     return null;
   });
 
+// ─── HELPER: derive locations doc id from venue name ───────────────────────
+function generateLocationId(locationName) {
+  return locationName
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '_')
+    .substring(0, 100);
+}
+
+// ─── HELPER: upsert locations collection from a location_posts document ────
+async function upsertLocationFromPost(postData) {
+  const locationName = postData.locationName;
+  const latitude = postData.latitude;
+  const longitude = postData.longitude;
+
+  if (!locationName || !latitude || !longitude) {
+    return { created: false, updated: false };
+  }
+
+  const locationId = generateLocationId(locationName);
+  if (!locationId) {
+    return { created: false, updated: false };
+  }
+
+  const locationRef = db.collection('locations').doc(locationId);
+  const locationDoc = await locationRef.get();
+
+  if (!locationDoc.exists) {
+    await locationRef.set({
+      locationName,
+      latitude,
+      longitude,
+      geofenceRadiusMeters: 150,
+      isActive: true,
+      createdAt: FieldValue.serverTimestamp(),
+      lastPeeped: FieldValue.serverTimestamp(),
+      peepCount: 1,
+    });
+    return { created: true, updated: false };
+  }
+
+  await locationRef.update({
+    lastPeeped: FieldValue.serverTimestamp(),
+    peepCount: FieldValue.increment(1),
+  });
+  return { created: false, updated: true };
+}
+
+// ─── HELPER: crowd anomaly detection for onPostCreated ─────────────────────
+async function detectCrowdAnomaly(data, postId) {
+  const { latitude, longitude, crowdingLevel, locationName, userId } = data;
+
+  const venueKey = `${Math.round(latitude * 1000) / 1000}_${Math.round(longitude * 1000) / 1000}`;
+  const venueRef = db.collection('venue_intelligence').doc(venueKey);
+  const venueDoc = await venueRef.get();
+
+  if (!venueDoc.exists) return;
+
+  const venueData = venueDoc.data();
+  const totalReports = venueData.totalReports || 0;
+  if (totalReports < 5) return;
+
+  const hour = new Date().getHours().toString();
+  const hourlyAggregates = venueData.hourlyAggregates || {};
+  const hourEntry = hourlyAggregates[hour];
+  if (!hourEntry || hourEntry.count < 3) return;
+
+  const hourlyAvg = hourEntry.sum / hourEntry.count;
+  const deviation = Math.abs(crowdingLevel - hourlyAvg);
+
+  if (deviation > 3) {
+    await db.collection('crowd_anomalies').add({
+      postId,
+      venueKey,
+      locationName,
+      latitude,
+      longitude,
+      reportedScore: crowdingLevel,
+      expectedScore: hourlyAvg,
+      deviation,
+      userId,
+      detectedAt: FieldValue.serverTimestamp(),
+    });
+  }
+}
+
 // ─── FUNCTION 5: onPostCreated ────────────────────────────────────────────
 // Fires on every new location_posts document. Detects anomalous crowd scores
 // against venue hourly baseline and writes to crowd_anomalies when found.
@@ -445,44 +530,18 @@ exports.onPostCreated = functions.firestore
     if (!latitude || !longitude || crowdingLevel === undefined) return null;
 
     try {
-      const venueKey = `${Math.round(latitude * 1000) / 1000}_${Math.round(longitude * 1000) / 1000}`;
-      const venueRef = db.collection('venue_intelligence').doc(venueKey);
-      const venueDoc = await venueRef.get();
-
-      if (!venueDoc.exists) return null;
-
-      const venueData = venueDoc.data();
-      const totalReports = venueData.totalReports || 0;
-      if (totalReports < 5) return null;
-
-      const hour = new Date().getHours().toString();
-      const hourlyAggregates = venueData.hourlyAggregates || {};
-      const hourEntry = hourlyAggregates[hour];
-      if (!hourEntry || hourEntry.count < 3) return null;
-
-      const hourlyAvg = hourEntry.sum / hourEntry.count;
-      const deviation = Math.abs(crowdingLevel - hourlyAvg);
-
-      if (deviation > 3) {
-        await db.collection('crowd_anomalies').add({
-          postId,
-          venueKey,
-          locationName,
-          latitude,
-          longitude,
-          reportedScore: crowdingLevel,
-          expectedScore: hourlyAvg,
-          deviation,
-          userId,
-          detectedAt: FieldValue.serverTimestamp(),
-        });
-      }
-
-      return null;
+      await detectCrowdAnomaly(data, postId);
     } catch (err) {
       console.error('onPostCreated error:', err);
-      return null;
     }
+
+    try {
+      await upsertLocationFromPost(data);
+    } catch (err) {
+      console.error('onPostCreated locations upsert error:', err);
+    }
+
+    return null;
   });
 
 // ─── FUNCTION 6: onPeepCreatedCrowdAlert ───────────────────────────────────
@@ -640,3 +699,56 @@ exports.onPeepCreatedCrowdAlert = functions.firestore
       return null;
     }
   });
+
+// ─── FUNCTION 7: backfillLocationsFromPosts ────────────────────────────────
+// One-time admin callable to populate locations from existing location_posts.
+exports.backfillLocationsFromPosts = functions.https.onCall(async (_data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+  }
+
+  const adminDoc = await db.collection(USERS_COLLECTION).doc(context.auth.uid).get();
+  if (!adminDoc.exists || adminDoc.data()?.isAdmin !== true) {
+    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  }
+
+  let processed = 0;
+  let created = 0;
+  let updated = 0;
+  let lastDoc = null;
+
+  while (true) {
+    let query = db.collection('location_posts').orderBy('__name__').limit(100);
+    if (lastDoc) {
+      query = query.startAfter(lastDoc);
+    }
+
+    const snapshot = await query.get();
+    if (snapshot.empty) {
+      break;
+    }
+
+    for (const doc of snapshot.docs) {
+      const postData = doc.data();
+      if (!postData.locationName || !postData.latitude || !postData.longitude) {
+        continue;
+      }
+
+      processed += 1;
+      const result = await upsertLocationFromPost(postData);
+      if (result.created) {
+        created += 1;
+      }
+      if (result.updated) {
+        updated += 1;
+      }
+    }
+
+    lastDoc = snapshot.docs[snapshot.docs.length - 1];
+    if (snapshot.size < 100) {
+      break;
+    }
+  }
+
+  return { processed, created, updated };
+});
