@@ -701,54 +701,70 @@ exports.onPeepCreatedCrowdAlert = functions.firestore
   });
 
 // ─── FUNCTION 7: backfillLocationsFromPosts ────────────────────────────────
-// One-time admin callable to populate locations from existing location_posts.
-exports.backfillLocationsFromPosts = functions.https.onCall(async (_data, context) => {
-  if (!context.auth) {
-    throw new functions.https.HttpsError('unauthenticated', 'Must be signed in.');
+// One-time HTTP trigger to populate locations from existing location_posts.
+exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) => {
+  const secret = req.query.secret || req.body.secret;
+  if (secret !== 'peepl_backfill_2026') {
+    return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const adminDoc = await db.collection(USERS_COLLECTION).doc(context.auth.uid).get();
-  if (!adminDoc.exists || adminDoc.data()?.isAdmin !== true) {
-    throw new functions.https.HttpsError('permission-denied', 'Admin only.');
+  try {
+    let processed = 0;
+    let created = 0;
+    let updated = 0;
+    let lastDoc = null;
+    const batchSize = 100;
+
+    while (true) {
+      let query = db.collection('location_posts')
+        .limit(batchSize);
+      if (lastDoc) query = query.startAfter(lastDoc);
+
+      const snapshot = await query.get();
+      if (snapshot.empty) break;
+
+      for (const doc of snapshot.docs) {
+        const data = doc.data();
+        const locationName = data.locationName;
+        const latitude = data.latitude;
+        const longitude = data.longitude;
+
+        if (!locationName || !latitude || !longitude) continue;
+
+        processed++;
+        const locationId = locationName
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, '_')
+          .substring(0, 100);
+
+        const locationRef = db.collection('locations').doc(locationId);
+        const locationDoc = await locationRef.get();
+
+        if (!locationDoc.exists) {
+          await locationRef.set({
+            locationName, latitude, longitude,
+            geofenceRadiusMeters: 150,
+            isActive: true,
+            createdAt: FieldValue.serverTimestamp(),
+            lastPeeped: FieldValue.serverTimestamp(),
+            peepCount: 1,
+          });
+          created++;
+        } else {
+          await locationRef.update({
+            lastPeeped: FieldValue.serverTimestamp(),
+            peepCount: FieldValue.increment(1),
+          });
+          updated++;
+        }
+      }
+
+      lastDoc = snapshot.docs[snapshot.docs.length - 1];
+      if (snapshot.docs.length < batchSize) break;
+    }
+
+    return res.json({ processed, created, updated });
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
   }
-
-  let processed = 0;
-  let created = 0;
-  let updated = 0;
-  let lastDoc = null;
-
-  while (true) {
-    let query = db.collection('location_posts').orderBy('__name__').limit(100);
-    if (lastDoc) {
-      query = query.startAfter(lastDoc);
-    }
-
-    const snapshot = await query.get();
-    if (snapshot.empty) {
-      break;
-    }
-
-    for (const doc of snapshot.docs) {
-      const postData = doc.data();
-      if (!postData.locationName || !postData.latitude || !postData.longitude) {
-        continue;
-      }
-
-      processed += 1;
-      const result = await upsertLocationFromPost(postData);
-      if (result.created) {
-        created += 1;
-      }
-      if (result.updated) {
-        updated += 1;
-      }
-    }
-
-    lastDoc = snapshot.docs[snapshot.docs.length - 1];
-    if (snapshot.size < 100) {
-      break;
-    }
-  }
-
-  return { processed, created, updated };
 });
