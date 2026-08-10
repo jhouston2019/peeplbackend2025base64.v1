@@ -876,3 +876,29 @@ exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) 
     return res.status(500).json({ error: error.message });
   }
 });
+
+// ─── FUNCTION: onPeepViewRecorded (Phase 5) ────────────────────────────────
+// When helpedCount increases on a location_post, increment totalImpact on
+// the post author's user document by the delta.
+exports.onPeepViewRecorded = functions.firestore
+  .document('location_posts/{postId}')
+  .onUpdate(async (change) => {
+    const before = change.before.data() || {};
+    const after = change.after.data() || {};
+
+    const beforeCount = typeof before.helpedCount === 'number' ? before.helpedCount : 0;
+    const afterCount = typeof after.helpedCount === 'number' ? after.helpedCount : 0;
+    const delta = afterCount - beforeCount;
+
+    if (delta <= 0) return null;
+
+    const userId = after.userId;
+    if (!userId) return null;
+
+    await db.collection(USERS_COLLECTION).doc(userId).set(
+      { totalImpact: FieldValue.increment(delta) },
+      { merge: true },
+    );
+
+    return null;
+  });

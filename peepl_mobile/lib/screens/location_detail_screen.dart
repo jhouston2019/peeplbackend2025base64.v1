@@ -14,12 +14,13 @@ import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../utils/crowd_display_mapper.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
+import '../widgets/crowd_meter.dart';
 import '../widgets/detail/detail_activity_ticker.dart';
 import '../widgets/detail/detail_comment_input.dart';
 import '../widgets/detail/detail_comment_tile.dart';
-import '../widgets/detail/detail_crowd_score_card.dart';
 import '../widgets/detail/detail_deals_card.dart';
 import '../widgets/detail/detail_hero_header.dart';
 import '../widgets/detail/detail_live_peeps_row.dart';
@@ -54,6 +55,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   bool _loadingVenuePeeps = true;
   bool _isFollowing = false;
   bool _isFollowLoading = false;
+  int? _contributorCount;
   late final String _locationId;
 
   static String _resolveLocationId(Map<String, dynamic> post) {
@@ -75,6 +77,43 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     _loadFollowState();
     _initAds();
     _loadVenuePeeps();
+    _loadContributorCount();
+    _recordPeepViewForVenue();
+  }
+
+  Future<void> _loadContributorCount() async {
+    final locationName = widget.postData['locationName'] as String? ?? '';
+    if (locationName.isEmpty) return;
+
+    try {
+      final count =
+          await _feedService.getVenueContributorCount(locationName);
+      if (!mounted) return;
+      setState(() => _contributorCount = count);
+    } catch (_) {}
+  }
+
+  Future<void> _recordPeepViewForVenue() async {
+    final postId = widget.postData['id'] as String?;
+    if (postId == null || postId.isEmpty) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final locationName = widget.postData['locationName'] as String? ?? '';
+    if (locationName.isEmpty) return;
+
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (snap.docs.isEmpty) return;
+      await _feedService.recordPeepView(snap.docs.first.id, user.uid);
+    } catch (_) {}
   }
 
   Future<void> _loadFollowState() async {
@@ -624,9 +663,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           left: 16,
           right: 16,
           top: 272,
-          child: DetailCrowdScoreCard(
+          child: _CrowdStatusCard(
             crowdingLevel: crowdingLevel,
             trendRaw: trendRaw,
+            contributorCount: _contributorCount,
           ),
         ),
       ],
@@ -953,5 +993,123 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
+  }
+}
+
+/// Crowding status card with optional contributor social proof (Phase 3).
+class _CrowdStatusCard extends StatelessWidget {
+  const _CrowdStatusCard({
+    required this.crowdingLevel,
+    this.trendRaw,
+    this.contributorCount,
+  });
+
+  final int crowdingLevel;
+  final String? trendRaw;
+  final int? contributorCount;
+
+  String? get _contributorLine {
+    final count = contributorCount;
+    if (count == null || count <= 0) return null;
+    if (count == 1) return '1 person updated this place today';
+    return '$count people updated this place today';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final crowdData = CrowdDisplayMapper.fromScore(
+      crowdingLevel,
+      trendRaw: trendRaw,
+    );
+    final statusColor = CrowdMeter.levelColor(crowdingLevel);
+    final statusLabel = CrowdMeter.wordLabel(crowdingLevel);
+    final contributorLine = _contributorLine;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: PeeplDetailTokens.cardDecoration(
+        color: PeeplDetailTokens.cardElevated,
+      ),
+      child: Row(
+        children: [
+          CrowdMeter(level: crowdingLevel, size: 72, fontScale: 0.38),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Crowd Score',
+                  style: TextStyle(
+                    color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.9),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.4,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  statusLabel,
+                  style: TextStyle(
+                    color: statusColor,
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    height: 1.1,
+                  ),
+                ),
+                if (contributorLine != null) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    contributorLine,
+                    style: TextStyle(
+                      color: PeeplDetailTokens.textSecondary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+                if (crowdData.trendLabel != null) ...[
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Icon(
+                        _trendIcon(crowdData.trendDirection),
+                        size: 14,
+                        color: statusColor,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
+                        child: Text(
+                          crowdData.trendLabel!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: PeeplDetailTokens.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  IconData _trendIcon(CrowdTrendDirection? direction) {
+    switch (direction) {
+      case CrowdTrendDirection.down:
+        return Icons.trending_down_rounded;
+      case CrowdTrendDirection.up:
+        return Icons.trending_up_rounded;
+      case CrowdTrendDirection.steady:
+      case null:
+        return Icons.trending_flat_rounded;
+    }
   }
 }

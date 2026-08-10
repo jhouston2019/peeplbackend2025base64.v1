@@ -10,6 +10,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
+import '../models/milestone.dart';
+import '../services/feed_service.dart';
 import 'crowdsource_service.dart';
 import 'debug_log_service.dart';
 import 'growth_analytics_service.dart';
@@ -393,6 +395,66 @@ class NotificationService {
     } catch (e) {
       debugPrint('[FCM] onPostSubmitted error: $e');
     }
+  }
+
+  Future<void> checkAndShowMilestones(String userId) async {
+    try {
+      final newIds = await FeedService().checkMilestones(userId);
+      if (newIds.isEmpty) return;
+
+      final nav = navigatorKey?.currentState;
+      if (nav == null || !nav.mounted) return;
+      final context = nav.context;
+
+      for (final id in newIds) {
+        final text = Milestone.textFor(id);
+        if (text == null) continue;
+        if (!context.mounted) return;
+
+        await showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.white,
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          builder: (sheetContext) => GestureDetector(
+            onTap: () => Navigator.pop(sheetContext),
+            behavior: HitTestBehavior.opaque,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 28, 24, 36),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Icon(Icons.emoji_events_outlined,
+                      size: 40, color: Color(0xFF1565C0)),
+                  const SizedBox(height: 16),
+                  Text(
+                    text,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      height: 1.45,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Tap to dismiss',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }
+    } catch (_) {}
   }
 
   Future<String?> _findRecentPostId(String userId, String locationName) async {

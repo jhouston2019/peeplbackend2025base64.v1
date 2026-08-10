@@ -1,13 +1,18 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import '../models/milestone.dart';
 import 'crowd_intelligence_service.dart';
 import 'growth_analytics_service.dart';
+import 'notification_service.dart';
 
 class FeedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
+
+  static const String usersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
   static const int maxFileSizeBytes = 5 * 1024 * 1024;
   static const List<String> allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
@@ -170,6 +175,12 @@ class FeedService {
         aiDescription: aiDescription,
       );
 
+      unawaited(
+        NotificationService.instance
+            .checkAndShowMilestones(userId)
+            .catchError((_) {}),
+      );
+
       return docRef.id;
     } catch (e) {
       throw Exception('Failed to create location post: ${e.toString()}');
@@ -266,6 +277,166 @@ class FeedService {
     final list = byName.values.toList()
       ..sort((a, b) => b.lastPosted.compareTo(a.lastPosted));
     return list;
+  }
+
+  /// Contribution stats for My Peepl (Phase 2).
+  Future<Map<String, dynamic>> getUserStats(String userId) async {
+    final snap = await _firestore
+        .collection('location_posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .get();
+
+    var totalLikes = 0;
+    final places = <String>{};
+    Timestamp? firstPeepDate;
+    final recentPeeps = <Map<String, dynamic>>[];
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      totalLikes += (data['likesCount'] as num?)?.toInt() ?? 0;
+
+      final name = data['locationName'] as String?;
+      if (name != null && name.trim().isNotEmpty) {
+        places.add(name.trim());
+      }
+
+      final ts = data['timestamp'];
+      if (ts is Timestamp) {
+        if (firstPeepDate == null || ts.compareTo(firstPeepDate!) < 0) {
+          firstPeepDate = ts;
+        }
+      }
+
+      if (recentPeeps.length < 5) {
+        recentPeeps.add({
+          'locationName': data['locationName'] as String? ?? '',
+          'crowdingLevel': (data['crowdingLevel'] as num?)?.toInt() ?? 0,
+          'timestamp': data['timestamp'],
+          'likesCount': (data['likesCount'] as num?)?.toInt() ?? 0,
+        });
+      }
+    }
+
+    if (firstPeepDate == null && snap.docs.isNotEmpty) {
+      for (final doc in snap.docs.reversed) {
+        final ts = doc.data()['timestamp'];
+        if (ts is Timestamp) {
+          firstPeepDate = ts;
+          break;
+        }
+      }
+    }
+
+    return {
+      'totalPeeps': snap.docs.length,
+      'totalPlaces': places.length,
+      'totalLikes': totalLikes,
+      'firstPeepDate': firstPeepDate,
+      'recentPeeps': recentPeeps,
+    };
+  }
+
+  /// Distinct users who posted at [locationName] within [window] (Phase 3).
+  Future<int> getVenueContributorCount(
+    String locationName, [
+    Duration window = const Duration(hours: 24),
+  ]) async {
+    if (locationName.trim().isEmpty) return 0;
+
+    final cutoff = Timestamp.fromDate(DateTime.now().subtract(window));
+    final snap = await _firestore
+        .collection('location_posts')
+        .where('locationName', isEqualTo: locationName)
+        .where('timestamp', isGreaterThan: cutoff)
+        .get();
+
+    final userIds = <String>{};
+    for (final doc in snap.docs) {
+      final uid = doc.data()['userId'] as String?;
+      if (uid != null && uid.isNotEmpty) userIds.add(uid);
+    }
+    return userIds.length;
+  }
+
+  /// Returns newly earned milestone IDs and persists them on the user doc (Phase 4).
+  Future<List<String>> checkMilestones(String userId) async {
+    final stats = await getUserStats(userId);
+    final totalPeeps = stats['totalPeeps'] as int? ?? 0;
+    final totalPlaces = stats['totalPlaces'] as int? ?? 0;
+
+    final userRef = _firestore.collection(usersCollection).doc(userId);
+    final userSnap = await userRef.get();
+    final earned = List<String>.from(
+      (userSnap.data()?['earnedMilestones'] as List<dynamic>? ?? [])
+          .map((e) => e.toString()),
+    );
+
+    final newlyEarned = <String>[];
+
+    void tryEarn(String id, bool condition) {
+      if (condition && !earned.contains(id) && !newlyEarned.contains(id)) {
+        newlyEarned.add(id);
+      }
+    }
+
+    tryEarn(Milestone.firstPeep, totalPeeps >= 1);
+    tryEarn(Milestone.fivePlaces, totalPlaces >= 5);
+    tryEarn(Milestone.tenPeeps, totalPeeps >= 10);
+    tryEarn(Milestone.twentyFivePeeps, totalPeeps >= 25);
+
+    if (!earned.contains(Milestone.pioneer) &&
+        !newlyEarned.contains(Milestone.pioneer)) {
+      final recentSnap = await _firestore
+          .collection('location_posts')
+          .where('userId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (recentSnap.docs.isNotEmpty) {
+        final locationName =
+            recentSnap.docs.first.data()['locationName'] as String? ?? '';
+        if (locationName.isNotEmpty) {
+          final firstSnap = await _firestore
+              .collection('location_posts')
+              .where('locationName', isEqualTo: locationName)
+              .orderBy('timestamp', descending: false)
+              .limit(1)
+              .get();
+
+          if (firstSnap.docs.isNotEmpty &&
+              firstSnap.docs.first.data()['userId'] == userId) {
+            newlyEarned.add(Milestone.pioneer);
+          }
+        }
+      }
+    }
+
+    if (newlyEarned.isNotEmpty) {
+      await userRef.set(
+        {'earnedMilestones': FieldValue.arrayUnion(newlyEarned)},
+        SetOptions(merge: true),
+      );
+    }
+
+    return newlyEarned;
+  }
+
+  /// Increment [helpedCount] when another user views a Peep (Phase 5).
+  Future<void> recordPeepView(String postId, String viewerUserId) async {
+    try {
+      if (postId.isEmpty || viewerUserId.isEmpty) return;
+
+      final postRef = _firestore.collection('location_posts').doc(postId);
+      final postSnap = await postRef.get();
+      if (!postSnap.exists) return;
+
+      final authorId = postSnap.data()?['userId'] as String?;
+      if (authorId == null || authorId == viewerUserId) return;
+
+      await postRef.update({'helpedCount': FieldValue.increment(1)});
+    } catch (_) {}
   }
 }
 

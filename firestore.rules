@@ -66,6 +66,11 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         isAppAdmin() ||
         resource.data.userId == request.auth.uid ||
+        (
+          resource.data.userId != request.auth.uid &&
+          request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['helpedCount'])
+        ) ||
         request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['likesCount', 'commentsCount'])
       );

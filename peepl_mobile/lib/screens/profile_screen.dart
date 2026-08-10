@@ -1,22 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../models/milestone.dart';
+import '../services/feed_service.dart';
 import '../theme/peepl_app_tokens.dart';
-
-import '../services/auth_service.dart';
-import 'location_detail_screen.dart';
-
-// ── VIPeeps helpers (used inline in ProfileScreen) ────────────────────────────
-
-String _vipRenewsLabel(dynamic renewsAt) {
-  if (renewsAt is! Timestamp) return 'Active';
-  final dt = renewsAt.toDate();
-  const months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
-  ];
-  return 'Renews ${months[dt.month - 1]} ${dt.day}';
-}
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -26,12 +14,103 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  static const Color _accentBlue = Color(0xFF1565C0);
+
+  final FeedService _feedService = FeedService();
+
+  Map<String, dynamic>? _stats;
+  List<String> _earnedMilestones = [];
+  bool _loading = true;
+  String? _error;
+
   User? get _user => FirebaseAuth.instance.currentUser;
 
-  Color _getCrowdingColor(int level) {
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = _user;
+    if (user == null) {
+      setState(() {
+        _loading = false;
+        _error = 'Sign in to view your contributions.';
+      });
+      return;
+    }
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final stats = await _feedService.getUserStats(user.uid);
+      final userSnap = await FirebaseFirestore.instance
+          .collection(FeedService.usersCollection)
+          .doc(user.uid)
+          .get();
+      final earned = List<String>.from(
+        (userSnap.data()?['earnedMilestones'] as List<dynamic>? ?? [])
+            .map((e) => e.toString()),
+      );
+
+      if (!mounted) return;
+      setState(() {
+        _stats = stats;
+        _earnedMilestones = earned;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _loading = false;
+        _error = 'Could not load your contributions. Please try again.';
+      });
+    }
+  }
+
+  String get _displayName {
+    final user = _user;
+    if (user == null) return 'Peepler';
+    return user.displayName ??
+        user.email?.split('@').first ??
+        'Peepler';
+  }
+
+  Color _crowdingColor(int level) {
     if (level <= 4) return const Color(0xFF4CAF50);
     if (level <= 6) return const Color(0xFFFFA726);
     return const Color(0xFFFF5722);
+  }
+
+  String _memberSinceLabel(dynamic firstPeepDate) {
+    if (firstPeepDate is! Timestamp) return '—';
+    final dt = firstPeepDate.toDate();
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.year}';
+  }
+
+  String _timeAgo(dynamic timestamp) {
+    if (timestamp == null) return '';
+    DateTime? dt;
+    if (timestamp is Timestamp) {
+      dt = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      dt = timestamp;
+    } else {
+      return '';
+    }
+    final diff = DateTime.now().difference(dt);
+    if (diff.inMinutes < 1) return 'just now';
+    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
+    if (diff.inHours < 24) return '${diff.inHours}h ago';
+    return '${diff.inDays}d ago';
   }
 
   @override
@@ -45,16 +124,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             Expanded(
               child: Container(
                 decoration: PeeplAppTokens.shellBodyDecoration(),
-                child: SingleChildScrollView(
-                  child: Column(
-                    children: [
-                      _buildProfileHeader(context),
-                      _buildVIPeepsSection(context),
-                      const Divider(height: 1),
-                      _buildPostsSection(context),
-                    ],
-                  ),
-                ),
+                child: _buildBody(),
               ),
             ),
           ],
@@ -71,14 +141,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
         children: [
           GestureDetector(
             onTap: () => Navigator.pop(context),
-            child: const Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary, size: 28),
+            child: const Icon(Icons.arrow_back,
+                color: PeeplAppTokens.textPrimary, size: 28),
           ),
           const Text(
-            'Profile',
+            'My Peepl',
             style: TextStyle(
-                color: PeeplAppTokens.textPrimary,
-                fontSize: 24,
-                fontWeight: FontWeight.bold),
+              color: PeeplAppTokens.textPrimary,
+              fontSize: 24,
+              fontWeight: FontWeight.bold,
+            ),
           ),
           GestureDetector(
             onTap: () => Navigator.pushNamed(context, '/settings'),
@@ -90,550 +162,229 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildProfileHeader(BuildContext context) {
-    final username =
-        _user?.displayName ?? _user?.email?.split('@').first ?? 'Peepler';
-    final email = _user?.email ?? '';
+  Widget _buildBody() {
+    if (_loading) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(_accentBlue),
+        ),
+      );
+    }
 
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        children: [
-          CircleAvatar(
-            radius: 48,
-            backgroundColor: PeeplAppTokens.shellNavy,
-            child: Text(
-              username.isNotEmpty ? username[0].toUpperCase() : 'P',
-              style: const TextStyle(
-                  color: PeeplAppTokens.textPrimary,
-                  fontSize: 40,
-                  fontWeight: FontWeight.bold),
-            ),
+    if (_error != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Text(
+            _error!,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: PeeplAppTokens.textSecondary, fontSize: 16),
           ),
-          const SizedBox(height: 16),
-          Text(
-            username,
-            style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: PeeplAppTokens.accentBlue),
-          ),
-          if (email.isNotEmpty) ...[
-            const SizedBox(height: 4),
+        ),
+      );
+    }
+
+    final stats = _stats!;
+    final totalPeeps = stats['totalPeeps'] as int? ?? 0;
+
+    return RefreshIndicator(
+      color: _accentBlue,
+      onRefresh: _loadProfile,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.fromLTRB(20, 24, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
             Text(
-              email,
-              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
+              _displayName,
+              style: const TextStyle(
+                fontSize: 26,
+                fontWeight: FontWeight.bold,
+                color: _accentBlue,
+              ),
             ),
-          ],
-          const SizedBox(height: 20),
-          _buildPostsCount(),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () =>
-                      Navigator.pushNamed(context, '/account_info'),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Edit Profile',
-                    style: TextStyle(
-                        color: PeeplAppTokens.accentBlue,
-                        fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton(
-                  onPressed: () async {
-                    await AuthService().signOut();
-                    Navigator.pushNamedAndRemoveUntil(
-                        context, '/login', (_) => false);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Colors.red),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10)),
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                  child: const Text(
-                    'Sign Out',
-                    style: TextStyle(
-                        color: Colors.red, fontWeight: FontWeight.w600),
-                  ),
-                ),
-              ),
+            const SizedBox(height: 24),
+            if (totalPeeps == 0)
+              _buildEmptyPrompt()
+            else ...[
+              _buildStatsGrid(stats),
+              const SizedBox(height: 28),
+              _buildRecentPeepsSection(stats),
+              if (_earnedMilestones.isNotEmpty) ...[
+                const SizedBox(height: 28),
+                _buildMilestonesSection(),
+              ],
             ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/vip_peeps'),
-              icon: const Icon(Icons.star_outline, color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Go VIPeeps',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/favorites'),
-              icon: const Icon(Icons.star_outline, color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Favorites',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/groups'),
-              icon: const Icon(Icons.groups_outlined, color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Groups',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/invite'),
-              icon: const Icon(Icons.person_add_outlined,
-                  color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Invite Friends',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/gallery'),
-              icon: const Icon(Icons.photo_library_outlined,
-                  color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Photo Gallery',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/share'),
-              icon: const Icon(Icons.share_outlined, color: PeeplAppTokens.accentBlue),
-              label: const Text(
-                'Share this app',
-                style: TextStyle(
-                  color: PeeplAppTokens.accentBlue,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-              ),
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildPostsCount() {
-    if (_user == null) return const SizedBox.shrink();
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('location_posts')
-          .where('userId', isEqualTo: _user!.uid)
-          .snapshots(),
-      builder: (context, snapshot) {
-        final count = snapshot.data?.docs.length ?? 0;
-        return Column(
-          children: [
-            Text(
-              count.toString(),
-              style: const TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: PeeplAppTokens.accentBlue),
-            ),
-            Text(
-              count == 1 ? 'Post' : 'Posts',
-              style: TextStyle(fontSize: 14, color: PeeplAppTokens.textSecondary),
-            ),
-          ],
-        );
-      },
+  Widget _buildEmptyPrompt() {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: PeeplAppTokens.textPrimary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: PeeplAppTokens.textPrimary.withOpacity(0.07),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const Text(
+        "You haven't Peeped anywhere yet.\nYour contributions will appear here.",
+        textAlign: TextAlign.center,
+        style: TextStyle(
+          fontSize: 16,
+          height: 1.5,
+          color: Color(0xFF1A1A1A),
+        ),
+      ),
     );
   }
 
-  Widget _buildPostsSection(BuildContext context) {
-    if (_user == null) {
-      return const Padding(
-        padding: EdgeInsets.all(24),
-        child: Text('Sign in to see your posts',
-            style: TextStyle(color: Colors.grey)),
-      );
-    }
+  Widget _buildStatsGrid(Map<String, dynamic> stats) {
+    final totalPeeps = stats['totalPeeps'] as int? ?? 0;
+    final totalPlaces = stats['totalPlaces'] as int? ?? 0;
+    final totalLikes = stats['totalLikes'] as int? ?? 0;
+    final memberSince = _memberSinceLabel(stats['firstPeepDate']);
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          child: SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/my_peeps'),
-              icon: const Icon(Icons.article_outlined),
-              label: const Text(
-                'My Posts',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-              ),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: PeeplAppTokens.accentBlue,
-                side: const BorderSide(color: PeeplAppTokens.accentBlue),
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-          ),
+        Row(
+          children: [
+            Expanded(child: _statTile('$totalPeeps Peeps')),
+            const SizedBox(width: 12),
+            Expanded(child: _statTile('$totalPlaces Places')),
+          ],
         ),
-        StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('location_posts')
-              .where('userId', isEqualTo: _user!.uid)
-              .orderBy('timestamp', descending: true)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: TextButton(
-                    onPressed: () => setState(() {}),
-                    child: const Text('Failed to load posts — tap to retry'),
-                  ),
-                ),
-              );
-            }
-
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Center(
-                child: Padding(
-                  padding: EdgeInsets.all(32),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                        PeeplAppTokens.accentBlue),
-                  ),
-                ),
-              );
-            }
-
-            final docs = snapshot.data?.docs ?? [];
-            if (docs.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    children: [
-                      Icon(Icons.add_location_alt_outlined,
-                          size: 64, color: PeeplAppTokens.cardElevated),
-                      const SizedBox(height: 16),
-                      const Text('No posts yet',
-                          style:
-                              TextStyle(fontSize: 16, color: Colors.grey)),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Share how crowded places are!',
-                        style: TextStyle(
-                            fontSize: 14, color: Colors.grey[400]),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            return ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              itemCount: docs.length,
-              itemBuilder: (context, index) {
-                final data = {
-                  'id': docs[index].id,
-                  ...docs[index].data() as Map<String, dynamic>
-                };
-                return _buildPostCard(context, data);
-              },
-            );
-          },
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _statTile('$totalLikes Likes')),
+            const SizedBox(width: 12),
+            Expanded(child: _statTile('Member since $memberSince')),
+          ],
         ),
       ],
     );
   }
 
-  Widget _buildPostCard(
-      BuildContext context, Map<String, dynamic> post) {
-    final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
-    return GestureDetector(
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (_) => LocationDetailScreen(postData: post)),
-      ),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        decoration: BoxDecoration(
-          color: PeeplAppTokens.textPrimary,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: PeeplAppTokens.textPrimary.withOpacity(0.07),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
-        ),
-        child: Row(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.horizontal(
-                  left: Radius.circular(16)),
-              child: post['imageUrl'] != null &&
-                      (post['imageUrl'] as String).isNotEmpty
-                  ? Image.network(
-                      post['imageUrl'] as String,
-                      width: 80,
-                      height: 80,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => _imagePlaceholder(),
-                    )
-                  : _imagePlaceholder(),
-            ),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      post['locationName'] ?? 'Unknown',
-                      style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 15),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    if (post['description'] != null &&
-                        (post['description'] as String).isNotEmpty)
-                      Text(
-                        post['description'] as String,
-                        style: TextStyle(
-                            fontSize: 13, color: PeeplAppTokens.textSecondary),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        const Icon(Icons.favorite,
-                            size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text('${post['likesCount'] ?? 0}',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey)),
-                        const SizedBox(width: 12),
-                        const Icon(Icons.comment,
-                            size: 14, color: Colors.grey),
-                        const SizedBox(width: 4),
-                        Text('${post['commentsCount'] ?? 0}',
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.grey)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: _getCrowdingColor(crowdingLevel),
-                  shape: BoxShape.circle,
-                ),
-                child: Center(
-                  child: Text(
-                    crowdingLevel.toString(),
-                    style: const TextStyle(
-                        color: PeeplAppTokens.textPrimary,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _imagePlaceholder() {
+  Widget _statTile(String label) {
     return Container(
-      width: 80,
-      height: 80,
-      color: Colors.grey[200],
-      child: Icon(Icons.image, color: Colors.grey[400], size: 28),
-    );
-  }
-
-  // ── VIPeeps section ────────────────────────────────────────────────────────
-
-  Widget _buildVIPeepsSection(BuildContext context) {
-    final uid = _user?.uid;
-    if (uid == null) return const SizedBox.shrink();
-
-    return StreamBuilder<DocumentSnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
-          .doc(uid)
-          .snapshots(),
-      builder: (context, snap) {
-        final data =
-            snap.data?.data() as Map<String, dynamic>? ?? {};
-        final isVIP = data['isVIPeep'] as bool? ?? false;
-
-        return isVIP
-            ? _buildVIPActiveBanner(
-                context, data['vipeepsRenewsAt'])
-            : _buildVIPUpgradeRow(context);
-      },
-    );
-  }
-
-  Widget _buildVIPActiveBanner(
-      BuildContext context, dynamic renewsAt) {
-    final label = _vipRenewsLabel(renewsAt);
-    return Container(
-      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-      padding:
-          const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 20),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFFD4AC0D), Color(0xFFFFD700)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(14),
+        color: PeeplAppTokens.textPrimary,
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFFFFD700).withValues(alpha: 0.35),
+            color: PeeplAppTokens.textPrimary.withOpacity(0.07),
             blurRadius: 8,
-            offset: const Offset(0, 3),
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Text(
+        label,
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 15,
+          fontWeight: FontWeight.w600,
+          color: _accentBlue,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentPeepsSection(Map<String, dynamic> stats) {
+    final recentPeeps =
+        (stats['recentPeeps'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Recent Peeps',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ...recentPeeps.map(_buildRecentPeepCard),
+      ],
+    );
+  }
+
+  Widget _buildRecentPeepCard(Map<String, dynamic> peep) {
+    final locationName = peep['locationName'] as String? ?? 'Unknown';
+    final crowdingLevel = (peep['crowdingLevel'] as num?)?.toInt() ?? 0;
+    final timeLabel = _timeAgo(peep['timestamp']);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: PeeplAppTokens.textPrimary,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: PeeplAppTokens.textPrimary.withOpacity(0.07),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Row(
         children: [
-          const Text('⭐', style: TextStyle(fontSize: 24)),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'VIPeeps Active',
-              style: TextStyle(
-                color: PeeplAppTokens.textPrimary,
-                fontWeight: FontWeight.bold,
-                fontSize: 15,
-              ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationName,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: Color(0xFF1A1A1A),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (timeLabel.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    timeLabel,
+                    style: TextStyle(
+                      fontSize: 13,
+                      color: PeeplAppTokens.textSecondary,
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          GestureDetector(
-            onTap: () =>
-                Navigator.pushNamed(context, '/vip_peeps'),
-            child: Text(
-              '$label · Manage',
-              style: const TextStyle(
-                color: PeeplAppTokens.textPrimary,
-                fontSize: 12,
-                decoration: TextDecoration.underline,
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: _crowdingColor(crowdingLevel),
+              shape: BoxShape.circle,
+            ),
+            child: Center(
+              child: Text(
+                crowdingLevel.toString(),
+                style: const TextStyle(
+                  color: PeeplAppTokens.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ),
@@ -642,39 +393,47 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildVIPUpgradeRow(BuildContext context) {
-    return GestureDetector(
-      onTap: () => Navigator.pushNamed(context, '/vip_peeps'),
-      child: Container(
-        margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-        padding: const EdgeInsets.symmetric(
-            horizontal: 16, vertical: 13),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF9E6),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: const Color(0xFFFFD700).withValues(alpha: 0.55),
+  Widget _buildMilestonesSection() {
+    final rows = _earnedMilestones
+        .map(Milestone.textFor)
+        .whereType<String>()
+        .toList();
+
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Milestones',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1A1A1A),
           ),
         ),
-        child: Row(
-          children: [
-            const Text('⭐', style: TextStyle(fontSize: 22)),
-            const SizedBox(width: 10),
-            const Expanded(
-              child: Text(
-                'Upgrade to VIPeeps ⭐',
-                style: TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 14,
-                  color: Color(0xFF1A1200),
-                ),
+        const SizedBox(height: 12),
+        ...rows.map(
+          (text) => Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            decoration: BoxDecoration(
+              color: PeeplAppTokens.textPrimary,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _accentBlue.withOpacity(0.25)),
+            ),
+            child: Text(
+              text,
+              style: const TextStyle(
+                fontSize: 14,
+                height: 1.4,
+                color: Color(0xFF1A1A1A),
               ),
             ),
-            const Icon(Icons.chevron_right,
-                color: Color(0xFFD4AC0D), size: 20),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }
