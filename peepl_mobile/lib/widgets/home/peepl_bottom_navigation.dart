@@ -52,16 +52,20 @@ class PeeplBottomNavigation extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _NavItem(
-                              label: 'Explore',
-                              icon: Icons.home_rounded,
-                              selected: true,
-                              onTap: onExploreTap,
+                            Expanded(
+                              child: _NavItem(
+                                label: 'Explore',
+                                icon: Icons.home_rounded,
+                                selected: true,
+                                onTap: onExploreTap,
+                              ),
                             ),
-                            _NavItem(
-                              label: 'Search',
-                              icon: Icons.search,
-                              onTap: onSearchTap,
+                            Expanded(
+                              child: _NavItem(
+                                label: 'Search',
+                                icon: Icons.search,
+                                onTap: onSearchTap,
+                              ),
                             ),
                           ],
                         ),
@@ -74,16 +78,20 @@ class PeeplBottomNavigation extends StatelessWidget {
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            _NavItem(
-                              label: 'Alerts',
-                              icon: Icons.notifications_outlined,
-                              onTap: onAlertsTap,
-                              showDot: showAlertDot,
+                            Expanded(
+                              child: _NavItem(
+                                label: 'Alerts',
+                                icon: Icons.notifications_outlined,
+                                onTap: onAlertsTap,
+                                showDot: showAlertDot,
+                              ),
                             ),
-                            _NavItem(
-                              label: 'Profile',
-                              icon: Icons.person_outline,
-                              onTap: onProfileTap,
+                            Expanded(
+                              child: _NavItem(
+                                label: 'Profile',
+                                icon: Icons.person_outline,
+                                onTap: onProfileTap,
+                              ),
                             ),
                           ],
                         ),

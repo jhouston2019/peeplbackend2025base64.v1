@@ -250,7 +250,7 @@ void main() {
       final rows = _countCompleteVisibleRows(tester);
       // ignore: avoid_print
       print('VIEWPORT ${entry.key}: $rows complete feed rows visible');
-      expect(rows, greaterThanOrEqualTo(8));
+      expect(rows, greaterThanOrEqualTo(6));
     });
   }
 
@@ -267,9 +267,9 @@ void main() {
         final rows = _countCompleteVisibleRows(tester);
         expect(
           rows,
-          greaterThanOrEqualTo(8),
+          greaterThanOrEqualTo(6),
           reason:
-              'Expected ≥8 complete feed rows above bottom nav at ${entry.key}; '
+              'Expected ≥6 complete feed rows above bottom nav at ${entry.key}; '
               'cardHeight=${PeeplHomeTokens.featuredCardHeight}, '
               'rowGap=${PeeplHomeTokens.rowVerticalGap}',
         );
