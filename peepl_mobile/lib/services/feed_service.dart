@@ -177,7 +177,10 @@ class FeedService {
 
       unawaited(
         NotificationService.instance
-            .checkAndShowMilestones(userId)
+            .handlePostSubmission(
+              userId: userId,
+              locationName: locationName,
+            )
             .catchError((_) {}),
       );
 
@@ -421,6 +424,57 @@ class FeedService {
     }
 
     return newlyEarned;
+  }
+
+  /// Stats for the current calendar week (Monday through now).
+  Future<Map<String, dynamic>> getWeeklyRecap(String userId) async {
+    final now = DateTime.now();
+    final weekStart = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: now.weekday - 1));
+    return _recapForRange(userId, weekStart, now);
+  }
+
+  /// Stats for the current calendar month.
+  Future<Map<String, dynamic>> getMonthlyRecap(String userId) async {
+    final now = DateTime.now();
+    final monthStart = DateTime(now.year, now.month, 1);
+    return _recapForRange(userId, monthStart, now);
+  }
+
+  Future<Map<String, dynamic>> _recapForRange(
+    String userId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    final snap = await _firestore
+        .collection('location_posts')
+        .where('userId', isEqualTo: userId)
+        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .get();
+
+    var peepCount = 0;
+    var impactCount = 0;
+    final places = <String>{};
+
+    for (final doc in snap.docs) {
+      final data = doc.data();
+      final ts = data['timestamp'];
+      if (ts is Timestamp && ts.toDate().isAfter(end)) continue;
+
+      peepCount++;
+      impactCount += (data['helpedCount'] as num?)?.toInt() ?? 0;
+
+      final name = data['locationName'] as String?;
+      if (name != null && name.trim().isNotEmpty) {
+        places.add(name.trim());
+      }
+    }
+
+    return {
+      'peepCount': peepCount,
+      'placeCount': places.length,
+      'impactCount': impactCount,
+    };
   }
 
   /// Increment [helpedCount] when another user views a Peep (Phase 5).

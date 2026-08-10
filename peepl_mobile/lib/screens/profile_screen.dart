@@ -1,10 +1,16 @@
+import 'dart:io';
+import 'dart:ui' as ui;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/milestone.dart';
 import '../services/feed_service.dart';
 import '../theme/peepl_app_tokens.dart';
+import '../widgets/recap_share_card.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -16,10 +22,21 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   static const Color _accentBlue = Color(0xFF1565C0);
 
+  static const List<String> _monthNames = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+
   final FeedService _feedService = FeedService();
+  final GlobalKey _monthlyShareKey = GlobalKey();
+  final GlobalKey _annualShareKey = GlobalKey();
 
   Map<String, dynamic>? _stats;
   List<String> _earnedMilestones = [];
+  int _totalImpact = 0;
+  Map<String, dynamic>? _displayRecap;
+  String _recapTitle = '';
+  String? _pioneerVenueName;
   bool _loading = true;
   String? _error;
 
@@ -47,20 +64,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
 
     try {
-      final stats = await _feedService.getUserStats(user.uid);
-      final userSnap = await FirebaseFirestore.instance
-          .collection(FeedService.usersCollection)
-          .doc(user.uid)
-          .get();
+      final results = await Future.wait([
+        _feedService.getUserStats(user.uid),
+        _feedService.getWeeklyRecap(user.uid),
+        _feedService.getMonthlyRecap(user.uid),
+        FirebaseFirestore.instance
+            .collection(FeedService.usersCollection)
+            .doc(user.uid)
+            .get(),
+      ]);
+
+      final stats = results[0] as Map<String, dynamic>;
+      final weekly = results[1] as Map<String, dynamic>;
+      final monthly = results[2] as Map<String, dynamic>;
+      final userSnap = results[3] as DocumentSnapshot<Map<String, dynamic>>;
+      final userData = userSnap.data() ?? {};
+
       final earned = List<String>.from(
-        (userSnap.data()?['earnedMilestones'] as List<dynamic>? ?? [])
+        (userData['earnedMilestones'] as List<dynamic>? ?? [])
             .map((e) => e.toString()),
       );
+      final totalImpact = (userData['totalImpact'] as num?)?.toInt() ?? 0;
+
+      String? pioneerVenue;
+      if (earned.contains(Milestone.pioneer)) {
+        pioneerVenue = await _loadPioneerVenue(user.uid);
+      }
+
+      final recapPick = _pickRecap(weekly, monthly);
 
       if (!mounted) return;
       setState(() {
         _stats = stats;
         _earnedMilestones = earned;
+        _totalImpact = totalImpact;
+        _displayRecap = recapPick.recap;
+        _recapTitle = recapPick.title;
+        _pioneerVenueName = pioneerVenue;
         _loading = false;
       });
     } catch (_) {
@@ -70,6 +110,63 @@ class _ProfileScreenState extends State<ProfileScreen> {
         _error = 'Could not load your contributions. Please try again.';
       });
     }
+  }
+
+  Future<String?> _loadPioneerVenue(String userId) async {
+    final recentSnap = await FirebaseFirestore.instance
+        .collection('location_posts')
+        .where('userId', isEqualTo: userId)
+        .orderBy('timestamp', descending: true)
+        .limit(1)
+        .get();
+
+    if (recentSnap.docs.isEmpty) return null;
+    final locationName =
+        recentSnap.docs.first.data()['locationName'] as String? ?? '';
+    if (locationName.isEmpty) return null;
+
+    final firstSnap = await FirebaseFirestore.instance
+        .collection('location_posts')
+        .where('locationName', isEqualTo: locationName)
+        .orderBy('timestamp', descending: false)
+        .limit(1)
+        .get();
+
+    if (firstSnap.docs.isEmpty) return null;
+    if (firstSnap.docs.first.data()['userId'] == userId) {
+      return locationName;
+    }
+    return null;
+  }
+
+  ({Map<String, dynamic>? recap, String title}) _pickRecap(
+    Map<String, dynamic> weekly,
+    Map<String, dynamic> monthly,
+  ) {
+    final now = DateTime.now();
+    final useMonthly = now.day > 7;
+    final primary = useMonthly ? monthly : weekly;
+    final primaryTitle =
+        useMonthly ? 'This month on Peepl' : 'This week on Peepl';
+
+    if (_recapHasActivity(primary)) {
+      return (recap: primary, title: primaryTitle);
+    }
+
+    final fallback = useMonthly ? weekly : monthly;
+    final fallbackTitle =
+        useMonthly ? 'This week on Peepl' : 'This month on Peepl';
+    if (_recapHasActivity(fallback)) {
+      return (recap: fallback, title: fallbackTitle);
+    }
+
+    return (recap: null, title: '');
+  }
+
+  bool _recapHasActivity(Map<String, dynamic> recap) {
+    return (recap['peepCount'] as int? ?? 0) > 0 ||
+        (recap['placeCount'] as int? ?? 0) > 0 ||
+        (recap['impactCount'] as int? ?? 0) > 0;
   }
 
   String get _displayName {
@@ -113,20 +210,97 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return '${diff.inDays}d ago';
   }
 
+  Future<void> _shareRecapCard({required bool annual}) async {
+    final key = annual ? _annualShareKey : _monthlyShareKey;
+    try {
+      await Future.delayed(const Duration(milliseconds: 100));
+      final boundary =
+          key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+
+      final image = await boundary.toImage(pixelRatio: 3.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+
+      final file = File(
+        '${Directory.systemTemp.path}/peepl_recap_'
+        '${DateTime.now().millisecondsSinceEpoch}.png',
+      );
+      await file.writeAsBytes(byteData.buffer.asUint8List());
+
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        text: annual ? 'My year on Peepl' : 'My Peepl recap',
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share recap')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final stats = _stats;
+    final recap = _displayRecap;
+    final monthLabel = 'My ${_monthNames[now.month - 1]} on Peepl';
+
     return Scaffold(
       backgroundColor: PeeplAppTokens.shellNavy,
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _buildAppBar(context),
-            Expanded(
-              child: Container(
-                decoration: PeeplAppTokens.shellBodyDecoration(),
-                child: _buildBody(),
-              ),
+            Column(
+              children: [
+                _buildAppBar(context),
+                Expanded(
+                  child: Container(
+                    decoration: PeeplAppTokens.shellBodyDecoration(),
+                    child: _buildBody(),
+                  ),
+                ),
+              ],
             ),
+            if (stats != null && recap != null)
+              Positioned(
+                left: -5000,
+                top: 0,
+                child: RepaintBoundary(
+                  key: _monthlyShareKey,
+                  child: RecapShareCard(
+                    periodLabel: _recapTitle == 'This month on Peepl'
+                        ? monthLabel
+                        : 'My week on Peepl',
+                    peepCount: recap['peepCount'] as int? ?? 0,
+                    placeCount: recap['placeCount'] as int? ?? 0,
+                    peopleHelped: recap['impactCount'] as int? ?? 0,
+                    milestoneCount: _earnedMilestones.length,
+                    pioneerVenueName: _earnedMilestones.contains(Milestone.pioneer)
+                        ? _pioneerVenueName
+                        : null,
+                  ),
+                ),
+              ),
+            if (stats != null)
+              Positioned(
+                left: -5000,
+                top: 700,
+                child: RepaintBoundary(
+                  key: _annualShareKey,
+                  child: RecapShareCardAnnual(
+                    year: now.year,
+                    peepCount: stats['totalPeeps'] as int? ?? 0,
+                    placeCount: stats['totalPlaces'] as int? ?? 0,
+                    peopleHelped: _totalImpact,
+                    milestoneCount: _earnedMilestones.length,
+                    pioneerVenueName: _earnedMilestones.contains(Milestone.pioneer)
+                        ? _pioneerVenueName
+                        : null,
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -208,7 +382,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             if (totalPeeps == 0)
               _buildEmptyPrompt()
             else ...[
+              if (_displayRecap != null) ...[
+                _buildRecapCard(_displayRecap!, _recapTitle),
+                const SizedBox(height: 16),
+              ],
               _buildStatsGrid(stats),
+              if (_totalImpact > 0) ...[
+                const SizedBox(height: 12),
+                _buildImpactTile(_totalImpact),
+              ],
               const SizedBox(height: 28),
               _buildRecentPeepsSection(stats),
               if (_earnedMilestones.isNotEmpty) ...[
@@ -217,6 +399,100 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ],
             ],
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecapCard(Map<String, dynamic> recap, String title) {
+    final peeps = recap['peepCount'] as int? ?? 0;
+    final places = recap['placeCount'] as int? ?? 0;
+    final helped = recap['impactCount'] as int? ?? 0;
+
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      decoration: BoxDecoration(
+        color: PeeplAppTokens.textPrimary,
+        borderRadius: BorderRadius.circular(16),
+        border: const Border(
+          left: BorderSide(color: _accentBlue, width: 4),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: PeeplAppTokens.textPrimary.withOpacity(0.07),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF1A1A1A),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            '$peeps Peeps · $places places · $helped people helped',
+            style: TextStyle(
+              fontSize: 14,
+              color: PeeplAppTokens.textSecondary,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _shareRecapCard(annual: false),
+            icon: const Icon(Icons.share_outlined, size: 18),
+            label: const Text('Share'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accentBlue,
+              side: const BorderSide(color: _accentBlue),
+            ),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => _shareRecapCard(annual: true),
+            icon: const Icon(Icons.calendar_today_outlined, size: 18),
+            label: const Text('Share My Year'),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: _accentBlue,
+              side: const BorderSide(color: _accentBlue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildImpactTile(int totalImpact) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+      decoration: BoxDecoration(
+        color: _accentBlue,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: _accentBlue.withOpacity(0.25),
+            blurRadius: 10,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Text(
+        'Your Peeps have helped $totalImpact people',
+        textAlign: TextAlign.center,
+        style: const TextStyle(
+          fontSize: 17,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          height: 1.35,
         ),
       ),
     );

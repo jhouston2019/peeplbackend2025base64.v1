@@ -20,6 +20,7 @@ import '../services/admob_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/notification_service.dart';
 import '../utils/crowd_display_mapper.dart';
 import '../widgets/home/feed_card_image.dart';
 import '../widgets/home/editorial_feed_layout.dart';
@@ -73,6 +74,9 @@ class FeedScreen extends StatefulWidget {
   /// Invoked from [main.dart] when geofence entry is detected.
   static void Function(String venueName)? onGeofenceVenueEntry;
 
+  /// True after [FeedScreen] has read stale [lastActive] for comeback detection.
+  static bool comebackCheckComplete = false;
+
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -92,7 +96,9 @@ class _FeedScreenState extends State<FeedScreen> {
   bool _isLoading = true;
   bool _hasError = false;
   bool _showPeepPrompt = true;
+  bool _showComebackBanner = false;
   String? _errorMessage;
+  Timer? _comebackDismissTimer;
 
   String _activeFilter = 'Newest';
 
@@ -176,6 +182,7 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadFeedData();
     _loadDealBanner();
     _loadAds();
+    _checkComebackStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _showPeepPrompt) {
         _showAppOpenPeepPrompt();
@@ -194,10 +201,82 @@ class _FeedScreenState extends State<FeedScreen> {
     FeedScreen.onGeofenceVenueEntry = null;
     activeFilterNotifier.removeListener(_onFilterChanged);
     _dealRotationTimer?.cancel();
+    _comebackDismissTimer?.cancel();
     _feedSub?.cancel();
     _scrollController.dispose();
     _citySearchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkComebackStatus() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final userRef = FirebaseFirestore.instance
+          .collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3')
+          .doc(user.uid);
+      final doc = await userRef.get();
+      final lastActive = doc.data()?['lastActive'];
+      DateTime? lastDt;
+      if (lastActive is Timestamp) {
+        lastDt = lastActive.toDate();
+      }
+
+      final showBanner = lastDt != null &&
+          DateTime.now().difference(lastDt).inDays > 5;
+
+      await userRef.set(
+        {'lastActive': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+
+      if (!mounted) return;
+      if (showBanner) {
+        NotificationService.sessionComebackActive = true;
+        setState(() => _showComebackBanner = true);
+        _comebackDismissTimer?.cancel();
+        _comebackDismissTimer = Timer(const Duration(seconds: 5), () {
+          if (mounted) setState(() => _showComebackBanner = false);
+        });
+      }
+      FeedScreen.comebackCheckComplete = true;
+    } catch (_) {
+      FeedScreen.comebackCheckComplete = true;
+    }
+  }
+
+  Widget _buildComebackBanner() {
+    return Material(
+      color: const Color(0xFF1565C0),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Row(
+          children: [
+            const Expanded(
+              child: Text(
+                "Good to have you back. See what's changed around you.",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  height: 1.35,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.close, color: Colors.white, size: 20),
+              onPressed: () {
+                _comebackDismissTimer?.cancel();
+                setState(() => _showComebackBanner = false);
+              },
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _resolveLocation() async {
@@ -1339,6 +1418,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Column(
           children: [
             _buildHomeShellHeader(),
+            if (_showComebackBanner) _buildComebackBanner(),
             Expanded(child: _buildFeedContent()),
           ],
         ),

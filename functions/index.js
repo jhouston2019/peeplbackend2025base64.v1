@@ -902,3 +902,56 @@ exports.onPeepViewRecorded = functions.firestore
 
     return null;
   });
+
+// ─── FUNCTION: sendReengagementPush (Phase 9) ──────────────────────────────
+// Daily 6 PM ET — nudge inactive users (7+ days) with FCM, max 500 per run.
+exports.sendReengagementPush = functions.pubsub
+  .schedule('0 18 * * *')
+  .timeZone('America/New_York')
+  .onRun(async () => {
+    const nowMs = Date.now();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const inactiveBefore = Timestamp.fromMillis(nowMs - sevenDaysMs);
+    const pushCooldownBefore = Timestamp.fromMillis(nowMs - sevenDaysMs);
+
+    const snap = await db
+      .collection(USERS_COLLECTION)
+      .where('lastActive', '<', inactiveBefore)
+      .limit(500)
+      .get();
+
+    let sent = 0;
+
+    for (const doc of snap.docs) {
+      if (sent >= 500) break;
+
+      const data = doc.data();
+      const token = data.fcmToken;
+      if (!token || typeof token !== 'string' || token.trim() === '') continue;
+
+      const lastPush = data.lastReengagementPush;
+      if (lastPush) {
+        const lastPushMs =
+          typeof lastPush.toMillis === 'function'
+            ? lastPush.toMillis()
+            : lastPush._seconds * 1000;
+        if (lastPushMs > pushCooldownBefore.toMillis()) continue;
+      }
+
+      await sendFcm(
+        token,
+        'Going out tonight?',
+        "See what's live around you.",
+        { type: 'reengagement' },
+      );
+
+      await doc.ref.set(
+        { lastReengagementPush: FieldValue.serverTimestamp() },
+        { merge: true },
+      );
+      sent += 1;
+    }
+
+    console.log(`sendReengagementPush: sent ${sent} notifications`);
+    return null;
+  });

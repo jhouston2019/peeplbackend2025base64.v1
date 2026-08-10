@@ -166,6 +166,9 @@ class NotificationService {
   NotificationService._();
   static final NotificationService instance = NotificationService._();
 
+  /// Set by [FeedScreen] when user returns after 5+ days (Phase 9).
+  static bool sessionComebackActive = false;
+
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
@@ -395,6 +398,98 @@ class NotificationService {
     } catch (e) {
       debugPrint('[FCM] onPostSubmitted error: $e');
     }
+  }
+
+  Future<void> handlePostSubmission({
+    required String userId,
+    required String locationName,
+  }) async {
+    try {
+      await _showPeepSubmissionSuccessBottomSheet(
+        userId: userId,
+        locationName: locationName,
+      );
+      await checkAndShowMilestones(userId);
+    } catch (_) {}
+  }
+
+  Future<void> _showPeepSubmissionSuccessBottomSheet({
+    required String userId,
+    required String locationName,
+  }) async {
+    final userSnap =
+        await _db.collection(kUsersCollection).doc(userId).get();
+    final totalImpact =
+        (userSnap.data()?['totalImpact'] as num?)?.toInt() ?? 0;
+
+    final nav = navigatorKey?.currentState;
+    if (nav == null || !nav.mounted) return;
+    final context = nav.context;
+    if (!context.mounted) return;
+
+    final headline = sessionComebackActive
+        ? 'Welcome back — your Peep just updated $locationName.'
+        : 'Your Peep is live.';
+    final impactLine = !sessionComebackActive && totalImpact > 0
+        ? "You've now helped $totalImpact people with your contributions."
+        : null;
+
+    sessionComebackActive = false;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) => GestureDetector(
+        onTap: () => Navigator.pop(sheetContext),
+        behavior: HitTestBehavior.opaque,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(24, 28, 24, 36),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Icon(Icons.check_circle_outline,
+                  size: 40, color: Color(0xFF1565C0)),
+              const SizedBox(height: 16),
+              Text(
+                headline,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  fontSize: 17,
+                  height: 1.45,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFF1A1A1A),
+                ),
+              ),
+              if (impactLine != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  impactLine,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 15,
+                    height: 1.45,
+                    color: Colors.grey.shade700,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 12),
+              Text(
+                'Tap to dismiss',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> checkAndShowMilestones(String userId) async {
@@ -913,6 +1008,9 @@ class NotificationService {
         } else {
           nav.pushNamed('/feed');
         }
+        break;
+      case 'reengagement':
+        nav.pushNamed('/feed');
         break;
       default:
         nav.pushNamed('/feed');
