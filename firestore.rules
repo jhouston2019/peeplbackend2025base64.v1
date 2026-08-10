@@ -216,7 +216,9 @@ service cloud.firestore {
     // Geofence venue registry — public read for client geofencing.
     match /locations/{locationId} {
       allow read: if true;
-      allow write: if isGrowthAdmin();
+      allow write: if request.auth != null &&
+        get(/databases/$(database)/documents/CAASNAhaDbPrl0zH1yDn5qRqAtJ3/$(request.auth.uid)).data.isAdmin == true;
+      allow create, update: if request.auth != null;
     }
 
     // Growth funnel analytics (Phase 1).

@@ -1,3 +1,5 @@
+import 'dart:math' show min;
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -6,7 +8,7 @@ import 'package:geolocator/geolocator.dart' as geo;
 
 import 'growth_analytics_service.dart';
 import 'notification_service.dart';
-
+import 'places_venue_detector.dart';
 class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
@@ -37,6 +39,14 @@ class PeeplGeofenceService {
 
   bool get isActive => _isActive;
 
+  bool isVenueMonitored(String placeId, String venueName) {
+    final slugLength = min(100, venueName.length);
+    final slug = venueName
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]'), '_')
+        .substring(0, slugLength);
+    return _locationNames.containsKey(slug);
+  }
   void _logDenialOnce(String message) {
     if (_denialLogged) return;
     _denialLogged = true;
@@ -88,9 +98,9 @@ class PeeplGeofenceService {
 
     try {
       if (_listenersRegistered) return;
-      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
-      _geofenceService.addActivityChangeListener(_onActivityChanged);
-      _geofenceService.addStreamErrorListener(_onError);
+      PlacesVenueDetector.instance.venueMonitoredCheck = isVenueMonitored;
+      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);      _geofenceService.addLocationChangeListener(_onLocationChanged);
+      _geofenceService.addActivityChangeListener(_onActivityChanged);      _geofenceService.addStreamErrorListener(_onError);
       _listenersRegistered = true;
     } catch (e) {
       debugPrint('[PeeplGeofenceService] initialize failed (non-fatal): $e');
@@ -213,6 +223,13 @@ class PeeplGeofenceService {
   }
 
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}
+
+  void _onLocationChanged(Location location) {
+    PlacesVenueDetector.instance.onLocationUpdate(
+      location.latitude,
+      location.longitude,
+    );
+  }
 
   // ignore: avoid_annotating_with_dynamic
   void _onError(dynamic error) {
