@@ -262,5 +262,11 @@ service cloud.firestore {
       allow write: if request.auth != null &&
         isGrowthAdmin();
     }
+
+    match /venue_entry_events/{eventId} {
+      allow create: if request.auth != null
+        && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
   }
 }

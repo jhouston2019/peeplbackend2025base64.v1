@@ -700,6 +700,114 @@ exports.onPeepCreatedCrowdAlert = functions.firestore
     }
   });
 
+// ─── FUNCTION 8: onVenueEntryEvent ─────────────────────────────────────────
+// Fires when the client writes venue_entry_events (app alive or killed-app
+// geofence_entry relay). Sends walk-in FCM push to the entering user.
+exports.onVenueEntryEvent = functions.firestore
+  .document('venue_entry_events/{eventId}')
+  .onCreate(async (snap, context) => {
+    const data = snap.data();
+    const { userId, venueName, venueId, latitude, longitude, notificationSent } = data;
+
+    if (notificationSent === true) {
+      return null;
+    }
+    if (!userId || !venueName || !venueId) {
+      return null;
+    }
+
+    const token = await getFcmToken(userId);
+    if (!token) {
+      console.log('onVenueEntryEvent: no FCM token for', userId);
+      return null;
+    }
+
+    const cooldownMs = 240 * 60 * 1000;
+    const cooldownTs = Timestamp.fromMillis(Date.now() - cooldownMs);
+
+    let recentSnap;
+    try {
+      recentSnap = await db.collection('venue_entry_events')
+        .where('userId', '==', userId)
+        .where('venueId', '==', venueId)
+        .where('notificationSent', '==', true)
+        .where('timestamp', '>', cooldownTs)
+        .limit(1)
+        .get();
+    } catch (e) {
+      console.error('onVenueEntryEvent cooldown query error:', e);
+      return null;
+    }
+
+    if (!recentSnap.empty) {
+      console.log('onVenueEntryEvent: suppressed by venue cooldown', userId, venueId);
+      return null;
+    }
+
+    const startOfToday = new Date();
+    startOfToday.setUTCHours(0, 0, 0, 0);
+    const startOfTodayTs = Timestamp.fromDate(startOfToday);
+
+    let dailySnap;
+    try {
+      dailySnap = await db.collection('venue_entry_events')
+        .where('userId', '==', userId)
+        .where('notificationSent', '==', true)
+        .where('timestamp', '>', startOfTodayTs)
+        .get();
+    } catch (e) {
+      console.error('onVenueEntryEvent daily limit query error:', e);
+      return null;
+    }
+
+    if (dailySnap.size >= 3) {
+      console.log('onVenueEntryEvent: suppressed by daily limit', userId);
+      return null;
+    }
+
+    const title = 'You just walked in 👀';
+    const body = `How's ${venueName} right now?`;
+
+    try {
+      await messaging.send({
+        token,
+        notification: { title, body },
+        data: {
+          type: 'walk_in_prompt',
+          venueName: String(venueName),
+          venueId: String(venueId),
+          latitude: String(latitude ?? ''),
+          longitude: String(longitude ?? ''),
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: 'default',
+              badge: 1,
+            },
+          },
+        },
+        android: {
+          priority: 'high',
+          notification: { sound: 'default' },
+        },
+      });
+
+      await snap.ref.update({ notificationSent: true });
+    } catch (e) {
+      const code = e.code || (e.errorInfo && e.errorInfo.code);
+      if (code === 'messaging/registration-token-not-registered') {
+        await db.collection(USERS_COLLECTION).doc(userId).update({
+          fcmToken: FieldValue.delete(),
+        });
+      }
+      console.error('onVenueEntryEvent send error:', e);
+    }
+
+    return null;
+  });
+
 // ─── FUNCTION 7: backfillLocationsFromPosts ────────────────────────────────
 // One-time HTTP trigger to populate locations from existing location_posts.
 exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) => {

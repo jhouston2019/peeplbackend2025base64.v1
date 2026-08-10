@@ -70,6 +70,9 @@ class _T {
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
+  /// Invoked from [main.dart] when geofence entry is detected.
+  static void Function(String venueName)? onGeofenceVenueEntry;
+
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -178,9 +181,7 @@ class _FeedScreenState extends State<FeedScreen> {
         _showAppOpenPeepPrompt();
       }
     });
-    // TODO: Wire geofence entry callback here:
-    // geofenceService.onEntry = (venueName) => _showVenueEntryPrompt(venueName);
-    // Replace with actual GeofenceService event subscription per existing geofence_service implementation.
+    FeedScreen.onGeofenceVenueEntry = _showVenueEntryPrompt;
   }
 
   void _onFilterChanged() {
@@ -190,6 +191,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   void dispose() {
+    FeedScreen.onGeofenceVenueEntry = null;
     activeFilterNotifier.removeListener(_onFilterChanged);
     _dealRotationTimer?.cancel();
     _feedSub?.cancel();
@@ -1003,7 +1005,7 @@ class _FeedScreenState extends State<FeedScreen> {
     final parts = raw.split(',');
     final first = parts.first.trim();
     if (RegExp(r'^\d+\s|^US-|^I-\d+').hasMatch(first)) {
-      return raw.trim();
+      return 'Unknown Venue';
     }
     return first;
   }

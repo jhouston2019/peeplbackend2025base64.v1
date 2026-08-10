@@ -1,5 +1,3 @@
-import 'dart:math' show min;
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -14,7 +12,7 @@ class PeeplGeofenceService {
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
 
   final GeofenceService _geofenceService = GeofenceService.instance.setup(
-    interval: 5000,
+    interval: 20000,
     accuracy: 100,
     loiteringDelayMs: 60000,
     statusChangeDelayMs: 10000,
@@ -40,12 +38,7 @@ class PeeplGeofenceService {
   bool get isActive => _isActive;
 
   bool isVenueMonitored(String placeId, String venueName) {
-    final slugLength = min(100, venueName.length);
-    final slug = venueName
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]'), '_')
-        .substring(0, slugLength);
-    return _locationNames.containsKey(slug);
+    return _locationNames.containsKey(placeId);
   }
   void _logDenialOnce(String message) {
     if (_denialLogged) return;
@@ -160,10 +153,15 @@ class PeeplGeofenceService {
 
         if (name == null || lat == null || lng == null) continue;
 
-        _locationNames[doc.id] = name;
+        final placeId = data['placeId'] as String?;
+        final locationId = (placeId != null && placeId.isNotEmpty)
+            ? placeId
+            : doc.id;
+
+        _locationNames[locationId] = name;
         geofences.add(
           Geofence(
-            id: doc.id,
+            id: locationId,
             latitude: lat,
             longitude: lng,
             radius: [
@@ -205,13 +203,6 @@ class PeeplGeofenceService {
         'venueName': locationName,
         'accuracy': location.accuracy,
       },
-    );
-
-    await NotificationService.instance.handleGeofenceWalkIn(
-      locationId: locationId,
-      locationName: locationName,
-      latitude: geofence.latitude,
-      longitude: geofence.longitude,
     );
 
     onLocationEntered?.call(

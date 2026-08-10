@@ -102,6 +102,9 @@ class _OnboardingScreenState extends State<OnboardingScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Location access enabled')),
         );
+        if (permission == LocationPermission.whileInUse) {
+          await _requestAlwaysLocation();
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -111,6 +114,59 @@ class _OnboardingScreenState extends State<OnboardingScreen>
       }
     } finally {
       if (mounted) setState(() => _requestingLocation = false);
+    }
+  }
+
+  Future<void> _requestAlwaysLocation() async {
+    if (!mounted) return;
+
+    final enableAlways = await showDialog<bool>(
+      context: context,
+      barrierDismissible: true,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Know when you arrive'),
+        content: const Text(
+          'Peepl uses background location to detect when you walk into a '
+          'venue, so we can ask how crowded it is right when you get there. '
+          'You can change this anytime in Settings.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Not now'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: _kBlue,
+              foregroundColor: PeeplAppTokens.textPrimary,
+            ),
+            child: const Text('Enable Always'),
+          ),
+        ],
+      ),
+    );
+
+    if (enableAlways != true || !mounted) return;
+
+    try {
+      final permission = await Geolocator.requestPermission();
+      if (!mounted) return;
+
+      if (permission == LocationPermission.always) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Background location enabled'),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not request background location: $e')),
+        );
+      }
     }
   }
 

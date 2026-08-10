@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart' show debugPrint, kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_stripe/flutter_stripe.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import 'config/constants.dart';
 import 'deep_link_handler.dart';
 import 'firebase_options.dart';
 import 'routes.dart';
+import 'screens/feed_screen.dart';
 import 'services/admob_service.dart';
 import 'services/auth_service.dart';
 import 'services/geofence_service.dart' as geofence_svc;
@@ -41,6 +43,15 @@ void main() async {
   }
 
   await NotificationService.instance.initialize();
+
+  if (!kIsWeb) {
+    final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
+    if (initialMessage != null &&
+        initialMessage.data['type'] == 'walk_in_prompt') {
+      NotificationService.instance.captureColdStartWalkIn(initialMessage);
+    }
+  }
+
   runApp(const MyApp());
 }
 
@@ -65,6 +76,13 @@ class _MyAppState extends State<MyApp> {
       geofenceService.onLocationEntered = (locationId, name, lat, lng) async {
         debugPrint('GEOFENCE ENTERED: $name ($locationId) at $lat, $lng');
         await PresenceService.instance.recordArrival(name, lat, lng);
+        await NotificationService.instance.writeVenueEntryEvent(
+          venueId: locationId,
+          venueName: name,
+          latitude: lat,
+          longitude: lng,
+        );
+        FeedScreen.onGeofenceVenueEntry?.call(name);
       };
       await geofenceService.initialize();
       await DeepLinkHandler.initialize(navigatorKey);

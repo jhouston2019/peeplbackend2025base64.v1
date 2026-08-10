@@ -18,14 +18,143 @@ import 'peep_prompt_suppression_service.dart';
 /// Firestore collection used for user profile documents (includes fcmToken).
 const kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
+const kVenueEntryEventsCollection = 'venue_entry_events';
+
 const _kHasRequestedPushPermissionKey = 'hasRequestedPushPermission';
 const _kPushPermissionShownKey = 'push_permission_shown';
+
+Future<void> _writeVenueEntryEventToFirestore({
+  required String userId,
+  required String venueName,
+  required String venueId,
+  required double latitude,
+  required double longitude,
+}) async {
+  if (userId.isEmpty || venueName.isEmpty || venueId.isEmpty) return;
+  if (latitude.isNaN ||
+      longitude.isNaN ||
+      (latitude == 0 && longitude == 0)) {
+    return;
+  }
+
+  try {
+    await FirebaseFirestore.instance.collection(kVenueEntryEventsCollection).add({
+      'userId': userId,
+      'venueName': venueName,
+      'venueId': venueId,
+      'latitude': latitude,
+      'longitude': longitude,
+      'timestamp': FieldValue.serverTimestamp(),
+      'notificationSent': false,
+    });
+  } catch (e) {
+    debugPrint('[FCM] venue_entry_events write error: $e');
+  }
+}
+
+Future<void> _showWalkInLocalNotificationFromData(
+  Map<String, dynamic> data, {
+  String? title,
+  String? body,
+}) async {
+  final venueName =
+      data['venueName']?.toString() ?? data['locationName']?.toString() ?? '';
+  final venueId =
+      (data['venueId'] ?? data['locationId'])?.toString() ?? venueName;
+  final lat = double.tryParse(data['latitude']?.toString() ?? '');
+  final lng = double.tryParse(data['longitude']?.toString() ?? '');
+
+  final notificationTitle =
+      title ?? "You just walked in 👀";
+  final notificationBody =
+      body ?? (venueName.isNotEmpty
+          ? "How's $venueName right now?"
+          : 'How is it right now? Peep it.');
+
+  const walkInChannel = AndroidNotificationChannel(
+    'peepl_walk_in',
+    'Walk-in Prompts',
+    description: 'Prompts when you arrive at a venue.',
+    importance: Importance.high,
+  );
+
+  final localNotifications = FlutterLocalNotificationsPlugin();
+  final androidPlugin = localNotifications
+      .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+  await androidPlugin?.createNotificationChannel(walkInChannel);
+
+  const initSettings = InitializationSettings(
+    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    iOS: DarwinInitializationSettings(),
+  );
+  await localNotifications.initialize(initSettings);
+
+  final payload = jsonEncode({
+    'type': 'walk_in_prompt',
+    'locationName': venueName,
+    'venueName': venueName,
+    'latitude': lat,
+    'longitude': lng,
+    'venueId': venueId,
+  });
+
+  await localNotifications.show(
+    venueId.hashCode,
+    notificationTitle,
+    notificationBody,
+    NotificationDetails(
+      android: AndroidNotificationDetails(
+        walkInChannel.id,
+        walkInChannel.name,
+        channelDescription: walkInChannel.description,
+        importance: Importance.high,
+        priority: Priority.high,
+        icon: '@mipmap/ic_launcher',
+      ),
+      iOS: const DarwinNotificationDetails(
+        presentAlert: true,
+        presentBadge: true,
+        presentSound: true,
+      ),
+    ),
+    payload: payload,
+  );
+}
 
 // Must be top-level — FCM requirement for background handling.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  final type = message.data['type']?.toString();
+
+  if (type == 'geofence_entry') {
+    final data = message.data;
+    final lat = double.tryParse(data['latitude']?.toString() ?? '');
+    final lng = double.tryParse(data['longitude']?.toString() ?? '');
+    if (lat == null || lng == null) return;
+
+    await _writeVenueEntryEventToFirestore(
+      userId: data['userId']?.toString() ?? '',
+      venueName: data['venueName']?.toString() ?? '',
+      venueId: data['venueId']?.toString() ?? '',
+      latitude: lat,
+      longitude: lng,
+    );
+    return;
+  }
+
+  if (type == 'walk_in_prompt') {
+    await _showWalkInLocalNotificationFromData(
+      message.data,
+      title: message.notification?.title,
+      body: message.notification?.body,
+    );
+    return;
+  }
+
   debugPrint(
     '[FCM Background] ${message.messageId}: ${message.notification?.title}',
   );
@@ -64,6 +193,34 @@ class NotificationService {
       _crowdsourceResponseSub;
   final Set<String> _seenCrowdsourceResponseIds = {};
   bool _crowdsourceListenerPrimed = false;
+  bool _coldStartWalkInCaptured = false;
+
+  /// Records a walk-in push that launched the app from a killed state.
+  /// Call from [main] before [runApp] so the tap survives auth routing.
+  void captureColdStartWalkIn(RemoteMessage message) {
+    _pendingNotificationData = Map<String, dynamic>.from(message.data);
+    _pendingLaunchMessage = message;
+    _coldStartWalkInCaptured = true;
+  }
+
+  /// Writes a venue-entry event for [onVenueEntryEvent] to send FCM push.
+  Future<void> writeVenueEntryEvent({
+    required String venueId,
+    required String venueName,
+    required double latitude,
+    required double longitude,
+  }) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    await _writeVenueEntryEventToFirestore(
+      userId: uid,
+      venueName: venueName,
+      venueId: venueId,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
 
   /// Core FCM and local-notification setup. Call from main() after
   /// Firebase.initializeApp().
@@ -104,10 +261,13 @@ class NotificationService {
     FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
     FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
 
-    final initialMessage = await _fcm.getInitialMessage();
-    if (initialMessage != null) {
-      _pendingNotificationData = Map<String, dynamic>.from(initialMessage.data);
-      _pendingLaunchMessage = initialMessage;
+    if (!_coldStartWalkInCaptured) {
+      final initialMessage = await _fcm.getInitialMessage();
+      if (initialMessage != null) {
+        _pendingNotificationData =
+            Map<String, dynamic>.from(initialMessage.data);
+        _pendingLaunchMessage = initialMessage;
+      }
     }
 
     _startCrowdsourceResponseListener();
@@ -639,7 +799,11 @@ class NotificationService {
         break;
       case 'walk_in_prompt':
         final venueId = (data['venueId'] ?? data['locationId'])?.toString();
-        final venueName = data['locationName'] as String? ?? '';
+        final venueName = data['locationName'] as String? ??
+            data['venueName'] as String? ??
+            '';
+        final lat = double.tryParse(data['latitude']?.toString() ?? '');
+        final lng = double.tryParse(data['longitude']?.toString() ?? '');
         unawaited(
           GrowthAnalyticsService.logEvent(
             'growth_peep_prompt_tapped',
@@ -653,8 +817,8 @@ class NotificationService {
           '/post',
           arguments: {
             'locationName': venueName,
-            'latitude': (data['latitude'] as num?)?.toDouble(),
-            'longitude': (data['longitude'] as num?)?.toDouble(),
+            if (lat != null) 'latitude': lat,
+            if (lng != null) 'longitude': lng,
           },
         );
         break;
