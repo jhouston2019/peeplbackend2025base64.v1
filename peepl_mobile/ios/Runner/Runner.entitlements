@@ -4,6 +4,8 @@
 <dict>
     <key>aps-environment</key>
     <string>production</string>
+    <key>com.apple.developer.location.background-location</key>
+    <true/>
     <key>com.apple.developer.associated-domains</key>
     <array>
         <string>applinks:peepl2025v1-production.up.railway.app</string>

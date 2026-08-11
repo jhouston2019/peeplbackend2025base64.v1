@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
+import 'package:flutter/services.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
@@ -10,6 +11,8 @@ import 'places_venue_detector.dart';
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
 // onPeepCreatedCrowdAlert: location_follows (locationId+alertsEnabled,
 //   locationName+alertsEnabled).
+const _nativeChannel = MethodChannel('com.peepl.geofence/native');
+
 class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
@@ -36,6 +39,26 @@ class PeeplGeofenceService {
   bool _firestoreErrorLogged = false;
 
   bool get isActive => _isActive;
+
+  Future<void> _registerNativeRegion({
+    required String venueId,
+    required String venueName,
+    required double latitude,
+    required double longitude,
+    required double radius,
+  }) async {
+    try {
+      await _nativeChannel.invokeMethod('registerRegion', {
+        'venueId': venueId,
+        'venueName': venueName,
+        'latitude': latitude,
+        'longitude': longitude,
+        'radius': radius,
+      });
+    } catch (e) {
+      debugPrint('[NativeGeofence] registerRegion failed: $e');
+    }
+  }
 
   bool isVenueMonitored(String placeId, String venueName) {
     return _locationNames.containsKey(placeId);
@@ -168,6 +191,14 @@ class PeeplGeofenceService {
               GeofenceRadius(id: 'radius_150m', length: 150),
             ],
           ),
+        );
+
+        await _registerNativeRegion(
+          venueId: locationId,
+          venueName: name,
+          latitude: lat,
+          longitude: lng,
+          radius: 150,
         );
       }
 
