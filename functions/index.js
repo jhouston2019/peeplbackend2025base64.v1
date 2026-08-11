@@ -916,7 +916,8 @@ exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) 
     let lastDoc = null;
     const batchSize = 100;
 
-    while (true) {
+    let hasMore = true;
+    while (hasMore) {
       let query = db.collection('location_posts')
         .limit(batchSize);
       if (lastDoc) query = query.startAfter(lastDoc);
@@ -961,7 +962,7 @@ exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) 
       }
 
       lastDoc = snapshot.docs[snapshot.docs.length - 1];
-      if (snapshot.docs.length < batchSize) break;
+      hasMore = snapshot.docs.length >= batchSize;
     }
 
     return res.json({ processed, created, updated });
