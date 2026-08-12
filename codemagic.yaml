@@ -48,7 +48,7 @@ workflows:
       - name: Flutter build iOS (release, no codesign)
         script: |
           set -e
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --dart-define=GOOGLE_PLACES_API_KEY=$GOOGLE_PLACES_API_KEY
         working_directory: peepl_mobile
       - name: Debug signing resolution
         working_directory: peepl_mobile
