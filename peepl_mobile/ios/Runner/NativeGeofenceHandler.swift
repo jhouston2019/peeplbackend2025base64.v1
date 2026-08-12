@@ -37,6 +37,8 @@ final class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
     region.notifyOnEntry = true
     region.notifyOnExit = false
     locationManager.startMonitoring(for: region)
+    print("[NativeGeofence] registerRegion: \(venueId) \(venueName) at \(latitude),\(longitude) radius:\(radius)")
+    print("[NativeGeofence] monitored regions count: \(locationManager.monitoredRegions.count)")
   }
 
   func clearAllRegions() {
@@ -75,6 +77,8 @@ final class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
   }
 
   func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
+    print("[NativeGeofence] didEnterRegion: \(region.identifier)")
+
     guard UIApplication.shared.applicationState != .active else { return }
 
     guard let circularRegion = region as? CLCircularRegion else { return }
@@ -84,10 +88,12 @@ final class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     let venueId = parts[0]
     let venueName = parts.dropFirst().joined(separator: Self.regionIdentifierSeparator)
+    print("[NativeGeofence] parsed venueId: \(venueId) venueName: \(venueName)")
     guard !venueId.isEmpty, !venueName.isEmpty else { return }
 
     guard let user = Auth.auth().currentUser else { return }
     let userId = user.uid
+    print("[NativeGeofence] userId: \(userId)")
 
     let latitude = circularRegion.center.latitude
     let longitude = circularRegion.center.longitude
@@ -103,6 +109,7 @@ final class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         "timestamp": FieldValue.serverTimestamp(),
         "notificationSent": false,
       ])
+    print("[NativeGeofence] venue_entry_events write attempted")
 
     showLocalFallbackNotification(venueName: venueName)
   }

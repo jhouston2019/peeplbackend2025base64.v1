@@ -55,6 +55,7 @@ class PeeplGeofenceService {
         'longitude': longitude,
         'radius': radius,
       });
+      debugPrint('[NativeGeofence] registerRegion called for $venueName ($venueId)');
     } catch (e) {
       debugPrint('[NativeGeofence] registerRegion failed: $e');
     }

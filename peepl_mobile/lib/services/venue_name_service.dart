@@ -6,11 +6,7 @@ import 'package:http/http.dart' as http;
 class VenueNameService {
   VenueNameService._();
 
-  // TODO: set GOOGLE_PLACES_API_KEY in build environment
-  static const String _apiKey = String.fromEnvironment(
-    'GOOGLE_PLACES_API_KEY',
-    defaultValue: 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
-  );
+  static const String _apiKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
 
   static final RegExp _coordinatePair = RegExp(
     r'^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$',
@@ -44,10 +40,19 @@ class VenueNameService {
       final response = await http.get(url);
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final results = data['results'] as List?;
-        if (results != null && results.isNotEmpty) {
-          return results.first['name'] as String?;
+        final status = data['status'] as String?;
+        if (status != 'OK' && status != 'ZERO_RESULTS') {
+          debugPrint('[VenueNameService] Places API status: $status');
+          return null;
         }
+        final results = data['results'] as List?;
+        if (results == null || results.isEmpty) {
+          debugPrint(
+            '[VenueNameService] Places returned zero results for $latitude,$longitude',
+          );
+          return null;
+        }
+        return results.first['name'] as String?;
       }
     } catch (e) {
       debugPrint('VenueNameService: Places API error: $e');

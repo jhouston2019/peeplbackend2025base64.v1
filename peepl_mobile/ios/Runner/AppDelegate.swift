@@ -17,6 +17,7 @@ import CoreLocation
 
     FirebaseApp.configure()
     GMSServices.provideAPIKey("AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8")
+    print("[NativeGeofence] AppDelegate: handler initialized")
     GeneratedPluginRegistrant.register(with: self)
 
     if #available(iOS 10.0, *) {
@@ -83,6 +84,7 @@ import CoreLocation
           result(FlutterMethodNotImplemented)
         }
       }
+      print("[NativeGeofence] AppDelegate: MethodChannel registered")
     }
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
