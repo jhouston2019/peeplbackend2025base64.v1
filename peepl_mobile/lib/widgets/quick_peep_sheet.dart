@@ -114,6 +114,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   }
 
   Future<void> _detectLocation() async {
+    debugPrint('[QuickPeep] _detectLocation started');
     setState(() {
       _isLocating = true;
       _locationError = null;
@@ -121,6 +122,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
 
     try {
       final position = await LocationService.getCurrentLocation();
+      debugPrint('[QuickPeep] position: $position');
       if (position == null) {
         if (mounted) {
           setState(() {
@@ -134,10 +136,11 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       _latitude = position.latitude;
       _longitude = position.longitude;
 
-      final name = await VenueNameService.getVenueName(
+      final name = await VenueNameService.resolveVenueName(
         position.latitude,
         position.longitude,
       );
+      debugPrint('[QuickPeep] resolved name: $name');
 
       if (!mounted) return;
       setState(() {
@@ -147,6 +150,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         _isLocating = false;
       });
     } catch (e) {
+      debugPrint('[QuickPeep] _detectLocation error: $e');
       if (mounted) {
         setState(() {
           _locationError = 'Could not detect location';
