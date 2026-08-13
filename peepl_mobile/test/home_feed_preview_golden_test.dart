@@ -64,7 +64,7 @@ class _PreviewHarness extends StatelessWidget {
                           : 0,
                     ),
                     child: SizedBox(
-                      height: EditorialFeedLayout.rowHeight(row),
+                      height: EditorialFeedLayout.rowHeight(row, context),
                       child: _buildRow(row),
                     ),
                   );

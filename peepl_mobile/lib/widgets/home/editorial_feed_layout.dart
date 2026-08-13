@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 import 'peepl_home_tokens.dart';
 
 /// Presentation-only editorial row types.
@@ -69,14 +71,14 @@ class EditorialFeedLayout {
     return rows;
   }
 
-  static double rowHeight(EditorialFeedRow row) {
+  static double rowHeight(EditorialFeedRow row, BuildContext context) {
     switch (row.kind) {
       case EditorialRowKind.featuredOrganic:
-        return PeeplHomeTokens.featuredCardHeight;
+        return PeeplHomeTokens.featuredCardHeightFor(context);
       case EditorialRowKind.sponsored:
-        return PeeplHomeTokens.sponsoredCardHeight;
+        return PeeplHomeTokens.sponsoredCardHeightFor(context);
       case EditorialRowKind.halfOrganicPair:
-        return PeeplHomeTokens.halfCardHeight;
+        return PeeplHomeTokens.halfCardHeightFor(context);
     }
   }
 }

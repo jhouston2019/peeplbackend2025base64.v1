@@ -30,9 +30,9 @@ class OrganicCrowdCard extends StatelessWidget {
   final OrganicCardSize size;
   final double? marginHorizontal;
 
-  double get _height => size == OrganicCardSize.featured
-      ? PeeplHomeTokens.featuredCardHeight
-      : PeeplHomeTokens.halfCardHeight;
+  double _height(BuildContext context) => size == OrganicCardSize.featured
+      ? PeeplHomeTokens.featuredCardHeightFor(context)
+      : PeeplHomeTokens.halfCardHeightFor(context);
 
   double get _horizontalMargin =>
       marginHorizontal ?? PeeplHomeTokens.cardHorizontalMargin;
@@ -40,15 +40,15 @@ class OrganicCrowdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = size == OrganicCardSize.half;
-    final titleSize = compact ? 13.0 : 15.0;
-    final metaSize = compact ? 7.5 : 8.5;
+    final titleSize = compact ? 14.0 : 15.0;
+    final metaSize = compact ? 10.0 : 10.5;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: _horizontalMargin),
       child: FeedCardTapScale(
         onTap: onTap,
         child: SizedBox(
-          height: _height,
+          height: _height(context),
           child: DecoratedBox(
             decoration: const BoxDecoration(
               border: Border(
@@ -93,9 +93,9 @@ class OrganicCrowdCard extends StatelessWidget {
                           child: Padding(
                             padding: EdgeInsets.fromLTRB(
                               compact ? 8 : 12,
-                              compact ? 5 : 6,
+                              compact ? 6 : 8,
                               compact ? 8 : 12,
-                              compact ? 5 : 6,
+                              compact ? 6 : 8,
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -127,7 +127,7 @@ class OrganicCrowdCard extends StatelessWidget {
                                           color: PeeplHomeTokens.white
                                               .withValues(alpha: 0.58),
                                           fontSize: metaSize,
-                                          fontWeight: FontWeight.w400,
+                                          fontWeight: FontWeight.w500,
                                           height: 1.0,
                                         ),
                                       ),

@@ -18,10 +18,10 @@ class PeeplHomeBackground extends StatelessWidget {
         const DecoratedBox(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
               colors: PeeplHomeTokens.feedBackdropGradient,
-              stops: [0.0, 0.35, 0.72, 1.0],
+              stops: [0.0, 0.38, 0.72, 1.0],
             ),
           ),
         ),
@@ -30,7 +30,7 @@ class PeeplHomeBackground extends StatelessWidget {
           left: -30,
           child: _BokehOrb(
             diameter: 180,
-            color: PeeplHomeTokens.feedBokehMint.withValues(alpha: 0.38),
+            color: PeeplHomeTokens.feedBokehMint.withValues(alpha: 0.50),
           ),
         ),
         Positioned(
@@ -38,7 +38,7 @@ class PeeplHomeBackground extends StatelessWidget {
           right: -50,
           child: _BokehOrb(
             diameter: 220,
-            color: PeeplHomeTokens.feedBokehSky.withValues(alpha: 0.42),
+            color: PeeplHomeTokens.feedBokehSky.withValues(alpha: 0.54),
           ),
         ),
         Positioned(
@@ -46,7 +46,7 @@ class PeeplHomeBackground extends StatelessWidget {
           left: 40,
           child: _BokehOrb(
             diameter: 160,
-            color: PeeplHomeTokens.feedBokehWarm.withValues(alpha: 0.28),
+            color: PeeplHomeTokens.feedBokehWarm.withValues(alpha: 0.36),
           ),
         ),
         Positioned(
@@ -54,7 +54,7 @@ class PeeplHomeBackground extends StatelessWidget {
           right: 20,
           child: _BokehOrb(
             diameter: 200,
-            color: PeeplHomeTokens.feedBokehSky.withValues(alpha: 0.24),
+            color: PeeplHomeTokens.feedBokehSky.withValues(alpha: 0.32),
           ),
         ),
         Positioned.fill(

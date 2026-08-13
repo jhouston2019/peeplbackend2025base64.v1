@@ -5,16 +5,16 @@ class PeeplHomeTokens {
   PeeplHomeTokens._();
 
   // --- Page background (light frosted environmental shell) ---
-  static const feedBackground = Color(0xFFE6EEF5);
-  static const feedFrostOverlay = Color(0x66F5F9FC);
+  static const feedBackground = Color(0xFFD0DED8);
+  static const feedFrostOverlay = Color(0x48E6EEEA);
   static const feedBokehSky = Color(0xFF9FD4FF);
   static const feedBokehMint = Color(0xFFB8E8D0);
   static const feedBokehWarm = Color(0xFFFFE0A8);
   static const feedBackdropGradient = [
-    Color(0xFFEAF2F8),
-    Color(0xFFDCEAF4),
-    Color(0xFFE8F0F6),
-    Color(0xFFD8E6F0),
+    Color(0xFFD8E7EF),
+    Color(0xFFC9D8D0),
+    Color(0xFFBFCFCB),
+    Color(0xFFC5D4D8),
   ];
 
   /// Header / selected chip navy (not a page background).
@@ -100,10 +100,25 @@ class PeeplHomeTokens {
   static const rowVerticalGap = 12.0;
   static const cardRadius = 0.0;
   static const sponsoredCardRadius = 12.0;
-  static const featuredCardHeight = 64.0;
-  static const halfCardHeight = 64.0;
-  static const sponsoredCardHeight = 98.0;
+  static const featuredCardHeight = 96.0;
+  static const halfCardHeight = 92.0;
+  static const sponsoredCardHeight = 80.0;
   static const bottomNavHeight = 56.0;
+
+  /// Responsive organic full-width height (~96px at 390×844).
+  static double featuredCardHeightFor(BuildContext context) {
+    return (MediaQuery.sizeOf(context).height * 0.112).clamp(92.0, 100.0);
+  }
+
+  /// Responsive two-column organic height (~92px at 390×844).
+  static double halfCardHeightFor(BuildContext context) {
+    return (MediaQuery.sizeOf(context).height * 0.108).clamp(88.0, 96.0);
+  }
+
+  /// Responsive sponsored native height (~80px at 390×844).
+  static double sponsoredCardHeightFor(BuildContext context) {
+    return (MediaQuery.sizeOf(context).height * 0.094).clamp(76.0, 84.0);
+  }
 
   // Legacy aliases
   static const navy = shellNavy;

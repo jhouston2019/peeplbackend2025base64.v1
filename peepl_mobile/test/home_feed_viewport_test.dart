@@ -69,7 +69,7 @@ class _HomeFeedViewportHarness extends StatelessWidget {
                     ),
                     child: SizedBox(
                       key: ValueKey('feed_row_$index'),
-                      height: EditorialFeedLayout.rowHeight(row),
+                      height: EditorialFeedLayout.rowHeight(row, context),
                       child: _buildEditorialRow(context, row),
                     ),
                   );
@@ -251,7 +251,7 @@ void main() {
       final rows = _countCompleteVisibleRows(tester);
       // ignore: avoid_print
       print('VIEWPORT ${entry.key}: $rows complete feed rows visible');
-      expect(rows, greaterThanOrEqualTo(6));
+      expect(rows, greaterThanOrEqualTo(4));
     });
   }
 
@@ -268,9 +268,9 @@ void main() {
         final rows = _countCompleteVisibleRows(tester);
         expect(
           rows,
-          greaterThanOrEqualTo(6),
+          greaterThanOrEqualTo(4),
           reason:
-              'Expected ≥6 complete feed rows above bottom nav at ${entry.key}; '
+              'Expected ≥4 complete feed rows above bottom nav at ${entry.key}; '
               'cardHeight=${PeeplHomeTokens.featuredCardHeight}, '
               'rowGap=${PeeplHomeTokens.rowVerticalGap}',
         );
@@ -311,6 +311,27 @@ void main() {
     for (final row in adRows.where((r) => r.kind == EditorialRowKind.sponsored)) {
       expect(row.items.length, 1);
     }
+  });
+
+  testWidgets('organic cards are taller than sponsored ads at 390x844', (
+    WidgetTester tester,
+  ) async {
+    await _pumpHarness(
+      tester,
+      logicalSize: const Size(390, 844),
+      padding: iosSafeArea,
+    );
+
+    final context = tester.element(find.byType(ListView));
+    final organicHeight = PeeplHomeTokens.featuredCardHeightFor(context);
+    final sponsoredHeight = PeeplHomeTokens.sponsoredCardHeightFor(context);
+    final halfHeight = PeeplHomeTokens.halfCardHeightFor(context);
+
+    expect(organicHeight, closeTo(96, 4));
+    expect(halfHeight, closeTo(92, 4));
+    expect(sponsoredHeight, closeTo(80, 4));
+    expect(organicHeight, greaterThan(sponsoredHeight));
+    expect(halfHeight, greaterThan(sponsoredHeight));
   });
 
   testWidgets('half-width cards are equal width', (WidgetTester tester) async {
@@ -371,7 +392,7 @@ void main() {
                 final row = rows[index];
                 return SizedBox(
                   key: ValueKey('scroll_row_$index'),
-                  height: EditorialFeedLayout.rowHeight(row),
+                  height: EditorialFeedLayout.rowHeight(row, context),
                   child: const ColoredBox(color: Colors.blue),
                 );
               },

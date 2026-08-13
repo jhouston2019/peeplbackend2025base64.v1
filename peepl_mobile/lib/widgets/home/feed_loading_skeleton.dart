@@ -48,19 +48,25 @@ class _SkeletonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (kind) {
       case _SkeletonRowKind.featured:
-        return _SkeletonCard(height: PeeplHomeTokens.featuredCardHeight);
+        return _SkeletonCard(
+          height: PeeplHomeTokens.featuredCardHeightFor(context),
+        );
       case _SkeletonRowKind.halfPair:
         return Row(
           children: [
             Expanded(
-              child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
+              child: _SkeletonCard(
+                height: PeeplHomeTokens.halfCardHeightFor(context),
+              ),
             ),
             Container(
               width: PeeplHomeTokens.halfCardGap,
               color: PeeplHomeTokens.organicSeparator,
             ),
             Expanded(
-              child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
+              child: _SkeletonCard(
+                height: PeeplHomeTokens.halfCardHeightFor(context),
+              ),
             ),
           ],
         );
@@ -70,7 +76,7 @@ class _SkeletonRow extends StatelessWidget {
             horizontal: PeeplHomeTokens.sponsoredHorizontalMargin,
           ),
           child: _SkeletonCard(
-            height: PeeplHomeTokens.sponsoredCardHeight,
+            height: PeeplHomeTokens.sponsoredCardHeightFor(context),
             sponsored: true,
           ),
         );

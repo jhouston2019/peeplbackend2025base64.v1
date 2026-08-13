@@ -85,7 +85,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
         child: FeedCardTapScale(
           onTap: widget.onOpen,
           child: Container(
-            height: PeeplHomeTokens.sponsoredCardHeight,
+            height: PeeplHomeTokens.sponsoredCardHeightFor(context),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(PeeplHomeTokens.sponsoredCardRadius),
               border: Border.all(

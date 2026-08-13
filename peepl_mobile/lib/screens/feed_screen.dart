@@ -1291,7 +1291,7 @@ class _FeedScreenState extends State<FeedScreen> {
       child: GestureDetector(
         onTap: handleTap,
         child: Container(
-          height: PeeplHomeTokens.sponsoredCardHeight,
+          height: PeeplHomeTokens.sponsoredCardHeightFor(context),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(PeeplHomeTokens.sponsoredCardRadius),
             border: Border.all(
@@ -1691,7 +1691,7 @@ class _FeedScreenState extends State<FeedScreen> {
             ),
             child: SizedBox(
               key: ValueKey('feed_row_$index'),
-              height: EditorialFeedLayout.rowHeight(row),
+              height: EditorialFeedLayout.rowHeight(row, context),
               child: _buildEditorialRow(row),
             ),
           );

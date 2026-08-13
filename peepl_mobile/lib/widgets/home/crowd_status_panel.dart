@@ -54,9 +54,9 @@ class TenSegmentCrowdBar extends StatelessWidget {
 
           child: Container(
 
-            height: compact ? 3 : 4,
+            height: compact ? 5.0 : 5.5,
 
-            margin: EdgeInsets.only(right: index < segmentCount - 1 ? 2 : 0),
+            margin: EdgeInsets.only(right: index < segmentCount - 1 ? 2.5 : 0),
 
             decoration: BoxDecoration(
 
@@ -112,9 +112,9 @@ class CrowdStatusPanel extends StatelessWidget {
 
   Widget build(BuildContext context) {
 
-    final scoreSize = compact ? 15.0 : 19.0;
+    final scoreSize = compact ? 17.0 : 19.0;
 
-    final labelSize = compact ? 6.5 : 7.0;
+    final labelSize = compact ? 9.5 : 10.5;
 
 
 
