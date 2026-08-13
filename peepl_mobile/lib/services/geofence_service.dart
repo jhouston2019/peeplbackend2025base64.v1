@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
+import 'debug_log_service.dart';
 import 'notification_service.dart';
 import 'places_venue_detector.dart';
 
@@ -56,8 +57,18 @@ class PeeplGeofenceService {
         'radius': radius,
       });
       debugPrint('[NativeGeofence] registerRegion called for $venueName ($venueId)');
+      await DebugLogService.log(
+        'GEOFENCE',
+        'native_region_registered',
+        data: {'venueId': venueId, 'venueName': venueName},
+      );
     } catch (e) {
       debugPrint('[NativeGeofence] registerRegion failed: $e');
+      await DebugLogService.log(
+        'GEOFENCE',
+        'native_region_failed',
+        data: {'venueId': venueId, 'error': e.toString()},
+      );
     }
   }
 
@@ -202,6 +213,16 @@ class PeeplGeofenceService {
           radius: 150,
         );
       }
+
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_native_registration',
+        data: {
+          'venueCount': geofences.length,
+          'nativeRegistrationAttempted': true,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
 
       await _geofenceService.start(geofences);
       debugPrint(
