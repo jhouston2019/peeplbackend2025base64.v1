@@ -1,23 +1,16 @@
-import 'dart:convert';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
-import 'package:flutter/services.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
-import 'package:http/http.dart' as http;
 
 import 'debug_log_service.dart';
-import 'location_service.dart';
-import 'notification_service.dart';import 'places_venue_detector.dart';
+import 'notification_service.dart';
+import 'places_venue_detector.dart';
 
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
 // onPeepCreatedCrowdAlert: location_follows (locationId+alertsEnabled,
 //   locationName+alertsEnabled).
-const _nativeChannel = MethodChannel('com.peepl.geofence/native');
-
 class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
@@ -45,40 +38,10 @@ class PeeplGeofenceService {
 
   bool get isActive => _isActive;
 
-  Future<void> _registerNativeRegion({
-    required String venueId,
-    required String venueName,
-    required double latitude,
-    required double longitude,
-    required double radius,
-  }) async {
-    try {
-      await _nativeChannel.invokeMethod('registerRegion', {
-        'venueId': venueId,
-        'venueName': venueName,
-        'latitude': latitude,
-        'longitude': longitude,
-        'radius': radius,
-      });
-      debugPrint('[NativeGeofence] registerRegion called for $venueName ($venueId)');
-      await DebugLogService.log(
-        'GEOFENCE',
-        'native_region_registered',
-        data: {'venueId': venueId, 'venueName': venueName},
-      );
-    } catch (e) {
-      debugPrint('[NativeGeofence] registerRegion failed: $e');
-      await DebugLogService.log(
-        'GEOFENCE',
-        'native_region_failed',
-        data: {'venueId': venueId, 'error': e.toString()},
-      );
-    }
-  }
-
   bool isVenueMonitored(String placeId, String venueName) {
     return _locationNames.containsKey(placeId);
   }
+
   void _logDenialOnce(String message) {
     if (_denialLogged) return;
     _denialLogged = true;
@@ -159,8 +122,10 @@ class PeeplGeofenceService {
     try {
       if (_listenersRegistered) return;
       PlacesVenueDetector.instance.venueMonitoredCheck = isVenueMonitored;
-      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);      _geofenceService.addLocationChangeListener(_onLocationChanged);
-      _geofenceService.addActivityChangeListener(_onActivityChanged);      _geofenceService.addStreamErrorListener(_onError);
+      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
+      _geofenceService.addLocationChangeListener(_onLocationChanged);
+      _geofenceService.addActivityChangeListener(_onActivityChanged);
+      _geofenceService.addStreamErrorListener(_onError);
       _listenersRegistered = true;
     } catch (e) {
       debugPrint('[PeeplGeofenceService] initialize failed (non-fatal): $e');
@@ -209,69 +174,6 @@ class PeeplGeofenceService {
         'geofence_start_error',
         data: {'error': e.toString()},
       );
-    }
-  }
-
-  Future<void> _seedNearbyVenues() async {
-    try {
-      final position = await LocationService.getCurrentLocation();
-      if (position == null) return;
-
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-        '?location=${position.latitude},${position.longitude}'
-        '&radius=500'
-        '&type=establishment'
-        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
-      );
-
-      final response = await http.get(url).timeout(const Duration(seconds: 5));
-      if (response.statusCode != 200) return;
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      if (json['status'] != 'OK') return;
-
-      final results = json['results'] as List<dynamic>;
-
-      for (final place in results.take(20)) {
-        try {
-          final placeId = place['place_id'] as String?;
-          final name = place['name'] as String?;
-          final lat =
-              (place['geometry']?['location']?['lat'] as num?)?.toDouble();
-          final lng =
-              (place['geometry']?['location']?['lng'] as num?)?.toDouble();
-
-          if (placeId == null || name == null || lat == null || lng == null) {
-            continue;
-          }
-
-          final callable =
-              FirebaseFunctions.instance.httpsCallable('seedLocation');
-          await callable.call({
-            'locationName': name,
-            'latitude': lat,
-            'longitude': lng,
-            'crowdingLevel': 0,
-            'venueId': placeId,
-          });
-
-          await _registerNativeRegion(
-            venueId: placeId,
-            venueName: name,
-            latitude: lat,
-            longitude: lng,
-            radius: 150,
-          );
-
-          debugPrint('[Geofence] seeded and registered: $name');
-        } catch (e) {
-          debugPrint('[Geofence] failed to seed: $e');
-          continue;
-        }
-      }
-    } catch (e) {
-      debugPrint('[Geofence] _seedNearbyVenues failed: $e');
     }
   }
 
@@ -331,31 +233,16 @@ class PeeplGeofenceService {
             ],
           ),
         );
-
-        await _registerNativeRegion(
-          venueId: locationId,
-          venueName: name,
-          latitude: lat,
-          longitude: lng,
-          radius: 150,
-        );
       }
 
       await DebugLogService.log(
         'GEOFENCE',
-        'geofence_native_registration',
+        'geofence_loaded',
         data: {
           'venueCount': geofences.length,
-          'nativeRegistrationAttempted': true,
           'timestamp': DateTime.now().toIso8601String(),
         },
       );
-
-      try {
-        await _seedNearbyVenues();
-      } catch (e) {
-        debugPrint('[Geofence] _seedNearbyVenues failed: $e');
-      }
 
       await _geofenceService.start(geofences);
       debugPrint(

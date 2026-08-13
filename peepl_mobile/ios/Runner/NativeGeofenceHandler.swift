@@ -1,130 +1,142 @@
+import Foundation
 import CoreLocation
-import FirebaseAuth
 import FirebaseFirestore
-import UIKit
+import FirebaseAuth
 import UserNotifications
 
-final class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
-  private let locationManager = CLLocationManager()
-  private static let regionIdentifierSeparator = "|||"
-  private static let venueEntryEventsCollection = "venue_entry_events"
-  private static let maxMonitoredRegions = 20
+class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
-  override init() {
-    super.init()
-    locationManager.delegate = self
-    locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
-    locationManager.allowsBackgroundLocationUpdates = true
-    locationManager.pausesLocationUpdatesAutomatically = false
-  }
+    static let shared = NativeGeofenceHandler()
+    private let locationManager = CLLocationManager()
+    private let placesApiKey = "AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8"
+    private var lastProcessedLocation: CLLocation?
+    private var lastVenueEntryTime: [String: Date] = [:]
+    private let cooldownMinutes: Double = 240
 
-  func registerRegion(
-    venueId: String,
-    venueName: String,
-    latitude: Double,
-    longitude: Double,
-    radius: Double
-  ) {
-    guard !venueId.isEmpty, !venueName.isEmpty else { return }
-
-    if locationManager.monitoredRegions.count >= Self.maxMonitoredRegions {
-      evictFarthestRegion()
+    override init() {
+        super.init()
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyHundredMeters
     }
 
-    let identifier = "\(venueId)\(Self.regionIdentifierSeparator)\(venueName)"
-    let center = CLLocationCoordinate2D(latitude: latitude, longitude: longitude)
-    let region = CLCircularRegion(center: center, radius: radius, identifier: identifier)
-    region.notifyOnEntry = true
-    region.notifyOnExit = false
-    locationManager.startMonitoring(for: region)
-    print("[NativeGeofence] registerRegion: \(venueId) \(venueName) at \(latitude),\(longitude) radius:\(radius)")
-    print("[NativeGeofence] monitored regions count: \(locationManager.monitoredRegions.count)")
-  }
-
-  func clearAllRegions() {
-    for region in locationManager.monitoredRegions {
-      locationManager.stopMonitoring(for: region)
-    }
-  }
-
-  private func evictFarthestRegion() {
-    let circularRegions = locationManager.monitoredRegions.compactMap { $0 as? CLCircularRegion }
-    guard !circularRegions.isEmpty else { return }
-
-    guard let currentLocation = locationManager.location else {
-      locationManager.stopMonitoring(for: circularRegions[0])
-      return
+    func startMonitoring() {
+        print("[NativeGeofence] startMonitoring called")
+        locationManager.requestAlwaysAuthorization()
+        locationManager.startMonitoringSignificantLocationChanges()
+        print("[NativeGeofence] significant location monitoring started")
     }
 
-    var farthestRegion: CLCircularRegion?
-    var maxDistance: CLLocationDistance = -1
-
-    for region in circularRegions {
-      let regionLocation = CLLocation(
-        latitude: region.center.latitude,
-        longitude: region.center.longitude
-      )
-      let distance = currentLocation.distance(from: regionLocation)
-      if distance > maxDistance {
-        maxDistance = distance
-        farthestRegion = region
-      }
+    func stopMonitoring() {
+        locationManager.stopMonitoringSignificantLocationChanges()
     }
 
-    if let farthestRegion {
-      locationManager.stopMonitoring(for: farthestRegion)
+    // MARK: - CLLocationManagerDelegate
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        guard let location = locations.last else { return }
+        print("[NativeGeofence] location update: \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        checkForVenueEntry(at: location)
     }
-  }
 
-  func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
-    print("[NativeGeofence] didEnterRegion: \(region.identifier)")
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        print("[NativeGeofence] location error: \(error)")
+    }
 
-    guard UIApplication.shared.applicationState != .active else { return }
+    // MARK: - Venue Detection
 
-    guard let circularRegion = region as? CLCircularRegion else { return }
+    private func checkForVenueEntry(at location: CLLocation) {
+        // Debounce — ignore if we just processed a nearby location
+        if let last = lastProcessedLocation,
+           location.distance(from: last) < 50 {
+            print("[NativeGeofence] debounced — too close to last check")
+            return
+        }
+        lastProcessedLocation = location
 
-    let parts = region.identifier.components(separatedBy: Self.regionIdentifierSeparator)
-    guard parts.count >= 2 else { return }
+        let lat = location.coordinate.latitude
+        let lng = location.coordinate.longitude
 
-    let venueId = parts[0]
-    let venueName = parts.dropFirst().joined(separator: Self.regionIdentifierSeparator)
-    print("[NativeGeofence] parsed venueId: \(venueId) venueName: \(venueName)")
-    guard !venueId.isEmpty, !venueName.isEmpty else { return }
+        guard let url = URL(string: "https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=\(lat),\(lng)&radius=50&type=establishment&key=\(placesApiKey)") else { return }
 
-    guard let user = Auth.auth().currentUser else { return }
-    let userId = user.uid
-    print("[NativeGeofence] userId: \(userId)")
+        print("[NativeGeofence] querying Places at \(lat),\(lng)")
 
-    let latitude = circularRegion.center.latitude
-    let longitude = circularRegion.center.longitude
+        URLSession.shared.dataTask(with: url) { [weak self] data, response, error in
+            guard let self = self,
+                  let data = data,
+                  let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let status = json["status"] as? String else {
+                print("[NativeGeofence] Places request failed: \(error?.localizedDescription ?? "unknown")")
+                return
+            }
 
-    Firestore.firestore()
-      .collection(Self.venueEntryEventsCollection)
-      .addDocument(data: [
-        "userId": userId,
-        "venueName": venueName,
-        "venueId": venueId,
-        "latitude": latitude,
-        "longitude": longitude,
-        "timestamp": FieldValue.serverTimestamp(),
-        "notificationSent": false,
-      ])
-    print("[NativeGeofence] venue_entry_events write attempted")
+            print("[NativeGeofence] Places status: \(status)")
 
-    showLocalFallbackNotification(venueName: venueName)
-  }
+            guard status == "OK",
+                  let results = json["results"] as? [[String: Any]],
+                  let first = results.first,
+                  let venueName = first["name"] as? String,
+                  let placeId = first["place_id"] as? String else {
+                print("[NativeGeofence] no venue found at location")
+                return
+            }
 
-  private func showLocalFallbackNotification(venueName: String) {
-    let content = UNMutableNotificationContent()
-    content.title = "You just walked in 👀"
-    content.body = "How's \(venueName) right now?"
+            print("[NativeGeofence] venue detected: \(venueName) (\(placeId))")
+            self.handleVenueEntry(venueId: placeId, venueName: venueName, latitude: lat, longitude: lng)
+        }.resume()
+    }
 
-    let request = UNNotificationRequest(
-      identifier: UUID().uuidString,
-      content: content,
-      trigger: nil
-    )
+    private func handleVenueEntry(venueId: String, venueName: String, latitude: Double, longitude: Double) {
+        // Check cooldown
+        if let lastEntry = lastVenueEntryTime[venueId],
+           Date().timeIntervalSince(lastEntry) < cooldownMinutes * 60 {
+            print("[NativeGeofence] cooldown active for \(venueName)")
+            return
+        }
 
-    UNUserNotificationCenter.current().add(request, withCompletionHandler: nil)
-  }
+        guard let userId = Auth.auth().currentUser?.uid else {
+            print("[NativeGeofence] no authenticated user")
+            return
+        }
+
+        lastVenueEntryTime[venueId] = Date()
+
+        print("[NativeGeofence] writing venue_entry_events for \(venueName)")
+
+        let db = Firestore.firestore()
+        db.collection("venue_entry_events").addDocument(data: [
+            "userId": userId,
+            "venueName": venueName,
+            "venueId": venueId,
+            "latitude": latitude,
+            "longitude": longitude,
+            "timestamp": FieldValue.serverTimestamp(),
+            "notificationSent": false
+        ]) { error in
+            if let error = error {
+                print("[NativeGeofence] Firestore write failed: \(error)")
+            } else {
+                print("[NativeGeofence] venue_entry_events written successfully")
+            }
+        }
+
+        // Show local fallback notification
+        let content = UNMutableNotificationContent()
+        content.title = "You just walked in 👀"
+        content.body = "How's \(venueName) right now?"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "venue_entry_\(venueId)_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("[NativeGeofence] local notification failed: \(error)")
+            } else {
+                print("[NativeGeofence] local notification scheduled")
+            }
+        }
+    }
 }

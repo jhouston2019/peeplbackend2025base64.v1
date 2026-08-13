@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'debug_log_service.dart';
+
 class VenueNameService {
   VenueNameService._();
 
@@ -41,32 +43,28 @@ class VenueNameService {
         '&key=$_apiKey',
       );
 
-      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      debugPrint('[VenueNameService] requesting: $url');
 
-      if (response.statusCode != 200) {
-        debugPrint('[VenueNameService] HTTP ${response.statusCode}');
-        return null;
-      }
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      await DebugLogService.log('VENUE_NAME', 'places_response', data: {
+        'status_code': response.statusCode,
+        'body': response.body.substring(0, response.body.length.clamp(0, 500)),
+        'latitude': latitude,
+        'longitude': longitude,
+      });
+
+      if (response.statusCode != 200) return null;
 
       final json = jsonDecode(response.body) as Map<String, dynamic>;
       final status = json['status'] as String?;
-
-      debugPrint('[VenueNameService] status=$status');
-
-      if (status != 'OK') {
-        debugPrint('[VenueNameService] non-OK: $status body=${response.body}');
-        return null;
-      }
-
       final results = json['results'] as List<dynamic>?;
-      if (results == null || results.isEmpty) {
-        debugPrint('[VenueNameService] zero results');
-        return null;
-      }
+
+      if (status != 'OK' || results == null || results.isEmpty) return null;
 
       return results.first['name'] as String?;
     } catch (e) {
-      debugPrint('[VenueNameService] error: $e');
+      await DebugLogService.log('VENUE_NAME', 'places_error', data: {'error': e.toString()});
       return null;
     }
   }
