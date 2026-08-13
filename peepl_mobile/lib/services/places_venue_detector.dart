@@ -40,7 +40,7 @@ class PlacesVenueDetector {
 
       'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
 
-  static const double _detectionRadiusMeters = 50.0;
+  static const double _detectionRadiusMeters = 200.0;
 
   static const int _dwellSeconds = 60;
 

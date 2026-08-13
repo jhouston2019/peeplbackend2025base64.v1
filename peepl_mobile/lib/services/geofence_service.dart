@@ -1,13 +1,17 @@
+import 'dart:convert';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/services.dart';
 import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
+import 'package:http/http.dart' as http;
 
 import 'debug_log_service.dart';
-import 'notification_service.dart';
-import 'places_venue_detector.dart';
+import 'location_service.dart';
+import 'notification_service.dart';import 'places_venue_detector.dart';
 
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
 // onPeepCreatedCrowdAlert: location_follows (locationId+alertsEnabled,
@@ -208,6 +212,69 @@ class PeeplGeofenceService {
     }
   }
 
+  Future<void> _seedNearbyVenues() async {
+    try {
+      final position = await LocationService.getCurrentLocation();
+      if (position == null) return;
+
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+        '?location=${position.latitude},${position.longitude}'
+        '&radius=500'
+        '&type=establishment'
+        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
+      );
+
+      final response = await http.get(url).timeout(const Duration(seconds: 5));
+      if (response.statusCode != 200) return;
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (json['status'] != 'OK') return;
+
+      final results = json['results'] as List<dynamic>;
+
+      for (final place in results.take(20)) {
+        try {
+          final placeId = place['place_id'] as String?;
+          final name = place['name'] as String?;
+          final lat =
+              (place['geometry']?['location']?['lat'] as num?)?.toDouble();
+          final lng =
+              (place['geometry']?['location']?['lng'] as num?)?.toDouble();
+
+          if (placeId == null || name == null || lat == null || lng == null) {
+            continue;
+          }
+
+          final callable =
+              FirebaseFunctions.instance.httpsCallable('seedLocation');
+          await callable.call({
+            'locationName': name,
+            'latitude': lat,
+            'longitude': lng,
+            'crowdingLevel': 0,
+            'venueId': placeId,
+          });
+
+          await _registerNativeRegion(
+            venueId: placeId,
+            venueName: name,
+            latitude: lat,
+            longitude: lng,
+            radius: 150,
+          );
+
+          debugPrint('[Geofence] seeded and registered: $name');
+        } catch (e) {
+          debugPrint('[Geofence] failed to seed: $e');
+          continue;
+        }
+      }
+    } catch (e) {
+      debugPrint('[Geofence] _seedNearbyVenues failed: $e');
+    }
+  }
+
   /// Loads venue geofences from Firestore. Requires [isActive] and signed-in user.
   Future<void> loadGeofencesFromFirestore() async {
     if (kIsWeb) return;
@@ -283,6 +350,12 @@ class PeeplGeofenceService {
           'timestamp': DateTime.now().toIso8601String(),
         },
       );
+
+      try {
+        await _seedNearbyVenues();
+      } catch (e) {
+        debugPrint('[Geofence] _seedNearbyVenues failed: $e');
+      }
 
       await _geofenceService.start(geofences);
       debugPrint(

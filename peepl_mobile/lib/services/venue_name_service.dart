@@ -32,32 +32,43 @@ class VenueNameService {
     double latitude,
     double longitude,
   ) async {
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      '?location=$latitude,$longitude&rankby=distance&type=establishment&key=$_apiKey',
-    );
     try {
-      final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final status = data['status'] as String?;
-        if (status != 'OK' && status != 'ZERO_RESULTS') {
-          debugPrint('[VenueNameService] Places API status: $status');
-          return null;
-        }
-        final results = data['results'] as List?;
-        if (results == null || results.isEmpty) {
-          debugPrint(
-            '[VenueNameService] Places returned zero results for $latitude,$longitude',
-          );
-          return null;
-        }
-        return results.first['name'] as String?;
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+        '?location=$latitude,$longitude'
+        '&radius=100'
+        '&type=establishment'
+        '&key=$_apiKey',
+      );
+
+      final response = await http.get(url).timeout(const Duration(seconds: 5));
+
+      if (response.statusCode != 200) {
+        debugPrint('[VenueNameService] HTTP ${response.statusCode}');
+        return null;
       }
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = json['status'] as String?;
+
+      debugPrint('[VenueNameService] status=$status');
+
+      if (status != 'OK') {
+        debugPrint('[VenueNameService] non-OK: $status body=${response.body}');
+        return null;
+      }
+
+      final results = json['results'] as List<dynamic>?;
+      if (results == null || results.isEmpty) {
+        debugPrint('[VenueNameService] zero results');
+        return null;
+      }
+
+      return results.first['name'] as String?;
     } catch (e) {
-      debugPrint('VenueNameService: Places API error: $e');
+      debugPrint('[VenueNameService] error: $e');
+      return null;
     }
-    return null;
   }
 
   /// @deprecated Use [resolveVenueName] instead.
