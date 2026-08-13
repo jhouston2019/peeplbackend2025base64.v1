@@ -6,7 +6,7 @@ class PeeplHomeTokens {
 
   // --- Page background (light frosted environmental shell) ---
   static const feedBackground = Color(0xFFD0DED8);
-  static const feedFrostOverlay = Color(0x48E6EEEA);
+  static const feedFrostOverlay = Color(0x24C9D8D0);
   static const feedBokehSky = Color(0xFF9FD4FF);
   static const feedBokehMint = Color(0xFFB8E8D0);
   static const feedBokehWarm = Color(0xFFFFE0A8);
@@ -95,9 +95,9 @@ class PeeplHomeTokens {
   );
 
   static const cardHorizontalMargin = 0.0;
-  static const sponsoredHorizontalMargin = 16.0;
+  static const sponsoredHorizontalMargin = 8.0;
   static const halfCardGap = 1.0;
-  static const rowVerticalGap = 12.0;
+  static const rowVerticalGap = 6.0;
   static const cardRadius = 0.0;
   static const sponsoredCardRadius = 12.0;
   static const featuredCardHeight = 96.0;

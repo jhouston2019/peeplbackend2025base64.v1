@@ -5,8 +5,13 @@ import 'package:flutter/material.dart';
 import 'peepl_home_tokens.dart';
 
 /// Soft daylight / outdoor bokeh backdrop for the Peepl home feed shell.
+///
+/// Layer order: gradient → environmental bokeh shapes → one blur pass →
+/// sage-tinted frost veil → UI content.
 class PeeplHomeBackground extends StatelessWidget {
   const PeeplHomeBackground({super.key, required this.child});
+
+  static const _backgroundBlurSigma = 20.0;
 
   final Widget child;
 
@@ -60,7 +65,10 @@ class PeeplHomeBackground extends StatelessWidget {
         Positioned.fill(
           child: ClipRect(
             child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 28, sigmaY: 28),
+              filter: ImageFilter.blur(
+                sigmaX: _backgroundBlurSigma,
+                sigmaY: _backgroundBlurSigma,
+              ),
               child: const ColoredBox(color: PeeplHomeTokens.feedFrostOverlay),
             ),
           ),
@@ -82,13 +90,10 @@ class _BokehOrb extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ImageFiltered(
-      imageFilter: ImageFilter.blur(sigmaX: 36, sigmaY: 36),
-      child: Container(
-        width: diameter,
-        height: diameter,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
+    return Container(
+      width: diameter,
+      height: diameter,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
     );
   }
 }
