@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'home/peepl_home_tokens.dart';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
@@ -40,6 +41,9 @@ class _QuickPeepContent extends StatefulWidget {
 }
 
 class _QuickPeepContentState extends State<_QuickPeepContent> {
+  static const _placesApiKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
+  static const _maxVenueDistanceMeters = 50.0;
+
   static const _vibeOptions = [
     'Dead quiet',
     'Moderate',
@@ -114,6 +118,63 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     }
   }
 
+  Future<String?> _resolveNearbyVenueName(double lat, double lng) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+      '?location=$lat,$lng'
+      '&radius=100'
+      '&type=establishment'
+      '&key=$_placesApiKey',
+    );
+
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) return null;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['status'] != 'OK') return null;
+
+    final results = json['results'] as List<dynamic>?;
+    if (results == null || results.isEmpty) return null;
+
+    final first = results.first as Map<String, dynamic>;
+    final name = first['name'] as String?;
+    if (name == null || name.trim().isEmpty) return null;
+
+    final placeLat =
+        (first['geometry']?['location']?['lat'] as num?)?.toDouble();
+    final placeLng =
+        (first['geometry']?['location']?['lng'] as num?)?.toDouble();
+    if (placeLat == null || placeLng == null) return null;
+
+    final distance = Geolocator.distanceBetween(lat, lng, placeLat, placeLng);
+    if (distance > _maxVenueDistanceMeters) return null;
+
+    return name.trim();
+  }
+
+  Future<String?> _resolveStreetAddress(double lat, double lng) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/geocode/json'
+      '?latlng=$lat,$lng'
+      '&key=$_placesApiKey',
+    );
+
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) return null;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    if (json['status'] != 'OK') return null;
+
+    final results = json['results'] as List<dynamic>?;
+    if (results == null || results.isEmpty) return null;
+
+    final formatted =
+        (results.first as Map<String, dynamic>)['formatted_address'] as String?;
+    if (formatted == null || formatted.trim().isEmpty) return null;
+
+    return formatted.trim();
+  }
+
   Future<void> _detectLocation() async {
     setState(() {
       _isLocating = true;
@@ -123,6 +184,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     try {
       final position = await LocationService.getCurrentLocation();
       if (position == null) {
+        if (!mounted) return;
         setState(() {
           _locationError = 'Could not detect location';
           _isLocating = false;
@@ -130,36 +192,32 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         return;
       }
 
-      _latitude = position.latitude;
-      _longitude = position.longitude;
+      final lat = position.latitude;
+      final lng = position.longitude;
+      _latitude = lat;
+      _longitude = lng;
 
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-        '?location=${position.latitude},${position.longitude}'
-        '&radius=100'
-        '&type=establishment'
-        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
-      );
+      final venueName = await _resolveNearbyVenueName(lat, lng);
+      final address = venueName == null ? await _resolveStreetAddress(lat, lng) : null;
+      final label = venueName ??
+          address ??
+          '${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}';
 
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final json = jsonDecode(response.body) as Map<String, dynamic>;
-        final status = json['status'] as String?;
-        final results = json['results'] as List<dynamic>?;
-
-        if (status == 'OK' && results != null && results.isNotEmpty) {
-          final name = results.first['name'] as String?;
-          if (name != null && name.isNotEmpty) {
-            setState(() {
-              _placeController.text = name;
-            });
-          }
-        }
-      }
+      if (!mounted) return;
+      setState(() {
+        _placeController.text = label;
+      });
     } catch (e) {
-      // fail silently — leave field blank for manual entry
+      debugPrint('[QuickPeep] _detectLocation error: $e');
+      if (!mounted) return;
+      if (_latitude != null && _longitude != null) {
+        setState(() {
+          _placeController.text =
+              '${_latitude!.toStringAsFixed(5)}, ${_longitude!.toStringAsFixed(5)}';
+        });
+      }
     } finally {
+      if (!mounted) return;
       setState(() {
         _isLocating = false;
       });
@@ -328,6 +386,14 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                               horizontal: 12,
                               vertical: 12,
                             ),
+                            suffixIcon: !_isLocating &&
+                                    _placeController.text.isNotEmpty
+                                ? Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: Colors.grey[600],
+                                  )
+                                : null,
                           ),
                           onChanged: (_) =>
                               setState(() => _fieldError = false),
@@ -359,6 +425,13 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                     Text(
                       _locationError!,
                       style: TextStyle(color: Colors.red, fontSize: 11),
+                    ),
+                  ] else if (!_isLocating &&
+                      _placeController.text.isNotEmpty) ...[
+                    SizedBox(height: 4),
+                    Text(
+                      'Wrong place? Tap the field to edit.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
                   const SizedBox(height: 16),

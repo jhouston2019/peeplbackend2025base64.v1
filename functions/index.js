@@ -853,7 +853,7 @@ exports.onVenueEntryEvent = functions.firestore
       return null;
     }
 
-    if (dailySnap.size >= 3) {
+    if (dailySnap.size >= 15) {
       console.log('onVenueEntryEvent: suppressed by daily limit', userId);
       return null;
     }
