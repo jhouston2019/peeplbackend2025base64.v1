@@ -2,18 +2,20 @@ import Foundation
 import CoreLocation
 import FirebaseAuth
 import FirebaseFirestore
+import UserNotifications
 
 class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     static let shared = NativeGeofenceHandler()
     private let locationManager = CLLocationManager()
     private let placesApiKey = "AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8"
+    private let geocoder = CLGeocoder()
     private var lastProcessedLocation: CLLocation?
 
     /// Places search radius (meters).
-    private let placesSearchRadiusMeters = 150
+    private let placesSearchRadiusMeters = 200
     /// User must be within this distance of the place center to count as "walked in".
-    private let maxVenueDistanceMeters: CLLocationDistance = 50
+    private let maxVenueDistanceMeters: CLLocationDistance = 75
     /// Ignore location checks closer than this to the last processed point.
     private let debounceMeters: CLLocationDistance = 30
 
@@ -112,23 +114,65 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
                 return
             }
 
-            print("[NativeGeofence] Places status: \(status)")
+            print("[NativeGeofence] Places status: \(status) body: \(String(data: data, encoding: .utf8) ?? "")")
 
-            guard status == "OK",
-                  let results = json["results"] as? [[String: Any]],
-                  let match = self.closestVenue(in: results, near: location) else {
-                print("[NativeGeofence] no venue within \(self.maxVenueDistanceMeters)m")
+            if status == "OK",
+               let results = json["results"] as? [[String: Any]],
+               let match = self.closestVenue(in: results, near: location) {
+                print("[NativeGeofence] venue detected: \(match.name) (\(match.id))")
+                self.recordVenueEntry(
+                    venueId: match.id,
+                    venueName: match.name,
+                    latitude: lat,
+                    longitude: lng
+                )
                 return
             }
 
-            print("[NativeGeofence] venue detected: \(match.name) (\(match.id))")
-            self.recordVenueEntry(
-                venueId: match.id,
-                venueName: match.name,
-                latitude: lat,
-                longitude: lng
-            )
+            print("[NativeGeofence] no Google venue within \(self.maxVenueDistanceMeters)m — trying CLGeocoder")
+            self.checkForVenueEntryViaGeocoder(at: location)
         }.resume()
+    }
+
+    private func checkForVenueEntryViaGeocoder(at location: CLLocation) {
+        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
+            guard let self = self else { return }
+            if let error = error {
+                print("[NativeGeofence] CLGeocoder failed: \(error)")
+                return
+            }
+            guard let placemark = placemarks?.first else {
+                print("[NativeGeofence] CLGeocoder returned no placemarks")
+                return
+            }
+
+            // Skip pure residential — no walk-in prompt at home.
+            if placemark.areasOfInterest?.isEmpty != false,
+               placemark.name == placemark.thoroughfare {
+                print("[NativeGeofence] looks residential — skipping walk-in prompt")
+                return
+            }
+
+            let venueName = placemark.areasOfInterest?.first
+                ?? placemark.name
+                ?? [placemark.subThoroughfare, placemark.thoroughfare]
+                    .compactMap { $0 }
+                    .joined(separator: " ")
+
+            guard !venueName.isEmpty else {
+                print("[NativeGeofence] CLGeocoder produced empty venue name")
+                return
+            }
+
+            let venueId = "geocode:\(venueName.lowercased().replacingOccurrences(of: " ", with: "_"))"
+            print("[NativeGeofence] geocoder venue: \(venueName)")
+            self.recordVenueEntry(
+                venueId: venueId,
+                venueName: venueName,
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude
+            )
+        }
     }
 
     private struct VenueMatch {
@@ -165,7 +209,8 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         return best?.match
     }
 
-    /// Writes venue_entry_events — Cloud Function onVenueEntryEvent sends the FCM push.
+    /// Writes venue_entry_events and shows an immediate local notification.
+    /// Cloud Function onVenueEntryEvent also sends FCM when deployed.
     private func recordVenueEntry(
         venueId: String,
         venueName: String,
@@ -194,7 +239,29 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
                     print("[NativeGeofence] Firestore write failed: \(error)")
                 } else {
                     print("[NativeGeofence] venue_entry_events written — FCM push queued")
+                    self.showWalkInNotification(venueName: venueName, venueId: venueId)
                 }
             }
+    }
+
+    private func showWalkInNotification(venueName: String, venueId: String) {
+        let content = UNMutableNotificationContent()
+        content.title = "You just walked in 👀"
+        content.body = "How's \(venueName) right now?"
+        content.sound = .default
+
+        let request = UNNotificationRequest(
+            identifier: "venue_entry_\(venueId)_\(Date().timeIntervalSince1970)",
+            content: content,
+            trigger: nil
+        )
+
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error = error {
+                print("[NativeGeofence] local notification failed: \(error)")
+            } else {
+                print("[NativeGeofence] local walk-in notification delivered")
+            }
+        }
     }
 }
