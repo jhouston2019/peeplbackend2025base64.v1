@@ -82,7 +82,7 @@ class PeeplGeofenceService {
   }
 
   /// Requires When-In-Use to already be granted (feed owns that prompt).
-  /// Escalates to Always for background geofencing. Never prompts cold.
+  /// Escalates to Always when possible; When-In-Use alone still enables registration.
   Future<bool> ensurePermission() async {
     if (kIsWeb) return false;
     if (_permanentlyDenied) return false;
@@ -90,28 +90,56 @@ class PeeplGeofenceService {
     try {
       var permission = await geo.Geolocator.checkPermission();
 
-      if (permission != geo.LocationPermission.whileInUse &&
-          permission != geo.LocationPermission.always) {
+      if (permission == geo.LocationPermission.denied) {
+        await DebugLogService.log(
+          'GEOFENCE',
+          'geofence_permission_denied',
+          data: {'permission': permission.name},
+        );
         return false;
       }
 
-      if (permission == geo.LocationPermission.always) {
+      if (permission == geo.LocationPermission.deniedForever) {
+        _permanentlyDenied = true;
+        await DebugLogService.log('GEOFENCE', 'geofence_permission_denied_forever');
+        return false;
+      }
+
+      if (permission == geo.LocationPermission.whileInUse) {
+        // Try to escalate to Always but do not block registration on decline.
+        final upgraded = await geo.Geolocator.requestPermission();
+        if (upgraded == geo.LocationPermission.always) {
+          permission = upgraded;
+        }
+      }
+
+      if (permission == geo.LocationPermission.whileInUse ||
+          permission == geo.LocationPermission.always) {
+        if (permission != geo.LocationPermission.always) {
+          await DebugLogService.log(
+            'GEOFENCE',
+            'geofence_when_in_use_only',
+            data: {
+              'note':
+                  'Registration proceeds; background venue entry needs Always',
+            },
+          );
+        }
         return true;
       }
 
-      // When-In-Use granted — escalate to Always (in-context on iOS).
-      permission = await geo.Geolocator.requestPermission();
-
-      if (permission == geo.LocationPermission.always) {
-        return true;
-      }
-
-      _permanentlyDenied = true;
-      _logDenialOnce(
-        'Always location denied — geofencing disabled.',
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_permission_insufficient',
+        data: {'permission': permission.name},
       );
       return false;
-    } catch (_) {
+    } catch (e) {
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_permission_error',
+        data: {'error': e.toString()},
+      );
       _logDenialOnce('Permission check failed — geofencing disabled.');
       return false;
     }
@@ -135,12 +163,17 @@ class PeeplGeofenceService {
     }
   }
 
-  /// Activates geofencing after Always permission. Idempotent.
+  /// Activates geofencing when location permission is sufficient. Idempotent.
   Future<void> start() async {
     if (kIsWeb) return;
 
     if (_permanentlyDenied) {
       _logDenialOnce('Geofencing permanently disabled.');
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_start_blocked',
+        data: {'reason': 'permanently_denied'},
+      );
       return;
     }
 
@@ -154,20 +187,47 @@ class PeeplGeofenceService {
 
     try {
       final granted = await ensurePermission();
-      if (!granted) return;
+      if (!granted) {
+        await DebugLogService.log(
+          'GEOFENCE',
+          'geofence_start_blocked',
+          data: {'reason': 'permission_not_granted'},
+        );
+        return;
+      }
 
       _isActive = true;
+      await DebugLogService.log('GEOFENCE', 'geofence_started');
     } catch (e) {
       debugPrint('[PeeplGeofenceService] start failed (non-fatal): $e');
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_start_error',
+        data: {'error': e.toString()},
+      );
     }
   }
 
   /// Loads venue geofences from Firestore. Requires [isActive] and signed-in user.
   Future<void> loadGeofencesFromFirestore() async {
     if (kIsWeb) return;
-    if (!_isActive) return;
+    if (!_isActive) {
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_load_skipped',
+        data: {'reason': 'not_active'},
+      );
+      return;
+    }
 
-    if (FirebaseAuth.instance.currentUser == null) return;
+    if (FirebaseAuth.instance.currentUser == null) {
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_load_skipped',
+        data: {'reason': 'not_signed_in'},
+      );
+      return;
+    }
 
     try {
       final snapshot = await FirebaseFirestore.instance
@@ -235,6 +295,11 @@ class PeeplGeofenceService {
           '[PeeplGeofenceService] loadGeofencesFromFirestore error: $e',
         );
       }
+      await DebugLogService.log(
+        'GEOFENCE',
+        'geofence_load_error',
+        data: {'error': e.toString()},
+      );
     }
   }
 

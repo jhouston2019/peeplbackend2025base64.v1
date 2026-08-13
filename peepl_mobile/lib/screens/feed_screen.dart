@@ -184,6 +184,9 @@ class _FeedScreenState extends State<FeedScreen> {
     _loadAds();
     _checkComebackStatus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!kIsWeb) {
+        unawaited(_startGeofencingIfPermitted());
+      }
       if (mounted && _showPeepPrompt) {
         _showAppOpenPeepPrompt();
       }

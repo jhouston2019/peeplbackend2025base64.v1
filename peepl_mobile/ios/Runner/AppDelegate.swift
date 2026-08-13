@@ -31,62 +31,69 @@ import CoreLocation
       locationManager.requestAlwaysAuthorization()
     }
 
-    if let controller = window?.rootViewController as? FlutterViewController {
-      let geofenceChannel = FlutterMethodChannel(
-        name: "com.peepl.geofence/native",
-        binaryMessenger: controller.binaryMessenger
-      )
+    let didFinish = super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    setupGeofenceChannel()
+    return didFinish
+  }
 
-      geofenceChannel.setMethodCallHandler { [weak self] call, result in
-        guard let handler = self?.nativeGeofenceHandler else {
+  private func setupGeofenceChannel() {
+    guard let controller = window?.rootViewController as? FlutterViewController else {
+      print("[NativeGeofence] AppDelegate: FlutterViewController not ready — channel NOT registered")
+      return
+    }
+
+    let geofenceChannel = FlutterMethodChannel(
+      name: "com.peepl.geofence/native",
+      binaryMessenger: controller.binaryMessenger
+    )
+
+    geofenceChannel.setMethodCallHandler { [weak self] call, result in
+      guard let handler = self?.nativeGeofenceHandler else {
+        result(
+          FlutterError(
+            code: "HANDLER_UNAVAILABLE",
+            message: "Native geofence handler is not available",
+            details: nil
+          )
+        )
+        return
+      }
+
+      switch call.method {
+      case "registerRegion":
+        guard let args = call.arguments as? [String: Any],
+              let venueId = args["venueId"] as? String,
+              let venueName = args["venueName"] as? String,
+              let latitude = args["latitude"] as? Double,
+              let longitude = args["longitude"] as? Double,
+              let radius = args["radius"] as? Double else {
           result(
             FlutterError(
-              code: "HANDLER_UNAVAILABLE",
-              message: "Native geofence handler is not available",
+              code: "INVALID_ARGS",
+              message: "Missing or invalid registerRegion arguments",
               details: nil
             )
           )
           return
         }
 
-        switch call.method {
-        case "registerRegion":
-          guard let args = call.arguments as? [String: Any],
-                let venueId = args["venueId"] as? String,
-                let venueName = args["venueName"] as? String,
-                let latitude = args["latitude"] as? Double,
-                let longitude = args["longitude"] as? Double,
-                let radius = args["radius"] as? Double else {
-            result(
-              FlutterError(
-                code: "INVALID_ARGS",
-                message: "Missing or invalid registerRegion arguments",
-                details: nil
-              )
-            )
-            return
-          }
+        handler.registerRegion(
+          venueId: venueId,
+          venueName: venueName,
+          latitude: latitude,
+          longitude: longitude,
+          radius: radius
+        )
+        result(true)
 
-          handler.registerRegion(
-            venueId: venueId,
-            venueName: venueName,
-            latitude: latitude,
-            longitude: longitude,
-            radius: radius
-          )
-          result(true)
+      case "clearRegions":
+        handler.clearAllRegions()
+        result(true)
 
-        case "clearRegions":
-          handler.clearAllRegions()
-          result(true)
-
-        default:
-          result(FlutterMethodNotImplemented)
-        }
+      default:
+        result(FlutterMethodNotImplemented)
       }
-      print("[NativeGeofence] AppDelegate: MethodChannel registered")
     }
-
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+    print("[NativeGeofence] AppDelegate: MethodChannel registered")
   }
 }
