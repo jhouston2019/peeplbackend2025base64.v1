@@ -1,13 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'home/peepl_home_tokens.dart';
+import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
-import '../services/venue_name_service.dart';
 
 class QuickPeepSheet {
   QuickPeepSheet._();
@@ -114,7 +115,6 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   }
 
   Future<void> _detectLocation() async {
-    debugPrint('[QuickPeep] _detectLocation started');
     setState(() {
       _isLocating = true;
       _locationError = null;
@@ -122,41 +122,47 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
 
     try {
       final position = await LocationService.getCurrentLocation();
-      debugPrint('[QuickPeep] position: $position');
       if (position == null) {
-        if (mounted) {
-          setState(() {
-            _locationError = 'Location permission denied';
-            _isLocating = false;
-          });
-        }
+        setState(() {
+          _locationError = 'Could not detect location';
+          _isLocating = false;
+        });
         return;
       }
 
       _latitude = position.latitude;
       _longitude = position.longitude;
 
-      final name = await VenueNameService.resolveVenueName(
-        position.latitude,
-        position.longitude,
+      final url = Uri.parse(
+        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+        '?location=${position.latitude},${position.longitude}'
+        '&radius=100'
+        '&type=establishment'
+        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
       );
-      debugPrint('[QuickPeep] resolved name: $name');
 
-      if (!mounted) return;
-      setState(() {
-        if (name != null && name.isNotEmpty) {
-          _placeController.text = name;
+      final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final json = jsonDecode(response.body) as Map<String, dynamic>;
+        final status = json['status'] as String?;
+        final results = json['results'] as List<dynamic>?;
+
+        if (status == 'OK' && results != null && results.isNotEmpty) {
+          final name = results.first['name'] as String?;
+          if (name != null && name.isNotEmpty) {
+            setState(() {
+              _placeController.text = name;
+            });
+          }
         }
+      }
+    } catch (e) {
+      // fail silently — leave field blank for manual entry
+    } finally {
+      setState(() {
         _isLocating = false;
       });
-    } catch (e) {
-      debugPrint('[QuickPeep] _detectLocation error: $e');
-      if (mounted) {
-        setState(() {
-          _locationError = 'Could not detect location';
-          _isLocating = false;
-        });
-      }
     }
   }
 
