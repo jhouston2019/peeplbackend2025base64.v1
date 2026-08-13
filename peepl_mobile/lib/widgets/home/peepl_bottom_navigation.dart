@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import 'peepl_home_tokens.dart';
@@ -32,114 +34,124 @@ class PeeplBottomNavigation extends StatelessWidget {
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
-    return ColoredBox(
-      color: PeeplHomeTokens.shellNavy,
-      child: Padding(
-        padding: EdgeInsets.only(bottom: bottomInset),
-        child: Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.center,
-          children: [
-            SizedBox(
-              height: PeeplHomeTokens.bottomNavHeight,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: _navGroupInset),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _NavItem(
-                                label: 'Explore',
-                                icon: Icons.home_rounded,
-                                selected: true,
-                                onTap: onExploreTap,
-                              ),
-                            ),
-                            Expanded(
-                              child: _NavItem(
-                                label: 'Search',
-                                icon: Icons.search,
-                                onTap: onSearchTap,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: _dealsCenterReserve),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.only(left: _navGroupInset),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                          children: [
-                            Expanded(
-                              child: _NavItem(
-                                label: 'Alerts',
-                                icon: Icons.notifications_outlined,
-                                onTap: onAlertsTap,
-                                showDot: showAlertDot,
-                              ),
-                            ),
-                            Expanded(
-                              child: _NavItem(
-                                label: 'Profile',
-                                icon: Icons.person_outline,
-                                onTap: onProfileTap,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return ClipRect(
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: 18, sigmaY: 18),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            color: PeeplHomeTokens.frostedNav,
+            border: Border(
+              top: BorderSide(color: PeeplHomeTokens.frostedNavBorder),
             ),
-            Semantics(
-              label: 'Deals',
-              button: true,
-              child: GestureDetector(
-                onTap: onDealsTap,
-                behavior: HitTestBehavior.opaque,
-                child: Container(
-                  height: _dealsButtonHeight,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: _dealsHorizontalPadding,
-                  ),
-                  decoration: BoxDecoration(
-                    color: PeeplHomeTokens.dealsYellow,
-                    borderRadius: BorderRadius.circular(_dealsButtonRadius),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        Icons.local_offer_outlined,
-                        color: PeeplHomeTokens.dealsForeground,
-                        size: _dealsIconSize,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Deals',
-                        style: TextStyle(
-                          color: PeeplHomeTokens.dealsForeground,
-                          fontSize: _dealsFontSize,
-                          fontWeight: FontWeight.w800,
-                          height: 1.0,
+          ),
+          child: Padding(
+            padding: EdgeInsets.only(bottom: bottomInset),
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                SizedBox(
+                  height: PeeplHomeTokens.bottomNavHeight,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: _navGroupInset),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  child: _NavItem(
+                                    label: 'Explore',
+                                    icon: Icons.home_rounded,
+                                    selected: true,
+                                    onTap: onExploreTap,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _NavItem(
+                                    label: 'Search',
+                                    icon: Icons.search,
+                                    onTap: onSearchTap,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(width: _dealsCenterReserve),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(left: _navGroupInset),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                Expanded(
+                                  child: _NavItem(
+                                    label: 'Alerts',
+                                    icon: Icons.notifications_outlined,
+                                    onTap: onAlertsTap,
+                                    showDot: showAlertDot,
+                                  ),
+                                ),
+                                Expanded(
+                                  child: _NavItem(
+                                    label: 'Profile',
+                                    icon: Icons.person_outline,
+                                    onTap: onProfileTap,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
+                Semantics(
+                  label: 'Deals',
+                  button: true,
+                  child: GestureDetector(
+                    onTap: onDealsTap,
+                    behavior: HitTestBehavior.opaque,
+                    child: Container(
+                      height: _dealsButtonHeight,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: _dealsHorizontalPadding,
+                      ),
+                      decoration: BoxDecoration(
+                        color: PeeplHomeTokens.dealsYellow,
+                        borderRadius: BorderRadius.circular(_dealsButtonRadius),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.local_offer_outlined,
+                            color: PeeplHomeTokens.dealsForeground,
+                            size: _dealsIconSize,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Deals',
+                            style: TextStyle(
+                              color: PeeplHomeTokens.dealsForeground,
+                              fontSize: _dealsFontSize,
+                              fontWeight: FontWeight.w800,
+                              height: 1.0,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -166,8 +178,8 @@ class _NavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = selected
-        ? (accentColor ?? PeeplHomeTokens.white)
-        : PeeplHomeTokens.white.withValues(alpha: 0.88);
+        ? (accentColor ?? PeeplHomeTokens.headerForeground)
+        : PeeplHomeTokens.headerMuted;
 
     return GestureDetector(
       onTap: onTap,

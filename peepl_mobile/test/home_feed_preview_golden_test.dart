@@ -7,6 +7,7 @@ import 'package:peepl_mobile/widgets/home/happening_now_ticker.dart';
 import 'package:peepl_mobile/widgets/home/organic_crowd_card.dart';
 import 'package:peepl_mobile/widgets/home/peepl_bottom_navigation.dart';
 import 'package:peepl_mobile/widgets/home/peepl_home_header.dart';
+import 'package:peepl_mobile/widgets/home/peepl_home_background.dart';
 import 'package:peepl_mobile/widgets/home/peepl_home_tokens.dart';
 import 'package:peepl_mobile/widgets/home/quick_filter_row.dart';
 import 'package:peepl_mobile/widgets/home/sponsored_native_card.dart';
@@ -22,12 +23,11 @@ class _PreviewHarness extends StatelessWidget {
     final topInset = MediaQuery.paddingOf(context).top;
 
     return Scaffold(
-      backgroundColor: PeeplHomeTokens.feedBackground,
-      body: Column(
-        children: [
-          ColoredBox(
-            color: PeeplHomeTokens.shellNavy,
-            child: Padding(
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: Column(
+          children: [
+            Padding(
               padding: EdgeInsets.only(top: topInset + 4, bottom: 6),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -51,28 +51,28 @@ class _PreviewHarness extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
-              itemCount: rows.length,
-              itemBuilder: (context, index) {
-                final row = rows[index];
-                return Padding(
-                  padding: EdgeInsets.only(
-                    bottom: index < rows.length - 1
-                        ? PeeplHomeTokens.rowVerticalGap
-                        : 0,
-                  ),
-                  child: SizedBox(
-                    height: EditorialFeedLayout.rowHeight(row),
-                    child: _buildRow(row),
-                  ),
-                );
-              },
+            Expanded(
+              child: ListView.builder(
+                padding: const EdgeInsets.fromLTRB(0, 4, 0, 16),
+                itemCount: rows.length,
+                itemBuilder: (context, index) {
+                  final row = rows[index];
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: index < rows.length - 1
+                          ? PeeplHomeTokens.rowVerticalGap
+                          : 0,
+                    ),
+                    child: SizedBox(
+                      height: EditorialFeedLayout.rowHeight(row),
+                      child: _buildRow(row),
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: PeeplBottomNavigation(
         onExploreTap: () {},
@@ -91,17 +91,15 @@ class _PreviewHarness extends StatelessWidget {
       case EditorialRowKind.featuredOrganic:
         return _organic(row.items.first, OrganicCardSize.featured);
       case EditorialRowKind.halfOrganicPair:
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: PeeplHomeTokens.cardHorizontalMargin,
-          ),
-          child: Row(
-            children: [
-              Expanded(child: _organic(row.items[0], OrganicCardSize.half, 0)),
-              const SizedBox(width: PeeplHomeTokens.halfCardGap),
-              Expanded(child: _organic(row.items[1], OrganicCardSize.half, 0)),
-            ],
-          ),
+        return Row(
+          children: [
+            Expanded(child: _organic(row.items[0], OrganicCardSize.half, 0)),
+            Container(
+              width: PeeplHomeTokens.halfCardGap,
+              color: PeeplHomeTokens.organicSeparator,
+            ),
+            Expanded(child: _organic(row.items[1], OrganicCardSize.half, 0)),
+          ],
         );
       case EditorialRowKind.sponsored:
         final ad = row.items.first;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../shell_tab_bus.dart';
 import '../widgets/home/peepl_bottom_navigation.dart';
-import '../widgets/home/peepl_home_tokens.dart';
 import 'discover_screen.dart';
 import 'feed_screen.dart';
 
@@ -58,8 +57,11 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PeeplHomeTokens.feedBackground,
-      body: IndexedStack(index: _bodyIndex, children: const [FeedScreen(), DiscoverScreen()]),
+      backgroundColor: Colors.transparent,
+      body: IndexedStack(
+        index: _bodyIndex,
+        children: const [FeedScreen(), DiscoverScreen()],
+      ),
       bottomNavigationBar: PeeplBottomNavigation(
         onExploreTap: () => Navigator.pushNamed(context, '/explore'),
         onSearchTap: () => Navigator.pushNamed(context, '/search'),

@@ -23,7 +23,7 @@ class PeeplHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const wordmarkStyle = TextStyle(
-      color: PeeplHomeTokens.white,
+      color: PeeplHomeTokens.brandBlue,
       fontSize: 24,
       fontWeight: FontWeight.w800,
       height: 1.0,
@@ -53,7 +53,7 @@ class PeeplHomeHeader extends StatelessWidget {
                             children: [
                               const Icon(
                                 Icons.location_on,
-                                color: PeeplHomeTokens.white,
+                                color: PeeplHomeTokens.headerForeground,
                                 size: 16,
                               ),
                               const SizedBox(width: 4),
@@ -63,15 +63,15 @@ class PeeplHomeHeader extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: const TextStyle(
-                                    color: PeeplHomeTokens.white,
+                                    color: PeeplHomeTokens.headerForeground,
                                     fontSize: 13,
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
                               const Icon(
                                 Icons.keyboard_arrow_down,
-                                color: PeeplHomeTokens.white,
+                                color: PeeplHomeTokens.headerForeground,
                                 size: 18,
                               ),
                             ],
@@ -90,14 +90,14 @@ class PeeplHomeHeader extends StatelessWidget {
                             height: 30,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
+                              color: PeeplHomeTokens.chipSurface,
                               border: Border.all(
-                                color: PeeplHomeTokens.white.withValues(alpha: 0.34),
-                                width: 1.2,
+                                color: PeeplHomeTokens.chipBorderLight,
                               ),
                             ),
                             child: const Icon(
                               Icons.person,
-                              color: PeeplHomeTokens.white,
+                              color: PeeplHomeTokens.headerForeground,
                               size: 16,
                             ),
                           ),
@@ -106,9 +106,9 @@ class PeeplHomeHeader extends StatelessWidget {
                         GestureDetector(
                           onTap: onMenuTap,
                           behavior: HitTestBehavior.opaque,
-                          child: Icon(
+                          child: const Icon(
                             Icons.menu,
-                            color: PeeplHomeTokens.white.withValues(alpha: 0.88),
+                            color: PeeplHomeTokens.headerForeground,
                             size: 24,
                           ),
                         ),
@@ -180,20 +180,25 @@ class PeeplHomeHeader extends StatelessWidget {
                   child: Container(
                     height: 44,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.2),
+                      color: PeeplHomeTokens.chipSurface,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: PeeplHomeTokens.chipBorderLight),
                     ),
-                    child: FittedBox(
+                    child: const FittedBox(
                       fit: BoxFit.scaleDown,
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.cell_tower, color: Colors.white, size: 20),
-                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.cell_tower,
+                            color: PeeplHomeTokens.headerForeground,
+                            size: 20,
+                          ),
+                          SizedBox(width: 6),
                           Text(
                             'REQUEST A PEEP',
                             style: TextStyle(
-                              color: PeeplHomeTokens.white,
+                              color: PeeplHomeTokens.headerForeground,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.3,

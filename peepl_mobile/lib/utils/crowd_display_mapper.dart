@@ -95,11 +95,10 @@ class CrowdDisplayMapper {
   }
 
   static Color _colorForScore(int score) {
-    if (score <= 2) return const Color(0xFF34C759);
-    if (score == 3) return const Color(0xFF8BC34A);
-    if (score <= 5) return const Color(0xFFFFC107);
-    if (score <= 8) return const Color(0xFFFF9500);
-    return const Color(0xFFFF3B30);
+    if (score <= 0) return const Color(0xFF9E9E9E);
+    if (score <= 4) return const Color(0xFF5DBBFF);
+    if (score <= 7) return const Color(0xFFB56CFF);
+    return const Color(0xFFFF6474);
   }
 
   static String? _parseTrendLabel(String? raw) {

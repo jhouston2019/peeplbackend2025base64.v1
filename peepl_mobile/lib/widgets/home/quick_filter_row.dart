@@ -42,7 +42,7 @@ class QuickFilterRow extends StatelessWidget {
       _FilterChip(
         label: 'Map',
         icon: Icons.map_outlined,
-        iconColor: PeeplHomeTokens.white,
+        iconColor: PeeplHomeTokens.headerForeground,
         onTap: onMapTap,
       ),
     ];
@@ -86,7 +86,7 @@ class QuickFilterRow extends StatelessWidget {
       _FilterChip(
         label: 'More',
         icon: Icons.more_horiz,
-        iconColor: PeeplHomeTokens.white,
+        iconColor: PeeplHomeTokens.headerForeground,
         onTap: onMoreTap,
       ),
     );
@@ -141,7 +141,10 @@ class _FilterChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textColor = labelColor ?? PeeplHomeTokens.white;
+    final textColor = selected
+        ? PeeplHomeTokens.white
+        : (labelColor ?? PeeplHomeTokens.headerForeground);
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
@@ -150,17 +153,17 @@ class _FilterChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
           color: emphasized
-              ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.12)
+              ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.18)
               : selected
-                  ? PeeplHomeTokens.white.withValues(alpha: 0.14)
-                  : PeeplHomeTokens.chipSurface.withValues(alpha: 0.85),
+                  ? PeeplHomeTokens.shellNavy
+                  : PeeplHomeTokens.chipSurface,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: emphasized
-                ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.25)
+                ? PeeplHomeTokens.dealsYellow.withValues(alpha: 0.35)
                 : selected
-                    ? PeeplHomeTokens.white.withValues(alpha: 0.20)
-                    : PeeplHomeTokens.chipBorder,
+                    ? PeeplHomeTokens.shellNavy
+                    : PeeplHomeTokens.chipBorderLight,
           ),
         ),
         child: Row(

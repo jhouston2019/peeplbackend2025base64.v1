@@ -87,7 +87,7 @@ class _SponsoredNativeCardState extends State<SponsoredNativeCard> {
           child: Container(
             height: PeeplHomeTokens.sponsoredCardHeight,
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+              borderRadius: BorderRadius.circular(PeeplHomeTokens.sponsoredCardRadius),
               border: Border.all(
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,

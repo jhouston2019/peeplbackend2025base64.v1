@@ -35,10 +35,7 @@ class OrganicCrowdCard extends StatelessWidget {
       : PeeplHomeTokens.halfCardHeight;
 
   double get _horizontalMargin =>
-      marginHorizontal ??
-      (size == OrganicCardSize.featured
-          ? PeeplHomeTokens.cardHorizontalMargin
-          : 0);
+      marginHorizontal ?? PeeplHomeTokens.cardHorizontalMargin;
 
   @override
   Widget build(BuildContext context) {
@@ -53,26 +50,31 @@ class OrganicCrowdCard extends StatelessWidget {
         child: SizedBox(
           height: _height,
           child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
-              boxShadow: const [PeeplHomeTokens.organicShadow],
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(
+                  color: PeeplHomeTokens.organicSeparator,
+                  width: PeeplHomeTokens.organicCardBorderWidth,
+                ),
+              ),
             ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+            child: ClipRect(
               child: Stack(
                 fit: StackFit.expand,
                 children: [
                   FeedCardImage(source: imageUrl),
                   Positioned.fill(
                     child: DecoratedBox(
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
-                          begin: Alignment.centerRight,
-                          end: Alignment.centerLeft,
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
                           colors: [
-                            Colors.black.withValues(alpha: 0.06),
-                            Colors.black.withValues(alpha: 0.22),
+                            PeeplHomeTokens.crowdOverlayLeft,
+                            PeeplHomeTokens.crowdOverlayMid,
+                            PeeplHomeTokens.crowdOverlayRight,
                           ],
+                          stops: [0.0, 0.45, 1.0],
                         ),
                       ),
                     ),
@@ -149,22 +151,18 @@ class OrganicCrowdCard extends StatelessWidget {
                             ),
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(
-                            PeeplHomeTokens.cardRadius,
-                          ),
-                          border: Border.all(
-                            color: PeeplHomeTokens.organicCardBorder,
-                            width: PeeplHomeTokens.organicCardBorderWidth,
+                        Padding(
+                          padding: EdgeInsets.only(right: compact ? 6 : 8),
+                          child: Align(
+                            alignment: Alignment.centerRight,
+                            child: Icon(
+                              Icons.chevron_right,
+                              color: PeeplHomeTokens.white.withValues(alpha: 0.82),
+                              size: compact ? 16 : 18,
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ),
                   ),
                 ],

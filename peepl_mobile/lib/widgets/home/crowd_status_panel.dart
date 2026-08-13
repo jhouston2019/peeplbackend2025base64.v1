@@ -64,7 +64,7 @@ class TenSegmentCrowdBar extends StatelessWidget {
 
                   ? fillColor
 
-                  : Colors.white.withValues(alpha: 0.18),
+                  : PeeplHomeTokens.crowdDotEmpty,
 
               borderRadius: BorderRadius.circular(2),
 
@@ -127,31 +127,7 @@ class CrowdStatusPanel extends StatelessWidget {
         label: data.semanticLabel,
 
         child: DecoratedBox(
-
-          decoration: const BoxDecoration(
-
-            gradient: LinearGradient(
-
-              begin: Alignment.centerLeft,
-
-              end: Alignment.centerRight,
-
-              colors: [
-
-                PeeplHomeTokens.crowdOverlayLeft,
-
-                PeeplHomeTokens.crowdOverlayMid,
-
-                PeeplHomeTokens.crowdOverlayRight,
-
-              ],
-
-              stops: [0.0, 0.55, 1.0],
-
-            ),
-
-          ),
-
+          decoration: const BoxDecoration(),
           child: Padding(
 
             padding: EdgeInsets.fromLTRB(

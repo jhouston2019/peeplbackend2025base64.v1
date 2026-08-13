@@ -22,6 +22,7 @@ import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../services/notification_service.dart';
 import '../utils/crowd_display_mapper.dart';
+import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/feed_card_image.dart';
 import '../widgets/home/editorial_feed_layout.dart';
 import '../widgets/home/feed_loading_skeleton.dart';
@@ -64,8 +65,8 @@ import 'location_detail_screen.dart';
 class _T {
   static const navy = PeeplHomeTokens.navyHeader;
   static const feedBackground = PeeplHomeTokens.feedBackground;
-  static const primaryText = PeeplHomeTokens.white;
-  static const secondaryText = PeeplHomeTokens.mutedWhite;
+  static const primaryText = PeeplHomeTokens.headerForeground;
+  static const secondaryText = PeeplHomeTokens.headerMuted;
 }
 
 class FeedScreen extends StatefulWidget {
@@ -1224,30 +1225,28 @@ class _FeedScreenState extends State<FeedScreen> {
           size: OrganicCardSize.featured,
         );
       case EditorialRowKind.halfOrganicPair:
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: PeeplHomeTokens.cardHorizontalMargin,
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: _buildOrganicCard(
-                  row.items[0],
-                  size: OrganicCardSize.half,
-                  marginHorizontal: 0,
-                ),
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: _buildOrganicCard(
+                row.items[0],
+                size: OrganicCardSize.half,
+                marginHorizontal: 0,
               ),
-              const SizedBox(width: PeeplHomeTokens.halfCardGap),
-              Expanded(
-                child: _buildOrganicCard(
-                  row.items[1],
-                  size: OrganicCardSize.half,
-                  marginHorizontal: 0,
-                ),
+            ),
+            Container(
+              width: PeeplHomeTokens.halfCardGap,
+              color: PeeplHomeTokens.organicSeparator,
+            ),
+            Expanded(
+              child: _buildOrganicCard(
+                row.items[1],
+                size: OrganicCardSize.half,
+                marginHorizontal: 0,
               ),
-            ],
-          ),
+            ),
+          ],
         );
       case EditorialRowKind.sponsored:
         final item = row.items.first;
@@ -1294,7 +1293,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: Container(
           height: PeeplHomeTokens.sponsoredCardHeight,
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+            borderRadius: BorderRadius.circular(PeeplHomeTokens.sponsoredCardRadius),
             border: Border.all(
               color: PeeplHomeTokens.sponsoredBorder,
               width: PeeplHomeTokens.sponsoredBorderWidth,
@@ -1412,18 +1411,20 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PeeplHomeTokens.feedBackground,
-      body: MediaQuery.removePadding(
-        context: context,
-        removeTop: true,
-        removeLeft: true,
-        removeRight: true,
-        child: Column(
-          children: [
-            _buildHomeShellHeader(),
-            if (_showComebackBanner) _buildComebackBanner(),
-            Expanded(child: _buildFeedContent()),
-          ],
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: MediaQuery.removePadding(
+          context: context,
+          removeTop: true,
+          removeLeft: true,
+          removeRight: true,
+          child: Column(
+            children: [
+              _buildHomeShellHeader(),
+              if (_showComebackBanner) _buildComebackBanner(),
+              Expanded(child: _buildFeedContent()),
+            ],
+          ),
         ),
       ),
     );
@@ -1431,36 +1432,38 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Widget _buildHomeShellHeader() {
     final topInset = MediaQuery.paddingOf(context).top;
-    return ColoredBox(
-      color: PeeplHomeTokens.shellNavy,
-      child: Padding(
-        padding: EdgeInsets.only(top: topInset + 4, bottom: 6),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            PeeplHomeHeader(
-              areaLabel: _areaLabel,
-              onLocationTap: _showAreaPicker,
-              onProfileTap: () => Navigator.pushNamed(context, '/profile'),
-              onMenuTap: () => Navigator.pushNamed(context, '/settings'),
-              onPostTap: () => QuickPeepSheet.show(context),
-              onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
-            ),
-            QuickFilterRow(
-              onMapTap: () {
-                activeFilterNotifier.value = 'Map';
-                Navigator.pushNamed(context, '/map');
-              },
-              onMoreTap: _showFilterSheet,
-              onRegionTap: _showAreaPicker,
-            ),
-            HappeningNowTicker(
-              text: _happeningNowTickerText(),
-              onTap: () => Navigator.pushNamed(context, '/deals'),
-            ),
-          ],
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: topInset + 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              PeeplHomeHeader(
+                areaLabel: _areaLabel,
+                onLocationTap: _showAreaPicker,
+                onProfileTap: () => Navigator.pushNamed(context, '/profile'),
+                onMenuTap: () => Navigator.pushNamed(context, '/settings'),
+                onPostTap: () => QuickPeepSheet.show(context),
+                onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
+              ),
+              QuickFilterRow(
+                onMapTap: () {
+                  activeFilterNotifier.value = 'Map';
+                  Navigator.pushNamed(context, '/map');
+                },
+                onMoreTap: _showFilterSheet,
+                onRegionTap: _showAreaPicker,
+              ),
+            ],
+          ),
         ),
-      ),
+        HappeningNowTicker(
+          text: _happeningNowTickerText(),
+          onTap: () => Navigator.pushNamed(context, '/deals'),
+        ),
+      ],
     );
   }
 
@@ -1855,18 +1858,20 @@ class FeedPreviewHost extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PeeplHomeTokens.feedBackground,
-      body: Column(
-        children: [
-          const Expanded(child: FeedScreen()),
-          PeeplBottomNavigation(
-            onExploreTap: () {},
-            onSearchTap: () {},
-            onDealsTap: () {},
-            onAlertsTap: () {},
-            onProfileTap: () {},
-          ),
-        ],
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: Column(
+          children: [
+            const Expanded(child: FeedScreen()),
+            PeeplBottomNavigation(
+              onExploreTap: () {},
+              onSearchTap: () {},
+              onDealsTap: () {},
+              onAlertsTap: () {},
+              onProfileTap: () {},
+            ),
+          ],
+        ),
       ),
     );
   }

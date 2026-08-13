@@ -48,28 +48,21 @@ class _SkeletonRow extends StatelessWidget {
   Widget build(BuildContext context) {
     switch (kind) {
       case _SkeletonRowKind.featured:
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: PeeplHomeTokens.cardHorizontalMargin,
-          ),
-          child: _SkeletonCard(height: PeeplHomeTokens.featuredCardHeight),
-        );
+        return _SkeletonCard(height: PeeplHomeTokens.featuredCardHeight);
       case _SkeletonRowKind.halfPair:
-        return Padding(
-          padding: const EdgeInsets.symmetric(
-            horizontal: PeeplHomeTokens.cardHorizontalMargin,
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
-              ),
-              const SizedBox(width: PeeplHomeTokens.halfCardGap),
-              Expanded(
-                child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
-              ),
-            ],
-          ),
+        return Row(
+          children: [
+            Expanded(
+              child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
+            ),
+            Container(
+              width: PeeplHomeTokens.halfCardGap,
+              color: PeeplHomeTokens.organicSeparator,
+            ),
+            Expanded(
+              child: _SkeletonCard(height: PeeplHomeTokens.halfCardHeight),
+            ),
+          ],
         );
       case _SkeletonRowKind.sponsored:
         return Padding(
@@ -100,22 +93,26 @@ class _SkeletonCard extends StatelessWidget {
       height: height,
       decoration: BoxDecoration(
         color: PeeplHomeTokens.skeletonSurface,
-        borderRadius: BorderRadius.circular(PeeplHomeTokens.cardRadius),
+        borderRadius: sponsored
+            ? BorderRadius.circular(PeeplHomeTokens.sponsoredCardRadius)
+            : null,
         border: sponsored
             ? Border.all(
                 color: PeeplHomeTokens.sponsoredBorder,
                 width: PeeplHomeTokens.sponsoredBorderWidth,
               )
-            : Border.all(
-                color: PeeplHomeTokens.organicCardBorder,
-                width: PeeplHomeTokens.organicCardBorderWidth,
+            : const Border(
+                top: BorderSide(
+                  color: PeeplHomeTokens.organicSeparator,
+                  width: PeeplHomeTokens.organicCardBorderWidth,
+                ),
               ),
         boxShadow: sponsored
             ? const [
                 PeeplHomeTokens.sponsoredGlowEdge,
                 PeeplHomeTokens.sponsoredGlowDrop,
               ]
-            : const [PeeplHomeTokens.organicShadow],
+            : null,
       ),
       padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
       child: Row(
