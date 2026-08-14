@@ -1,16 +1,12 @@
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
-import 'package:geolocator/geolocator.dart';
 import 'home/peepl_home_tokens.dart';
-import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
-import '../services/debug_log_service.dart';
 import '../services/feed_service.dart';
+import '../services/location_label_service.dart';
 import '../services/location_service.dart';
 
 class QuickPeepSheet {
@@ -43,9 +39,6 @@ class _QuickPeepContent extends StatefulWidget {
 }
 
 class _QuickPeepContentState extends State<_QuickPeepContent> {
-  static const _placesApiKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
-  static const _maxVenueDistanceMeters = 75.0;
-
   static const _vibeOptions = [
     'Dead quiet',
     'Moderate',
@@ -109,7 +102,8 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
 
   Future<void> _acquireCoordinates() async {
     try {
-      final position = await LocationService.getCurrentLocation();
+      final position =
+          await LocationService.getCurrentLocation(forceRefresh: true);
       if (!mounted || position == null) return;
       setState(() {
         _latitude = position.latitude;
@@ -120,154 +114,6 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     }
   }
 
-  Future<String?> _resolveNearbyVenueName(double lat, double lng) async {
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-      '?location=$lat,$lng'
-      '&radius=150'
-      '&type=establishment'
-      '&key=$_placesApiKey',
-    );
-
-    try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-      await DebugLogService.log('QUICK_PEEP', 'places_response', data: {
-        'status_code': response.statusCode,
-        'body': response.body.substring(0, response.body.length.clamp(0, 500)),
-        'latitude': lat,
-        'longitude': lng,
-      });
-      if (response.statusCode != 200) return null;
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final status = json['status'] as String?;
-      if (status != 'OK') return null;
-
-      final results = json['results'] as List<dynamic>?;
-      if (results == null || results.isEmpty) return null;
-
-      String? bestName;
-      var bestDistance = double.infinity;
-      for (final raw in results) {
-        final place = raw as Map<String, dynamic>;
-        final name = place['name'] as String?;
-        if (name == null || name.trim().isEmpty) continue;
-
-        final placeLat =
-            (place['geometry']?['location']?['lat'] as num?)?.toDouble();
-        final placeLng =
-            (place['geometry']?['location']?['lng'] as num?)?.toDouble();
-        if (placeLat == null || placeLng == null) continue;
-
-        final distance = Geolocator.distanceBetween(lat, lng, placeLat, placeLng);
-        if (distance <= _maxVenueDistanceMeters && distance < bestDistance) {
-          bestDistance = distance;
-          bestName = name.trim();
-        }
-      }
-      return bestName;
-    } catch (e) {
-      await DebugLogService.log('QUICK_PEEP', 'places_error', data: {
-        'error': e.toString(),
-        'latitude': lat,
-        'longitude': lng,
-      });
-      return null;
-    }
-  }
-
-  Future<String?> _resolveStreetAddress(double lat, double lng) async {
-    final url = Uri.parse(
-      'https://maps.googleapis.com/maps/api/geocode/json'
-      '?latlng=$lat,$lng'
-      '&key=$_placesApiKey',
-    );
-
-    try {
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-      await DebugLogService.log('QUICK_PEEP', 'geocode_response', data: {
-        'status_code': response.statusCode,
-        'body': response.body.substring(0, response.body.length.clamp(0, 500)),
-        'latitude': lat,
-        'longitude': lng,
-      });
-      if (response.statusCode != 200) return null;
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      if (json['status'] != 'OK') return null;
-
-      final results = json['results'] as List<dynamic>?;
-      if (results == null || results.isEmpty) return null;
-
-      final formatted =
-          (results.first as Map<String, dynamic>)['formatted_address'] as String?;
-      if (formatted == null || formatted.trim().isEmpty) return null;
-
-      return formatted.trim();
-    } catch (e) {
-      await DebugLogService.log('QUICK_PEEP', 'geocode_error', data: {
-        'error': e.toString(),
-        'latitude': lat,
-        'longitude': lng,
-      });
-      return null;
-    }
-  }
-
-  /// Uses iOS/Android on-device reverse geocoding — works without Google REST API.
-  Future<String?> _resolvePlatformAddress(double lat, double lng) async {
-    try {
-      final placemarks = await placemarkFromCoordinates(lat, lng);
-      if (placemarks.isEmpty) return null;
-
-      final place = placemarks.first;
-      final street = place.street?.trim();
-      final subLocality = place.subLocality?.trim();
-      final locality = place.locality?.trim();
-      final region = place.administrativeArea?.trim();
-
-      if (street != null && street.isNotEmpty) {
-        final city = locality ?? subLocality;
-        if (city != null && city.isNotEmpty) {
-          return region != null && region.isNotEmpty
-              ? '$street, $city, $region'
-              : '$street, $city';
-        }
-        return street;
-      }
-
-      final parts = <String>[
-        if (subLocality != null && subLocality.isNotEmpty) subLocality,
-        if (locality != null && locality.isNotEmpty) locality,
-        if (region != null && region.isNotEmpty) region,
-      ];
-      if (parts.isEmpty) return null;
-      return parts.join(', ');
-    } catch (e) {
-      await DebugLogService.log('QUICK_PEEP', 'platform_geocode_error', data: {
-        'error': e.toString(),
-        'latitude': lat,
-        'longitude': lng,
-      });
-      return null;
-    }
-  }
-
-  Future<String> _resolvePlaceLabel(double lat, double lng) async {
-    final venueName = await _resolveNearbyVenueName(lat, lng);
-    if (venueName != null && venueName.isNotEmpty) return venueName;
-
-    final googleAddress = await _resolveStreetAddress(lat, lng);
-    if (googleAddress != null && googleAddress.isNotEmpty) return googleAddress;
-
-    final platformAddress = await _resolvePlatformAddress(lat, lng);
-    if (platformAddress != null && platformAddress.isNotEmpty) {
-      return platformAddress;
-    }
-
-    return 'Near ${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}';
-  }
-
   Future<void> _detectLocation() async {
     setState(() {
       _isLocating = true;
@@ -275,7 +121,8 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     });
 
     try {
-      final position = await LocationService.getCurrentLocation();
+      final position =
+          await LocationService.getCurrentLocation(forceRefresh: true);
       if (position == null) {
         if (!mounted) return;
         setState(() {
@@ -290,7 +137,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       _latitude = lat;
       _longitude = lng;
 
-      final label = await _resolvePlaceLabel(lat, lng);
+      final label = await LocationLabelService.resolve(lat, lng);
 
       if (!mounted) return;
       setState(() {
@@ -300,11 +147,12 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       debugPrint('[QuickPeep] _detectLocation error: $e');
       if (!mounted) return;
       if (_latitude != null && _longitude != null) {
-        final fallback =
-            await _resolvePlatformAddress(_latitude!, _longitude!);
+        final fallback = await LocationLabelService.resolve(
+          _latitude!,
+          _longitude!,
+        );
         setState(() {
-          _placeController.text = fallback ??
-              'Near ${_latitude!.toStringAsFixed(4)}, ${_longitude!.toStringAsFixed(4)}';
+          _placeController.text = fallback;
         });
       }
     } finally {

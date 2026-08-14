@@ -21,7 +21,8 @@ class LocationService {
   ///
   /// Results are cached for the session lifetime. Call [clearCache] on
   /// logout or when a fresh fix is needed (e.g. after a long background gap).
-  static Future<Position?> getCurrentLocation() {
+  static Future<Position?> getCurrentLocation({bool forceRefresh = false}) {
+    if (forceRefresh) clearCache();
     if (_cachedPosition != null) return Future.value(_cachedPosition);
     _pendingFetch ??= _fetchLocation();
     return _pendingFetch!;

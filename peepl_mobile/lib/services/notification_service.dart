@@ -17,7 +17,7 @@ import 'debug_log_service.dart';
 import 'growth_analytics_service.dart';
 import 'peep_prompt_suppression_service.dart';
 import 'presence_service.dart';
-import 'venue_name_service.dart';
+import 'location_label_service.dart';
 
 /// Firestore composite indexes required before production deploy.
 ///
@@ -278,9 +278,9 @@ class NotificationService {
 
     await _updateUserLastLocation(lat, lng);
 
-    final resolved = await VenueNameService.resolveVenueName(lat, lng);
+    final resolved = await LocationLabelService.resolve(lat, lng);
     final displayName =
-        (resolved != null && resolved.isNotEmpty) ? resolved : venueName;
+        (resolved.isNotEmpty && resolved != 'Current location') ? resolved : venueName;
 
     await GrowthAnalyticsService.logEvent(
       'growth_venue_entry_detected',
