@@ -23,8 +23,8 @@ class PeeplHomeHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const wordmarkStyle = TextStyle(
-      color: Color(0xFF0096FF),
-      fontSize: 25,
+      color: PeeplHomeTokens.brandBlueWordmark,
+      fontSize: PeeplHomeTokens.wordmarkFontSize,
       fontWeight: FontWeight.w800,
       height: 1.0,
       letterSpacing: -0.5,
@@ -36,7 +36,7 @@ class PeeplHomeHeader extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           SizedBox(
-            height: 36,
+            height: 38,
             child: Stack(
               alignment: Alignment.center,
               children: [

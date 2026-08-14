@@ -30,8 +30,12 @@ class PeeplHomeTokens {
   static const frostedNav = Color(0xBFF5F9FC);
   static const frostedNavBorder = Color(0x33FFFFFF);
 
-  /// Peepl brand blue (wordmark + sponsored border).
+  /// Peepl brand blue (sponsored border + accents).
   static const brandBlue = Color(0xFF1685FF);
+
+  /// Header wordmark — one step larger and more vivid than [brandBlue].
+  static const brandBlueWordmark = Color(0xFF009EFF);
+  static const wordmarkFontSize = 26.0;
 
   /// Green = user action / create a Peep.
   static const actionGreen = Color(0xFF48EF72);
