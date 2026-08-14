@@ -119,6 +119,14 @@
         { "fieldPath": "notificationSent", "order": "ASCENDING" },
         { "fieldPath": "timestamp", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "crowdsource_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requestedBy", "order": "ASCENDING" },
+        { "fieldPath": "fulfilled", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
