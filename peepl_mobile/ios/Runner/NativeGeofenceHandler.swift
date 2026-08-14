@@ -4,7 +4,8 @@ import MapKit
 import UserNotifications
 
 /// Detects venue arrivals after the user has stayed ~2 minutes on-site at low
-/// speed, then resolves a POI name via MapKit (not a street address).
+/// speed, then resolves the nearest place label (any business/POI, or a generic
+/// fallback when no name exists).
 class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     static let shared = NativeGeofenceHandler()
@@ -135,11 +136,8 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
             }
 
             candidate = nil
-            resolveVenueName(near: location) { [weak self] venueName, venueId in
-                guard let self = self, let venueName = venueName, let venueId = venueId else {
-                    print("[NativeGeofence] no POI venue found after dwell")
-                    return
-                }
+            resolveVenueLabel(near: location) { [weak self] venueName, venueId in
+                guard let self = self else { return }
                 if self.isOnCooldown(venueId: venueId) {
                     print("[NativeGeofence] cooldown active for \(venueName)")
                     return
@@ -159,19 +157,56 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         return location.speed > maxSpeedMetersPerSecond
     }
 
-    /// Finds the nearest MapKit POI — never falls back to a street address.
-    private func resolveVenueName(
+    /// Resolves the best available place label — any POI/business first, generic fallback OK.
+    private func resolveVenueLabel(
         near location: CLLocation,
-        completion: @escaping (String?, String?) -> Void
+        completion: @escaping (String, String) -> Void
     ) {
         geocoder.reverseGeocodeLocation(location) { placemarks, _ in
-            if let poi = placemarks?.first?.areasOfInterest?.first, !poi.isEmpty {
+            let placemark = placemarks?.first
+
+            if let poi = placemark?.areasOfInterest?.first, !poi.isEmpty {
                 let venueId = "poi:\(poi.lowercased().replacingOccurrences(of: " ", with: "_"))"
                 completion(poi, venueId)
                 return
             }
-            self.searchMapKitPOI(near: location, completion: completion)
+
+            self.searchMapKitPOI(near: location) { poiName, poiId in
+                if let poiName = poiName, let poiId = poiId {
+                    completion(poiName, poiId)
+                    return
+                }
+
+                if let placemark = placemark,
+                   let named = self.namedPlace(from: placemark) {
+                    let venueId = "place:\(named.lowercased().replacingOccurrences(of: " ", with: "_"))"
+                    completion(named, venueId)
+                    return
+                }
+
+                let venueId = self.coordinateVenueId(for: location)
+                completion("this location", venueId)
+            }
         }
+    }
+
+    private func namedPlace(from placemark: CLPlacemark) -> String? {
+        if let name = placemark.name, !name.isEmpty, name != placemark.thoroughfare {
+            return name
+        }
+        if let subLocality = placemark.subLocality, !subLocality.isEmpty {
+            return subLocality
+        }
+        if let locality = placemark.locality, !locality.isEmpty {
+            return locality
+        }
+        return nil
+    }
+
+    private func coordinateVenueId(for location: CLLocation) -> String {
+        let lat = (location.coordinate.latitude * 1000).rounded() / 1000
+        let lng = (location.coordinate.longitude * 1000).rounded() / 1000
+        return "coord:\(lat),\(lng)"
     }
 
     private func searchMapKitPOI(
@@ -185,11 +220,8 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
             longitudinalMeters: 200
         )
         request.resultTypes = .pointOfInterest
-        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
-            .restaurant, .cafe, .nightlife, .foodMarket,
-            .hotel, .store, .fitnessCenter, .museum, .movieTheater,
-            .park, .stadium, .theater,
-        ])
+        // Any business or mapped POI — not limited to food/nightlife categories.
+        request.pointOfInterestFilter = MKPointOfInterestFilter.includingAll
 
         MKLocalSearch(request: request).start { response, error in
             if let error = error {
@@ -251,7 +283,11 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
     private func showWalkInNotification(venueName: String, venueId: String) {
         let content = UNMutableNotificationContent()
         content.title = "You just walked in 👀"
-        content.body = "How's \(venueName) right now?"
+        if venueName == "this location" {
+            content.body = "How is it right now?"
+        } else {
+            content.body = "How's \(venueName) right now?"
+        }
         content.sound = .default
 
         let request = UNNotificationRequest(
