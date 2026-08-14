@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../../services/merchant_pricing_service.dart';
+import '../../widgets/home/peepl_home_background.dart';
 import '../../widgets/merchant/merchant_animated_metric.dart';
 import '../../widgets/merchant/merchant_calendar.dart';
 import '../../widgets/merchant/merchant_campaign_card.dart';
@@ -124,12 +125,14 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
   @override
   Widget build(BuildContext context) {
     if (_uid.isEmpty) {
-      return const Scaffold(
-        backgroundColor: PeeplMerchantTokens.background,
-        body: Center(
-          child: Text(
-            'Not signed in.',
-            style: TextStyle(color: PeeplMerchantTokens.textSecondary),
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        body: PeeplHomeBackground(
+          child: Center(
+            child: Text(
+              'Not signed in.',
+              style: TextStyle(color: PeeplMerchantTokens.textSecondary),
+            ),
           ),
         ),
       );
@@ -152,9 +155,11 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
           builder: (context, adsSnap) {
             if (merchantSnap.connectionState == ConnectionState.waiting ||
                 adsSnap.connectionState == ConnectionState.waiting) {
-              return const Scaffold(
-                backgroundColor: PeeplMerchantTokens.background,
-                body: MerchantDashboardSkeleton(),
+              return Scaffold(
+                backgroundColor: Colors.transparent,
+                body: PeeplHomeBackground(
+                  child: const MerchantDashboardSkeleton(),
+                ),
               );
             }
 

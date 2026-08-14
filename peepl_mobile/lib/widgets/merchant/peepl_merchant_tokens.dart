@@ -2,30 +2,31 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-/// Premium navy palette for the Peepl Merchant Center.
+import '../home/peepl_home_tokens.dart';
+
+/// Light-shell palette for the Peepl Merchant Center (aligned with home feed).
 class PeeplMerchantTokens {
   PeeplMerchantTokens._();
 
-  static const background = Color(0xFF081A2F);
-  static const shellNavy = Color(0xFF0D2340);
-  static const card = Color(0xFF102748);
-  static const cardElevated = Color(0xFF17345C);
-  static const accentBlue = Color(0xFF2E6CFF);
-  static const accentBlueSoft = Color(0x662E6CFF);
-  static const accentGradientStart = Color(0xFF2E6CFF);
-  static const accentGradientEnd = Color(0xFF1B4FD8);
-  static const textPrimary = Color(0xFFFFFFFF);
-  static const textSecondary = Color(0xFFC9D3E6);
-  static const textMuted = Color(0x99C9D3E6);
-  static const border = Color(0x14FFFFFF);
-  static const glassFill = Color(0x33FFFFFF);
-  static const glassBorder = Color(0x1FFFFFFF);
-  static const success = Color(0xFF66E38D);
-  static const warning = Color(0xFFFFC107);
-  static const danger = Color(0xFFFF6B6B);
-  static const liveRed = Color(0xFFFF4757);
-
-  static const liveGreen = Color(0xFF66E38D);
+  static const background = PeeplHomeTokens.feedBackground;
+  static const shellNavy = PeeplHomeTokens.shellNavy;
+  static const card = Color(0xD9FFFFFF);
+  static const cardElevated = Color(0xEEFFFFFF);
+  static const accentBlue = PeeplHomeTokens.brandBlue;
+  static const accentBlueSoft = Color(0x331685FF);
+  static const accentGradientStart = Color(0xFF1685FF);
+  static const accentGradientEnd = Color(0xFF0096FF);
+  static const textPrimary = PeeplHomeTokens.headerForeground;
+  static const textSecondary = PeeplHomeTokens.headerMuted;
+  static const textMuted = Color(0x995A6B7A);
+  static const border = PeeplHomeTokens.chipBorderLight;
+  static const glassFill = PeeplHomeTokens.chipSurface;
+  static const glassBorder = PeeplHomeTokens.chipBorderLight;
+  static const success = Color(0xFF48EF72);
+  static const warning = PeeplHomeTokens.dealsYellow;
+  static const danger = Color(0xFFFF6474);
+  static const liveRed = Color(0xFFFF6474);
+  static const liveGreen = Color(0xFF48EF72);
 
   static const cardRadius = 24.0;
   static const chipRadius = 14.0;
@@ -41,16 +42,16 @@ class PeeplMerchantTokens {
   static const cardGap = 14.0;
 
   static const cardShadow = BoxShadow(
-    color: Color(0x50000000),
-    offset: Offset(0, 8),
-    blurRadius: 24,
-    spreadRadius: -4,
+    color: Color(0x14000000),
+    offset: Offset(0, 4),
+    blurRadius: 16,
+    spreadRadius: -2,
   );
 
   static const glowShadow = BoxShadow(
-    color: Color(0x402E6CFF),
+    color: Color(0x1A1685FF),
     offset: Offset(0, 4),
-    blurRadius: 20,
+    blurRadius: 16,
     spreadRadius: 0,
   );
 
@@ -75,10 +76,13 @@ class PeeplMerchantTokens {
       );
 
   static BoxDecoration gradientCardDecoration() => BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [cardElevated, card],
+          colors: [
+            cardElevated,
+            card.withValues(alpha: 0.92),
+          ],
         ),
         borderRadius: BorderRadius.circular(cardRadius),
         border: Border.all(color: border),
@@ -87,15 +91,10 @@ class PeeplMerchantTokens {
 
   static BoxDecoration heroGradient() => const BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF0D2340),
-            Color(0xFF081A2F),
-            Color(0xFF102748),
-            Color(0xFF17345C),
-          ],
-          stops: [0.0, 0.35, 0.72, 1.0],
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: PeeplHomeTokens.feedBackdropGradient,
+          stops: [0.0, 0.45, 1.0],
         ),
       );
 
@@ -104,7 +103,7 @@ class PeeplMerchantTokens {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            glassFill.withValues(alpha: 0.08),
+            Colors.white.withValues(alpha: 0.12),
             Colors.transparent,
           ],
         ),

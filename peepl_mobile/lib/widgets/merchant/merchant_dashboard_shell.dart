@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../home/peepl_home_background.dart';
+import '../home/peepl_home_tokens.dart';
 import 'peepl_merchant_tokens.dart';
 
 enum MerchantShellSection {
@@ -33,22 +35,24 @@ class MerchantDashboardShell extends StatelessWidget {
     final bottomInset = MediaQuery.paddingOf(context).bottom;
 
     return Scaffold(
-      backgroundColor: PeeplMerchantTokens.background,
-      body: Column(
-        children: [
-          if (header != null) header!,
-          Expanded(child: body),
-        ],
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: Column(
+          children: [
+            if (header != null) header!,
+            Expanded(child: body),
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          color: PeeplMerchantTokens.shellNavy,
-          border: Border(top: BorderSide(color: PeeplMerchantTokens.border)),
+          color: PeeplHomeTokens.frostedNav,
+          border: Border(top: BorderSide(color: PeeplHomeTokens.frostedNavBorder)),
           boxShadow: [
             BoxShadow(
-              color: Color(0x40000000),
-              offset: Offset(0, -4),
-              blurRadius: 20,
+              color: Color(0x14000000),
+              offset: Offset(0, -2),
+              blurRadius: 12,
             ),
           ],
         ),
@@ -156,7 +160,7 @@ class _CreateActionButton extends StatelessWidget {
                 ),
               ],
             ),
-            child: const Icon(Icons.add_rounded, color: Colors.white, size: 30),
+            child: const Icon(Icons.add_rounded, color: PeeplHomeTokens.dealsForeground, size: 30),
           ),
         ),
       ),

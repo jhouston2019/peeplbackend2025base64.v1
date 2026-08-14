@@ -3,7 +3,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import '../theme/peepl_app_tokens.dart';
+import '../widgets/home/peepl_home_background.dart';
+import '../widgets/home/peepl_home_tokens.dart';
 import '../services/crowdsource_service.dart';
 
 class RequestPeepScreen extends StatefulWidget {
@@ -75,14 +76,14 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     final locationName = _locationController.text.trim();
     if (locationName.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please enter a location')),
+        const SnackBar(content: Text('Please enter a location')),
       );
       return;
     }
 
     if (_selectedPlace == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select a location from the list')),
+        const SnackBar(content: Text('Please select a location from the list')),
       );
       return;
     }
@@ -101,10 +102,11 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Request sent! Nearby users will be notified for 1 hour.'),
-            backgroundColor: PeeplAppTokens.shellNavy,
-            duration: Duration(seconds: 3),
+            content: const Text(
+              'Request sent! Nearby users will be notified for 1 hour.',
+            ),
+            backgroundColor: PeeplHomeTokens.shellNavy,
+            duration: const Duration(seconds: 3),
           ),
         );
         Navigator.pop(context);
@@ -118,7 +120,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text('Failed to send request. Please try again.'),
             backgroundColor: Colors.red,
           ),
@@ -129,85 +131,112 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     }
   }
 
+  InputDecoration _fieldDecoration({
+    required String hint,
+    Widget? suffixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hint,
+      hintStyle: TextStyle(color: PeeplHomeTokens.headerMuted.withValues(alpha: 0.8)),
+      prefixIcon: Icon(Icons.search, color: PeeplHomeTokens.brandBlue),
+      suffixIcon: suffixIcon,
+      filled: true,
+      fillColor: PeeplHomeTokens.chipSurface,
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: PeeplHomeTokens.chipBorderLight),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: BorderSide(color: PeeplHomeTokens.chipBorderLight),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(14),
+        borderSide: const BorderSide(color: PeeplHomeTokens.brandBlue, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PeeplAppTokens.shellNavy,
-      appBar: AppBar(
-        backgroundColor: PeeplAppTokens.shellNavy,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: PeeplAppTokens.textPrimary),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Request a Peep',
-          style: TextStyle(
-              color: PeeplAppTokens.textPrimary,
-              fontWeight: FontWeight.bold,
-              fontSize: 20),
-        ),
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              SizedBox(height: 16),
-              Text(
-                'Where do you want a peep?',
-                style: TextStyle(
-                    color: PeeplAppTokens.textPrimary,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold),
-              ),
-              SizedBox(height: 8),
-              Text(
-                'We\'ll notify anyone nearby to share current conditions.',
-                style: TextStyle(
-                    color: Colors.white.withOpacity(0.8), fontSize: 15),
-              ),
-              SizedBox(height: 32),
-
-              // Search field
-              Container(
-                decoration: BoxDecoration(
-                  color: PeeplAppTokens.textPrimary,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [
-                    BoxShadow(
-                      color: PeeplAppTokens.textPrimary.withOpacity(0.1),
-                      blurRadius: 8,
-                      offset: Offset(0, 2),
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: PeeplHomeTokens.headerForeground,
+                      ),
+                      onPressed: () => Navigator.pop(context),
                     ),
+                    const Expanded(
+                      child: Text(
+                        'Request a Peep',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: PeeplHomeTokens.headerForeground,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 20,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 48),
                   ],
                 ),
-                child: TextField(
+                const SizedBox(height: 16),
+                const Text(
+                  'Where do you want a peep?',
+                  style: TextStyle(
+                    color: PeeplHomeTokens.headerForeground,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'We\'ll notify anyone nearby to share current conditions.',
+                  style: TextStyle(
+                    color: PeeplHomeTokens.headerMuted,
+                    fontSize: 15,
+                  ),
+                ),
+                const SizedBox(height: 32),
+                TextField(
                   controller: _locationController,
                   focusNode: _focusNode,
-                  style: TextStyle(fontSize: 16, color: PeeplAppTokens.textPrimary),
-                  decoration: InputDecoration(
-                    hintText: 'Search for a place...',
-                    hintStyle: TextStyle(color: Colors.grey[400]),
-                    prefixIcon:
-                        Icon(Icons.search, color: PeeplAppTokens.accentBlue),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: PeeplHomeTokens.headerForeground,
+                  ),
+                  decoration: _fieldDecoration(
+                    hint: 'Search for a place...',
                     suffixIcon: _isSearching
-                        ? Padding(
+                        ? const Padding(
                             padding: EdgeInsets.all(12),
                             child: SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: PeeplAppTokens.accentBlue),
+                                strokeWidth: 2,
+                                color: PeeplHomeTokens.brandBlue,
+                              ),
                             ),
                           )
                         : _locationController.text.isNotEmpty
                             ? IconButton(
-                                icon: Icon(Icons.clear,
-                                    color: Colors.grey),
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: PeeplHomeTokens.headerMuted,
+                                ),
                                 onPressed: () {
                                   _locationController.clear();
                                   setState(() {
@@ -217,169 +246,163 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
                                 },
                               )
                             : null,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(14),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 16),
                   ),
                   onChanged: (val) {
                     setState(() => _selectedPlace = null);
                     _debounceTimer?.cancel();
-                    _debounceTimer = Timer(Duration(milliseconds: 400), () {
+                    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
                       _searchPlaces(val);
                     });
                   },
                 ),
-              ),
-
-              // Suggestions
-              if (_suggestions.isNotEmpty)
-                Container(
-                  margin: EdgeInsets.only(top: 4),
-                  decoration: BoxDecoration(
-                    color: PeeplAppTokens.textPrimary,
-                    borderRadius: BorderRadius.circular(14),
-                    boxShadow: [
-                      BoxShadow(
-                        color: PeeplAppTokens.textPrimary.withOpacity(0.1),
-                        blurRadius: 8,
-                        offset: Offset(0, 2),
-                      ),
-                    ],
+                if (_suggestions.isNotEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 4),
+                    decoration: BoxDecoration(
+                      color: PeeplHomeTokens.chipSurface,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: PeeplHomeTokens.chipBorderLight),
+                    ),
+                    child: Column(
+                      children: _suggestions.map((place) {
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.location_on,
+                            color: PeeplHomeTokens.brandBlue,
+                            size: 20,
+                          ),
+                          title: Text(
+                            place['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              color: PeeplHomeTokens.headerForeground,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          onTap: () => _selectPlace(place),
+                          dense: true,
+                        );
+                      }).toList(),
+                    ),
                   ),
-                  child: Column(
-                    children: _suggestions.map((place) {
-                      return ListTile(
-                        leading: Icon(Icons.location_on,
-                            color: PeeplAppTokens.accentBlue, size: 20),
-                        title: Text(
-                          place['name'] as String,
-                          style: TextStyle(
-                              fontSize: 14, color: PeeplAppTokens.textPrimary),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                if (_selectedPlace != null && _suggestions.isEmpty)
+                  Container(
+                    margin: const EdgeInsets.only(top: 16),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: PeeplHomeTokens.chipSurface,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: PeeplHomeTokens.chipBorderLight),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.check_circle,
+                          color: PeeplHomeTokens.dealsYellow,
+                          size: 20,
                         ),
-                        onTap: () => _selectPlace(place),
-                        dense: true,
-                      );
-                    }).toList(),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            _selectedPlace!['name'] as String,
+                            style: const TextStyle(
+                              color: PeeplHomeTokens.headerForeground,
+                              fontSize: 14,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-
-              // Selected place confirmation
-              if (_selectedPlace != null && _suggestions.isEmpty)
+                const Spacer(),
                 Container(
-                  margin: EdgeInsets.only(top: 16),
-                  padding: EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: PeeplHomeTokens.chipSurface,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                        color: Colors.white.withOpacity(0.3)),
+                    border: Border.all(color: PeeplHomeTokens.chipBorderLight),
                   ),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle,
-                          color: Color(0xFFFFC107), size: 20),
-                      SizedBox(width: 10),
+                      Icon(
+                        Icons.notifications_outlined,
+                        color: PeeplHomeTokens.headerMuted,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Text(
-                          _selectedPlace!['name'] as String,
+                          _selectedPlace != null
+                              ? 'Someone is curious about ${_selectedPlace!['name']}, would you mind sharing a peep?'
+                              : 'Someone is curious about [location], would you mind sharing a peep?',
                           style: TextStyle(
-                              color: PeeplAppTokens.textPrimary, fontSize: 14),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+                            color: PeeplHomeTokens.headerMuted,
+                            fontSize: 13,
+                            fontStyle: FontStyle.italic,
+                          ),
                         ),
                       ),
                     ],
                   ),
                 ),
-
-              Spacer(),
-
-              // Notification preview
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border:
-                      Border.all(color: Colors.white.withOpacity(0.2)),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.notifications_outlined,
-                        color: Colors.white.withOpacity(0.7), size: 20),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _selectedPlace != null
-                            ? 'Someone is curious about ${_selectedPlace!['name']}, would you mind sharing a peep?'
-                            : 'Someone is curious about [location], would you mind sharing a peep?',
-                        style: TextStyle(
-                            color: Colors.white.withOpacity(0.8),
-                            fontSize: 13,
-                            fontStyle: FontStyle.italic),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: _isSubmitting || _selectedPlace == null
+                        ? null
+                        : _submitRequest,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PeeplHomeTokens.actionGreen,
+                      foregroundColor: PeeplHomeTokens.dealsForeground,
+                      disabledBackgroundColor:
+                          PeeplHomeTokens.headerMuted.withValues(alpha: 0.25),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
+                      elevation: 0,
                     ),
-                  ],
-                ),
-              ),
-
-              SizedBox(height: 16),
-
-              // Send button
-              SizedBox(
-                width: double.infinity,
-                height: 54,
-                child: ElevatedButton(
-                  onPressed:
-                      _isSubmitting || _selectedPlace == null
-                          ? null
-                          : _submitRequest,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFFFFC107),
-                    foregroundColor: Colors.black,
-                    disabledBackgroundColor:
-                        Colors.white.withOpacity(0.3),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14)),
-                    elevation: 0,
-                  ),
-                  child: _isSubmitting
-                      ? SizedBox(
-                          width: 22,
-                          height: 22,
-                          child: CircularProgressIndicator(
-                              strokeWidth: 2, color: PeeplAppTokens.textPrimary),
-                        )
-                      : Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.cell_tower, size: 20),
-                            SizedBox(width: 8),
-                            Text(
-                              'Send Request',
-                              style: TextStyle(
-                                  fontSize: 17,
-                                  fontWeight: FontWeight.bold),
+                    child: _isSubmitting
+                        ? const SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: PeeplHomeTokens.dealsForeground,
                             ),
-                          ],
-                        ),
+                          )
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.cell_tower, size: 20),
+                              SizedBox(width: 8),
+                              Text(
+                                'Send Request',
+                                style: TextStyle(
+                                  fontSize: 17,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
-              ),
-              SizedBox(height: 8),
-              Center(
-                child: Text(
-                  'Notification expires after 1 hour',
-                  style: TextStyle(
-                      color: Colors.white.withOpacity(0.5),
-                      fontSize: 12),
+                const SizedBox(height: 8),
+                Center(
+                  child: Text(
+                    'Notification expires after 1 hour',
+                    style: TextStyle(
+                      color: PeeplHomeTokens.headerMuted.withValues(alpha: 0.8),
+                      fontSize: 12,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

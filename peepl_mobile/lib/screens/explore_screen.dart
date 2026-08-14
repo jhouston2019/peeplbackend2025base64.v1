@@ -1,11 +1,12 @@
 import 'dart:math' as math;
-import '../theme/peepl_app_tokens.dart';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 import '../services/location_service.dart';
 import '../widgets/crowd_meter.dart';
+import '../widgets/home/peepl_home_background.dart';
+import '../widgets/home/peepl_home_tokens.dart';
 import 'location_detail_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
@@ -137,96 +138,147 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PeeplAppTokens.background,
-      appBar: AppBar(
-        title: const Text('Explore'),
-        backgroundColor: PeeplAppTokens.shellNavy,
-        foregroundColor: PeeplAppTokens.textPrimary,
-        elevation: 0,
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              autofocus: false,
-              decoration: InputDecoration(
-                hintText: 'Search for a venue or place...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-              ),
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: FirebaseFirestore.instance
-                  .collection('location_posts')
-                  .orderBy('timestamp', descending: true)
-                  .limit(100)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Text(
-                      'Could not load venues',
-                      style: TextStyle(color: PeeplAppTokens.textSecondary),
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 16, 0),
+                child: Row(
+                  children: [
+                    IconButton(
+                      icon: const Icon(
+                        Icons.arrow_back,
+                        color: PeeplHomeTokens.headerForeground,
+                      ),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                  );
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                final posts = _filterPosts(snapshot.data?.docs ?? []);
-                if (posts.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 64, color: PeeplAppTokens.textMuted),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No venues found',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: PeeplAppTokens.textSecondary,
-                          ),
+                    const Expanded(
+                      child: Text(
+                        'Explore',
+                        style: TextStyle(
+                          color: PeeplHomeTokens.headerForeground,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
                         ),
-                      ],
+                      ),
                     ),
-                  );
-                }
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: PeeplHomeTokens.headerForeground),
+                  decoration: InputDecoration(
+                    hintText: 'Search for a venue or place...',
+                    hintStyle: TextStyle(
+                      color: PeeplHomeTokens.headerMuted.withValues(alpha: 0.85),
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search,
+                      color: PeeplHomeTokens.brandBlue,
+                    ),
+                    filled: true,
+                    fillColor: PeeplHomeTokens.chipSurface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: PeeplHomeTokens.chipBorderLight),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: PeeplHomeTokens.chipBorderLight),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                        color: PeeplHomeTokens.brandBlue,
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 0),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance
+                      .collection('location_posts')
+                      .orderBy('timestamp', descending: true)
+                      .limit(100)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    if (snapshot.hasError) {
+                      return Center(
+                        child: Text(
+                          'Could not load venues',
+                          style: TextStyle(color: PeeplHomeTokens.headerMuted),
+                        ),
+                      );
+                    }
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: PeeplHomeTokens.brandBlue,
+                        ),
+                      );
+                    }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.only(top: 4, bottom: 16),
-                  itemCount: posts.length,
-                  itemBuilder: (context, index) {
-                    final post = posts[index];
-                    return _ExploreVenueCard(
-                      name: (post['locationName'] ?? 'Unknown Venue').toString(),
-                      subtitle: _subtitleLine(post),
-                      crowdLevel: _crowdingLevel(post),
-                      imageUrl: (post['imageUrl'] ?? '').toString(),
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                LocationDetailScreen(postData: post),
-                          ),
+                    final posts = _filterPosts(snapshot.data?.docs ?? []);
+                    if (posts.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.search_off,
+                              size: 64,
+                              color: PeeplHomeTokens.headerMuted.withValues(alpha: 0.45),
+                            ),
+                            const SizedBox(height: 12),
+                            Text(
+                              'No venues found',
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: PeeplHomeTokens.headerMuted,
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.only(top: 4, bottom: 16),
+                      itemCount: posts.length,
+                      itemBuilder: (context, index) {
+                        final post = posts[index];
+                        return _ExploreVenueCard(
+                          name: (post['locationName'] ?? 'Unknown Venue').toString(),
+                          subtitle: _subtitleLine(post),
+                          crowdLevel: _crowdingLevel(post),
+                          imageUrl: (post['imageUrl'] ?? '').toString(),
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) =>
+                                    LocationDetailScreen(postData: post),
+                              ),
+                            );
+                          },
                         );
                       },
                     );
                   },
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -258,7 +310,7 @@ class _ExploreVenueCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
-          color: PeeplAppTokens.shellNavy,
+          border: Border.all(color: PeeplHomeTokens.organicSeparator),
         ),
         child: Stack(
           fit: StackFit.expand,
@@ -267,18 +319,23 @@ class _ExploreVenueCard extends StatelessWidget {
               Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) =>
-                    Container(color: PeeplAppTokens.shellNavy),
-              ),
+                errorBuilder: (_, __, ___) => ColoredBox(
+                  color: PeeplHomeTokens.cardFallback,
+                ),
+              )
+            else
+              ColoredBox(color: PeeplHomeTokens.cardFallback),
             DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Colors.black.withValues(alpha: 0.65),
-                    Colors.black.withValues(alpha: 0.0),
+                    PeeplHomeTokens.crowdOverlayLeft,
+                    PeeplHomeTokens.crowdOverlayMid,
+                    PeeplHomeTokens.crowdOverlayRight,
                   ],
+                  stops: const [0.0, 0.45, 1.0],
                 ),
               ),
             ),
@@ -296,7 +353,7 @@ class _ExploreVenueCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: PeeplAppTokens.textPrimary,
+                            color: PeeplHomeTokens.white,
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
                           ),
@@ -308,7 +365,7 @@ class _ExploreVenueCard extends StatelessWidget {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.7),
+                              color: PeeplHomeTokens.white.withValues(alpha: 0.7),
                               fontSize: 11,
                             ),
                           ),

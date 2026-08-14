@@ -2,6 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import 'home/peepl_home_tokens.dart';
+
 class CrowdMeter extends StatelessWidget {
   final int level; // 0-10
   final double size; // outer diameter
@@ -21,9 +23,10 @@ class CrowdMeter extends StatelessWidget {
 
   static Color levelColor(int level) {
     final clamped = level.clamp(0, 10);
-    if (clamped <= 4) return const Color(0xFF4CAF50);
-    if (clamped <= 7) return const Color(0xFFFFA726);
-    return const Color(0xFFFF5722);
+    if (clamped <= 0) return const Color(0xFF9E9E9E);
+    if (clamped <= 4) return PeeplHomeTokens.crowdLight;
+    if (clamped <= 7) return PeeplHomeTokens.crowdMedium;
+    return PeeplHomeTokens.crowdHigh;
   }
 
   static String wordLabel(int level) {
