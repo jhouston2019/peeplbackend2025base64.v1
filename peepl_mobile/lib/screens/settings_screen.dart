@@ -9,6 +9,7 @@ import '../theme/peepl_app_tokens.dart';
 import '../services/auth_service.dart';
 import '../services/presence_service.dart';
 import '../theme_notifier.dart';
+import '../widgets/home/peepl_home_tokens.dart';
 
 class SettingsScreen extends StatefulWidget {
   @override
@@ -414,18 +415,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final levels = [
       {
         'label': '1–4',
-        'text': 'Not Crowded',
-        'color': const Color(0xFF4CAF50),
+        'text': 'Light',
+        'color': PeeplHomeTokens.crowdLight,
       },
       {
-        'label': '5–6',
-        'text': 'Moderate',
-        'color': const Color(0xFFFFA726),
+        'label': '5–7',
+        'text': 'Getting Busy',
+        'color': PeeplHomeTokens.crowdMedium,
       },
       {
-        'label': '7–10',
-        'text': 'Very Crowded',
-        'color': const Color(0xFFFF5722),
+        'label': '8–10',
+        'text': 'Very Busy',
+        'color': PeeplHomeTokens.crowdHigh,
       },
     ];
     return Column(
@@ -445,7 +446,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   child: Text(
                     level['label'] as String,
                     style: const TextStyle(
-                      color: PeeplAppTokens.textPrimary,
+                      color: PeeplHomeTokens.dealsForeground,
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
                     ),
