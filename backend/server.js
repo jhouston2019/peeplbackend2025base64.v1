@@ -357,11 +357,9 @@ app.post('/notifications/proximity', async (req, res) => {
 // ── Growth Phase 4: Peep web preview + deep link association files ───────────
 
 const PEEPL_SHARE_HOST = 'peepl2025v1-production.up.railway.app';
-// TODO: Replace with real App Store ID once published.
-const APP_STORE_URL = 'https://apps.apple.com/app/peepl/id0000000000';
+const APP_STORE_URL = 'https://apps.apple.com/app/peepl/id6747926332';
 const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.peepl.app';
-// TODO: Replace TEAM_ID with your Apple Developer Team ID.
-const APPLE_TEAM_ID = 'TEAM_ID';
+const APPLE_TEAM_ID = 'MJZ3VHZ23U';
 const APPLE_BUNDLE_ID = 'com.peepl.app';
 // TODO: Replace with release keystore SHA-256 fingerprint for Android App Links.
 const ANDROID_SHA256_FINGERPRINT = 'SHA256_FINGERPRINT_PLACEHOLDER';
