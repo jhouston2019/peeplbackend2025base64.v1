@@ -18,6 +18,7 @@ import 'growth_analytics_service.dart';
 import 'peep_prompt_suppression_service.dart';
 import 'presence_service.dart';
 import 'location_label_service.dart';
+import 'location_service.dart';
 
 /// Firestore composite indexes required before production deploy.
 ///
@@ -448,6 +449,7 @@ class NotificationService {
     }
 
     _startCrowdsourceResponseListener();
+    unawaited(syncLocationForCrowdsourceTargeting());
   }
 
   /// Flow 3 — record trigger doc and fulfill crowdsource requests after a post.
@@ -690,6 +692,44 @@ class NotificationService {
     }
   }
 
+  /// Keeps Firestore location/presence in sync so Get-a-Peep can find this user.
+  Future<void> syncLocationForCrowdsourceTargeting() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    final pos = await LocationService.getCurrentLocation(forceRefresh: true);
+    if (pos == null) return;
+
+    await _updateUserLastLocation(pos.latitude, pos.longitude);
+
+    try {
+      final presenceDoc = await _db.collection('presence').doc(uid).get();
+      final data = presenceDoc.data();
+      var needsPresence = !presenceDoc.exists;
+
+      if (!needsPresence && data != null) {
+        final expires = data['expiresAt'];
+        if (expires is Timestamp && expires.toDate().isBefore(DateTime.now())) {
+          needsPresence = true;
+        }
+      }
+
+      if (needsPresence) {
+        final displayName =
+            await LocationLabelService.resolve(pos.latitude, pos.longitude);
+        if (displayName.isNotEmpty && displayName != 'Current location') {
+          await PresenceService.instance.recordArrival(
+            displayName,
+            pos.latitude,
+            pos.longitude,
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('[FCM] syncLocationForCrowdsourceTargeting error: $e');
+    }
+  }
+
   void _startCrowdsourceResponseListener() {
     _crowdsourceResponseSub?.cancel();
     _seenCrowdsourceResponseIds.clear();
@@ -856,6 +896,7 @@ class NotificationService {
   Future<void> onUserSignedIn() async {
     await _refreshAndSaveToken();
     _startCrowdsourceResponseListener();
+    unawaited(syncLocationForCrowdsourceTargeting());
   }
 
   Future<void> onUserSignedOut() async {

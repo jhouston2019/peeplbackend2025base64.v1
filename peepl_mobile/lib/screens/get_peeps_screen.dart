@@ -177,6 +177,15 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
         locationId = snap.docs.first.id;
       }
 
+      if (!CrowdsourceService.isValidCoordinate(lat, lng)) {
+        final resolved =
+            await CrowdsourceService.instance.resolveCoordinates(trimmed);
+        if (resolved != null) {
+          lat = resolved.latitude;
+          lng = resolved.longitude;
+        }
+      }
+
       if (mounted) {
         setState(() {
           _selected = _SelectedLocation(
@@ -212,7 +221,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
 
     setState(() => _sending = true);
     try {
-      await CrowdsourceService.instance.createRequest(
+      final result = await CrowdsourceService.instance.createRequestAndAwaitDelivery(
         requestedBy: _uid,
         locationName: loc.locationName,
         latitude: loc.latitude,
@@ -225,11 +234,11 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
       await _saveRecentRequest(loc.locationName);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            "Request sent! We'll notify you when someone responds.",
-          ),
-          backgroundColor: PeeplAppTokens.shellNavy,
+        SnackBar(
+          content: Text(result.userMessage),
+          backgroundColor: result.delivered
+              ? PeeplAppTokens.shellNavy
+              : Colors.orange.shade800,
         ),
       );
       setState(() {

@@ -129,7 +129,7 @@ class _VenueScreenState extends State<VenueScreen> {
     }
 
     try {
-      await CrowdsourceService.instance.createRequest(
+      final result = await CrowdsourceService.instance.createRequestAndAwaitDelivery(
         requestedBy: user.uid,
         locationName: _venueName,
         latitude: _latitude!,
@@ -139,11 +139,11 @@ class _VenueScreenState extends State<VenueScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'Asked everyone at $_venueName to report crowd levels!',
-            ),
+            content: Text(result.userMessage),
             duration: const Duration(seconds: 3),
-            backgroundColor: PeeplAppTokens.shellNavy,
+            backgroundColor: result.delivered
+                ? PeeplAppTokens.shellNavy
+                : Colors.orange.shade800,
           ),
         );
       }

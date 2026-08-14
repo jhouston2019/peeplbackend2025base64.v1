@@ -107,7 +107,7 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     setState(() => _isSubmitting = true);
 
     try {
-      await CrowdsourceService.instance.createRequest(
+      final result = await CrowdsourceService.instance.createRequestAndAwaitDelivery(
         requestedBy: user.uid,
         locationName: locationName,
         latitude: (_selectedPlace!['lat'] as num).toDouble(),
@@ -118,10 +118,10 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Request sent! Nearby users will be notified for 1 hour.',
-            ),
-            backgroundColor: PeeplHomeTokens.shellNavy,
+            content: Text(result.userMessage),
+            backgroundColor: result.delivered
+                ? PeeplHomeTokens.shellNavy
+                : Colors.orange.shade800,
             duration: const Duration(seconds: 3),
           ),
         );

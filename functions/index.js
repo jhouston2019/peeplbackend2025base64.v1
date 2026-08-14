@@ -50,6 +50,156 @@ async function sendFcm(token, title, body, data = {}) {
   }
 }
 
+function normalizeLocationName(name) {
+  return (name || '').trim().toLowerCase();
+}
+
+function locationNamesMatch(a, b) {
+  const left = normalizeLocationName(a);
+  const right = normalizeLocationName(b);
+  return left.length > 0 && left === right;
+}
+
+function isValidCoord(lat, lng) {
+  if (lat == null || lng == null) return false;
+  if (lat === 0 && lng === 0) return false;
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return false;
+  return true;
+}
+
+async function resolveCoordsForLocationName(locationName) {
+  try {
+    const postsSnap = await db
+      .collection('location_posts')
+      .where('locationName', '==', locationName)
+      .orderBy('timestamp', 'desc')
+      .limit(1)
+      .get();
+    if (!postsSnap.empty) {
+      const post = postsSnap.docs[0].data();
+      if (isValidCoord(post.latitude, post.longitude)) {
+        return { latitude: post.latitude, longitude: post.longitude };
+      }
+    }
+  } catch (e) {
+    console.error('resolveCoords posts query error:', e);
+  }
+
+  try {
+    const locSnap = await db
+      .collection('locations')
+      .where('locationName', '==', locationName)
+      .limit(1)
+      .get();
+    if (!locSnap.empty) {
+      const loc = locSnap.docs[0].data();
+      const lat = loc.latitude ?? loc.lat;
+      const lng = loc.longitude ?? loc.lng;
+      if (isValidCoord(lat, lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+  } catch (e) {
+    console.error('resolveCoords locations query error:', e);
+  }
+
+  return null;
+}
+
+async function findActiveCrowdsourceRequests(locationName, latitude, longitude) {
+  const active = [];
+  const seen = new Set();
+
+  try {
+    const byName = await db
+      .collection('crowdsource_requests')
+      .where('locationName', '==', locationName)
+      .where('fulfilled', '==', false)
+      .where('expiresAt', '>', Timestamp.now())
+      .limit(25)
+      .get();
+
+    for (const doc of byName.docs) {
+      const data = doc.data();
+      const status = data.status;
+      if (
+        status === 'pending' ||
+        status === 'sent' ||
+        status === 'no_targets' ||
+        status === 'no_fcm_tokens'
+      ) {
+        seen.add(doc.id);
+        active.push({ id: doc.id, ...data });
+      }
+    }
+  } catch (e) {
+    console.error('findActiveCrowdsourceRequests byName error:', e);
+  }
+
+  if (isValidCoord(latitude, longitude)) {
+    const radiusKm = 1;
+    const latDelta = radiusKm / 111;
+    try {
+      const byGeo = await db
+        .collection('crowdsource_requests')
+        .where('fulfilled', '==', false)
+        .where('expiresAt', '>', Timestamp.now())
+        .where('latitude', '>=', latitude - latDelta)
+        .where('latitude', '<=', latitude + latDelta)
+        .limit(50)
+        .get();
+
+      for (const doc of byGeo.docs) {
+        if (seen.has(doc.id)) continue;
+        const data = doc.data();
+        const status = data.status;
+        if (
+          status !== 'pending' &&
+          status !== 'sent' &&
+          status !== 'no_targets' &&
+          status !== 'no_fcm_tokens'
+        ) {
+          continue;
+        }
+        const dist = haversineKm(
+          latitude,
+          longitude,
+          data.latitude,
+          data.longitude,
+        );
+        if (dist <= radiusKm) {
+          seen.add(doc.id);
+          active.push({ id: doc.id, ...data });
+        }
+      }
+    } catch (e) {
+      console.error('findActiveCrowdsourceRequests byGeo error:', e);
+    }
+  }
+
+  return active;
+}
+
+async function notifyUserOfCrowdsourceRequest(uid, request, requestDocId) {
+  if (!uid) return false;
+  const token = await getFcmToken(uid);
+  if (!token) return false;
+
+  const locationName = request.locationName || 'this location';
+  const body =
+    request.message ||
+    `Someone is curious about ${locationName}, would you mind sharing a peep?`;
+
+  await sendFcm(token, 'Peep Request Nearby', body, {
+    type: 'crowdsource_request',
+    locationName,
+    latitude: String(request.latitude),
+    longitude: String(request.longitude),
+    requestId: request.requestId || requestDocId,
+  });
+  return true;
+}
+
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
@@ -94,7 +244,7 @@ exports.onCrowdsourceRequest = functions.firestore
       locationName,
       latitude,
       longitude,
-      radiusKm = 0.5,
+      radiusKm = 1,
       message,
       expiresAt,
       source,
@@ -134,8 +284,26 @@ exports.onCrowdsourceRequest = functions.firestore
       return null;
     }
 
+    let lat = latitude;
+    let lng = longitude;
+    if (!isValidCoord(lat, lng)) {
+      const resolved = await resolveCoordsForLocationName(locationName);
+      if (resolved) {
+        lat = resolved.latitude;
+        lng = resolved.longitude;
+        await snap.ref.update({
+          latitude: lat,
+          longitude: lng,
+          coordsResolved: true,
+        });
+      } else {
+        await snap.ref.update({ status: 'error', error: 'invalid_coordinates' });
+        return null;
+      }
+    }
+
     const latDelta = radiusKm / 111;
-    const lngDelta = radiusKm / (111 * Math.cos((latitude * Math.PI) / 180));
+    const lngDelta = radiusKm / (111 * Math.cos((lat * Math.PI) / 180));
     const body =
       message ||
       `Someone is curious about ${locationName}, would you mind sharing a peep?`;
@@ -143,8 +311,8 @@ exports.onCrowdsourceRequest = functions.firestore
     const fcmData = {
       type: 'crowdsource_request',
       locationName,
-      latitude: String(latitude),
-      longitude: String(longitude),
+      latitude: String(lat),
+      longitude: String(lng),
       requestId,
     };
 
@@ -156,26 +324,41 @@ exports.onCrowdsourceRequest = functions.firestore
     let usersSnap;
     let lastKnownSnap;
     let presenceSnap;
+    let presenceByNameSnap;
+    let recentPostsSnap;
     try {
-      [usersSnap, lastKnownSnap, presenceSnap] = await Promise.all([
+      [usersSnap, lastKnownSnap, presenceSnap, presenceByNameSnap, recentPostsSnap] =
+        await Promise.all([
         db
           .collection(USERS_COLLECTION)
-          .where('lastLocation.latitude', '>=', latitude - latDelta)
-          .where('lastLocation.latitude', '<=', latitude + latDelta)
+          .where('lastLocation.latitude', '>=', lat - latDelta)
+          .where('lastLocation.latitude', '<=', lat + latDelta)
           .limit(200)
           .get(),
         db
           .collection(USERS_COLLECTION)
-          .where('lastKnownLatitude', '>=', latitude - latDelta)
-          .where('lastKnownLatitude', '<=', latitude + latDelta)
+          .where('lastKnownLatitude', '>=', lat - latDelta)
+          .where('lastKnownLatitude', '<=', lat + latDelta)
           .limit(200)
           .get(),
         db
           .collection('presence')
-          .where('latitude', '>=', latitude - latDelta)
-          .where('latitude', '<=', latitude + latDelta)
+          .where('latitude', '>=', lat - latDelta)
+          .where('latitude', '<=', lat + latDelta)
           .where('expiresAt', '>', Timestamp.now())
           .limit(100)
+          .get(),
+        db
+          .collection('presence')
+          .where('locationName', '==', locationName)
+          .where('expiresAt', '>', Timestamp.now())
+          .limit(50)
+          .get(),
+        db
+          .collection('location_posts')
+          .where('locationName', '==', locationName)
+          .orderBy('timestamp', 'desc')
+          .limit(25)
           .get(),
       ]);
     } catch (e) {
@@ -187,6 +370,8 @@ exports.onCrowdsourceRequest = functions.firestore
       usersSnap = { docs: [] };
       lastKnownSnap = { docs: [] };
       presenceSnap = { docs: [] };
+      presenceByNameSnap = { docs: [] };
+      recentPostsSnap = { docs: [] };
     }
 
     for (const doc of [...usersSnap.docs, ...lastKnownSnap.docs]) {
@@ -195,30 +380,35 @@ exports.onCrowdsourceRequest = functions.firestore
       const coords = getUserCoords(doc.data());
       if (!coords) continue;
 
-      const dist = haversineKm(
-        latitude,
-        longitude,
-        coords.latitude,
-        coords.longitude,
-      );
+      const dist = haversineKm(lat, lng, coords.latitude, coords.longitude);
       if (dist <= radiusKm) {
         targetIds.add(doc.id);
       }
     }
 
-    for (const doc of presenceSnap.docs) {
+    for (const doc of [...presenceSnap.docs, ...presenceByNameSnap.docs]) {
       const presence = doc.data();
       const uid = presence.uid || presence.userId || doc.id;
       if (!uid || uid === requestedBy) continue;
 
       const pLat = presence.latitude;
       const pLng = presence.longitude;
-      if (pLat == null || pLng == null) continue;
-      if (pLng < longitude - lngDelta || pLng > longitude + lngDelta) continue;
-
-      const dist = haversineKm(latitude, longitude, pLat, pLng);
-      if (dist <= radiusKm) {
+      const nameMatch = locationNamesMatch(presence.locationName, locationName);
+      let withinRadius = false;
+      if (pLat != null && pLng != null) {
+        if (pLng >= lng - lngDelta && pLng <= lng + lngDelta) {
+          withinRadius = haversineKm(lat, lng, pLat, pLng) <= radiusKm;
+        }
+      }
+      if (nameMatch || withinRadius) {
         targetIds.add(uid);
+      }
+    }
+
+    for (const doc of recentPostsSnap.docs) {
+      const posterId = doc.data().userId;
+      if (posterId && posterId !== requestedBy) {
+        targetIds.add(posterId);
       }
     }
 
@@ -255,16 +445,15 @@ exports.onCrowdsourceRequest = functions.firestore
   });
 
 // ─── FUNCTION 2: onPresenceCreated ─────────────────────────────────────────
-// Fires when a user checks in (presence doc created). Fulfills waiting
-// crowdsource_requests with status=waiting and notifyOnArrival=true nearby.
-//
-// FIRESTORE INDEX REQUIRED (create in Firebase Console if not auto-suggested):
-//   Collection: crowdsource_requests
-//   Fields: status ASC, notifyOnArrival ASC, latitude ASC
+// Fires when a user checks in or refreshes presence.
+// 1) Notifies the checked-in user about active peep requests at that venue.
+// 2) Legacy: fulfills waiting crowdsource_requests with notifyOnArrival.
 exports.onPresenceCreated = functions.firestore
   .document('presence/{presenceId}')
-  .onCreate(async (snap, context) => {
-    const presence = snap.data();
+  .onWrite(async (change, context) => {
+    if (!change.after.exists) return null;
+
+    const presence = change.after.data();
     const { latitude, longitude, locationName, userId, uid } = presence;
     const arrivedUserId = userId || uid || context.params.presenceId;
 
@@ -273,8 +462,49 @@ exports.onPresenceCreated = functions.firestore
       return null;
     }
 
-    // Find waiting crowdsource requests near this location
-    // within ~150 meters (0.00135 degrees)
+    const expiresAt = presence.expiresAt;
+    if (expiresAt) {
+      const expiresMs =
+        typeof expiresAt.toMillis === 'function'
+          ? expiresAt.toMillis()
+          : expiresAt._seconds * 1000;
+      if (Date.now() > expiresMs) {
+        return null;
+      }
+    }
+
+    const isFreshCheckIn =
+      !change.before.exists ||
+      !locationNamesMatch(change.before.data()?.locationName, locationName);
+
+    if (isFreshCheckIn && arrivedUserId && locationName) {
+      try {
+        const activeRequests = await findActiveCrowdsourceRequests(
+          locationName,
+          latitude,
+          longitude,
+        );
+        let notified = 0;
+        for (const request of activeRequests) {
+          if (request.requestedBy === arrivedUserId) continue;
+          const sent = await notifyUserOfCrowdsourceRequest(
+            arrivedUserId,
+            request,
+            request.id,
+          );
+          if (sent) notified += 1;
+        }
+        if (notified > 0) {
+          console.log(
+            `onPresenceCreated: notified ${arrivedUserId} of ${notified} active requests at ${locationName}`,
+          );
+        }
+      } catch (e) {
+        console.error('onPresenceCreated active request notify error:', e);
+      }
+    }
+
+    // Legacy waiting-request fulfillment (notify requester on arrival).
     const delta = 0.00135;
     let waitingSnap;
     try {
@@ -290,7 +520,6 @@ exports.onPresenceCreated = functions.firestore
     }
 
     if (waitingSnap.empty) {
-      console.log('onPresenceCreated: no waiting requests near', locationName);
       return null;
     }
 
@@ -300,7 +529,6 @@ exports.onPresenceCreated = functions.firestore
     for (const doc of waitingSnap.docs) {
       const request = doc.data();
 
-      // Longitude check client-side (Firestore only allows one range filter)
       const lngDiff = Math.abs((request.longitude || 0) - longitude);
       if (lngDiff > delta) continue;
 
@@ -310,7 +538,6 @@ exports.onPresenceCreated = functions.firestore
       const fcmToken = await getFcmToken(requesterId);
       if (!fcmToken) continue;
 
-      // Send FCM notification to requester
       fcmPromises.push(
         messaging.send({
           token: fcmToken,
@@ -338,7 +565,6 @@ exports.onPresenceCreated = functions.firestore
         ),
       );
 
-      // Mark request as fulfilled
       batch.update(doc.ref, {
         status: 'fulfilled',
         fulfilledAt: FieldValue.serverTimestamp(),

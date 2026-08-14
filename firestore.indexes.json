@@ -127,6 +127,31 @@
         { "fieldPath": "requestedBy", "order": "ASCENDING" },
         { "fieldPath": "fulfilled", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "presence",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationName", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "location_posts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "locationName", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "crowdsource_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "fulfilled", "order": "ASCENDING" },
+        { "fieldPath": "expiresAt", "order": "ASCENDING" },
+        { "fieldPath": "latitude", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

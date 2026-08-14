@@ -820,7 +820,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
     try {
       final postAuthorId = widget.postData['userId'] as String?;
-      await CrowdsourceService.instance.createRequest(
+      final result = await CrowdsourceService.instance.createRequestAndAwaitDelivery(
         requestedBy: user.uid,
         locationName: locationName,
         latitude: latitude,
@@ -831,9 +831,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Request sent! They\'ll get a notification.'),
-          backgroundColor: PeeplAppTokens.shellNavy,
+        SnackBar(
+          content: Text(result.userMessage),
+          backgroundColor: result.delivered
+              ? PeeplAppTokens.shellNavy
+              : Colors.orange.shade800,
         ),
       );
     } on ArgumentError catch (e) {
