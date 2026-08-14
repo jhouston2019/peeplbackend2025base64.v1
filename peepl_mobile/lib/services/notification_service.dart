@@ -82,8 +82,8 @@ Future<void> _showWalkInLocalNotificationFromData(
 
   var displayName = rawVenueName;
   if (lat != null && lng != null) {
-    final resolved = await VenueNameService.resolveVenueName(lat, lng);
-    if (resolved != null && resolved.isNotEmpty) {
+    final resolved = await LocationLabelService.resolve(lat, lng);
+    if (resolved.isNotEmpty && resolved != 'Current location') {
       displayName = resolved;
     }
   }
