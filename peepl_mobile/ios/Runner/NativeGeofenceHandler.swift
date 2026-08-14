@@ -1,27 +1,43 @@
 import Foundation
 import CoreLocation
+import MapKit
 import UserNotifications
 
-/// Detects venue arrivals using on-device location + geocoding, then shows a
-/// local notification immediately. No Firebase, no network, no Cloud Functions.
+/// Detects venue arrivals after the user has stayed ~2 minutes on-site at low
+/// speed, then resolves a POI name via MapKit (not a street address).
 class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     static let shared = NativeGeofenceHandler()
 
     private let locationManager = CLLocationManager()
     private let geocoder = CLGeocoder()
-    private var lastProcessedLocation: CLLocation?
 
-    private let debounceMeters: CLLocationDistance = 40
+    private var lastProcessedLocation: CLLocation?
+    private var candidate: VenueCandidate?
+
+    private let debounceMeters: CLLocationDistance = 30
+    /// User must remain within this radius of the dwell anchor.
+    private let candidateRadiusMeters: CLLocationDistance = 60
+    /// Must stay on-site this long before prompting.
+    private let dwellRequiredSeconds: TimeInterval = 120
+    /// Ignore updates while moving faster than ~7 mph.
+    private let maxSpeedMetersPerSecond: CLLocationSpeed = 3.0
+    /// Closest POI must be within this distance to count as "inside" the venue.
+    private let maxPoiDistanceMeters: CLLocationDistance = 80
     private let venueCooldownSeconds: TimeInterval = 4 * 60 * 60
     private let lastVenueKey = "peepl_last_walk_in_venue"
     private let lastVenueTimeKey = "peepl_last_walk_in_time"
+
+    private struct VenueCandidate {
+        let anchor: CLLocation
+        let firstSeen: Date
+    }
 
     override init() {
         super.init()
         locationManager.delegate = self
         locationManager.desiredAccuracy = kCLLocationAccuracyNearestTenMeters
-        locationManager.distanceFilter = 25
+        locationManager.distanceFilter = 30
         locationManager.pausesLocationUpdatesAutomatically = false
     }
 
@@ -45,6 +61,7 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         locationManager.stopMonitoringSignificantLocationChanges()
         locationManager.stopMonitoringVisits()
         locationManager.stopUpdatingLocation()
+        candidate = nil
     }
 
     private func startContinuousLocationIfAuthorized() {
@@ -63,7 +80,6 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
     // MARK: - CLLocationManagerDelegate
 
     func locationManager(_ manager: CLLocationManager, didChangeAuthorization status: CLAuthorizationStatus) {
-        print("[NativeGeofence] authorization changed: \(status.rawValue)")
         if status == .authorizedAlways || status == .authorizedWhenInUse {
             startContinuousLocationIfAuthorized()
         }
@@ -71,7 +87,7 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
         guard let location = locations.last else { return }
-        checkForVenueEntry(at: location)
+        evaluateDwell(at: location)
     }
 
     func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
@@ -80,16 +96,16 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
             latitude: visit.coordinate.latitude,
             longitude: visit.coordinate.longitude
         )
-        checkForVenueEntry(at: location, bypassDebounce: true)
+        evaluateDwell(at: location, bypassDebounce: true)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         print("[NativeGeofence] location error: \(error)")
     }
 
-    // MARK: - Venue detection
+    // MARK: - Dwell detection
 
-    private func checkForVenueEntry(at location: CLLocation, bypassDebounce: Bool = false) {
+    private func evaluateDwell(at location: CLLocation, bypassDebounce: Bool = false) {
         if !bypassDebounce,
            let last = lastProcessedLocation,
            location.distance(from: last) < debounceMeters {
@@ -97,58 +113,125 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         }
         lastProcessedLocation = location
 
-        geocoder.reverseGeocodeLocation(location) { [weak self] placemarks, error in
-            guard let self = self else { return }
+        if isMovingTooFast(location) {
+            if candidate != nil {
+                print("[NativeGeofence] clearing dwell — user is moving")
+            }
+            candidate = nil
+            return
+        }
 
-            if let error = error {
-                print("[NativeGeofence] geocode failed: \(error)")
+        if let current = candidate {
+            if location.distance(from: current.anchor) > candidateRadiusMeters {
+                print("[NativeGeofence] clearing dwell — left anchor area")
+                candidate = VenueCandidate(anchor: location, firstSeen: Date())
                 return
             }
 
-            guard let placemark = placemarks?.first,
-                  let venueName = self.venueName(from: placemark),
-                  !venueName.isEmpty else {
-                print("[NativeGeofence] geocode returned no usable label")
+            let elapsed = Date().timeIntervalSince(current.firstSeen)
+            if elapsed < dwellRequiredSeconds {
+                print("[NativeGeofence] dwelling \(Int(elapsed))s / \(Int(dwellRequiredSeconds))s")
                 return
             }
 
-            let venueId = venueName.lowercased()
-            if self.isOnCooldown(venueId: venueId) {
-                print("[NativeGeofence] cooldown active for \(venueName)")
+            candidate = nil
+            resolveVenueName(near: location) { [weak self] venueName, venueId in
+                guard let self = self, let venueName = venueName, let venueId = venueId else {
+                    print("[NativeGeofence] no POI venue found after dwell")
+                    return
+                }
+                if self.isOnCooldown(venueId: venueId) {
+                    print("[NativeGeofence] cooldown active for \(venueName)")
+                    return
+                }
+                self.markPrompted(venueId: venueId)
+                self.showWalkInNotification(venueName: venueName, venueId: venueId)
+            }
+            return
+        }
+
+        candidate = VenueCandidate(anchor: location, firstSeen: Date())
+        print("[NativeGeofence] started dwell anchor at \(location.coordinate.latitude), \(location.coordinate.longitude)")
+    }
+
+    private func isMovingTooFast(_ location: CLLocation) -> Bool {
+        guard location.speed >= 0 else { return false }
+        return location.speed > maxSpeedMetersPerSecond
+    }
+
+    /// Finds the nearest MapKit POI — never falls back to a street address.
+    private func resolveVenueName(
+        near location: CLLocation,
+        completion: @escaping (String?, String?) -> Void
+    ) {
+        geocoder.reverseGeocodeLocation(location) { placemarks, _ in
+            if let poi = placemarks?.first?.areasOfInterest?.first, !poi.isEmpty {
+                let venueId = "poi:\(poi.lowercased().replacingOccurrences(of: " ", with: "_"))"
+                completion(poi, venueId)
                 return
             }
-
-            self.markPrompted(venueId: venueId)
-            self.showWalkInNotification(venueName: venueName, venueId: venueId)
+            self.searchMapKitPOI(near: location, completion: completion)
         }
     }
 
-    private func venueName(from placemark: CLPlacemark) -> String? {
-        if let poi = placemark.areasOfInterest?.first, !poi.isEmpty {
-            return poi
-        }
+    private func searchMapKitPOI(
+        near location: CLLocation,
+        completion: @escaping (String?, String?) -> Void
+    ) {
+        let request = MKLocalSearch.Request()
+        request.region = MKCoordinateRegion(
+            center: location.coordinate,
+            latitudinalMeters: 200,
+            longitudinalMeters: 200
+        )
+        request.resultTypes = .pointOfInterest
+        request.pointOfInterestFilter = MKPointOfInterestFilter(including: [
+            .restaurant, .cafe, .nightlife, .foodMarket,
+            .hotel, .store, .fitnessCenter, .museum, .movieTheater,
+            .park, .stadium, .theater,
+        ])
 
-        if let name = placemark.name, !name.isEmpty, name != placemark.thoroughfare {
-            return name
-        }
-
-        let street = [placemark.subThoroughfare, placemark.thoroughfare]
-            .compactMap { $0 }
-            .joined(separator: " ")
-        if !street.isEmpty {
-            if let city = placemark.locality, !city.isEmpty {
-                if let region = placemark.administrativeArea, !region.isEmpty {
-                    return "\(street), \(city), \(region)"
-                }
-                return "\(street), \(city)"
+        MKLocalSearch(request: request).start { response, error in
+            if let error = error {
+                print("[NativeGeofence] MKLocalSearch failed: \(error)")
+                completion(nil, nil)
+                return
             }
-            return street
-        }
 
-        let parts = [placemark.subLocality, placemark.locality, placemark.administrativeArea]
-            .compactMap { $0 }
-            .filter { !$0.isEmpty }
-        return parts.isEmpty ? nil : parts.joined(separator: ", ")
+            guard let items = response?.mapItems, !items.isEmpty else {
+                completion(nil, nil)
+                return
+            }
+
+            var best: (name: String, id: String, distance: CLLocationDistance)?
+
+            for item in items {
+                guard let name = item.name, !name.isEmpty else { continue }
+                let itemLocation = CLLocation(
+                    latitude: item.placemark.coordinate.latitude,
+                    longitude: item.placemark.coordinate.longitude
+                )
+                let distance = location.distance(from: itemLocation)
+                guard distance <= self.maxPoiDistanceMeters else { continue }
+
+                let venueId: String
+                if #available(iOS 16.0, *), let raw = item.identifier?.rawValue {
+                    venueId = raw
+                } else {
+                    venueId = "mk:\(name.lowercased().replacingOccurrences(of: " ", with: "_"))"
+                }
+
+                if best == nil || distance < best!.distance {
+                    best = (name, venueId, distance)
+                }
+            }
+
+            if let best = best {
+                completion(best.name, best.id)
+            } else {
+                completion(nil, nil)
+            }
+        }
     }
 
     private func isOnCooldown(venueId: String) -> Bool {

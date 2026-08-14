@@ -5,7 +5,6 @@ import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
 import 'debug_log_service.dart';
-import 'notification_service.dart';
 import 'places_venue_detector.dart';
 
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
@@ -270,16 +269,8 @@ class PeeplGeofenceService {
     Location location,
   ) async {
     if (geofenceStatus != GeofenceStatus.ENTER) return;
-
-    final locationId = geofence.id;
-    final locationName = _locationNames[locationId] ?? locationId;
-
-    await NotificationService.instance.handleVenueEntry(
-      venueName: locationName,
-      venueId: locationId,
-      lat: geofence.latitude,
-      lng: geofence.longitude,
-    );
+    // Walk-in prompts require ~2 min dwell; handled by PlacesVenueDetector
+    // via _onLocationChanged — not on raw geofence enter (avoids drive-by).
   }
 
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}

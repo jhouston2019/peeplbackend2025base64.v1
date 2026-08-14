@@ -42,7 +42,7 @@ class PlacesVenueDetector {
 
   static const double _detectionRadiusMeters = 200.0;
 
-  static const int _dwellSeconds = 60;
+  static const int _dwellSeconds = 120;
 
   static const double _movementThresholdMeters = 100.0;
 
