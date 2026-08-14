@@ -1083,14 +1083,50 @@ class _FeedScreenState extends State<FeedScreen> {
     return '${miles.toStringAsFixed(1)} mi';
   }
 
-  String _displayName(String? raw) {
-    if (raw == null || raw.isEmpty) return 'Unknown Venue';
-    final parts = raw.split(',');
-    final first = parts.first.trim();
-    if (RegExp(r'^\d+\s|^US-|^I-\d+').hasMatch(first)) {
-      return 'Unknown Venue';
+  bool _isHighwayOnly(String value) {
+    final trimmed = value.trim();
+    return RegExp(r'^(US|I|SR|HWY|Route)[-\s]?\d+', caseSensitive: false)
+        .hasMatch(trimmed);
+  }
+
+  String? _nonEmptyLabel(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  String? _businessLikeName(String? raw) {
+    final trimmed = _nonEmptyLabel(raw);
+    if (trimmed == null || _isHighwayOnly(trimmed)) return null;
+    if (RegExp(r'^\d+\s').hasMatch(trimmed)) return null;
+    return trimmed;
+  }
+
+  String? _addressLikeLabel(String? raw) {
+    final trimmed = _nonEmptyLabel(raw);
+    if (trimmed == null || _isHighwayOnly(trimmed)) return null;
+    final first = trimmed.split(',').first.trim();
+    return first.isEmpty ? null : first;
+  }
+
+  String _displayName(Map<String, dynamic> post) {
+    for (final key in ['venueName', 'businessName']) {
+      final name = _businessLikeName(post[key]?.toString());
+      if (name != null) return name;
     }
-    return first;
+
+    final locationName = post['locationName']?.toString();
+    final resolvedPlace = _businessLikeName(locationName);
+    if (resolvedPlace != null) {
+      return resolvedPlace.split(',').first.trim();
+    }
+
+    for (final key in ['formattedAddress', 'address', 'locationName']) {
+      final label = _addressLikeLabel(post[key]?.toString());
+      if (label != null) return label;
+    }
+
+    return 'Unknown Venue';
   }
 
   void _showFilterSheet() {
@@ -1170,24 +1206,17 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  String? _waitLabel(Map<String, dynamic> post) {
-    final wait = post['waitTime'];
-    if (wait == null || '$wait'.trim().isEmpty) return null;
-    return 'Wait $wait';
-  }
-
   Widget _buildOrganicCard(
     Map<String, dynamic> post, {
     required OrganicCardSize size,
     double? marginHorizontal,
   }) {
-    final name = _displayName(post['locationName']?.toString());
+    final name = _displayName(post);
     return OrganicCrowdCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
       name: name,
       crowdData: CrowdDisplayMapper.fromPost(post),
-      distanceLabel: _distanceLabel(post),
-      waitLabel: _waitLabel(post),
+      subtitleLabel: _subtitleLine(post),
       size: size,
       marginHorizontal: marginHorizontal,
       onTap: () => Navigator.push(
