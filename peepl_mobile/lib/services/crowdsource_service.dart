@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 
 import 'growth_analytics_service.dart';
+import 'venue_name_service.dart';
 
 const _kUsersCollection = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
@@ -14,12 +15,14 @@ class CrowdsourceDeliveryResult {
     required this.status,
     this.targetCount,
     this.sentCount,
+    this.errorCode,
   });
 
   final String requestId;
   final String status;
   final int? targetCount;
   final int? sentCount;
+  final String? errorCode;
 
   bool get delivered =>
       status == 'sent' && (sentCount ?? 0) > 0;
@@ -33,7 +36,10 @@ class CrowdsourceDeliveryResult {
       case 'no_fcm_tokens':
         return 'We found people there but notifications are off on their device.';
       case 'error':
-        return 'Could not send — location coordinates are missing.';
+        if (errorCode == 'target_query_failed') {
+          return 'Could not send — please try again in a moment.';
+        }
+        return 'Could not send — we could not locate that address. Try selecting it from the list again.';
       case 'pending':
         return 'Request submitted. Waiting for delivery…';
       default:
@@ -102,6 +108,16 @@ class CrowdsourceService {
       }
     } catch (e) {
       debugPrint('[CrowdsourceService] resolveCoordinates locations: $e');
+    }
+
+    try {
+      final geocoded = await VenueNameService.geocodeAddress(trimmed);
+      if (geocoded != null &&
+          isValidCoordinate(geocoded.latitude, geocoded.longitude)) {
+        return geocoded;
+      }
+    } catch (e) {
+      debugPrint('[CrowdsourceService] resolveCoordinates geocode: $e');
     }
 
     return null;
@@ -228,6 +244,7 @@ class CrowdsourceService {
           status: status,
           targetCount: (data['targetCount'] as num?)?.toInt(),
           sentCount: (data['sentCount'] as num?)?.toInt(),
+          errorCode: data['error'] as String?,
         );
       }
     }

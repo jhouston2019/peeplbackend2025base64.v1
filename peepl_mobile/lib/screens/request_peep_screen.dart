@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/peepl_home_tokens.dart';
 import '../services/crowdsource_service.dart';
+import '../services/venue_name_service.dart';
 
 class RequestPeepScreen extends StatefulWidget {
   const RequestPeepScreen({Key? key}) : super(key: key);
@@ -32,10 +33,12 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     }
     setState(() => _isSearching = true);
 
+    final q = trimmed.toLowerCase();
     final results = <Map<String, dynamic>>[];
     final seen = <String>{};
 
     void addResult(String name, double lat, double lng) {
+      if (!CrowdsourceService.isValidCoordinate(lat, lng)) return;
       final key = name.toLowerCase();
       if (seen.contains(key)) return;
       seen.add(key);
@@ -43,12 +46,14 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     }
 
     try {
-      final snap = await FirebaseFirestore.instance
-          .collection('locations')
-          .limit(200)
+      final postsSnap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isGreaterThanOrEqualTo: trimmed)
+          .where('locationName', isLessThanOrEqualTo: '$trimmed\uf8ff')
+          .orderBy('locationName')
+          .limit(20)
           .get();
-      final q = trimmed.toLowerCase();
-      for (final doc in snap.docs) {
+      for (final doc in postsSnap.docs) {
         final data = doc.data();
         final name = data['locationName'] as String? ?? '';
         final lat = (data['latitude'] as num?)?.toDouble();
@@ -60,14 +65,39 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
       }
     } catch (_) {}
 
-    if (results.length < 5) {
-      try {
-        final locations = await locationFromAddress(trimmed);
-        if (locations.isNotEmpty) {
-          final loc = locations.first;
-          addResult(trimmed, loc.latitude, loc.longitude);
+    try {
+      final snap = await FirebaseFirestore.instance
+          .collection('locations')
+          .limit(200)
+          .get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final name = data['locationName'] as String? ?? '';
+        final lat = (data['latitude'] as num?)?.toDouble() ??
+            (data['lat'] as num?)?.toDouble();
+        final lng = (data['longitude'] as num?)?.toDouble() ??
+            (data['lng'] as num?)?.toDouble();
+        if (name.isEmpty || lat == null || lng == null) continue;
+        if (name.toLowerCase().contains(q)) {
+          addResult(name, lat, lng);
         }
-      } catch (_) {}
+      }
+    } catch (_) {}
+
+    if (results.length < 5) {
+      final geocoded = await VenueNameService.geocodeAddress(trimmed);
+      if (geocoded != null) {
+        final formatted = await _formattedGeocodeLabel(trimmed, geocoded);
+        addResult(formatted, geocoded.latitude, geocoded.longitude);
+      } else {
+        try {
+          final locations = await locationFromAddress(trimmed);
+          if (locations.isNotEmpty) {
+            final loc = locations.first;
+            addResult(trimmed, loc.latitude, loc.longitude);
+          }
+        } catch (_) {}
+      }
     }
 
     if (mounted) {
@@ -85,17 +115,39 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
     _focusNode.unfocus();
   }
 
+  Future<String> _formattedGeocodeLabel(
+    String query,
+    ({double latitude, double longitude}) coords,
+  ) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(
+        coords.latitude,
+        coords.longitude,
+      );
+      if (placemarks.isNotEmpty) {
+        final place = placemarks.first;
+        final street = [
+          place.subThoroughfare,
+          place.thoroughfare,
+        ].whereType<String>().where((p) => p.isNotEmpty).join(' ');
+        final city = place.locality ?? place.subAdministrativeArea;
+        final region = place.administrativeArea;
+        final postal = place.postalCode;
+        final parts = <String>[
+          if (street.isNotEmpty) street else query,
+          if (city != null && city.isNotEmpty) city,
+          if (region != null && region.isNotEmpty) region,
+          if (postal != null && postal.isNotEmpty) postal,
+        ];
+        if (parts.isNotEmpty) return parts.join(', ');
+      }
+    } catch (_) {}
+    return query;
+  }
+
   Future<void> _submitRequest() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
-
-    final locationName = _locationController.text.trim();
-    if (locationName.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a location')),
-      );
-      return;
-    }
 
     if (_selectedPlace == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -104,14 +156,54 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
       return;
     }
 
+    final locationName = (_selectedPlace!['name'] as String).trim();
+    if (locationName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a location')),
+      );
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
+      var lat = (_selectedPlace!['lat'] as num).toDouble();
+      var lng = (_selectedPlace!['lng'] as num).toDouble();
+
+      if (!CrowdsourceService.isValidCoordinate(lat, lng)) {
+        final geocoded = await VenueNameService.geocodeAddress(locationName);
+        if (geocoded != null) {
+          lat = geocoded.latitude;
+          lng = geocoded.longitude;
+        } else {
+          final resolved =
+              await CrowdsourceService.instance.resolveCoordinates(locationName);
+          if (resolved != null) {
+            lat = resolved.latitude;
+            lng = resolved.longitude;
+          }
+        }
+      }
+
+      if (!CrowdsourceService.isValidCoordinate(lat, lng)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Could not find coordinates for that address. Try searching again.',
+              ),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
       final result = await CrowdsourceService.instance.createRequestAndAwaitDelivery(
         requestedBy: user.uid,
         locationName: locationName,
-        latitude: (_selectedPlace!['lat'] as num).toDouble(),
-        longitude: (_selectedPlace!['lng'] as num).toDouble(),
+        latitude: lat,
+        longitude: lng,
         source: 'request_peep_screen',
       );
 
