@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../home/peepl_home_tokens.dart';
 import 'peepl_detail_tokens.dart';
 
 class DetailCommentInput extends StatelessWidget {
@@ -17,7 +18,7 @@ class DetailCommentInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: PeeplDetailTokens.card,
+      color: PeeplDetailTokens.card.withValues(alpha: 0.95),
       elevation: 0,
       child: SafeArea(
         top: false,
@@ -32,24 +33,29 @@ class DetailCommentInput extends StatelessWidget {
                   decoration: InputDecoration(
                     hintText: 'Add a comment...',
                     hintStyle: TextStyle(
-                      color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.7),
+                      color: PeeplDetailTokens.textTertiary,
                     ),
                     filled: true,
-                    fillColor: PeeplDetailTokens.cardElevated,
+                    fillColor: PeeplHomeTokens.searchField,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
-                      borderSide: const BorderSide(color: PeeplDetailTokens.border),
+                      borderSide: BorderSide.none,
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
-                      borderSide: const BorderSide(color: PeeplDetailTokens.border),
+                      borderSide: BorderSide(
+                        color: PeeplDetailTokens.border,
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(24),
-                      borderSide: const BorderSide(color: PeeplDetailTokens.accentBlue),
+                      borderSide: const BorderSide(
+                        color: PeeplDetailTokens.accentBlue,
+                        width: 1.5,
+                      ),
                     ),
                     contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
+                      horizontal: 18,
                       vertical: 12,
                     ),
                   ),
@@ -66,18 +72,22 @@ class DetailCommentInput extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: const BoxDecoration(
-                    color: PeeplDetailTokens.accentBlue,
+                    color: PeeplHomeTokens.actionGreen,
                     shape: BoxShape.circle,
                   ),
                   child: isSubmitting
                       ? const Padding(
                           padding: EdgeInsets.all(12),
                           child: CircularProgressIndicator(
-                            color: Colors.white,
+                            color: PeeplDetailTokens.textPrimary,
                             strokeWidth: 2,
                           ),
                         )
-                      : const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                      : const Icon(
+                          Icons.arrow_forward_rounded,
+                          color: PeeplDetailTokens.textPrimary,
+                          size: 22,
+                        ),
                 ),
               ),
             ],

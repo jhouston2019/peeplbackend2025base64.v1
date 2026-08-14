@@ -20,7 +20,8 @@ class CrowdsourceService {
     required double longitude,
     String? message,
     String source = 'unknown',
-    double radiusKm = 0.2,
+    String? postAuthorId,
+    double radiusKm = 0.5,
   }) async {
     final trimmedName = locationName.trim();
     if (trimmedName.isEmpty) {
@@ -49,6 +50,10 @@ class CrowdsourceService {
       'requestId': requestId,
       'requestedBy': requestedBy,
       'requesterFcmToken': fcmToken,
+      if (postAuthorId != null &&
+          postAuthorId.isNotEmpty &&
+          postAuthorId != requestedBy)
+        'postAuthorId': postAuthorId,
       'locationName': trimmedName,
       'latitude': latitude,
       'longitude': longitude,

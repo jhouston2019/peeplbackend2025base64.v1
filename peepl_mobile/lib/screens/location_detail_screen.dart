@@ -10,25 +10,23 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/ad_cadence_service.dart';
 import '../services/share_service.dart';
 import '../services/crowdsource_service.dart';
-import '../widgets/no_peeps_empty_state.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
-import '../utils/crowd_display_mapper.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
-import '../widgets/crowd_meter.dart';
-import '../widgets/detail/detail_activity_ticker.dart';
 import '../widgets/detail/detail_comment_input.dart';
 import '../widgets/detail/detail_comment_tile.dart';
+import '../widgets/detail/detail_crowd_score_card.dart';
 import '../widgets/detail/detail_deals_card.dart';
 import '../widgets/detail/detail_hero_header.dart';
-import '../widgets/detail/detail_live_peeps_row.dart';
+import '../widgets/detail/detail_live_now_module.dart';
 import '../widgets/detail/detail_metrics_grid.dart';
 import '../widgets/detail/detail_peep_card.dart';
 import '../widgets/detail/detail_section_card.dart';
 import '../widgets/detail/detail_social_bar.dart';
 import '../widgets/detail/peepl_detail_tokens.dart';
+import '../widgets/home/peepl_home_background.dart';
 
 class LocationDetailScreen extends StatefulWidget {
   final Map<String, dynamic> postData;
@@ -179,7 +177,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         .limit(50)
         .get();
 
-    const radiusKm = 0.2; // 200 metres — same venue threshold
+    const radiusKm = 0.2;
 
     return snapshot.docs
         .map((doc) => {'id': doc.id, ...doc.data() as Map<String, dynamic>})
@@ -214,17 +212,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   double _deg2rad(double deg) => deg * pi / 180;
 
   Future<void> _initAds() async {
-    // Uniform every-3rd-slot spacing; overrides the irregular feed pattern.
     await _cadence.init(pattern: [3, 3, 3, 3]);
 
-    // Get cached user location (no new permission request — already resolved
-    // by FeedScreen or DiscoverScreen earlier in the session).
     final pos = await LocationService.getCurrentLocation();
     final userLat = pos?.latitude;
     final userLng = pos?.longitude;
 
-    // Detect vicarious peepling for this specific venue.
-    // If the user is >80 km from the venue, serve travel ads instead.
     final venueLat = (widget.postData['latitude'] as num?)?.toDouble();
     final venueLng = (widget.postData['longitude'] as num?)?.toDouble();
     String context = 'venue';
@@ -258,8 +251,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
-  /// Interleaves [_availableAds] into a comment doc list using the cadence.
-  /// Returns a mixed list of [QueryDocumentSnapshot] and ad [Map] entries.
   List<dynamic> _interleaveAdsIntoComments(List<QueryDocumentSnapshot> docs) {
     _cadence.resetForMerge(postCount: docs.length);
     final items = <dynamic>[];
@@ -290,7 +281,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final adId = ad['id'] as String? ?? '';
     final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 8),
       child: AdCard(
         ad: ad,
         onImpression: () => _adsService.recordAdImpression(adId, uid),
@@ -398,66 +389,47 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     switch (key) {
       case 'M/F':
         return Icons.people_outline_rounded;
-      case 'A/K':
-        return Icons.family_restroom_outlined;
-      case 'Noise':
-        return Icons.volume_up_outlined;
+      case 'Age':
+        return Icons.cake_outlined;
       case 'Wait':
         return Icons.hourglass_empty_outlined;
-      case 'Staff':
-        return Icons.support_agent_outlined;
       case 'Vibe':
         return Icons.emoji_emotions_outlined;
-      case 'Venue type':
-        return Icons.storefront_outlined;
-      case 'Age range':
-        return Icons.cake_outlined;
-      case 'Pets':
-        return Icons.pets_outlined;
-      case 'Crowd':
-        return Icons.groups_outlined;
-      case 'Dress':
-        return Icons.checkroom_outlined;
-      case 'Music':
-        return Icons.music_note_outlined;
-      case 'Wheelchair':
-        return Icons.accessible_outlined;
-      case 'Stroller':
-        return Icons.stroller_outlined;
       default:
         return Icons.info_outline_rounded;
     }
   }
 
-  List<DetailMetricItem> _primaryMetrics(Map<String, String> details) {
-    const primaryKeys = ['M/F', 'A/K', 'Noise', 'Wait', 'Staff', 'Vibe'];
-    return primaryKeys
-        .where((key) => details.containsKey(key))
+  List<DetailMetricItem> _horizontalMetrics(Map<String, dynamic> post) {
+    const keys = ['M/F', 'Age', 'Wait', 'Vibe'];
+    final values = <String, String>{};
+
+    final mfShort = PostCrowdFormat.maleFemaleShort(post['maleFemaleRatio']);
+    if (mfShort != null) values['M/F'] = mfShort;
+
+    final ageRange = post['ageRange']?.toString().trim();
+    if (ageRange != null && ageRange.isNotEmpty) {
+      values['Age'] = ageRange;
+    } else {
+      final akShort = PostCrowdFormat.adultKidShort(post['adultKidRatio']);
+      if (akShort != null) values['Age'] = akShort;
+    }
+
+    if (post['waitTime'] != null) values['Wait'] = '${post['waitTime']}';
+    if (post['vibe'] != null) values['Vibe'] = '${post['vibe']}';
+
+    return keys
+        .where(values.containsKey)
         .map(
           (key) => DetailMetricItem(
             icon: _metricIconForKey(key),
             title: key,
-            value: details[key]!,
+            value: values[key]!,
           ),
         )
         .toList();
   }
 
-  List<DetailMetricItem> _secondaryMetrics(Map<String, String> details) {
-    const primaryKeys = {'M/F', 'A/K', 'Noise', 'Wait', 'Staff', 'Vibe', 'Deals'};
-    return details.entries
-        .where((e) => !primaryKeys.contains(e.key))
-        .map(
-          (e) => DetailMetricItem(
-            icon: _metricIconForKey(e.key),
-            title: e.key,
-            value: e.value,
-          ),
-        )
-        .toList();
-  }
-
-  /// True when post has usable GPS (not missing and not placeholder 0,0).
   static bool _hasValidMapCoords(Map<String, dynamic> post) {
     final lat = (post['latitude'] as num?)?.toDouble();
     final lng = (post['longitude'] as num?)?.toDouble();
@@ -486,125 +458,166 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
-  Widget _buildLocationMapSection(Map<String, dynamic> post) {
+  String? _locationSubtitle(Map<String, dynamic> post) {
+    final address = post['address'] as String? ?? post['formattedAddress'] as String?;
+    if (address != null && address.trim().isNotEmpty) return address.trim();
+    final locationName = post['locationName'] as String?;
+    if (locationName != null && locationName.trim().isNotEmpty) {
+      return locationName.trim();
+    }
+    return null;
+  }
+
+  Widget _buildCompactLocationSection(Map<String, dynamic> post) {
     final lat = (post['latitude'] as num).toDouble();
     final lng = (post['longitude'] as num).toDouble();
     final target = LatLng(lat, lng);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          height: 200,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: GoogleMap(
-              key: ValueKey<String>('map_${lat}_$lng'),
-              initialCameraPosition: CameraPosition(
-                target: target,
-                zoom: 15,
-              ),
-              markers: {
-                Marker(
-                  markerId: const MarkerId('post_location'),
-                  position: target,
+    final locationName = post['locationName'] as String? ?? '';
+    final subtitle = _locationSubtitle(post);
+
+    return DetailSectionCard(
+      title: 'Location',
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: SizedBox(
+              width: 96,
+              height: 96,
+              child: GoogleMap(
+                key: ValueKey<String>('map_${lat}_$lng'),
+                initialCameraPosition: CameraPosition(
+                  target: target,
+                  zoom: 15,
                 ),
-              },
-              zoomControlsEnabled: false,
-              mapToolbarEnabled: false,
-              myLocationButtonEnabled: false,
-              compassEnabled: false,
-              scrollGesturesEnabled: false,
-              zoomGesturesEnabled: false,
-              rotateGesturesEnabled: false,
-              tiltGesturesEnabled: false,
+                markers: {
+                  Marker(
+                    markerId: const MarkerId('post_location'),
+                    position: target,
+                  ),
+                },
+                zoomControlsEnabled: false,
+                mapToolbarEnabled: false,
+                myLocationButtonEnabled: false,
+                compassEnabled: false,
+                scrollGesturesEnabled: false,
+                zoomGesturesEnabled: false,
+                rotateGesturesEnabled: false,
+                tiltGesturesEnabled: false,
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 12),
-        OutlinedButton.icon(
-          onPressed: () => _openGeoInMaps(lat, lng),
-          icon: const Icon(Icons.map_outlined),
-          label: const Text('Open in Maps'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: PeeplDetailTokens.accentBlue,
-            side: const BorderSide(color: PeeplDetailTokens.border),
-            padding: const EdgeInsets.symmetric(vertical: 12),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  locationName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: PeeplDetailTokens.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                if (subtitle != null && subtitle != locationName) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: PeeplDetailTokens.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 10),
+                TextButton(
+                  onPressed: () => _openGeoInMaps(lat, lng),
+                  style: TextButton.styleFrom(
+                    foregroundColor: PeeplDetailTokens.accentBlue,
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Open in Maps',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
+  }
+
+  List<String> _liveUsernames() {
+    final currentPostId = widget.postData['id'] as String?;
+    final others = _venuePeeps.where((p) => p['id'] != currentPostId).toList();
+    final currentInVenue =
+        _venuePeeps.where((p) => p['id'] == currentPostId).toList();
+    final displayPeeps = [...currentInVenue, ...others];
+    return displayPeeps
+        .map((p) => p['username'] as String? ?? 'Anonymous')
+        .toList();
+  }
+
+  String? _liveActivityText() {
+    if (_venuePeeps.isEmpty) return null;
+    final latest = _venuePeeps.last;
+    final name = latest['username'] as String? ?? 'Someone';
+    return '$name posted';
   }
 
   @override
   Widget build(BuildContext context) {
     final post = widget.postData;
-    final crowdingLevel =
-        (post['crowdingLevel'] as num?)?.toInt() ?? 0;
+    final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
     final postId = post['id'] as String?;
-
-    final Map<String, String> details = {};
-    final venue = post['venueType']?.toString().trim();
-    if (venue != null && venue.isNotEmpty) {
-      details['Venue type'] = venue;
-    }
-    final mfShort = PostCrowdFormat.maleFemaleShort(post['maleFemaleRatio']);
-    if (mfShort != null) details['M/F'] = mfShort;
-    final akShort = PostCrowdFormat.adultKidShort(post['adultKidRatio']);
-    if (akShort != null) details['A/K'] = akShort;
-    final ageR = post['ageRange']?.toString().trim();
-    if (ageR != null && ageR.isNotEmpty) details['Age range'] = ageR;
-    if (post['hasPets'] == true) details['Pets'] = 'Yes';
-    if (post['vibe'] != null) details['Vibe'] = '${post['vibe']}';
-    if (post['waitTime'] != null) details['Wait'] = '${post['waitTime']}';
-    final noiseLevel = post['noiseLevel'];
-    if (noiseLevel != null) {
-      final n = noiseLevel is num
-          ? noiseLevel.toInt()
-          : int.tryParse('$noiseLevel');
-      if (n != null) details['Noise'] = '$n/10';
-    }
-    final staffAvailability = post['staffAvailability'];
-    if (staffAvailability != null) {
-      final s = staffAvailability is num
-          ? staffAvailability.toInt()
-          : int.tryParse('$staffAvailability');
-      if (s != null) details['Staff'] = '$s/10';
-    }
-    if (post['demographics'] != null) {
-      details['Crowd'] = '${post['demographics']}';
-    }
-    if (post['dressCode'] != null) details['Dress'] = '${post['dressCode']}';
-    if (post['hasMusic'] == true) details['Music'] = 'Yes';
-    if (post['wheelchairAccessible'] == true) {
-      details['Wheelchair'] = 'Accessible';
-    }
-    if (post['strollerFriendly'] == true) details['Stroller'] = 'Friendly';
-    if (post['hasDeals'] == true) details['Deals'] = 'Available';
+    final horizontalMetrics = _horizontalMetrics(post);
+    final commentsCount = (post['commentsCount'] as num?)?.toInt() ?? 0;
 
     return Scaffold(
-      backgroundColor: PeeplDetailTokens.background,
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildHeroSection(context, post, crowdingLevel),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: _buildContent(post, postId, details),
-                  ),
-                ],
+      backgroundColor: Colors.transparent,
+      body: PeeplHomeBackground(
+        child: Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _buildHeroSection(context, post, crowdingLevel),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                      child: _buildContent(
+                        post,
+                        postId,
+                        horizontalMetrics,
+                        commentsCount,
+                        crowdingLevel,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
-          ),
-          DetailCommentInput(
-            controller: _commentController,
-            isSubmitting: _isSubmittingComment,
-            onSubmit: _submitComment,
-          ),
-        ],
+            DetailCommentInput(
+              controller: _commentController,
+              isSubmitting: _isSubmittingComment,
+              onSubmit: _submitComment,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -616,21 +629,17 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   ) {
     final imageUrl = post['imageUrl'] as String?;
     final locationName = post['locationName'] as String? ?? 'Unknown Location';
-    final username = post['username'] as String? ?? 'Unknown';
-    final timeLabel = _relativeTime(post['timestamp']);
-    final address = post['address'] as String? ?? post['formattedAddress'] as String?;
+    final venueType = post['venueType']?.toString();
     final trendRaw = (post['crowdTrend'] ?? post['trend'])?.toString();
 
-    return Stack(
-      clipBehavior: Clip.none,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         DetailHeroHeader(
           imageUrl: imageUrl,
           locationName: locationName,
-          username: username,
-          timeLabel: timeLabel,
-          peepCountLabel: null,
-          address: address,
+          venueType: venueType,
+          locationSubtitle: _locationSubtitle(post),
           onBack: () => Navigator.pop(context),
           onShare: () async {
             final user = FirebaseAuth.instance.currentUser;
@@ -659,14 +668,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             },
           ),
         ),
-        Positioned(
-          left: 16,
-          right: 16,
-          top: 272,
-          child: _CrowdStatusCard(
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: DetailCrowdScoreCard(
             crowdingLevel: crowdingLevel,
             trendRaw: trendRaw,
             contributorCount: _contributorCount,
+            isLive: crowdingLevel > 0 || _venuePeeps.isNotEmpty,
           ),
         ),
       ],
@@ -676,94 +684,50 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   Widget _buildContent(
     Map<String, dynamic> post,
     String? postId,
-    Map<String, String> details,
+    List<DetailMetricItem> horizontalMetrics,
+    int commentsCount,
+    int crowdingLevel,
   ) {
-    final primaryMetrics = _primaryMetrics(details);
-    final secondaryMetrics = _secondaryMetrics(details);
     final description = post['description'] as String? ?? '';
-    final imageUrl = post['imageUrl'] as String?;
     final username = post['username'] as String? ?? 'Unknown';
     final timeLabel = _relativeTime(post['timestamp']);
     final hasDeals = post['hasDeals'] == true;
     final locationName = post['locationName'] as String? ?? '';
+    final photoUrl = post['photoUrl'] as String?;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const SizedBox(height: 56),
-        if (primaryMetrics.isNotEmpty || secondaryMetrics.isNotEmpty)
-          DetailMetricsGrid(
-            metrics: primaryMetrics,
-            secondaryMetrics: secondaryMetrics,
-          ),
-        if (primaryMetrics.isNotEmpty || secondaryMetrics.isNotEmpty)
-          const SizedBox(height: 4),
-        _buildVenuePeepsSection(post),
-        Padding(
-          padding: const EdgeInsets.only(bottom: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-                stream: CrowdsourceService.instance
-                    .getActiveRequestsForLocation(locationName),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError || !snapshot.hasData) {
-                    return const SizedBox.shrink();
-                  }
-                  final count = snapshot.data!.docs.length;
-                  if (count <= 0) return const SizedBox.shrink();
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Text(
-                      '👀 $count people want a Peep here',
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: PeeplDetailTokens.textSecondary,
-                        fontWeight: FontWeight.w600,
+        if (horizontalMetrics.isNotEmpty)
+          DetailMetricsGrid(metrics: horizontalMetrics),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: CrowdsourceService.instance
+              .getActiveRequestsForLocation(locationName),
+          builder: (context, snapshot) {
+            final crowdsourceCount =
+                snapshot.hasData ? snapshot.data!.docs.length : null;
+            return DetailLiveNowModule(
+              usernames: _liveUsernames(),
+              totalCount: _venuePeeps.length,
+              isLoading: _loadingVenuePeeps,
+              isSubmittingExploreLive: _isSubmittingCrowdsource,
+              onExploreLive: _sendExploreLiveRequest,
+              activityText: _liveActivityText(),
+              crowdsourceCount: crowdsourceCount,
+              onPeepHere: locationName.isEmpty
+                  ? null
+                  : () => Navigator.pushNamed(
+                        context,
+                        '/post',
+                        arguments: {'locationName': locationName},
                       ),
-                    ),
-                  );
-                },
-              ),
-              ElevatedButton(
-                onPressed:
-                    _isSubmittingCrowdsource ? null : _sendExploreLiveRequest,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: PeeplDetailTokens.accentBlue,
-                  foregroundColor: PeeplAppTokens.textPrimary,
-                  minimumSize: const Size.fromHeight(52),
-                  shape: RoundedRectangleBorder(
-                    borderRadius:
-                        BorderRadius.circular(PeeplDetailTokens.cardRadius),
-                  ),
-                  elevation: 0,
-                ),
-                child: _isSubmittingCrowdsource
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: PeeplAppTokens.textPrimary,
-                        ),
-                      )
-                    : const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.cell_tower, size: 18),
-                          SizedBox(width: 8),
-                          Text('Explore Live'),
-                        ],
-                      ),
-              ),
-            ],
-          ),
+            );
+          },
         ),
         DetailSocialBar(
           isLiked: _isLiked,
           likesCount: _likesCount,
-          commentsCount: (post['commentsCount'] as num?)?.toInt() ?? 0,
+          commentsCount: commentsCount,
           onLikeTap: _toggleLike,
           onLikesCountTap: () {
             final id = widget.postData['id'] as String?;
@@ -802,36 +766,36 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             },
           ),
         ),
-        if (description.isNotEmpty || (imageUrl != null && imageUrl.isNotEmpty))
-          DetailPeepCard(
-            imageUrl: imageUrl,
-            caption: description,
-            author: username,
-            timeLabel: timeLabel,
-            isLiked: _isLiked,
-            onLikeTap: _toggleLike,
+        DetailPeepCard(
+          caption: description,
+          author: username,
+          timeLabel: timeLabel,
+          isLiked: _isLiked,
+          onLikeTap: _toggleLike,
+          photoUrl: photoUrl,
+          onMenu: () => Navigator.pushNamed(
+            context,
+            '/report',
+            arguments: {
+              'postId': widget.postData['id'] as String? ?? '',
+              'reportedUserId': widget.postData['userId'] as String? ?? '',
+            },
           ),
-        const Padding(
-          padding: EdgeInsets.only(bottom: 12),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
           child: Text(
-            'Comments',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
+            'Comments · $commentsCount',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
               color: PeeplDetailTokens.textPrimary,
             ),
           ),
         ),
         if (postId != null) _buildCommentsStream(postId),
-        if (_hasValidMapCoords(post)) ...[
-          DetailSectionCard(
-            title: 'Location',
-            child: _buildLocationMapSection(post),
-          ),
-        ],
-        if (hasDeals)
-          DetailDealsCard(onTap: () {}),
-        const SizedBox(height: 8),
+        if (_hasValidMapCoords(post)) _buildCompactLocationSection(post),
+        if (hasDeals) DetailDealsCard(onTap: () {}),
       ],
     );
   }
@@ -855,18 +819,20 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     setState(() => _isSubmittingCrowdsource = true);
 
     try {
+      final postAuthorId = widget.postData['userId'] as String?;
       await CrowdsourceService.instance.createRequest(
         requestedBy: user.uid,
         locationName: locationName,
         latitude: latitude,
         longitude: longitude,
         source: 'location_detail',
+        postAuthorId: postAuthorId,
       );
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Request sent! Nearby users will be notified.'),
+          content: Text('Request sent! They\'ll get a notification.'),
           backgroundColor: PeeplAppTokens.shellNavy,
         ),
       );
@@ -886,52 +852,6 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     } finally {
       if (mounted) setState(() => _isSubmittingCrowdsource = false);
     }
-  }
-
-  Widget _buildVenuePeepsSection(Map<String, dynamic> post) {
-    final locationName = post['locationName'] as String? ?? '';
-    final currentPostId = post['id'] as String?;
-    if (locationName.isEmpty) return const SizedBox.shrink();
-
-    if (_loadingVenuePeeps) return const SizedBox.shrink();
-
-    // Show empty state only when NO posts exist at this venue at all
-    if (_venuePeeps.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 8, bottom: 8),
-        child: NoPeepsEmptyState(locationName: locationName),
-      );
-    }
-    // Include all venue peeps; current post shown first if present
-    final others =
-        _venuePeeps.where((p) => p['id'] != currentPostId).toList();
-    final currentInVenue = _venuePeeps
-        .where((p) => p['id'] == currentPostId)
-        .toList();
-    final displayPeeps = [...currentInVenue, ...others];
-    final usernames = displayPeeps
-        .map(
-          (p) => p['username'] as String? ?? 'Anonymous',
-        )
-        .toList();
-
-    String? activityText;
-    if (displayPeeps.isNotEmpty) {
-      final latest = displayPeeps.last;
-      final name = latest['username'] as String? ?? 'Someone';
-      activityText = '$name posted';
-    }
-
-    return Column(
-      children: [
-        if (activityText != null) DetailActivityTicker(text: activityText),
-        if (usernames.isNotEmpty)
-          DetailLivePeepsRow(
-            usernames: usernames,
-            totalCount: _venuePeeps.length,
-          ),
-      ],
-    );
   }
 
   Widget _buildCommentsStream(String postId) {
@@ -955,14 +875,23 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
-            child: CircularProgressIndicator(color: PeeplDetailTokens.accentBlue),
+            child: Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: CircularProgressIndicator(
+                color: PeeplDetailTokens.accentBlue,
+              ),
+            ),
           );
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Text(
-            'No comments yet. Be the first!',
-            style: TextStyle(
-              color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.8),
+          return const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Be the first to comment.',
+              style: TextStyle(
+                color: PeeplDetailTokens.textSecondary,
+                fontSize: 14,
+              ),
             ),
           );
         }
@@ -993,123 +922,5 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   void dispose() {
     _commentController.dispose();
     super.dispose();
-  }
-}
-
-/// Crowding status card with optional contributor social proof (Phase 3).
-class _CrowdStatusCard extends StatelessWidget {
-  const _CrowdStatusCard({
-    required this.crowdingLevel,
-    this.trendRaw,
-    this.contributorCount,
-  });
-
-  final int crowdingLevel;
-  final String? trendRaw;
-  final int? contributorCount;
-
-  String? get _contributorLine {
-    final count = contributorCount;
-    if (count == null || count <= 0) return null;
-    if (count == 1) return '1 person updated this place today';
-    return '$count people updated this place today';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final crowdData = CrowdDisplayMapper.fromScore(
-      crowdingLevel,
-      trendRaw: trendRaw,
-    );
-    final statusColor = CrowdMeter.levelColor(crowdingLevel);
-    final statusLabel = CrowdMeter.wordLabel(crowdingLevel);
-    final contributorLine = _contributorLine;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: PeeplDetailTokens.cardDecoration(
-        color: PeeplDetailTokens.cardElevated,
-      ),
-      child: Row(
-        children: [
-          CrowdMeter(level: crowdingLevel, size: 72, fontScale: 0.38),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Crowd Score',
-                  style: TextStyle(
-                    color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.9),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  statusLabel,
-                  style: TextStyle(
-                    color: statusColor,
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    height: 1.1,
-                  ),
-                ),
-                if (contributorLine != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    contributorLine,
-                    style: TextStyle(
-                      color: PeeplDetailTokens.textSecondary,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-                if (crowdData.trendLabel != null) ...[
-                  const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Icon(
-                        _trendIcon(crowdData.trendDirection),
-                        size: 14,
-                        color: statusColor,
-                      ),
-                      const SizedBox(width: 4),
-                      Flexible(
-                        child: Text(
-                          crowdData.trendLabel!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            color: PeeplDetailTokens.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  IconData _trendIcon(CrowdTrendDirection? direction) {
-    switch (direction) {
-      case CrowdTrendDirection.down:
-        return Icons.trending_down_rounded;
-      case CrowdTrendDirection.up:
-        return Icons.trending_up_rounded;
-      case CrowdTrendDirection.steady:
-      case null:
-        return Icons.trending_flat_rounded;
-    }
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../utils/crowd_display_mapper.dart';
 import '../crowd_meter.dart';
+import '../home/peepl_home_tokens.dart';
 import 'peepl_detail_tokens.dart';
 
 class DetailCrowdScoreCard extends StatelessWidget {
@@ -9,10 +10,14 @@ class DetailCrowdScoreCard extends StatelessWidget {
     super.key,
     required this.crowdingLevel,
     this.trendRaw,
+    this.contributorCount,
+    this.isLive = false,
   });
 
   final int crowdingLevel;
   final String? trendRaw;
+  final int? contributorCount;
+  final bool isLive;
 
   @override
   Widget build(BuildContext context) {
@@ -24,10 +29,9 @@ class DetailCrowdScoreCard extends StatelessWidget {
     final statusLabel = CrowdMeter.wordLabel(crowdingLevel);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: PeeplDetailTokens.cardDecoration(
-        color: PeeplDetailTokens.cardElevated,
-      ),
+      margin: const EdgeInsets.only(top: 12, bottom: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      decoration: PeeplDetailTokens.cardDecoration(),
       child: Row(
         children: [
           CrowdMeter(level: crowdingLevel, size: 72, fontScale: 0.38),
@@ -39,10 +43,10 @@ class DetailCrowdScoreCard extends StatelessWidget {
                 Text(
                   'Crowd Score',
                   style: TextStyle(
-                    color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.9),
+                    color: PeeplDetailTokens.textSecondary,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    letterSpacing: 0.4,
+                    letterSpacing: 0.3,
                   ),
                 ),
                 const SizedBox(height: 4),
@@ -55,6 +59,30 @@ class DetailCrowdScoreCard extends StatelessWidget {
                     height: 1.1,
                   ),
                 ),
+                if (isLive) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: const BoxDecoration(
+                          color: PeeplHomeTokens.actionGreen,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Active right now',
+                        style: TextStyle(
+                          color: PeeplDetailTokens.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
                 if (crowdData.trendLabel != null) ...[
                   const SizedBox(height: 6),
                   Row(
@@ -71,7 +99,7 @@ class DetailCrowdScoreCard extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: PeeplDetailTokens.textSecondary,
+                            color: PeeplDetailTokens.textTertiary,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),

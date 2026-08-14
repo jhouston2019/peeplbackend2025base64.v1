@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../home/peepl_home_tokens.dart';
 import 'peepl_detail_tokens.dart';
 
 class DetailDealsCard extends StatelessWidget {
@@ -13,15 +14,15 @@ class DetailDealsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 10),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(PeeplDetailTokens.cardRadius),
           child: Ink(
-            decoration: PeeplDetailTokens.cardDecoration(
-              color: const Color(0xFF0F2E1F),
+            decoration: PeeplDetailTokens.cardDecoration().copyWith(
+              color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.18),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -31,12 +32,12 @@ class DetailDealsCard extends StatelessWidget {
                     width: 44,
                     height: 44,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF66E38D).withValues(alpha: 0.15),
+                      color: PeeplHomeTokens.dealsYellow.withValues(alpha: 0.35),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: const Icon(
                       Icons.local_offer_outlined,
-                      color: Color(0xFF66E38D),
+                      color: PeeplHomeTokens.dealsForeground,
                     ),
                   ),
                   const SizedBox(width: 14),

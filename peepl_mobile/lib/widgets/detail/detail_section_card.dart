@@ -20,7 +20,7 @@ class DetailSectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       padding: padding,
       decoration: PeeplDetailTokens.cardDecoration(color: color),
       child: Column(
@@ -31,7 +31,7 @@ class DetailSectionCard extends StatelessWidget {
               title!,
               style: const TextStyle(
                 color: PeeplDetailTokens.textPrimary,
-                fontSize: 17,
+                fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
             ),

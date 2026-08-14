@@ -25,45 +25,69 @@ class DetailSocialBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: PeeplDetailTokens.cardDecoration(),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          _ActionButton(
-            icon: isLiked ? Icons.favorite_rounded : Icons.favorite_border_rounded,
-            label: '$likesCount',
-            color: isLiked ? const Color(0xFFFF4D6D) : PeeplDetailTokens.textSecondary,
-            onTap: onLikeTap,
-            onLabelTap: onLikesCountTap,
-          ),
-          _ActionButton(
-            icon: Icons.chat_bubble_outline_rounded,
-            label: '$commentsCount',
-            color: PeeplDetailTokens.textSecondary,
-            onTap: () {},
-          ),
-          _ActionButton(
-            icon: Icons.ios_share_rounded,
-            label: 'Share',
-            color: PeeplDetailTokens.textSecondary,
-            onTap: onShareTap,
-          ),
-          _ActionButton(
-            icon: Icons.flag_outlined,
-            label: 'Report',
-            color: PeeplDetailTokens.textSecondary,
-            onTap: onReportTap,
-          ),
-        ],
+      child: IntrinsicHeight(
+        child: Row(
+          children: [
+            Expanded(
+              child: _ActionCell(
+                icon: isLiked
+                    ? Icons.favorite_rounded
+                    : Icons.favorite_border_rounded,
+                label: '$likesCount',
+                color: isLiked
+                    ? const Color(0xFFFF4D6D)
+                    : PeeplDetailTokens.textSecondary,
+                onTap: onLikeTap,
+                onLabelTap: onLikesCountTap,
+              ),
+            ),
+            _separator(),
+            Expanded(
+              child: _ActionCell(
+                icon: Icons.chat_bubble_outline_rounded,
+                label: '$commentsCount',
+                color: PeeplDetailTokens.textSecondary,
+                onTap: () {},
+              ),
+            ),
+            _separator(),
+            Expanded(
+              child: _ActionCell(
+                icon: Icons.ios_share_rounded,
+                label: 'Share',
+                color: PeeplDetailTokens.textSecondary,
+                onTap: onShareTap,
+              ),
+            ),
+            _separator(),
+            Expanded(
+              child: _ActionCell(
+                icon: Icons.flag_outlined,
+                label: 'Report',
+                color: PeeplDetailTokens.textSecondary,
+                onTap: onReportTap,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+
+  Widget _separator() {
+    return Container(
+      width: 1,
+      margin: const EdgeInsets.symmetric(vertical: 8),
+      color: PeeplDetailTokens.border,
     );
   }
 }
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
+class _ActionCell extends StatelessWidget {
+  const _ActionCell({
     required this.icon,
     required this.label,
     required this.color,
@@ -85,22 +109,24 @@ class _ActionButton extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(height: 4),
+              Icon(icon, color: color, size: 20),
+              const SizedBox(width: 6),
               GestureDetector(
                 onTap: onLabelTap ?? onTap,
                 child: Text(
                   label,
                   style: TextStyle(
                     color: PeeplDetailTokens.textSecondary,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    decoration: onLabelTap != null ? TextDecoration.underline : null,
-                    decorationColor: PeeplDetailTokens.textSecondary.withValues(alpha: 0.5),
+                    decoration:
+                        onLabelTap != null ? TextDecoration.underline : null,
+                    decorationColor:
+                        PeeplDetailTokens.textSecondary.withValues(alpha: 0.4),
                   ),
                 ),
               ),

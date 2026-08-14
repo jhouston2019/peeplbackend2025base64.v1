@@ -50,10 +50,23 @@ async function sendFcm(token, title, body, data = {}) {
   }
 }
 
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 // ─── FUNCTION 1: onCrowdsourceRequest ──────────────────────────────────────
 // Fires when a client writes to crowdsource_requests/{requestId}.
-// Finds nearby users via haversine on lastKnown* or lastLocation coords.
-// Sends FCM to each matched user (excluding the requester).
+// Notifies postAuthorId directly (Explore Live), active presence check-ins,
+// and nearby users via lastKnown* or lastLocation coords.
 function getUserCoords(userData) {
   if (userData.lastKnownLatitude != null && userData.lastKnownLongitude != null) {
     return {
@@ -77,10 +90,11 @@ exports.onCrowdsourceRequest = functions.firestore
     const data = snap.data();
     const {
       requestedBy,
+      postAuthorId,
       locationName,
       latitude,
       longitude,
-      radiusKm = 0.2,
+      radiusKm = 0.5,
       message,
       expiresAt,
       source,
@@ -121,14 +135,29 @@ exports.onCrowdsourceRequest = functions.firestore
     }
 
     const latDelta = radiusKm / 111;
+    const lngDelta = radiusKm / (111 * Math.cos((latitude * Math.PI) / 180));
     const body =
       message ||
       `Someone is curious about ${locationName}, would you mind sharing a peep?`;
+    const requestId = context.params.requestId;
+    const fcmData = {
+      type: 'crowdsource_request',
+      locationName,
+      latitude: String(latitude),
+      longitude: String(longitude),
+      requestId,
+    };
+
+    const targetIds = new Set();
+    if (postAuthorId && postAuthorId !== requestedBy) {
+      targetIds.add(postAuthorId);
+    }
 
     let usersSnap;
     let lastKnownSnap;
+    let presenceSnap;
     try {
-      [usersSnap, lastKnownSnap] = await Promise.all([
+      [usersSnap, lastKnownSnap, presenceSnap] = await Promise.all([
         db
           .collection(USERS_COLLECTION)
           .where('lastLocation.latitude', '>=', latitude - latDelta)
@@ -141,22 +170,30 @@ exports.onCrowdsourceRequest = functions.firestore
           .where('lastKnownLatitude', '<=', latitude + latDelta)
           .limit(200)
           .get(),
+        db
+          .collection('presence')
+          .where('latitude', '>=', latitude - latDelta)
+          .where('latitude', '<=', latitude + latDelta)
+          .where('expiresAt', '>', Timestamp.now())
+          .limit(100)
+          .get(),
       ]);
     } catch (e) {
-      console.error('User query error:', e);
-      return null;
+      console.error('Target query error:', e);
+      if (targetIds.size === 0) {
+        await snap.ref.update({ status: 'error', error: 'target_query_failed' });
+        return null;
+      }
+      usersSnap = { docs: [] };
+      lastKnownSnap = { docs: [] };
+      presenceSnap = { docs: [] };
     }
 
-    const candidateDocs = new Map();
     for (const doc of [...usersSnap.docs, ...lastKnownSnap.docs]) {
-      candidateDocs.set(doc.id, doc);
-    }
-
-    const targets = [...candidateDocs.values()].filter((doc) => {
-      if (doc.id === requestedBy) return false;
+      if (doc.id === requestedBy) continue;
 
       const coords = getUserCoords(doc.data());
-      if (!coords) return false;
+      if (!coords) continue;
 
       const dist = haversineKm(
         latitude,
@@ -164,42 +201,55 @@ exports.onCrowdsourceRequest = functions.firestore
         coords.latitude,
         coords.longitude,
       );
-      return dist <= radiusKm;
-    });
+      if (dist <= radiusKm) {
+        targetIds.add(doc.id);
+      }
+    }
 
-    if (targets.length === 0) {
-      console.log('No nearby users found for', locationName);
+    for (const doc of presenceSnap.docs) {
+      const presence = doc.data();
+      const uid = presence.uid || presence.userId || doc.id;
+      if (!uid || uid === requestedBy) continue;
+
+      const pLat = presence.latitude;
+      const pLng = presence.longitude;
+      if (pLat == null || pLng == null) continue;
+      if (pLng < longitude - lngDelta || pLng > longitude + lngDelta) continue;
+
+      const dist = haversineKm(latitude, longitude, pLat, pLng);
+      if (dist <= radiusKm) {
+        targetIds.add(uid);
+      }
+    }
+
+    if (targetIds.size === 0) {
+      console.log('No targets found for', locationName);
       await snap.ref.update({ status: 'no_targets' });
       return null;
     }
 
-    const sends = targets.map(async (doc) => {
-      const token = doc.data().fcmToken || (await getFcmToken(doc.id));
-      if (!token) return;
-      await sendFcm(
-        token,
-        'Peep Request Nearby',
-        body,
-        {
-          type: 'crowdsource_request',
-          locationName,
-          latitude: String(latitude),
-          longitude: String(longitude),
-          requestId: context.params.requestId,
-        },
-      );
+    const sends = [...targetIds].map(async (uid) => {
+      const userSnap = await db.collection(USERS_COLLECTION).doc(uid).get();
+      const token =
+        (userSnap.exists && userSnap.data()?.fcmToken) ||
+        (await getFcmToken(uid));
+      if (!token) return false;
+      await sendFcm(token, 'Peep Request Nearby', body, fcmData);
+      return true;
     });
 
-    await Promise.all(sends);
+    const sendResults = await Promise.all(sends);
+    const sentCount = sendResults.filter(Boolean).length;
 
     await snap.ref.update({
-      status: 'sent',
-      targetCount: targets.length,
+      status: sentCount > 0 ? 'sent' : 'no_fcm_tokens',
+      targetCount: targetIds.size,
+      sentCount,
       sentAt: FieldValue.serverTimestamp(),
     });
 
     console.log(
-      `Sent crowdsource request for ${locationName} to ${targets.length} users.`,
+      `Crowdsource request for ${locationName}: ${sentCount}/${targetIds.size} notified.`,
     );
     return null;
   });
@@ -353,19 +403,6 @@ exports.onLikeCreated = functions.firestore
 // ─── FUNCTION 4: onNewPost ─────────────────────────────────────────────────
 // Fires when a client writes notification_triggers/{postId} after submitting a post.
 // Notifies users within 1 km (excluding the poster).
-function haversineKm(lat1, lon1, lat2, lon2) {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
-
 exports.onNewPost = functions.firestore
   .document('notification_triggers/{postId}')
   .onCreate(async (snap, context) => {

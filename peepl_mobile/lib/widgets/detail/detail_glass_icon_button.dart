@@ -24,7 +24,11 @@ class DetailGlassIconButton extends StatelessWidget {
         width: size,
         height: size,
         decoration: PeeplDetailTokens.glassDecoration(radius: size / 2),
-        child: Icon(icon, color: PeeplDetailTokens.textPrimary, size: size * 0.5),
+        child: Icon(
+          icon,
+          color: PeeplDetailTokens.glassIconForeground,
+          size: size * 0.5,
+        ),
       ),
     );
 
