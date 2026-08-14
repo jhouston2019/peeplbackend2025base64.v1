@@ -1,4 +1,3 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'remote_config_service.dart';
@@ -33,13 +32,6 @@ class PeepPromptSuppressionService {
   }
 
   Future<PeepPromptSuppressionResult> check(String venueId) async {
-    if (FirebaseAuth.instance.currentUser == null) {
-      return const PeepPromptSuppressionResult(
-        suppress: true,
-        reason: 'no_auth',
-      );
-    }
-
     final rc = RemoteConfigService.instance;
     if (!rc.venueEntryPromptsEnabled) {
       return const PeepPromptSuppressionResult(

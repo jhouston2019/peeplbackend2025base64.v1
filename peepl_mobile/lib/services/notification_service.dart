@@ -257,7 +257,6 @@ class NotificationService {
     }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
 
     if (!await PeepPromptSuppressionService.instance.shouldShowPrompt(venueId)) {
       final suppression =
@@ -278,9 +277,9 @@ class NotificationService {
 
     await _updateUserLastLocation(lat, lng);
 
-    final resolved = await LocationLabelService.resolve(lat, lng);
-    final displayName =
-        (resolved.isNotEmpty && resolved != 'Current location') ? resolved : venueName;
+    final displayName = venueName.isNotEmpty
+        ? venueName
+        : await LocationLabelService.resolve(lat, lng);
 
     await GrowthAnalyticsService.logEvent(
       'growth_venue_entry_detected',
@@ -330,21 +329,29 @@ class NotificationService {
       return;
     }
 
-    // Background — FCM path via Cloud Function onVenueEntryEvent.
-    await _writeVenueEntryEventToFirestore(
-      userId: uid,
+    // Background — local notification on device. No Firestore / FCM required.
+    await _deliverWalkInLocalNotification(
       venueName: displayName,
       venueId: venueId,
-      latitude: lat,
-      longitude: lng,
+      lat: lat,
+      lng: lng,
     );
     await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
+    if (uid != null) {
+      unawaited(_writeVenueEntryEventToFirestore(
+        userId: uid,
+        venueName: displayName,
+        venueId: venueId,
+        latitude: lat,
+        longitude: lng,
+      ));
+    }
     await GrowthAnalyticsService.logEvent(
       'growth_peep_prompt_delivered',
       {
         'venueId': venueId,
         'venueName': displayName,
-        'channel': 'fcm_event',
+        'channel': 'local',
       },
     );
   }

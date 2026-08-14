@@ -43,7 +43,7 @@ class LocationService {
       }
 
       _cachedPosition = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.medium,
+        desiredAccuracy: LocationAccuracy.high,
       );
       return _cachedPosition;
     } catch (e) {
