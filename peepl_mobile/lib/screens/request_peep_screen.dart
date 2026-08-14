@@ -1,8 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:geocoding/geocoding.dart';
 import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/peepl_home_tokens.dart';
 import '../services/crowdsource_service.dart';
@@ -24,38 +24,54 @@ class _RequestPeepScreenState extends State<RequestPeepScreen> {
   bool _isSubmitting = false;
   Timer? _debounceTimer;
 
-  static const _mapsKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
-
   Future<void> _searchPlaces(String query) async {
-    if (query.trim().length < 3) {
+    final trimmed = query.trim();
+    if (trimmed.length < 3) {
       setState(() => _suggestions = []);
       return;
     }
     setState(() => _isSearching = true);
+
+    final results = <Map<String, dynamic>>[];
+    final seen = <String>{};
+
+    void addResult(String name, double lat, double lng) {
+      final key = name.toLowerCase();
+      if (seen.contains(key)) return;
+      seen.add(key);
+      results.add({'name': name, 'lat': lat, 'lng': lng});
+    }
+
     try {
-      final encoded = Uri.encodeComponent(query);
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/geocode/json'
-        '?address=$encoded&key=$_mapsKey',
-      );
-      final response = await http.get(url);
-      final data = json.decode(response.body);
-      if (data['status'] == 'OK') {
-        final results = (data['results'] as List).take(5).map((r) {
-          return {
-            'name': r['formatted_address'] as String,
-            'lat': (r['geometry']['location']['lat'] as num).toDouble(),
-            'lng': (r['geometry']['location']['lng'] as num).toDouble(),
-          };
-        }).toList();
-        setState(() =>
-            _suggestions = List<Map<String, dynamic>>.from(results));
-      } else {
-        setState(() => _suggestions = []);
+      final snap = await FirebaseFirestore.instance
+          .collection('locations')
+          .limit(200)
+          .get();
+      final q = trimmed.toLowerCase();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final name = data['locationName'] as String? ?? '';
+        final lat = (data['latitude'] as num?)?.toDouble();
+        final lng = (data['longitude'] as num?)?.toDouble();
+        if (name.isEmpty || lat == null || lng == null) continue;
+        if (name.toLowerCase().contains(q)) {
+          addResult(name, lat, lng);
+        }
       }
-    } catch (_) {
-      setState(() => _suggestions = []);
-    } finally {
+    } catch (_) {}
+
+    if (results.length < 5) {
+      try {
+        final locations = await locationFromAddress(trimmed);
+        if (locations.isNotEmpty) {
+          final loc = locations.first;
+          addResult(trimmed, loc.latitude, loc.longitude);
+        }
+      } catch (_) {}
+    }
+
+    if (mounted) {
+      setState(() => _suggestions = results.take(5).toList());
       setState(() => _isSearching = false);
     }
   }

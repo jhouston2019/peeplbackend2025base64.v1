@@ -230,11 +230,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         } else {
           Navigator.pushNamed(context, '/feed');
         }
+        break;
       case 'crowdsource_request':
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
-        // TODO: verify — latitude/longitude are not persisted by
-        // notification_service._persistNotification; inbox taps may lack coords.
         Navigator.pushNamed(
           context,
           '/post',
@@ -244,6 +243,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             if (lng != null) 'longitude': lng,
           },
         );
+        break;
       default:
         break;
     }

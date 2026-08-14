@@ -942,7 +942,7 @@ class NotificationService {
         'read': false,
         'messageId': message.messageId ?? '',
         'timestamp': FieldValue.serverTimestamp(),
-        'relatedId': data['postId'] ?? data['relatedId'] ?? '',
+        'relatedId': data['postId'] ?? data['requestId'] ?? data['relatedId'] ?? '',
         // Location context — present on crowdsource_request, null on others.
         // notifications_screen uses these for in-app tap navigation.
         if (data['locationName'] != null) 'locationName': data['locationName'],

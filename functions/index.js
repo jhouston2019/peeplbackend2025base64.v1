@@ -429,8 +429,101 @@ exports.onNewPost = functions.firestore
 
     await Promise.all(sends);
     console.log(`onNewPost: sent ${sends.length} notifications for ${locationName}`);
+
+    await fulfillCrowdsourceRequests({
+      postId,
+      posterId,
+      locationName,
+      latitude,
+      longitude,
+    });
+
     return null;
   });
+
+async function fulfillCrowdsourceRequests({
+  postId,
+  posterId,
+  locationName,
+  latitude,
+  longitude,
+}) {
+  let postSnap;
+  try {
+    postSnap = await db.collection('location_posts').doc(postId).get();
+  } catch (e) {
+    console.error('fulfillCrowdsourceRequests post lookup error:', e);
+    return;
+  }
+
+  const post = postSnap.exists ? postSnap.data() : {};
+  const crowdingLevel = post?.crowdingLevel ?? 0;
+  const username =
+    post?.username || post?.displayName || post?.authorName || 'Someone';
+
+  let pendingSnap;
+  try {
+    pendingSnap = await db
+      .collection('crowdsource_requests')
+      .where('locationName', '==', locationName)
+      .where('fulfilled', '==', false)
+      .where('status', 'in', ['pending', 'sent'])
+      .get();
+  } catch (e) {
+    console.error('fulfillCrowdsourceRequests query error:', e);
+    return;
+  }
+
+  for (const doc of pendingSnap.docs) {
+    const req = doc.data();
+    const requesterId = req.requestedBy || req.requesterId;
+    if (!requesterId || requesterId === posterId) continue;
+
+    try {
+      await db.collection('crowdsource_responses').doc(doc.id).set({
+        requestId: doc.id,
+        requesterId,
+        responderId: posterId,
+        responderUsername: username,
+        postId,
+        locationName,
+        latitude,
+        longitude,
+        crowdingLevel,
+        timestamp: FieldValue.serverTimestamp(),
+      });
+
+      await doc.ref.update({
+        fulfilled: true,
+        status: 'fulfilled',
+      });
+
+      const levelLabel =
+        crowdingLevel <= 4
+          ? 'not crowded'
+          : crowdingLevel <= 6
+            ? 'moderately crowded'
+            : 'very crowded';
+
+      const token = await getFcmToken(requesterId);
+      if (token) {
+        await sendFcm(
+          token,
+          'Crowd update',
+          `${username} just posted about ${locationName} — it's ${levelLabel}! Tap to see.`,
+          {
+            type: 'crowdsource_response',
+            postId,
+            requestId: doc.id,
+            locationName,
+          },
+        );
+      }
+    } catch (e) {
+      console.error('fulfillCrowdsourceRequests doc error:', doc.id, e);
+    }
+  }
+}
 
 // ─── HELPER: derive locations doc id from venue name ───────────────────────
 function generateLocationId(locationName) {

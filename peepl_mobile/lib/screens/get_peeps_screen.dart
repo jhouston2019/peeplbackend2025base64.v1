@@ -610,10 +610,11 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        StreamBuilder<QuerySnapshot>(
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
           stream: _db
-              .collectionGroup('requests')
-              .where('requesterId', isEqualTo: _uid)
+              .collection('crowdsource_requests')
+              .where('requestedBy', isEqualTo: _uid)
+              .where('fulfilled', isEqualTo: false)
               .snapshots(),
           builder: (context, snap) {
             if (snap.connectionState == ConnectionState.waiting) {

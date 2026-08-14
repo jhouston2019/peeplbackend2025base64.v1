@@ -80,7 +80,7 @@ class _AlertsScreenState extends State<AlertsScreen> {
 
     final postId = (data['postId'] ?? data['relatedId'] ?? '').toString();
 
-    if (type == 'post_liked' || type == 'crowdsource_request') {
+    if (type == 'post_liked') {
       if (postId.isNotEmpty) {
         final snap = await FirebaseFirestore.instance
             .collection('location_posts')
@@ -98,6 +98,21 @@ class _AlertsScreenState extends State<AlertsScreen> {
           );
         }
       }
+      return;
+    }
+
+    if (type == 'crowdsource_request') {
+      final lat = double.tryParse(data['latitude']?.toString() ?? '');
+      final lng = double.tryParse(data['longitude']?.toString() ?? '');
+      Navigator.pushNamed(
+        context,
+        '/post',
+        arguments: <String, dynamic>{
+          'locationName': data['locationName'] as String? ?? '',
+          if (lat != null) 'latitude': lat,
+          if (lng != null) 'longitude': lng,
+        },
+      );
       return;
     }
 
