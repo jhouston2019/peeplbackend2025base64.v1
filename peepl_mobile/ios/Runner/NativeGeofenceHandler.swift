@@ -247,7 +247,7 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
                 guard distance <= self.maxPoiDistanceMeters else { continue }
 
                 let venueId: String
-                if #available(iOS 16.0, *), let raw = item.identifier?.rawValue {
+                if #available(iOS 18.0, *), let raw = item.identifier?.rawValue {
                     venueId = raw
                 } else {
                     venueId = "mk:\(name.lowercased().replacingOccurrences(of: " ", with: "_"))"
