@@ -31,12 +31,17 @@ class OrganicCrowdCard extends StatelessWidget {
   final OrganicCardSize size;
   final double? marginHorizontal;
 
+  static const _navyOverlay = Color(0xFF050F19);
+
   double _height(BuildContext context) => size == OrganicCardSize.featured
       ? PeeplHomeTokens.featuredCardHeightFor(context)
       : PeeplHomeTokens.halfCardHeightFor(context);
 
   double get _horizontalMargin =>
       marginHorizontal ?? PeeplHomeTokens.cardHorizontalMargin;
+
+  double get _crowdEdgeInset =>
+      size == OrganicCardSize.half ? 6.0 : 8.0;
 
   @override
   Widget build(BuildContext context) {
@@ -82,26 +87,31 @@ class OrganicCrowdCard extends StatelessWidget {
                   FeedCardImage(source: imageUrl),
                   Positioned.fill(
                     child: DecoratedBox(
-                      decoration: const BoxDecoration(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.centerLeft,
                           end: Alignment.centerRight,
                           colors: [
-                            PeeplHomeTokens.crowdOverlayLeft,
-                            PeeplHomeTokens.crowdOverlayMid,
-                            Color(0x00050F19),
+                            _navyOverlay.withValues(alpha: 0.14),
+                            _navyOverlay.withValues(alpha: 0.0),
+                            _navyOverlay.withValues(alpha: 0.0),
+                            _navyOverlay.withValues(alpha: 0.20),
+                            _navyOverlay.withValues(alpha: 0.48),
+                            _navyOverlay.withValues(alpha: 0.58),
                           ],
-                          stops: [0.0, 0.38, 0.72],
+                          stops: const [0.0, 0.24, 0.52, 0.72, 0.88, 1.0],
                         ),
                       ),
                     ),
                   ),
                   Padding(
-                    padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+                    padding: EdgeInsets.only(
+                      left: horizontalPadding,
+                      right: _crowdEdgeInset,
+                    ),
                     child: Row(
                       children: [
                         Expanded(
-                          flex: 7,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
