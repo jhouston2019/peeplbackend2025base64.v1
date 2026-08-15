@@ -13,6 +13,7 @@ import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/detail/detail_comment_input.dart';
@@ -55,6 +56,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   bool _isFollowLoading = false;
   int? _contributorCount;
   late final String _locationId;
+  late String _displayVenueName;
 
   static String _resolveLocationId(Map<String, dynamic> post) {
     final venueId = post['venueId'] as String?;
@@ -70,6 +72,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   void initState() {
     super.initState();
     _locationId = _resolveLocationId(widget.postData);
+    _displayVenueName = VenueNameService.storedVenueName(widget.postData) ??
+        VenueNameService.addressFallback(widget.postData) ??
+        'Unknown Location';
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
     _loadFollowState();
@@ -77,6 +82,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     _loadVenuePeeps();
     _loadContributorCount();
     _recordPeepViewForVenue();
+    _resolveDisplayVenueName();
+  }
+
+  Future<void> _resolveDisplayVenueName() async {
+    final resolved = await VenueNameService.displayNameForPost(widget.postData);
+    if (mounted && resolved != _displayVenueName) {
+      setState(() => _displayVenueName = resolved);
+    }
   }
 
   Future<void> _loadContributorCount() async {
@@ -459,10 +472,13 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   }
 
   String? _locationSubtitle(Map<String, dynamic> post) {
-    final address = post['address'] as String? ?? post['formattedAddress'] as String?;
+    final address =
+        post['address'] as String? ?? post['formattedAddress'] as String?;
     if (address != null && address.trim().isNotEmpty) return address.trim();
     final locationName = post['locationName'] as String?;
-    if (locationName != null && locationName.trim().isNotEmpty) {
+    if (locationName != null &&
+        locationName.trim().isNotEmpty &&
+        VenueNameService.looksLikeAddress(locationName)) {
       return locationName.trim();
     }
     return null;
@@ -472,7 +488,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final lat = (post['latitude'] as num).toDouble();
     final lng = (post['longitude'] as num).toDouble();
     final target = LatLng(lat, lng);
-    final locationName = post['locationName'] as String? ?? '';
+    final locationName = _displayVenueName;
     final subtitle = _locationSubtitle(post);
 
     return DetailSectionCard(
@@ -628,7 +644,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     int crowdingLevel,
   ) {
     final imageUrl = post['imageUrl'] as String?;
-    final locationName = post['locationName'] as String? ?? 'Unknown Location';
+    final locationName = _displayVenueName;
     final venueType = post['venueType']?.toString();
     final trendRaw = (post['crowdTrend'] ?? post['trend'])?.toString();
 

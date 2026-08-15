@@ -19,13 +19,84 @@ class VenueNameService {
     caseSensitive: false,
   );
 
+  static final RegExp _leadingStreetNumber = RegExp(r'^\d+\s');
+
+  static final Map<String, String> _resolvedCache = {};
+  static final Map<String, Future<String?>> _inFlight = {};
+
   /// True when [value] looks like a street address or lat,lng coordinate pair.
   static bool looksLikeAddress(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
     if (_coordinatePair.hasMatch(trimmed)) return true;
+    if (_leadingStreetNumber.hasMatch(trimmed)) return true;
     if (_streetAddress.hasMatch(trimmed)) return true;
     return false;
+  }
+
+  static String? _nonEmpty(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  /// Returns a stored venue-style name from post fields, never an address.
+  static String? storedVenueName(Map<String, dynamic> post) {
+    for (final key in ['venueName', 'businessName', 'locationName']) {
+      final raw = _nonEmpty(post[key]?.toString());
+      if (raw == null || looksLikeAddress(raw)) continue;
+      return raw.split(',').first.trim();
+    }
+    return null;
+  }
+
+  /// Address-only fallback when no venue name is available.
+  static String? addressFallback(Map<String, dynamic> post) {
+    for (final key in ['address', 'formattedAddress', 'locationName']) {
+      final raw = _nonEmpty(post[key]?.toString());
+      if (raw == null) continue;
+      final first = raw.split(',').first.trim();
+      if (first.isNotEmpty) return first;
+    }
+    return null;
+  }
+
+  static String _cacheKey(double latitude, double longitude) =>
+      '${latitude.toStringAsFixed(5)}_${longitude.toStringAsFixed(5)}';
+
+  static Future<String?> _resolveCached(double latitude, double longitude) {
+    final key = _cacheKey(latitude, longitude);
+    final cached = _resolvedCache[key];
+    if (cached != null) return Future.value(cached);
+
+    final pending = _inFlight[key];
+    if (pending != null) return pending;
+
+    final future = resolveVenueName(latitude, longitude).then((resolved) {
+      if (resolved != null && resolved.isNotEmpty) {
+        _resolvedCache[key] = resolved;
+      }
+      _inFlight.remove(key);
+      return resolved;
+    });
+    _inFlight[key] = future;
+    return future;
+  }
+
+  /// Venue name for display: resolves via Places when needed; address only if
+  /// no venue name can be found.
+  static Future<String> displayNameForPost(Map<String, dynamic> post) async {
+    final stored = storedVenueName(post);
+    if (stored != null) return stored;
+
+    final lat = (post['latitude'] as num?)?.toDouble();
+    final lng = (post['longitude'] as num?)?.toDouble();
+    if (lat != null && lng != null) {
+      final resolved = await _resolveCached(lat, lng);
+      if (resolved != null && resolved.isNotEmpty) return resolved;
+    }
+
+    return addressFallback(post) ?? 'Unknown Venue';
   }
 
   /// Returns the nearest establishment name from Google Places Nearby Search,

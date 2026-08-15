@@ -5,6 +5,7 @@ import '../theme/peepl_app_tokens.dart';
 
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
+import '../widgets/resolved_venue_name.dart';
 import 'location_detail_screen.dart';
 
 enum _DateFilter { all, thisWeek, thisMonth }
@@ -405,14 +406,14 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
-                              post['locationName']?.toString() ?? 'Unknown',
+                            ResolvedVenueName(
+                              post: post,
+                              fallback: 'Unknown',
                               style: _overlayShadow.copyWith(
                                 fontSize: 12,
                                 fontWeight: FontWeight.bold,
                               ),
                               maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                             const SizedBox(height: 2),
                             Text(

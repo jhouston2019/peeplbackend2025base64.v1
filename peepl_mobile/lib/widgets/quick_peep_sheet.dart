@@ -8,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/feed_service.dart';
 import '../services/location_label_service.dart';
 import '../services/location_service.dart';
+import '../services/venue_name_service.dart';
 
 class QuickPeepSheet {
   QuickPeepSheet._();
@@ -137,7 +138,9 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       _latitude = lat;
       _longitude = lng;
 
-      final label = await LocationLabelService.resolve(lat, lng);
+      final venueName = await VenueNameService.resolveVenueName(lat, lng);
+      final label = venueName ??
+          await LocationLabelService.resolve(lat, lng);
 
       if (!mounted) return;
       setState(() {
@@ -147,10 +150,15 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       debugPrint('[QuickPeep] _detectLocation error: $e');
       if (!mounted) return;
       if (_latitude != null && _longitude != null) {
-        final fallback = await LocationLabelService.resolve(
+        final venueName = await VenueNameService.resolveVenueName(
           _latitude!,
           _longitude!,
         );
+        final fallback = venueName ??
+            await LocationLabelService.resolve(
+              _latitude!,
+              _longitude!,
+            );
         setState(() {
           _placeController.text = fallback;
         });

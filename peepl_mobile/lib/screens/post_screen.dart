@@ -200,6 +200,7 @@ class _PostScreenState extends State<PostScreen> {
   bool _locationPreFilled = false;
   bool _hasNotificationLocation = false;
   bool _fromVenueEntry = false;
+  bool _isResolvingVenueName = false;
 
   double _kidsPercentage = 0;
   double _femalePercentage = 50;
@@ -331,7 +332,33 @@ class _PostScreenState extends State<PostScreen> {
         if (_latitude != null && _longitude != null) {
           _locationReady = true;
         }
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _resolveNotificationVenueName();
+        });
       }
+    }
+  }
+
+  Future<void> _resolveNotificationVenueName() async {
+    if (!mounted) return;
+
+    final raw = _locationController.text.trim();
+    if (raw.isEmpty) return;
+    if (!VenueNameService.looksLikeAddress(raw)) return;
+
+    final lat = _latitude;
+    final lng = _longitude;
+    if (lat == null || lng == null) return;
+
+    setState(() => _isResolvingVenueName = true);
+    try {
+      final resolved = await VenueNameService.resolveVenueName(lat, lng);
+      if (!mounted) return;
+      if (resolved != null && resolved.isNotEmpty) {
+        setState(() => _locationController.text = resolved);
+      }
+    } finally {
+      if (mounted) setState(() => _isResolvingVenueName = false);
     }
   }
 
@@ -583,7 +610,16 @@ class _PostScreenState extends State<PostScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final locationName = _locationController.text.trim();
+      var locationName = _locationController.text.trim();
+      if (VenueNameService.looksLikeAddress(locationName)) {
+        final resolved = await VenueNameService.resolveVenueName(
+          _latitude!,
+          _longitude!,
+        );
+        if (resolved != null && resolved.isNotEmpty) {
+          locationName = resolved;
+        }
+      }
 
       if (_selectedImage != null && _aiSuggestedScore == null) {
         final validation = await _aiService.validateCrowdScore(

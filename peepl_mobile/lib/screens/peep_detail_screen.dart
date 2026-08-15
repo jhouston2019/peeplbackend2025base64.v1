@@ -7,6 +7,7 @@ import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
 import '../services/share_service.dart';
+import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
 
@@ -28,6 +29,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
   bool _isLiked = false;
   bool _submittingComment = false;
   int _likesCount = 0;
+  String _displayVenueName = 'Unknown';
 
   @override
   void dispose() {
@@ -44,7 +46,22 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
       _post = widget.postData ??
           (args is Map<String, dynamic> ? args : null);
       _likesCount = (_post?['likesCount'] as num?)?.toInt() ?? 0;
+      if (_post != null) {
+        _displayVenueName = VenueNameService.storedVenueName(_post!) ??
+            VenueNameService.addressFallback(_post!) ??
+            'Unknown';
+        _resolveDisplayVenueName();
+      }
       _checkIfLiked();
+    }
+  }
+
+  Future<void> _resolveDisplayVenueName() async {
+    final post = _post;
+    if (post == null) return;
+    final resolved = await VenueNameService.displayNameForPost(post);
+    if (mounted && resolved != _displayVenueName) {
+      setState(() => _displayVenueName = resolved);
     }
   }
 
@@ -94,8 +111,8 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     final postId = post['id'] as String?;
     if (postId == null || postId.isEmpty) return;
 
-    final name = post['locationName']?.toString().trim().isNotEmpty == true
-        ? post['locationName'].toString().trim()
+    final name = _displayVenueName.trim().isNotEmpty == true
+        ? _displayVenueName.trim()
         : 'this spot';
     final level = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
@@ -213,7 +230,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
       );
     }
 
-    final locationName = post['locationName'] as String? ?? 'Unknown';
+    final locationName = _displayVenueName;
     final username = post['username'] as String? ?? 'Anonymous';
     final userId = post['userId'] as String? ?? '';
     final crowdLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;

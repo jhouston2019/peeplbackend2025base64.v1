@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
 
 import '../widgets/crowd_meter.dart';
+import '../widgets/resolved_venue_name.dart';
 import 'location_detail_screen.dart';
 
 const _kCategories = <String>[
@@ -855,8 +856,6 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                                   const SizedBox(height: 10),
                               itemBuilder: (context, i) {
                                 final post = _posts[i];
-                                final locationName =
-                                    post['locationName'] as String? ?? 'Unknown';
                                 final username =
                                     post['username'] as String? ?? 'User';
                                 final level =
@@ -889,8 +888,9 @@ class _GroupFeedScreenState extends State<_GroupFeedScreen> {
                                               crossAxisAlignment:
                                                   CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  locationName,
+                                                ResolvedVenueName(
+                                                  post: post,
+                                                  fallback: 'Unknown',
                                                   style: const TextStyle(
                                                     fontWeight: FontWeight.bold,
                                                     fontSize: 14,

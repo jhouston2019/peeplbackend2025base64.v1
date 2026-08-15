@@ -28,6 +28,7 @@ import '../widgets/home/editorial_feed_layout.dart';
 import '../widgets/home/feed_loading_skeleton.dart';
 import '../widgets/home/happening_now_ticker.dart';
 import '../widgets/home/organic_crowd_card.dart';
+import '../widgets/resolved_venue_name.dart';
 import '../widgets/home/peepl_home_header.dart';
 import '../widgets/home/peepl_home_tokens.dart';
 import '../widgets/home/quick_filter_row.dart';
@@ -1083,52 +1084,6 @@ class _FeedScreenState extends State<FeedScreen> {
     return '${miles.toStringAsFixed(1)} mi';
   }
 
-  bool _isHighwayOnly(String value) {
-    final trimmed = value.trim();
-    return RegExp(r'^(US|I|SR|HWY|Route)[-\s]?\d+', caseSensitive: false)
-        .hasMatch(trimmed);
-  }
-
-  String? _nonEmptyLabel(String? raw) {
-    if (raw == null) return null;
-    final trimmed = raw.trim();
-    return trimmed.isEmpty ? null : trimmed;
-  }
-
-  String? _businessLikeName(String? raw) {
-    final trimmed = _nonEmptyLabel(raw);
-    if (trimmed == null || _isHighwayOnly(trimmed)) return null;
-    if (RegExp(r'^\d+\s').hasMatch(trimmed)) return null;
-    return trimmed;
-  }
-
-  String? _addressLikeLabel(String? raw) {
-    final trimmed = _nonEmptyLabel(raw);
-    if (trimmed == null || _isHighwayOnly(trimmed)) return null;
-    final first = trimmed.split(',').first.trim();
-    return first.isEmpty ? null : first;
-  }
-
-  String _displayName(Map<String, dynamic> post) {
-    for (final key in ['venueName', 'businessName']) {
-      final name = _businessLikeName(post[key]?.toString());
-      if (name != null) return name;
-    }
-
-    final locationName = post['locationName']?.toString();
-    final resolvedPlace = _businessLikeName(locationName);
-    if (resolvedPlace != null) {
-      return resolvedPlace.split(',').first.trim();
-    }
-
-    for (final key in ['formattedAddress', 'address', 'locationName']) {
-      final label = _addressLikeLabel(post[key]?.toString());
-      if (label != null) return label;
-    }
-
-    return 'Unknown Venue';
-  }
-
   void _showFilterSheet() {
     showModalBottomSheet<void>(
       context: context,
@@ -1211,10 +1166,20 @@ class _FeedScreenState extends State<FeedScreen> {
     required OrganicCardSize size,
     double? marginHorizontal,
   }) {
-    final name = _displayName(post);
+    final compact = size == OrganicCardSize.half;
     return OrganicCrowdCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
-      name: name,
+      nameWidget: ResolvedVenueName(
+        post: post,
+        maxLines: compact ? 1 : 2,
+        style: TextStyle(
+          color: PeeplHomeTokens.white,
+          fontSize: compact ? 15.0 : 16.0,
+          fontWeight: FontWeight.w700,
+          height: 1.1,
+          letterSpacing: -0.2,
+        ),
+      ),
       crowdData: CrowdDisplayMapper.fromPost(post),
       subtitleLabel: _subtitleLine(post),
       size: size,

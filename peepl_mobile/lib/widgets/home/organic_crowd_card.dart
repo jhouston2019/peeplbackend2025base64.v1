@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../utils/crowd_display_mapper.dart';
-import '../crowd_meter.dart';
+import 'crowd_status_panel.dart';
 import 'feed_card_image.dart';
 import 'feed_card_tap_scale.dart';
 import 'peepl_home_tokens.dart';
@@ -12,16 +12,19 @@ class OrganicCrowdCard extends StatelessWidget {
   const OrganicCrowdCard({
     super.key,
     required this.imageUrl,
-    required this.name,
     required this.crowdData,
     required this.onTap,
+    this.name,
+    this.nameWidget,
     this.subtitleLabel,
     this.size = OrganicCardSize.featured,
     this.marginHorizontal,
-  });
+  }) : assert(name != null || nameWidget != null,
+            'Provide either name or nameWidget');
 
   final String imageUrl;
-  final String name;
+  final String? name;
+  final Widget? nameWidget;
   final CrowdDisplayData crowdData;
   final VoidCallback onTap;
   final String? subtitleLabel;
@@ -38,11 +41,24 @@ class OrganicCrowdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = size == OrganicCardSize.half;
-    final titleSize = compact ? 14.0 : 15.0;
-    final metaSize = compact ? 10.0 : 11.0;
+    final titleSize = compact ? 15.0 : 16.0;
+    final metaSize = compact ? 11.0 : 12.0;
     final horizontalPadding = compact ? 10.0 : 14.0;
-    final meterSize = compact ? 38.0 : 44.0;
     final nameMaxLines = compact ? 1 : 2;
+    final titleStyle = TextStyle(
+      color: PeeplHomeTokens.white,
+      fontSize: titleSize,
+      fontWeight: FontWeight.w700,
+      height: 1.1,
+      letterSpacing: -0.2,
+    );
+    final titleWidget = nameWidget ??
+        Text(
+          name!,
+          maxLines: nameMaxLines,
+          overflow: TextOverflow.ellipsis,
+          style: titleStyle,
+        );
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: _horizontalMargin),
@@ -85,22 +101,12 @@ class OrganicCrowdCard extends StatelessWidget {
                     child: Row(
                       children: [
                         Expanded(
+                          flex: 7,
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                name,
-                                maxLines: nameMaxLines,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: PeeplHomeTokens.white,
-                                  fontSize: titleSize,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.1,
-                                  letterSpacing: -0.2,
-                                ),
-                              ),
+                              titleWidget,
                               if (subtitleLabel != null &&
                                   subtitleLabel!.isNotEmpty) ...[
                                 SizedBox(height: compact ? 2 : 3),
@@ -120,10 +126,10 @@ class OrganicCrowdCard extends StatelessWidget {
                             ],
                           ),
                         ),
-                        SizedBox(width: compact ? 6 : 8),
-                        CrowdMeter(
-                          level: crowdData.score,
-                          size: meterSize,
+                        CrowdStatusPanel(
+                          data: crowdData,
+                          compact: compact,
+                          showTrend: false,
                         ),
                       ],
                     ),

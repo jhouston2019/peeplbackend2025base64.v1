@@ -7,6 +7,7 @@ import '../models/milestone.dart';
 import 'crowd_intelligence_service.dart';
 import 'growth_analytics_service.dart';
 import 'notification_service.dart';
+import 'venue_name_service.dart';
 
 class FeedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -120,10 +121,23 @@ class FeedService {
       await _validateImageFile(imageFile);
       final imageUrl = await _uploadImage(imageFile, userId);
 
+      var displayName = locationName.trim();
+      String? streetAddress;
+      if (VenueNameService.looksLikeAddress(displayName)) {
+        streetAddress = displayName;
+        final resolved = await VenueNameService.resolveVenueName(
+          latitude,
+          longitude,
+        );
+        if (resolved != null && resolved.isNotEmpty) {
+          displayName = resolved;
+        }
+      }
+
       final doc = <String, dynamic>{
         'userId': userId,
         'username': username,
-        'locationName': locationName,
+        'locationName': displayName,
         'latitude': latitude,
         'longitude': longitude,
         'crowdingLevel': crowdingLevel,
@@ -140,6 +154,10 @@ class FeedService {
         'adultKidRatio': adultKidRatio.clamp(0, 100),
         'hasPets': hasPets,
       };
+      if (streetAddress != null && streetAddress != displayName) {
+        doc['address'] = streetAddress;
+        doc['venueName'] = displayName;
+      }
       final desc = description?.trim();
       if (desc != null && desc.isNotEmpty) doc['description'] = desc;
       final vt = venueType?.trim();
@@ -164,7 +182,7 @@ class FeedService {
       // Fire-and-forget intelligence recording — never blocks post flow
       CrowdIntelligenceService().recordPostIntelligence(
         postId: docRef.id,
-        locationName: locationName,
+        locationName: displayName,
         latitude: latitude,
         longitude: longitude,
         crowdScore: crowdingLevel,
@@ -179,7 +197,7 @@ class FeedService {
         NotificationService.instance
             .handlePostSubmission(
               userId: userId,
-              locationName: locationName,
+              locationName: displayName,
             )
             .catchError((_) {}),
       );
