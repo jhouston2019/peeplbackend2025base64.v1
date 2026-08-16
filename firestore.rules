@@ -216,6 +216,26 @@ service cloud.firestore {
          isGrowthAdmin());
     }
 
+    // Written by clients after posting — triggers onNewPost Cloud Function.
+    match /notification_triggers/{postId} {
+      allow create: if request.auth != null
+        && request.resource.data.posterId == request.auth.uid;
+      allow read: if request.auth != null;
+      allow update, delete: if false;
+    }
+
+    // In-app notification inbox (FCM mirror).
+    match /notifications/{userId} {
+      allow read, write: if request.auth != null
+        && request.auth.uid == userId;
+
+      match /items/{itemId} {
+        allow read, create, update: if request.auth != null
+          && request.auth.uid == userId;
+        allow delete: if false;
+      }
+    }
+
     // AI config — key set manually in Firebase console; read by authenticated clients.
     match /config/{doc} {
       allow read: if request.auth != null;

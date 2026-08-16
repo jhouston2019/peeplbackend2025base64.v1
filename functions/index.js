@@ -27,11 +27,14 @@ async function getFcmToken(uid) {
 // ─── HELPER: send a single FCM message ─────────────────────────────────────
 async function sendFcm(token, title, body, data = {}) {
   if (!token) return;
+  const stringData = Object.fromEntries(
+    Object.entries(data).map(([key, value]) => [key, String(value ?? '')]),
+  );
   try {
     await messaging.send({
       token,
       notification: { title, body },
-      data,
+      data: stringData,
       apns: {
         payload: {
           aps: {

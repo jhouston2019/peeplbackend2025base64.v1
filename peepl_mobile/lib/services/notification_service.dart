@@ -515,6 +515,11 @@ class NotificationService {
       );
     } catch (e) {
       debugPrint('[FCM] onPostSubmitted error: $e');
+      await DebugLogService.log(
+        'FCM',
+        'onPostSubmitted_failed',
+        data: {'error': e.toString(), 'postId': postId},
+      );
     }
   }
 
@@ -742,10 +747,51 @@ class NotificationService {
         if (_seenCrowdsourceResponseIds.contains(docId)) continue;
         _seenCrowdsourceResponseIds.add(docId);
 
-        // FCM from onNewPost delivers crowdsource_response — no local duplicate.
-        debugPrint(
-          '[FCM] crowdsource_response doc $docId (FCM handles notification)',
-        );
+        // FCM from onCrowdsourceResponseCreated delivers the push; show local
+        // notification as a foreground backup when the app is open.
+        final data = change.doc.data();
+        if (data == null) continue;
+
+        final username = data['responderUsername'] as String? ?? 'Someone';
+        final locationName = data['locationName'] as String? ?? 'a location';
+        final crowdingLevel = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
+        final levelLabel = crowdingLevel <= 4
+            ? 'not crowded'
+            : crowdingLevel <= 6
+                ? 'moderately crowded'
+                : 'very crowded';
+
+        if (_isAppForeground) {
+          await _localNotifications.show(
+            docId.hashCode,
+            'Your Peep request was answered!',
+            '$username just posted about $locationName — it\'s $levelLabel. Tap to see.',
+            NotificationDetails(
+              android: AndroidNotificationDetails(
+                _channel.id,
+                _channel.name,
+                channelDescription: _channel.description,
+                importance: Importance.high,
+                priority: Priority.high,
+                icon: '@mipmap/ic_launcher',
+              ),
+              iOS: const DarwinNotificationDetails(
+                presentAlert: true,
+                presentBadge: true,
+                presentSound: true,
+              ),
+            ),
+            payload: jsonEncode({
+              'type': 'crowdsource_response',
+              'postId': data['postId'],
+              'requestId': docId,
+            }),
+          );
+        } else {
+          debugPrint(
+            '[FCM] crowdsource_response doc $docId (background FCM expected)',
+          );
+        }
       }
     });
   }

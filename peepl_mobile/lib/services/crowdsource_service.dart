@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -60,6 +61,32 @@ class CrowdsourceService {
     if (latitude == 0 && longitude == 0) return false;
     if (latitude.abs() > 90 || longitude.abs() > 180) return false;
     return true;
+  }
+
+  static bool locationNamesMatch(String a, String b) {
+    final left = a.trim().toLowerCase();
+    final right = b.trim().toLowerCase();
+    if (left.isEmpty || right.isEmpty) return false;
+    if (left == right) return true;
+    return left.contains(right) || right.contains(left);
+  }
+
+  static double _haversineKm(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const earthRadiusKm = 6371.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    final c = 2 * math.asin(math.sqrt(a));
+    return earthRadiusKm * c;
   }
 
   /// Resolves coordinates from recent posts or the locations registry.
@@ -367,20 +394,53 @@ class CrowdsourceService {
           final radiusKm = (request['radiusKm'] as num?)?.toDouble() ?? 1;
           final reqName = request['locationName'] as String? ?? '';
 
-          final nameMatch =
-              reqName.trim().toLowerCase() == trimmedName.toLowerCase();
+          final nameMatch = locationNamesMatch(reqName, trimmedName);
           var withinRadius = false;
           if (reqLat != null &&
               reqLng != null &&
               isValidCoordinate(reqLat, reqLng)) {
-            final latDiff = (latitude - reqLat).abs();
-            final lngDiff = (longitude - reqLng).abs();
-            final approxKm = (latDiff + lngDiff) * 111;
-            withinRadius = approxKm <= radiusKm.clamp(0.5, 5);
+            withinRadius =
+                _haversineKm(latitude, longitude, reqLat, reqLng) <=
+                radiusKm.clamp(0.5, 5);
           }
 
           if (nameMatch || withinRadius) {
             matchedIds.add(doc.id);
+          }
+        }
+      }
+
+      if (matchedIds.isEmpty) {
+        final pendingSnap = await _db
+            .collection('crowdsource_requests')
+            .where('fulfilled', isEqualTo: false)
+            .where('status', whereIn: ['pending', 'sent'])
+            .limit(50)
+            .get();
+
+        for (final doc in pendingSnap.docs) {
+          final request = doc.data();
+          final requesterId = request['requestedBy'] as String? ??
+              request['requesterId'] as String?;
+          if (requesterId == null || requesterId == responderId) continue;
+
+          final reqName = request['locationName'] as String? ?? '';
+          if (locationNamesMatch(reqName, trimmedName)) {
+            matchedIds.add(doc.id);
+            continue;
+          }
+
+          final reqLat = (request['latitude'] as num?)?.toDouble();
+          final reqLng = (request['longitude'] as num?)?.toDouble();
+          if (reqLat != null &&
+              reqLng != null &&
+              isValidCoordinate(latitude, longitude) &&
+              isValidCoordinate(reqLat, reqLng)) {
+            final radiusKm = (request['radiusKm'] as num?)?.toDouble() ?? 1;
+            if (_haversineKm(latitude, longitude, reqLat, reqLng) <=
+                radiusKm.clamp(0.5, 5)) {
+              matchedIds.add(doc.id);
+            }
           }
         }
       }
