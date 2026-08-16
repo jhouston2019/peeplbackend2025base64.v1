@@ -386,7 +386,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
-  Future<void> _sharePeep({String shareContext = 'detail_view'}) async {
+  Future<void> _sharePeep({
+    String shareContext = 'detail_view',
+    Rect? sharePositionOrigin,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (!mounted) return;
@@ -396,19 +399,44 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       return;
     }
 
-    final postId = widget.postData['id'] as String?;
-    if (postId == null || postId.isEmpty) return;
+    final postId =
+        (widget.postData['id'] as String?) ??
+        (widget.postData['postId'] as String?) ??
+        '';
+    if (postId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share this Peep.')),
+      );
+      return;
+    }
 
     final crowdingLevel =
         (widget.postData['crowdingLevel'] as num?)?.toInt() ?? 0;
 
-    await ShareService.instance.sharePeep(
-      peepId: postId,
-      locationName: _displayVenueName,
-      crowdingLevel: crowdingLevel,
-      sharingUserId: user.uid,
-      shareContext: shareContext,
-    );
+    try {
+      await ShareService.instance.sharePeep(
+        peepId: postId,
+        locationName: _displayVenueName,
+        crowdingLevel: crowdingLevel,
+        sharingUserId: user.uid,
+        shareContext: shareContext,
+        sharePositionOrigin: sharePositionOrigin,
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not share: $e')),
+      );
+    }
+  }
+
+  Rect _shareOriginFor(BuildContext buttonContext) {
+    final box = buttonContext.findRenderObject() as RenderBox?;
+    if (box != null && box.hasSize) {
+      return box.localToGlobal(Offset.zero) & box.size;
+    }
+    return ShareService.fallbackShareOrigin;
   }
 
   Future<void> _submitComment() async {
@@ -737,16 +765,21 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
           child: SizedBox(
             width: double.infinity,
-            child: FilledButton.icon(
-              onPressed: () => _sharePeep(shareContext: 'detail_cta'),
-              icon: const Icon(Icons.ios_share_rounded, size: 20),
-              label: const Text('Share this Peep'),
-              style: FilledButton.styleFrom(
-                backgroundColor: PeeplDetailTokens.accentBlue,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            child: Builder(
+              builder: (buttonContext) => FilledButton.icon(
+                onPressed: () => _sharePeep(
+                  shareContext: 'detail_cta',
+                  sharePositionOrigin: _shareOriginFor(buttonContext),
+                ),
+                icon: const Icon(Icons.ios_share_rounded, size: 20),
+                label: const Text('Share this Peep'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: PeeplDetailTokens.accentBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),

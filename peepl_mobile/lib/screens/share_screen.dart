@@ -1,7 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/peepl_app_tokens.dart';
 
@@ -152,7 +151,7 @@ class _ShareScreenState extends State<ShareScreen> {
 
   Future<void> _share(String text) async {
     try {
-      await Share.share(text);
+      await ShareService.instance.presentShareSheet(text);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

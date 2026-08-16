@@ -117,13 +117,21 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
         : 'this spot';
     final level = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
-    await ShareService.instance.sharePeep(
-      peepId: postId,
-      locationName: name,
-      crowdingLevel: level,
-      sharingUserId: user.uid,
-      shareContext: 'detail_view',
-    );
+    try {
+      await ShareService.instance.sharePeep(
+        peepId: postId,
+        locationName: name,
+        crowdingLevel: level,
+        sharingUserId: user.uid,
+        shareContext: 'detail_view',
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not share: $e')),
+        );
+      }
+    }
   }
 
   Future<void> _submitComment() async {

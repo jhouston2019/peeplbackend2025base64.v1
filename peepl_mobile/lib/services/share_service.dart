@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
@@ -16,6 +18,19 @@ class ShareService {
 
   static final FirebaseFirestore _db = FirebaseFirestore.instance;
   static const _uuid = Uuid();
+
+  /// Required on iOS 26+ (and iPad) when presenting the native share sheet.
+  static const Rect fallbackShareOrigin = Rect.fromLTWH(0, 0, 100, 100);
+
+  static Future<void> presentShareSheet(
+    String text, {
+    Rect? sharePositionOrigin,
+  }) async {
+    await Share.share(
+      text,
+      sharePositionOrigin: sharePositionOrigin ?? fallbackShareOrigin,
+    );
+  }
 
   static String crowdWordLabel(int level) {
     final value = level.clamp(0, 10);
@@ -124,16 +139,17 @@ class ShareService {
     required int crowdingLevel,
     required String sharingUserId,
     String shareContext = 'default',
+    Rect? sharePositionOrigin,
   }) async {
-    try {
-      if (peepId.isEmpty) {
-        await GrowthAnalyticsService.logEvent(
-          'growth_share_error',
-          {'reason': 'null_peepId', 'shareContext': shareContext},
-        );
-        return;
-      }
+    if (peepId.isEmpty) {
+      await GrowthAnalyticsService.logEvent(
+        'growth_share_error',
+        {'reason': 'null_peepId', 'shareContext': shareContext},
+      );
+      throw StateError('Missing peep id');
+    }
 
+    try {
       await GrowthAnalyticsService.logEvent(
         'growth_share_initiated',
         {
@@ -158,7 +174,10 @@ class ShareService {
         shareContext: shareContext,
       );
 
-      await Share.share(text);
+      await presentShareSheet(
+        text,
+        sharePositionOrigin: sharePositionOrigin,
+      );
 
       await GrowthAnalyticsService.logEvent(
         'growth_share_completed',
@@ -171,6 +190,7 @@ class ShareService {
       );
     } catch (e) {
       debugPrint('[ShareService] sharePeep failed: $e');
+      rethrow;
     }
   }
 
@@ -200,6 +220,7 @@ class ShareService {
     required int crowdingLevel,
     required String sharingUserId,
     String? venueId,
+    Rect? sharePositionOrigin,
   }) async {
     try {
       const shareContext = 'venue_share';
@@ -244,15 +265,20 @@ class ShareService {
         shareUrl: shareUrl,
       );
 
-      await Share.share(text);
+      await presentShareSheet(
+        text,
+        sharePositionOrigin: sharePositionOrigin,
+      );
     } catch (e) {
       debugPrint('[ShareService] shareVenueStatus failed: $e');
+      rethrow;
     }
   }
 
   Future<void> shareVenueGroup({
     required List<Map<String, dynamic>> venues,
     required String sharingUserId,
+    Rect? sharePositionOrigin,
   }) async {
     if (venues.length < 2) {
       debugPrint('[ShareService] shareVenueGroup requires at least 2 venues');
@@ -314,7 +340,10 @@ class ShareService {
     );
 
     final text = buildGroupShareText(venues: venues, shareUrl: shareUrl);
-    await Share.share(text);
+    await presentShareSheet(
+      text,
+      sharePositionOrigin: sharePositionOrigin,
+    );
   }
 
   Future<void> shareDeal({
@@ -322,6 +351,7 @@ class ShareService {
     required String dealTitle,
     required String venueName,
     required String sharingUserId,
+    Rect? sharePositionOrigin,
   }) async {
     try {
       if (dealId.isEmpty) {
@@ -372,9 +402,13 @@ class ShareService {
         shareUrl: shareUrl,
       );
 
-      await Share.share(text);
+      await presentShareSheet(
+        text,
+        sharePositionOrigin: sharePositionOrigin,
+      );
     } catch (e) {
       debugPrint('[ShareService] shareDeal failed: $e');
+      rethrow;
     }
   }
 

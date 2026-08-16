@@ -1186,7 +1186,7 @@ class _FeedScreenState extends State<FeedScreen> {
       subtitleLabel: _subtitleLine(post),
       size: size,
       marginHorizontal: marginHorizontal,
-      onShare: () => _shareOrganicPost(post),
+      onShare: (origin) => _shareOrganicPost(post, sharePositionOrigin: origin),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
@@ -1194,7 +1194,10 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Future<void> _shareOrganicPost(Map<String, dynamic> post) async {
+  Future<void> _shareOrganicPost(
+    Map<String, dynamic> post, {
+    Rect? sharePositionOrigin,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       if (!mounted) return;
@@ -1224,6 +1227,7 @@ class _FeedScreenState extends State<FeedScreen> {
         crowdingLevel: crowdingLevel,
         sharingUserId: user.uid,
         shareContext: 'home_feed',
+        sharePositionOrigin: sharePositionOrigin,
       );
     } catch (e) {
       if (!mounted) return;

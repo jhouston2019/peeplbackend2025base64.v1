@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../utils/crowd_display_mapper.dart';
@@ -31,7 +33,7 @@ class OrganicCrowdCard extends StatelessWidget {
   final String? subtitleLabel;
   final OrganicCardSize size;
   final double? marginHorizontal;
-  final VoidCallback? onShare;
+  final void Function(Rect shareOrigin)? onShare;
 
   static const _navyOverlay = Color(0xFF050F19);
 
@@ -194,7 +196,7 @@ class _ShareLabel extends StatelessWidget {
   });
 
   final bool compact;
-  final VoidCallback onTap;
+  final ValueChanged<Rect> onTap;
 
   static const _shadows = [
     Shadow(
@@ -212,7 +214,13 @@ class _ShareLabel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
-      onTap: onTap,
+      onTap: () {
+        final box = context.findRenderObject() as RenderBox?;
+        final origin = box != null && box.hasSize
+            ? box.localToGlobal(Offset.zero) & box.size
+            : const Rect.fromLTWH(0, 0, 100, 100);
+        onTap(origin);
+      },
       behavior: HitTestBehavior.opaque,
       child: Padding(
         padding: EdgeInsets.symmetric(

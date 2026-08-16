@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../services/share_service.dart';
 import '../theme/peepl_app_tokens.dart';
 
 class InviteScreen extends StatefulWidget {
@@ -41,7 +41,7 @@ class _InviteScreenState extends State<InviteScreen> {
 
   Future<void> _sharePeepl() async {
     try {
-      await Share.share(_kShareMessage);
+      await ShareService.instance.presentShareSheet(_kShareMessage);
       await _incrementInviteCount();
     } catch (e) {
       if (mounted) {
