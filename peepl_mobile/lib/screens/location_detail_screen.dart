@@ -341,6 +341,31 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
+  Future<void> _sharePeep({String shareContext = 'detail_view'}) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to share this Peep.')),
+      );
+      return;
+    }
+
+    final postId = widget.postData['id'] as String?;
+    if (postId == null || postId.isEmpty) return;
+
+    final crowdingLevel =
+        (widget.postData['crowdingLevel'] as num?)?.toInt() ?? 0;
+
+    await ShareService.instance.sharePeep(
+      peepId: postId,
+      locationName: _displayVenueName,
+      crowdingLevel: crowdingLevel,
+      sharingUserId: user.uid,
+      shareContext: shareContext,
+    );
+  }
+
   Future<void> _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
@@ -657,21 +682,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           venueType: venueType,
           locationSubtitle: _locationSubtitle(post),
           onBack: () => Navigator.pop(context),
-          onShare: () async {
-            final user = FirebaseAuth.instance.currentUser;
-            if (user == null) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Sign in to share this venue.')),
-              );
-              return;
-            }
-            await ShareService.instance.shareVenueStatus(
-              locationName: locationName,
-              crowdingLevel: crowdingLevel,
-              sharingUserId: user.uid,
-              venueId: post['venueId'] as String?,
-            );
-          },
+          onShare: () => _sharePeep(shareContext: 'detail_hero'),
           onFollow: () => _toggleFollow(locationName),
           isFollowing: _isFollowing,
           isFollowLoading: _isFollowLoading,
@@ -691,6 +702,25 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             trendRaw: trendRaw,
             contributorCount: _contributorCount,
             isLive: crowdingLevel > 0 || _venuePeeps.isNotEmpty,
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+          child: SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: () => _sharePeep(shareContext: 'detail_cta'),
+              icon: const Icon(Icons.ios_share_rounded, size: 20),
+              label: const Text('Share this Peep'),
+              style: FilledButton.styleFrom(
+                backgroundColor: PeeplDetailTokens.accentBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
         ),
       ],
@@ -759,20 +789,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
               );
             }
           },
-          onShareTap: () {
-            Navigator.pushNamed(
-              context,
-              '/share',
-              arguments: {
-                ...widget.postData,
-                'postId': widget.postData['id'] as String? ??
-                    widget.postData['postId'] as String?,
-                'locationName': widget.postData['locationName'] as String?,
-                'crowdingLevel':
-                    (widget.postData['crowdingLevel'] as num?)?.toInt() ?? 0,
-              },
-            );
-          },
+          onShareTap: () => _sharePeep(shareContext: 'detail_social_bar'),
           onReportTap: () => Navigator.pushNamed(
             context,
             '/report',

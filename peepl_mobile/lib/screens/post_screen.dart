@@ -4,7 +4,6 @@ import '../theme/peepl_app_tokens.dart';
 import '../services/ai_service.dart';
 import '../services/crowd_intelligence_service.dart';
 import '../services/feed_service.dart';
-import '../services/notification_service.dart';
 import '../services/venue_name_service.dart';
 import '../widgets/quick_peep_sheet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -669,15 +668,6 @@ class _PostScreenState extends State<PostScreen> {
         aiValidationPassed: _aiValidationPassed,
         aiValidationConfidence: _aiValidationConfidence,
         aiDescription: _aiSuggestedDescription,
-      );
-
-      await NotificationService.instance.onPostSubmitted(
-        userId: user.uid,
-        username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: locationName,
-        latitude: _latitude!,
-        longitude: _longitude!,
-        crowdingLevel: _crowdingLevel.round(),
       );
 
       final pioneerCount = await FirebaseFirestore.instance

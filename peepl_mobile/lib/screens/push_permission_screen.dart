@@ -19,6 +19,8 @@ class PushPermissionScreen extends StatelessWidget {
 
   Future<void> _skipAndContinue(BuildContext context) async {
     await NotificationService.instance.markPermissionPromptShown();
+    // Still refresh token if OS permission was granted earlier.
+    await NotificationService.instance.onUserSignedIn();
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
       WidgetsBinding.instance.addPostFrameCallback((_) {

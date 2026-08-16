@@ -64,11 +64,18 @@ class CrowdStatusPanel extends StatelessWidget {
   final bool compact;
   final bool showTrend;
 
-  static const _scoreShadow = Shadow(
-    offset: Offset(0, 1),
-    blurRadius: 2.5,
-    color: Color(0x73000000),
-  );
+  static const _scoreShadows = [
+    Shadow(
+      offset: Offset.zero,
+      blurRadius: 6,
+      color: Color(0x99000000),
+    ),
+    Shadow(
+      offset: Offset(0, 1),
+      blurRadius: 3,
+      color: Color(0xE6000000),
+    ),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -90,7 +97,7 @@ class CrowdStatusPanel extends StatelessWidget {
               fontWeight: FontWeight.w900,
               height: 1.0,
               letterSpacing: -0.3,
-              shadows: const [_scoreShadow],
+              shadows: _scoreShadows,
             ),
           ),
           SizedBox(height: compact ? 1 : 2),
@@ -104,14 +111,25 @@ class CrowdStatusPanel extends StatelessWidget {
               fontSize: labelSize,
               fontWeight: FontWeight.w600,
               height: 1.0,
-              shadows: const [_scoreShadow],
+              shadows: _scoreShadows,
             ),
           ),
           SizedBox(height: compact ? 3 : 4),
-          TenSegmentCrowdBar(
-            filledSegments: data.filledSegments,
-            fillColor: data.color,
-            compact: compact,
+          DecoratedBox(
+            decoration: const BoxDecoration(
+              boxShadow: [
+                BoxShadow(
+                  color: Color(0x80000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 1),
+                ),
+              ],
+            ),
+            child: TenSegmentCrowdBar(
+              filledSegments: data.filledSegments,
+              fillColor: data.color,
+              compact: compact,
+            ),
           ),
           if (showTrend && !compact && data.trendLabel != null) ...[
             const SizedBox(height: 4),

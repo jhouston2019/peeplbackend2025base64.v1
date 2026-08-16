@@ -193,6 +193,18 @@ class FeedService {
         aiDescription: aiDescription,
       );
 
+      // Ensures every post path (Quick Peep, /post, /create_peep) triggers
+      // notification_triggers, lastLocation, presence, and server fulfillment.
+      await NotificationService.instance.onPostSubmitted(
+        postId: docRef.id,
+        userId: userId,
+        username: username,
+        locationName: displayName,
+        latitude: latitude,
+        longitude: longitude,
+        crowdingLevel: crowdingLevel,
+      );
+
       unawaited(
         NotificationService.instance
             .handlePostSubmission(

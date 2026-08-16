@@ -9,7 +9,6 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
-import '../services/notification_service.dart';
 import '../services/venue_name_service.dart';
 import '../widgets/crowd_meter.dart';
 
@@ -270,15 +269,6 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         waitTime: _waitTime(),
         noiseLevel: _noiseLevel(),
         adultKidRatio: _adultKidRatio(),
-      );
-
-      await NotificationService.instance.onPostSubmitted(
-        userId: user.uid,
-        username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: locationName,
-        latitude: _latitude ?? 40.7829,
-        longitude: _longitude ?? -73.9654,
-        crowdingLevel: _crowdingLevel,
       );
 
       final pioneerCount = await FirebaseFirestore.instance

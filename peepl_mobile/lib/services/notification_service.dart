@@ -39,6 +39,8 @@ const kVenueEntryEventsCollection = 'venue_entry_events';
 
 const _kHasRequestedPushPermissionKey = 'hasRequestedPushPermission';
 const _kPushPermissionShownKey = 'push_permission_shown';
+const _kPushNotificationsEnabledKey = 'pushNotificationsEnabled';
+const _kLocationAlertsEnabledKey = 'locationAlertsEnabled';
 
 Future<void> _writeVenueEntryEventToFirestore({
   required String userId,
@@ -243,6 +245,11 @@ class NotificationService {
     required double lat,
     required double lng,
   }) async {
+    if (!await isLocationAlertsEnabled()) {
+      debugPrint('[NotificationService] Venue entry skipped (location alerts off)');
+      return;
+    }
+
     if (lat.isNaN || lng.isNaN || (lat == 0 && lng == 0)) {
       await GrowthAnalyticsService.logEvent(
         'growth_peep_prompt_suppressed',
@@ -452,8 +459,10 @@ class NotificationService {
     unawaited(syncLocationForCrowdsourceTargeting());
   }
 
-  /// Flow 3 — record trigger doc and fulfill crowdsource requests after a post.
+  /// Flow 3 — record trigger doc after a post. Server [onNewPost] fulfills
+  /// crowdsource requests and sends FCM (single path, no client duplicate).
   Future<void> onPostSubmitted({
+    required String postId,
     required String userId,
     required String username,
     required String locationName,
@@ -461,14 +470,27 @@ class NotificationService {
     required double longitude,
     required int crowdingLevel,
   }) async {
-    final postId = await _findRecentPostId(userId, locationName);
-    if (postId == null) {
-      debugPrint('[FCM] Could not resolve postId for notification trigger');
+    if (postId.isEmpty) {
+      debugPrint('[FCM] onPostSubmitted: empty postId');
       return;
     }
 
     try {
       await _updateUserLastLocation(latitude, longitude);
+
+      final trimmedName = locationName.trim();
+      if (trimmedName.isNotEmpty &&
+          CrowdsourceService.isValidCoordinate(latitude, longitude)) {
+        try {
+          await PresenceService.instance.recordArrival(
+            trimmedName,
+            latitude,
+            longitude,
+          );
+        } catch (e) {
+          debugPrint('[FCM] recordArrival on post error: $e');
+        }
+      }
 
       await _db.collection('notification_triggers').doc(postId).set({
         'latitude': latitude,
@@ -477,16 +499,6 @@ class NotificationService {
         'posterId': userId,
         'timestamp': FieldValue.serverTimestamp(),
       });
-
-      await CrowdsourceService.instance.fulfillMatchingRequests(
-        postId: postId,
-        responderId: userId,
-        username: username,
-        locationName: locationName,
-        latitude: latitude,
-        longitude: longitude,
-        crowdingLevel: crowdingLevel,
-      );
     } catch (e) {
       debugPrint('[FCM] onPostSubmitted error: $e');
     }
@@ -644,34 +656,6 @@ class NotificationService {
     } catch (_) {}
   }
 
-  Future<String?> _findRecentPostId(String userId, String locationName) async {
-    try {
-      final snap = await _db
-          .collection('location_posts')
-          .where('userId', isEqualTo: userId)
-          .limit(25)
-          .get();
-
-      QueryDocumentSnapshot<Map<String, dynamic>>? best;
-      Timestamp? bestTs;
-
-      for (final doc in snap.docs) {
-        if (doc.data()['locationName'] != locationName) continue;
-        final ts = doc.data()['timestamp'];
-        if (ts is! Timestamp) continue;
-        if (bestTs == null || ts.compareTo(bestTs) > 0) {
-          best = doc;
-          bestTs = ts;
-        }
-      }
-
-      return best?.id;
-    } catch (e) {
-      debugPrint('[FCM] _findRecentPostId error: $e');
-      return null;
-    }
-  }
-
   Future<void> _updateUserLastLocation(double latitude, double longitude) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
@@ -703,27 +687,14 @@ class NotificationService {
     await _updateUserLastLocation(pos.latitude, pos.longitude);
 
     try {
-      final presenceDoc = await _db.collection('presence').doc(uid).get();
-      final data = presenceDoc.data();
-      var needsPresence = !presenceDoc.exists;
-
-      if (!needsPresence && data != null) {
-        final expires = data['expiresAt'];
-        if (expires is Timestamp && expires.toDate().isBefore(DateTime.now())) {
-          needsPresence = true;
-        }
-      }
-
-      if (needsPresence) {
-        final displayName =
-            await LocationLabelService.resolve(pos.latitude, pos.longitude);
-        if (displayName.isNotEmpty && displayName != 'Current location') {
-          await PresenceService.instance.recordArrival(
-            displayName,
-            pos.latitude,
-            pos.longitude,
-          );
-        }
+      final displayName =
+          await LocationLabelService.resolve(pos.latitude, pos.longitude);
+      if (displayName.isNotEmpty && displayName != 'Current location') {
+        await PresenceService.instance.recordArrival(
+          displayName,
+          pos.latitude,
+          pos.longitude,
+        );
       }
     } catch (e) {
       debugPrint('[FCM] syncLocationForCrowdsourceTargeting error: $e');
@@ -757,68 +728,55 @@ class NotificationService {
         if (_seenCrowdsourceResponseIds.contains(docId)) continue;
         _seenCrowdsourceResponseIds.add(docId);
 
-        final data = change.doc.data();
-        if (data == null) continue;
-
-        final username = data['responderUsername'] as String? ?? 'Someone';
-        final locationName = data['locationName'] as String? ?? 'a location';
-        final crowdingLevel = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
-        final levelLabel = _crowdingLabel(crowdingLevel);
-
-        await _showCrowdsourceResponseNotification(
-          requestId: docId,
-          body:
-              '$username just posted about $locationName — it\'s $levelLabel! Tap to see.',
-          data: data,
+        // FCM from onNewPost delivers crowdsource_response — no local duplicate.
+        debugPrint(
+          '[FCM] crowdsource_response doc $docId (FCM handles notification)',
         );
       }
     });
   }
 
-  String _crowdingLabel(int level) {
-    if (level <= 4) return 'not crowded';
-    if (level <= 6) return 'moderately crowded';
-    return 'very crowded';
-  }
-
-  Future<void> _showCrowdsourceResponseNotification({
-    required String requestId,
-    required String body,
-    required Map<String, dynamic> data,
-  }) async {
-    final payload = jsonEncode({
-      'type': 'crowdsource_response',
-      'postId': data['postId'],
-      'requestId': requestId,
-    });
-
-    await _localNotifications.show(
-      requestId.hashCode,
-      'Crowd update',
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: payload,
-    );
-  }
-
-  Future<void> markPermissionPromptShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasRequestedPushPermissionKey, true);
     await prefs.setBool(_kPushPermissionShownKey, true);
+  }
+
+  Future<bool> isPushEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kPushNotificationsEnabledKey) ?? true;
+  }
+
+  Future<bool> isLocationAlertsEnabled() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kLocationAlertsEnabledKey) ?? true;
+  }
+
+  /// Applies push preference: saves token when enabled, removes when disabled.
+  Future<void> applyPushPreference(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kPushNotificationsEnabledKey, enabled);
+
+    if (enabled) {
+      await _fcm.requestPermission(alert: true, badge: true, sound: true);
+      await _refreshAndSaveToken();
+      _startCrowdsourceResponseListener();
+    } else {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        try {
+          await _db.collection(kUsersCollection).doc(uid).update({
+            'fcmToken': FieldValue.delete(),
+          });
+        } catch (e) {
+          debugPrint('[FCM] Token delete on disable error: $e');
+        }
+      }
+      try {
+        await _fcm.deleteToken();
+      } catch (e) {
+        debugPrint('[FCM] deleteToken on disable error: $e');
+      }
+    }
   }
 
   Future<String> routeAfterLogin() async {
@@ -863,6 +821,7 @@ class NotificationService {
   }
 
   Future<void> _refreshAndSaveToken() async {
+    if (!await isPushEnabled()) return;
     try {
       final token = await _fcm.getToken();
       if (token != null) await _saveTokenToFirestore(token);
@@ -874,6 +833,7 @@ class NotificationService {
   Future<void> _saveTokenToFirestore(String token) async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
+    if (!await isPushEnabled()) return;
 
     try {
       final tokenData = {
@@ -919,6 +879,8 @@ class NotificationService {
   Future<void> _handleForegroundMessage(RemoteMessage message) async {
     debugPrint('[FCM Foreground] ${message.notification?.title}');
     await _persistNotification(message);
+
+    if (!await isPushEnabled()) return;
 
     final notification = message.notification;
     final title = notification?.title ??

@@ -19,6 +19,7 @@ class OrganicCrowdCard extends StatelessWidget {
     this.subtitleLabel,
     this.size = OrganicCardSize.featured,
     this.marginHorizontal,
+    this.onShare,
   }) : assert(name != null || nameWidget != null,
             'Provide either name or nameWidget');
 
@@ -30,6 +31,7 @@ class OrganicCrowdCard extends StatelessWidget {
   final String? subtitleLabel;
   final OrganicCardSize size;
   final double? marginHorizontal;
+  final VoidCallback? onShare;
 
   static const _navyOverlay = Color(0xFF050F19);
 
@@ -96,14 +98,35 @@ class OrganicCrowdCard extends StatelessWidget {
                             _navyOverlay.withValues(alpha: 0.0),
                             _navyOverlay.withValues(alpha: 0.0),
                             _navyOverlay.withValues(alpha: 0.20),
-                            _navyOverlay.withValues(alpha: 0.48),
-                            _navyOverlay.withValues(alpha: 0.58),
+                            _navyOverlay.withValues(alpha: 0.56),
+                            _navyOverlay.withValues(alpha: 0.70),
                           ],
                           stops: const [0.0, 0.24, 0.52, 0.72, 0.88, 1.0],
                         ),
                       ),
                     ),
                   ),
+                  if (onShare != null)
+                    Positioned(
+                      top: compact ? 8 : 10,
+                      right: compact ? 8 : 10,
+                      child: Material(
+                        color: Colors.black.withValues(alpha: 0.45),
+                        borderRadius: BorderRadius.circular(20),
+                        child: InkWell(
+                          onTap: onShare,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: EdgeInsets.all(compact ? 6 : 8),
+                            child: Icon(
+                              Icons.ios_share_rounded,
+                              color: PeeplHomeTokens.white,
+                              size: compact ? 16 : 18,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
                   Padding(
                     padding: EdgeInsets.only(
                       left: horizontalPadding,

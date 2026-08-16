@@ -244,6 +244,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           },
         );
         break;
+      case 'crowdsource_response':
+        final responsePostId = _resolvedPostId(data);
+        if (responsePostId.isNotEmpty) {
+          await _navigateToPost(context, responsePostId);
+        } else {
+          Navigator.pushNamed(context, '/feed');
+        }
+        break;
+      case 'walk_in_prompt':
+        final walkLat = double.tryParse(data['latitude']?.toString() ?? '');
+        final walkLng = double.tryParse(data['longitude']?.toString() ?? '');
+        Navigator.pushNamed(
+          context,
+          '/post',
+          arguments: <String, dynamic>{
+            'locationName': data['locationName'] as String? ??
+                data['venueName'] as String? ??
+                '',
+            if (walkLat != null) 'latitude': walkLat,
+            if (walkLng != null) 'longitude': walkLng,
+          },
+        );
+        break;
+      case 'crowd_change_alert':
+        final alertPostId = _resolvedPostId(data);
+        if (alertPostId.isNotEmpty) {
+          await _navigateToPost(context, alertPostId);
+        } else {
+          Navigator.pushNamed(context, '/feed');
+        }
+        break;
       default:
         break;
     }

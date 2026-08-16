@@ -21,6 +21,8 @@ import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../services/notification_service.dart';
+import '../services/share_service.dart';
+import '../services/venue_name_service.dart';
 import '../utils/crowd_display_mapper.dart';
 import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/feed_card_image.dart';
@@ -1184,10 +1186,36 @@ class _FeedScreenState extends State<FeedScreen> {
       subtitleLabel: _subtitleLine(post),
       size: size,
       marginHorizontal: marginHorizontal,
+      onShare: () => _shareOrganicPost(post),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
       ),
+    );
+  }
+
+  Future<void> _shareOrganicPost(Map<String, dynamic> post) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to share this Peep.')),
+      );
+      return;
+    }
+
+    final postId = post['id'] as String?;
+    if (postId == null || postId.isEmpty) return;
+
+    final locationName = await VenueNameService.displayNameForPost(post);
+    final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
+
+    await ShareService.instance.sharePeep(
+      peepId: postId,
+      locationName: locationName,
+      crowdingLevel: crowdingLevel,
+      sharingUserId: user.uid,
+      shareContext: 'home_feed',
     );
   }
 

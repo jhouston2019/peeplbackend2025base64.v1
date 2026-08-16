@@ -321,57 +321,63 @@ exports.onCrowdsourceRequest = functions.firestore
       targetIds.add(postAuthorId);
     }
 
-    let usersSnap;
-    let lastKnownSnap;
-    let presenceSnap;
-    let presenceByNameSnap;
-    let recentPostsSnap;
-    try {
-      [usersSnap, lastKnownSnap, presenceSnap, presenceByNameSnap, recentPostsSnap] =
-        await Promise.all([
-        db
-          .collection(USERS_COLLECTION)
-          .where('lastLocation.latitude', '>=', lat - latDelta)
-          .where('lastLocation.latitude', '<=', lat + latDelta)
-          .limit(200)
-          .get(),
-        db
-          .collection(USERS_COLLECTION)
-          .where('lastKnownLatitude', '>=', lat - latDelta)
-          .where('lastKnownLatitude', '<=', lat + latDelta)
-          .limit(200)
-          .get(),
-        db
-          .collection('presence')
-          .where('latitude', '>=', lat - latDelta)
-          .where('latitude', '<=', lat + latDelta)
-          .where('expiresAt', '>', Timestamp.now())
-          .limit(100)
-          .get(),
-        db
-          .collection('presence')
-          .where('locationName', '==', locationName)
-          .where('expiresAt', '>', Timestamp.now())
-          .limit(50)
-          .get(),
-        db
-          .collection('location_posts')
-          .where('locationName', '==', locationName)
-          .orderBy('timestamp', 'desc')
-          .limit(25)
-          .get(),
-      ]);
-    } catch (e) {
-      console.error('Target query error:', e);
-      if (targetIds.size === 0) {
-        await snap.ref.update({ status: 'error', error: 'target_query_failed' });
-        return null;
+    async function safeQuery(label, fn) {
+      try {
+        return await fn();
+      } catch (e) {
+        console.error(`Target query error (${label}):`, e);
+        return { docs: [] };
       }
-      usersSnap = { docs: [] };
-      lastKnownSnap = { docs: [] };
-      presenceSnap = { docs: [] };
-      presenceByNameSnap = { docs: [] };
-      recentPostsSnap = { docs: [] };
+    }
+
+    const [usersSnap, lastKnownSnap, presenceSnap, presenceByNameSnap, recentPostsSnap] =
+      await Promise.all([
+        safeQuery('users_lastLocation', () =>
+          db
+            .collection(USERS_COLLECTION)
+            .where('lastLocation.latitude', '>=', lat - latDelta)
+            .where('lastLocation.latitude', '<=', lat + latDelta)
+            .limit(200)
+            .get()),
+        safeQuery('users_lastKnownLatitude', () =>
+          db
+            .collection(USERS_COLLECTION)
+            .where('lastKnownLatitude', '>=', lat - latDelta)
+            .where('lastKnownLatitude', '<=', lat + latDelta)
+            .limit(200)
+            .get()),
+        safeQuery('presence_lat', () =>
+          db
+            .collection('presence')
+            .where('latitude', '>=', lat - latDelta)
+            .where('latitude', '<=', lat + latDelta)
+            .where('expiresAt', '>', Timestamp.now())
+            .limit(100)
+            .get()),
+        safeQuery('presence_name', () =>
+          db
+            .collection('presence')
+            .where('locationName', '==', locationName)
+            .where('expiresAt', '>', Timestamp.now())
+            .limit(50)
+            .get()),
+        safeQuery('recent_posts', () =>
+          db
+            .collection('location_posts')
+            .where('locationName', '==', locationName)
+            .orderBy('timestamp', 'desc')
+            .limit(25)
+            .get()),
+      ]);
+
+    if (targetIds.size === 0 &&
+        usersSnap.docs.length === 0 &&
+        lastKnownSnap.docs.length === 0 &&
+        presenceSnap.docs.length === 0 &&
+        presenceByNameSnap.docs.length === 0 &&
+        recentPostsSnap.docs.length === 0) {
+      await snap.ref.update({ status: 'error', error: 'target_query_failed' });
+      return null;
     }
 
     for (const doc of [...usersSnap.docs, ...lastKnownSnap.docs]) {
@@ -743,6 +749,12 @@ async function fulfillCrowdsourceRequests({
     if (!requesterId || requesterId === posterId) continue;
 
     try {
+      const existingResponse = await db
+        .collection('crowdsource_responses')
+        .doc(doc.id)
+        .get();
+      if (existingResponse.exists) continue;
+
       await db.collection('crowdsource_responses').doc(doc.id).set({
         requestId: doc.id,
         requesterId,

@@ -1,12 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/peepl_app_tokens.dart';
 
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 import '../services/presence_service.dart';
 import '../theme_notifier.dart';
 import '../widgets/home/peepl_home_tokens.dart';
@@ -77,11 +77,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _setPushEnabled(bool val) async {
     setState(() => _pushEnabled = val);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('pushNotificationsEnabled', val);
-    if (val) {
-      await FirebaseMessaging.instance.requestPermission();
-    }
+    await NotificationService.instance.applyPushPreference(val);
   }
 
   Future<void> _setLocationAlerts(bool val) async {

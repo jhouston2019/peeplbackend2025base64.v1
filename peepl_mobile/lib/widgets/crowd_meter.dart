@@ -61,9 +61,14 @@ class CrowdMeter extends StatelessWidget {
               height: 1.0,
               shadows: const [
                 Shadow(
+                  offset: Offset.zero,
+                  blurRadius: 6,
+                  color: Color(0x99000000),
+                ),
+                Shadow(
                   offset: Offset(0, 1),
                   blurRadius: 3,
-                  color: Colors.black54,
+                  color: Color(0xE6000000),
                 ),
               ],
             ),
