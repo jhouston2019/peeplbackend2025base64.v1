@@ -41,7 +41,7 @@ class _InviteScreenState extends State<InviteScreen> {
 
   Future<void> _sharePeepl() async {
     try {
-      await ShareService.instance.presentShareSheet(_kShareMessage);
+      await ShareService.presentShareSheet(_kShareMessage);
       await _incrementInviteCount();
     } catch (e) {
       if (mounted) {

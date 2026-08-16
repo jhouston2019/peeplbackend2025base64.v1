@@ -151,7 +151,7 @@ class _ShareScreenState extends State<ShareScreen> {
 
   Future<void> _share(String text) async {
     try {
-      await ShareService.instance.presentShareSheet(text);
+      await ShareService.presentShareSheet(text);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
