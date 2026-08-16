@@ -199,7 +199,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return;
       }
       final postData = <String, dynamic>{'id': snap.id, ...?snap.data()};
-      Navigator.pushNamed(context, '/peep_detail', arguments: postData);
+      Navigator.pushNamed(context, '/location_detail', arguments: postData);
     } catch (e) {
       debugPrint('NotificationsScreen._navigateToPost error: $e');
       if (context.mounted) Navigator.pushNamed(context, '/feed');

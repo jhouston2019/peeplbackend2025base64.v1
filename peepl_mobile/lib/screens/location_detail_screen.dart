@@ -413,7 +413,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
 
   Future<void> _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign in to comment.')),
+        );
+      }
+      return;
+    }
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
     final postId = widget.postData['id'] as String?;
@@ -512,6 +519,19 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           ),
         )
         .toList();
+  }
+
+  String? _locationSubtitle(Map<String, dynamic> post) {
+    final address =
+        post['address'] as String? ?? post['formattedAddress'] as String?;
+    if (address != null && address.trim().isNotEmpty) return address.trim();
+    final locationName = post['locationName'] as String?;
+    if (locationName != null &&
+        locationName.trim().isNotEmpty &&
+        VenueNameService.looksLikeAddress(locationName)) {
+      return locationName.trim();
+    }
+    return null;
   }
 
   Widget _buildCompactLocationSection(Map<String, dynamic> post) {
@@ -912,7 +932,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         if (snapshot.hasError) {
           return Center(
             child: Text(
-              'Could not load comments',
+              FirebaseAuth.instance.currentUser == null
+                  ? 'Sign in to view comments'
+                  : 'Could not load comments',
               style: TextStyle(
                 color: PeeplDetailTokens.textSecondary.withValues(alpha: 0.8),
               ),

@@ -13,6 +13,7 @@ class DetailLiveNowModule extends StatelessWidget {
     required this.isLoading,
     required this.isSubmittingExploreLive,
     required this.onExploreLive,
+    this.presenceBased = false,
     this.activityText,
     this.crowdsourceCount,
     this.onPeepHere,
@@ -23,6 +24,7 @@ class DetailLiveNowModule extends StatelessWidget {
   final bool isLoading;
   final bool isSubmittingExploreLive;
   final VoidCallback onExploreLive;
+  final bool presenceBased;
   final String? activityText;
   final int? crowdsourceCount;
   final VoidCallback? onPeepHere;
@@ -64,16 +66,30 @@ class DetailLiveNowModule extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          Text(
-            totalCount == 1
-                ? '1 person is here now'
-                : '$totalCount people are here now',
-            style: const TextStyle(
-              color: PeeplDetailTokens.textPrimary,
-              fontSize: 15,
-              fontWeight: FontWeight.w700,
+          if (totalCount > 0)
+            Text(
+              presenceBased
+                  ? (totalCount == 1
+                      ? '1 person is here now'
+                      : '$totalCount people are here now')
+                  : (totalCount == 1
+                      ? '1 recent peep nearby'
+                      : '$totalCount recent peeps nearby'),
+              style: const TextStyle(
+                color: PeeplDetailTokens.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
+            )
+          else
+            const Text(
+              'No one checked in nearby',
+              style: TextStyle(
+                color: PeeplDetailTokens.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
           if (activityText != null && activityText!.trim().isNotEmpty) ...[
             const SizedBox(height: 4),
             Text(

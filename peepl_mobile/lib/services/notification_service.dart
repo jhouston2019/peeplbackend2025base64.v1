@@ -1139,7 +1139,7 @@ class NotificationService {
         return;
       }
       final postData = <String, dynamic>{'id': snap.id, ...?snap.data()};
-      nav.pushNamed('/peep_detail', arguments: postData);
+      nav.pushNamed('/location_detail', arguments: postData);
     } catch (e) {
       debugPrint('[FCM] Post fetch error: $e');
       nav.pushNamed('/feed');

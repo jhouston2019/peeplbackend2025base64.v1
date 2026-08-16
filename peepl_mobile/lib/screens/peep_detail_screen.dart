@@ -1,8 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../theme/peepl_app_tokens.dart';
 
 import '../services/feed_service.dart';
@@ -10,6 +8,7 @@ import '../services/share_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/crowd_meter.dart';
+import '../widgets/detail/post_location_map_preview.dart';
 
 class PeepDetailScreen extends StatefulWidget {
   const PeepDetailScreen({super.key, this.postData});
@@ -29,6 +28,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
   bool _isLiked = false;
   bool _submittingComment = false;
   int _likesCount = 0;
+  int _commentsCount = 0;
   String _displayVenueName = 'Unknown';
 
   @override
@@ -46,6 +46,7 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
       _post = widget.postData ??
           (args is Map<String, dynamic> ? args : null);
       _likesCount = (_post?['likesCount'] as num?)?.toInt() ?? 0;
+      _commentsCount = (_post?['commentsCount'] as num?)?.toInt() ?? 0;
       if (_post != null) {
         _displayVenueName = VenueNameService.storedVenueName(_post!) ??
             VenueNameService.addressFallback(_post!) ??
@@ -129,7 +130,15 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     final user = FirebaseAuth.instance.currentUser;
     final postId = _post?['id'] as String?;
     final text = _commentController.text.trim();
-    if (user == null || postId == null || text.isEmpty) return;
+    if (user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Sign in to comment.')),
+        );
+      }
+      return;
+    }
+    if (postId == null || text.isEmpty) return;
 
     setState(() => _submittingComment = true);
     try {
@@ -143,7 +152,12 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
         'text': text,
         'timestamp': FieldValue.serverTimestamp(),
       });
+      await FirebaseFirestore.instance
+          .collection('location_posts')
+          .doc(postId)
+          .update({'commentsCount': FieldValue.increment(1)});
       _commentController.clear();
+      if (mounted) setState(() => _commentsCount++);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -176,13 +190,8 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     return '${diff.inDays}d ago';
   }
 
-  static bool _hasValidCoords(Map<String, dynamic> post) {
-    final lat = (post['latitude'] as num?)?.toDouble();
-    final lng = (post['longitude'] as num?)?.toDouble();
-    if (lat == null || lng == null) return false;
-    if (lat == 0 && lng == 0) return false;
-    return lat.abs() <= 90 && lng.abs() <= 180;
-  }
+  static bool _hasValidCoords(Map<String, dynamic> post) =>
+      PostLocationMapPreview.hasValidCoords(post);
 
   static String? _fieldOrDescription(
     Map<String, dynamic> post,
@@ -433,44 +442,16 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          GestureDetector(
-                            onTap: () => Navigator.pushNamed(context, '/map'),
-                            child: ClipRRect(
-                              borderRadius: BorderRadius.circular(12),
-                              child: SizedBox(
-                                height: 140,
-                                width: double.infinity,
-                                child: GoogleMap(
-                                  initialCameraPosition: CameraPosition(
-                                    target: LatLng(
-                                      (post['latitude'] as num).toDouble(),
-                                      (post['longitude'] as num).toDouble(),
-                                    ),
-                                    zoom: 15,
-                                  ),
-                                  markers: {
-                                    Marker(
-                                      markerId: const MarkerId('post'),
-                                      position: LatLng(
-                                        (post['latitude'] as num).toDouble(),
-                                        (post['longitude'] as num).toDouble(),
-                                      ),
-                                    ),
-                                  },
-                                  zoomControlsEnabled: false,
-                                  scrollGesturesEnabled: false,
-                                  zoomGesturesEnabled: false,
-                                  rotateGesturesEnabled: false,
-                                  tiltGesturesEnabled: false,
-                                  myLocationButtonEnabled: false,
-                                  mapToolbarEnabled: false,
-                                ),
-                              ),
-                            ),
+                          PostLocationMapPreview(
+                            latitude: (post['latitude'] as num).toDouble(),
+                            longitude: (post['longitude'] as num).toDouble(),
+                            locationName: locationName,
+                            height: 140,
+                            fullWidth: true,
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Tap to open map',
+                            'Tap to open in Maps',
                             style: TextStyle(
                               fontSize: 12,
                               color: PeeplAppTokens.textSecondary,
@@ -512,9 +493,9 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-                    child: const Text(
-                      'Comments',
-                      style: TextStyle(
+                    child: Text(
+                      'Comments · $_commentsCount',
+                      style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: PeeplAppTokens.accentBlue,
@@ -642,12 +623,19 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Text(
-              'Could not load comments',
+              FirebaseAuth.instance.currentUser == null
+                  ? 'Sign in to view comments'
+                  : 'Could not load comments',
               style: TextStyle(color: PeeplAppTokens.textSecondary),
             ),
           );
         }
         final docs = snapshot.data?.docs ?? [];
+        if (_commentsCount != docs.length && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _commentsCount = docs.length);
+          });
+        }
         if (docs.isEmpty) {
           return Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),

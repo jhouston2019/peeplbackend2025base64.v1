@@ -4,6 +4,10 @@
 //   allow write: if request.auth != null &&
 //                   request.auth.uid == userId;
 // }
+// match /location_posts/{postId}/comments/{commentId} {
+//   allow read: if request.auth != null;
+//   allow create: if request.auth != null;
+// }
 // match /crowdsource_requests/{docId} {
 //   allow create: if request.auth != null;
 //   allow read: if request.auth != null;
@@ -32,6 +36,10 @@ class PresenceService {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
     final uid = user.uid;
+    final username =
+        user.displayName?.trim().isNotEmpty == true
+            ? user.displayName!.trim()
+            : (user.email ?? 'Anonymous');
     try {
       await _db.collection('presence').doc(uid).set(
         {
@@ -41,6 +49,7 @@ class PresenceService {
           'geohash': _geohash(latitude, longitude),
           'arrivedAt': FieldValue.serverTimestamp(),
           'uid': uid,
+          'username': username,
           'expiresAt': Timestamp.fromDate(
             DateTime.now().toUtc().add(const Duration(minutes: 15)),
           ),
