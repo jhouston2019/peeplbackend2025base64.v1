@@ -469,6 +469,7 @@ class NotificationService {
     required double latitude,
     required double longitude,
     required int crowdingLevel,
+    String? crowdsourceRequestId,
   }) async {
     if (postId.isEmpty) {
       debugPrint('[FCM] onPostSubmitted: empty postId');
@@ -498,7 +499,20 @@ class NotificationService {
         'locationName': locationName,
         'posterId': userId,
         'timestamp': FieldValue.serverTimestamp(),
+        if (crowdsourceRequestId != null && crowdsourceRequestId.isNotEmpty)
+          'crowdsourceRequestId': crowdsourceRequestId,
       });
+
+      await CrowdsourceService.instance.fulfillMatchingRequests(
+        postId: postId,
+        responderId: userId,
+        username: username,
+        locationName: locationName,
+        latitude: latitude,
+        longitude: longitude,
+        crowdingLevel: crowdingLevel,
+        crowdsourceRequestId: crowdsourceRequestId,
+      );
     } catch (e) {
       debugPrint('[FCM] onPostSubmitted error: $e');
     }
@@ -1039,12 +1053,15 @@ class NotificationService {
         final locationName = data['locationName'] as String? ?? '';
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
+        final requestId = data['requestId']?.toString();
         nav.pushNamed(
           '/post',
           arguments: {
             'locationName': locationName,
             if (lat != null) 'latitude': lat,
             if (lng != null) 'longitude': lng,
+            if (requestId != null && requestId.isNotEmpty)
+              'requestId': requestId,
           },
         );
         break;

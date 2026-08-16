@@ -199,6 +199,7 @@ class _PostScreenState extends State<PostScreen> {
   bool _locationPreFilled = false;
   bool _hasNotificationLocation = false;
   bool _fromVenueEntry = false;
+  String? _crowdsourceRequestId;
   bool _isResolvingVenueName = false;
 
   double _kidsPercentage = 0;
@@ -328,6 +329,10 @@ class _PostScreenState extends State<PostScreen> {
         final lng = args['longitude'];
         if (lat is num) _latitude = lat.toDouble();
         if (lng is num) _longitude = lng.toDouble();
+        final requestId = args['requestId']?.toString();
+        if (requestId != null && requestId.isNotEmpty) {
+          _crowdsourceRequestId = requestId;
+        }
         if (_latitude != null && _longitude != null) {
           _locationReady = true;
         }
@@ -668,6 +673,7 @@ class _PostScreenState extends State<PostScreen> {
         aiValidationPassed: _aiValidationPassed,
         aiValidationConfidence: _aiValidationConfidence,
         aiDescription: _aiSuggestedDescription,
+        crowdsourceRequestId: _crowdsourceRequestId,
       );
 
       final pioneerCount = await FirebaseFirestore.instance

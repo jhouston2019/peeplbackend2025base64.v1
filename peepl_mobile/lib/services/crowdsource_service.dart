@@ -277,6 +277,8 @@ class CrowdsourceService {
       }
 
       final request = requestDoc.data()!;
+      if (request['fulfilled'] == true) return;
+
       final requesterId = request['requestedBy'] as String? ??
           request['requesterId'] as String?;
       if (requesterId == null || requesterId == responderId) return;
@@ -324,23 +326,68 @@ class CrowdsourceService {
     required double latitude,
     required double longitude,
     required int crowdingLevel,
+    String? crowdsourceRequestId,
   }) async {
     try {
-      final pending = await _db
-          .collection('crowdsource_requests')
-          .where('locationName', isEqualTo: locationName)
-          .where('fulfilled', isEqualTo: false)
-          .where('status', whereIn: ['pending', 'sent'])
-          .get();
+      final matchedIds = <String>{};
 
-      for (final doc in pending.docs) {
-        final request = doc.data();
-        final requesterId = request['requestedBy'] as String? ??
-            request['requesterId'] as String?;
-        if (requesterId == null || requesterId == responderId) continue;
+      if (crowdsourceRequestId != null && crowdsourceRequestId.isNotEmpty) {
+        matchedIds.add(crowdsourceRequestId);
+      }
 
+      final trimmedName = locationName.trim();
+      if (trimmedName.isNotEmpty) {
+        final byName = await _db
+            .collection('crowdsource_requests')
+            .where('locationName', isEqualTo: trimmedName)
+            .where('fulfilled', isEqualTo: false)
+            .where('status', whereIn: ['pending', 'sent'])
+            .get();
+        matchedIds.addAll(byName.docs.map((doc) => doc.id));
+      }
+
+      if (isValidCoordinate(latitude, longitude)) {
+        const latDelta = 1 / 111;
+        final geoSnap = await _db
+            .collection('crowdsource_requests')
+            .where('fulfilled', isEqualTo: false)
+            .where('expiresAt', isGreaterThan: Timestamp.now())
+            .where('latitude', isGreaterThanOrEqualTo: latitude - latDelta)
+            .where('latitude', isLessThanOrEqualTo: latitude + latDelta)
+            .get();
+
+        for (final doc in geoSnap.docs) {
+          final request = doc.data();
+          final requesterId = request['requestedBy'] as String? ??
+              request['requesterId'] as String?;
+          if (requesterId == null || requesterId == responderId) continue;
+
+          final reqLat = (request['latitude'] as num?)?.toDouble();
+          final reqLng = (request['longitude'] as num?)?.toDouble();
+          final radiusKm = (request['radiusKm'] as num?)?.toDouble() ?? 1;
+          final reqName = request['locationName'] as String? ?? '';
+
+          final nameMatch =
+              reqName.trim().toLowerCase() == trimmedName.toLowerCase();
+          var withinRadius = false;
+          if (reqLat != null &&
+              reqLng != null &&
+              isValidCoordinate(reqLat, reqLng)) {
+            final latDiff = (latitude - reqLat).abs();
+            final lngDiff = (longitude - reqLng).abs();
+            final approxKm = (latDiff + lngDiff) * 111;
+            withinRadius = approxKm <= radiusKm.clamp(0.5, 5);
+          }
+
+          if (nameMatch || withinRadius) {
+            matchedIds.add(doc.id);
+          }
+        }
+      }
+
+      for (final requestId in matchedIds) {
         await fulfillRequest(
-          requestId: doc.id,
+          requestId: requestId,
           responderId: responderId,
           responderUsername: username,
           postId: postId,

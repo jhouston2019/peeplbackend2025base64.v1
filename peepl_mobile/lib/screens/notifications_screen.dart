@@ -234,6 +234,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'crowdsource_request':
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
+        final requestId = data['requestId']?.toString();
         Navigator.pushNamed(
           context,
           '/post',
@@ -241,6 +242,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             'locationName': data['locationName'] as String? ?? '',
             if (lat != null) 'latitude': lat,
             if (lng != null) 'longitude': lng,
+            if (requestId != null && requestId.isNotEmpty)
+              'requestId': requestId,
           },
         );
         break;

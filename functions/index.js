@@ -649,7 +649,7 @@ exports.onNewPost = functions.firestore
 
     const KM_DELTA = 0.009; // ~1 km latitude band
 
-    let usersSnap;
+    let usersSnap = { docs: [] };
     try {
       usersSnap = await db
         .collection(USERS_COLLECTION)
@@ -659,7 +659,6 @@ exports.onNewPost = functions.firestore
         .get();
     } catch (e) {
       console.error('onNewPost user query error:', e);
-      return null;
     }
 
     const sends = [];
@@ -705,8 +704,67 @@ exports.onNewPost = functions.firestore
       locationName,
       latitude,
       longitude,
+      crowdsourceRequestId: data.crowdsourceRequestId || null,
     });
 
+    return null;
+  });
+
+// ─── FUNCTION: onCrowdsourceResponseCreated ───────────────────────────────
+// Sends a push to the requester whenever a peep fulfills their Get-a-Peep request.
+exports.onCrowdsourceResponseCreated = functions.firestore
+  .document('crowdsource_responses/{responseId}')
+  .onCreate(async (snap) => {
+    const data = snap.data();
+    const requesterId = data.requesterId;
+    const postId = data.postId;
+    const locationName = data.locationName || 'that location';
+    const username = data.responderUsername || 'Someone';
+    const crowdingLevel = data.crowdingLevel ?? 0;
+
+    if (!requesterId || !postId) {
+      console.log('onCrowdsourceResponseCreated: missing requesterId or postId');
+      return null;
+    }
+
+    const levelLabel =
+      crowdingLevel <= 4
+        ? 'not crowded'
+        : crowdingLevel <= 6
+          ? 'moderately crowded'
+          : 'very crowded';
+
+    let token = await getFcmToken(requesterId);
+    if (!token && data.requestId) {
+      try {
+        const reqSnap = await db
+          .collection('crowdsource_requests')
+          .doc(data.requestId)
+          .get();
+        token = reqSnap.data()?.requesterFcmToken ?? null;
+      } catch (e) {
+        console.error('onCrowdsourceResponseCreated token fallback error:', e);
+      }
+    }
+
+    if (!token) {
+      console.log('onCrowdsourceResponseCreated: no FCM token for', requesterId);
+      return null;
+    }
+
+    await sendFcm(
+      token,
+      'Your Peep request was answered!',
+      `${username} just posted about ${locationName} — it's ${levelLabel}. Tap to see.`,
+      {
+        type: 'crowdsource_response',
+        postId,
+        requestId: data.requestId || snap.id,
+        locationName,
+      },
+    );
+
+    console.log('onCrowdsourceResponseCreated: notified', requesterId);
     return null;
   });
 
@@ -716,6 +774,7 @@ async function fulfillCrowdsourceRequests({
   locationName,
   latitude,
   longitude,
+  crowdsourceRequestId = null,
 }) {
   let postSnap;
   try {
@@ -730,20 +789,70 @@ async function fulfillCrowdsourceRequests({
   const username =
     post?.username || post?.displayName || post?.authorName || 'Someone';
 
-  let pendingSnap;
+  const matchedRequests = new Map();
+
+  if (crowdsourceRequestId) {
+    try {
+      const directSnap = await db
+        .collection('crowdsource_requests')
+        .doc(crowdsourceRequestId)
+        .get();
+      if (directSnap.exists && directSnap.data()?.fulfilled !== true) {
+        matchedRequests.set(directSnap.id, directSnap);
+      }
+    } catch (e) {
+      console.error('fulfillCrowdsourceRequests direct lookup error:', e);
+    }
+  }
+
+  const latDelta = 1 / 111;
   try {
-    pendingSnap = await db
+    const geoSnap = await db
+      .collection('crowdsource_requests')
+      .where('fulfilled', '==', false)
+      .where('expiresAt', '>', Timestamp.now())
+      .where('latitude', '>=', latitude - latDelta)
+      .where('latitude', '<=', latitude + latDelta)
+      .get();
+
+    for (const doc of geoSnap.docs) {
+      const req = doc.data();
+      const requesterId = req.requestedBy || req.requesterId;
+      if (!requesterId || requesterId === posterId) continue;
+
+      const reqLat = req.latitude;
+      const reqLng = req.longitude;
+      const radiusKm = req.radiusKm ?? 1;
+      const nameMatch = locationNamesMatch(req.locationName, locationName);
+      let withinRadius = false;
+      if (reqLat != null && reqLng != null) {
+        withinRadius =
+          haversineKm(latitude, longitude, reqLat, reqLng) <=
+          Math.max(radiusKm, 1);
+      }
+      if (nameMatch || withinRadius) {
+        matchedRequests.set(doc.id, doc);
+      }
+    }
+  } catch (e) {
+    console.error('fulfillCrowdsourceRequests geo query error:', e);
+  }
+
+  try {
+    const nameSnap = await db
       .collection('crowdsource_requests')
       .where('locationName', '==', locationName)
       .where('fulfilled', '==', false)
       .where('status', 'in', ['pending', 'sent'])
       .get();
+    for (const doc of nameSnap.docs) {
+      matchedRequests.set(doc.id, doc);
+    }
   } catch (e) {
-    console.error('fulfillCrowdsourceRequests query error:', e);
-    return;
+    console.error('fulfillCrowdsourceRequests name query error:', e);
   }
 
-  for (const doc of pendingSnap.docs) {
+  for (const doc of matchedRequests.values()) {
     const req = doc.data();
     const requesterId = req.requestedBy || req.requesterId;
     if (!requesterId || requesterId === posterId) continue;
@@ -772,28 +881,6 @@ async function fulfillCrowdsourceRequests({
         fulfilled: true,
         status: 'fulfilled',
       });
-
-      const levelLabel =
-        crowdingLevel <= 4
-          ? 'not crowded'
-          : crowdingLevel <= 6
-            ? 'moderately crowded'
-            : 'very crowded';
-
-      const token = await getFcmToken(requesterId);
-      if (token) {
-        await sendFcm(
-          token,
-          'Crowd update',
-          `${username} just posted about ${locationName} — it's ${levelLabel}! Tap to see.`,
-          {
-            type: 'crowdsource_response',
-            postId,
-            requestId: doc.id,
-            locationName,
-          },
-        );
-      }
     } catch (e) {
       console.error('fulfillCrowdsourceRequests doc error:', doc.id, e);
     }

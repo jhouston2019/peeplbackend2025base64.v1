@@ -116,6 +116,7 @@ class FeedService {
     bool? aiValidationPassed,
     double? aiValidationConfidence,
     String? aiDescription,
+    String? crowdsourceRequestId,
   }) async {
     try {
       await _validateImageFile(imageFile);
@@ -203,6 +204,7 @@ class FeedService {
         latitude: latitude,
         longitude: longitude,
         crowdingLevel: crowdingLevel,
+        crowdsourceRequestId: crowdsourceRequestId,
       );
 
       unawaited(
