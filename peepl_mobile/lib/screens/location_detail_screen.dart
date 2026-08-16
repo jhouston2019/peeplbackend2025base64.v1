@@ -4,8 +4,6 @@ import '../theme/peepl_app_tokens.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../services/ad_cadence_service.dart';
 import '../services/share_service.dart';
@@ -13,6 +11,7 @@ import '../services/crowdsource_service.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
+import '../services/presence_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../widgets/ad_card.dart';
@@ -27,6 +26,7 @@ import '../widgets/detail/detail_peep_card.dart';
 import '../widgets/detail/detail_section_card.dart';
 import '../widgets/detail/detail_social_bar.dart';
 import '../widgets/detail/peepl_detail_tokens.dart';
+import '../widgets/detail/post_location_map_preview.dart';
 import '../widgets/home/peepl_home_background.dart';
 
 class LocationDetailScreen extends StatefulWidget {
@@ -49,8 +49,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   bool _isSubmittingComment = false;
   bool _isSubmittingCrowdsource = false;
   late int _likesCount;
+  late int _commentsCount;
   List<Map<String, dynamic>> _availableAds = [];
   List<Map<String, dynamic>> _venuePeeps = [];
+  List<Map<String, dynamic>> _activePresence = [];
   bool _loadingVenuePeeps = true;
   bool _isFollowing = false;
   bool _isFollowLoading = false;
@@ -76,10 +78,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         VenueNameService.addressFallback(widget.postData) ??
         'Unknown Location';
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
+    _commentsCount = (widget.postData['commentsCount'] as num?)?.toInt() ?? 0;
     _checkIfLiked();
     _loadFollowState();
     _initAds();
-    _loadVenuePeeps();
+    _loadLiveNowData();
     _loadContributorCount();
     _recordPeepViewForVenue();
     _resolveDisplayVenueName();
@@ -170,43 +173,85 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     }
   }
 
-  Future<void> _loadVenuePeeps() async {
+  Future<void> _loadLiveNowData() async {
+    final latitude = (widget.postData['latitude'] as num?)?.toDouble();
+    final longitude = (widget.postData['longitude'] as num?)?.toDouble();
+
+    var presence = <Map<String, dynamic>>[];
+    if (latitude != null && longitude != null) {
+      presence =
+          await PresenceService.instance.getActivePresence(latitude, longitude);
+    }
+
     final peeps = await _fetchPeepsForVenue();
     if (!mounted) return;
     setState(() {
+      _activePresence = presence;
       _venuePeeps = peeps;
       _loadingVenuePeeps = false;
     });
   }
 
+  bool _isRecentPost(Map<String, dynamic> post, DateTime cutoff) {
+    final timestamp = post['timestamp'];
+    DateTime? postedAt;
+    if (timestamp is Timestamp) {
+      postedAt = timestamp.toDate();
+    } else if (timestamp is DateTime) {
+      postedAt = timestamp;
+    }
+    if (postedAt == null) return false;
+    return postedAt.isAfter(cutoff);
+  }
+
   Future<List<Map<String, dynamic>>> _fetchPeepsForVenue() async {
     final latitude = (widget.postData['latitude'] as num?)?.toDouble();
     final longitude = (widget.postData['longitude'] as num?)?.toDouble();
-    if (latitude == null || longitude == null) return [];
+    final locationName = widget.postData['locationName'] as String? ?? '';
+    final recencyCutoff = DateTime.now().subtract(const Duration(hours: 4));
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('location_posts')
-        .orderBy('timestamp', descending: true)
-        .limit(50)
-        .get();
+    QuerySnapshot<Map<String, dynamic>> snapshot;
+    if (locationName.trim().isNotEmpty) {
+      snapshot = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName.trim())
+          .orderBy('timestamp', descending: true)
+          .limit(25)
+          .get();
+    } else if (latitude != null && longitude != null) {
+      snapshot = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .orderBy('timestamp', descending: true)
+          .limit(100)
+          .get();
+    } else {
+      return [];
+    }
 
     const radiusKm = 0.2;
+    final seenUserIds = <String>{};
+    final results = <Map<String, dynamic>>[];
 
-    return snapshot.docs
-        .map((doc) => {'id': doc.id, ...doc.data() as Map<String, dynamic>})
-        .where((post) {
-          final postLat = (post['latitude'] as num?)?.toDouble();
-          final postLng = (post['longitude'] as num?)?.toDouble();
-          if (postLat == null || postLng == null) return false;
-          return _haversineKm(
-                latitude,
-                longitude,
-                postLat,
-                postLng,
-              ) <=
-              radiusKm;
-        })
-        .toList();
+    for (final doc in snapshot.docs) {
+      final post = {'id': doc.id, ...doc.data()};
+      if (!_isRecentPost(post, recencyCutoff)) continue;
+
+      if (locationName.trim().isEmpty) {
+        final postLat = (post['latitude'] as num?)?.toDouble();
+        final postLng = (post['longitude'] as num?)?.toDouble();
+        if (postLat == null || postLng == null) continue;
+        if (_haversineKm(latitude!, longitude!, postLat, postLng) > radiusKm) {
+          continue;
+        }
+      }
+
+      final userId = post['userId'] as String? ?? doc.id;
+      if (seenUserIds.contains(userId)) continue;
+      seenUserIds.add(userId);
+      results.add(post);
+    }
+
+    return results;
   }
 
   double _haversineKm(double lat1, double lon1, double lat2, double lon2) {
@@ -391,6 +436,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           .doc(widget.postData['id'])
           .update({'commentsCount': FieldValue.increment(1)});
       _commentController.clear();
+      if (mounted) setState(() => _commentsCount++);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -468,51 +514,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         .toList();
   }
 
-  static bool _hasValidMapCoords(Map<String, dynamic> post) {
-    final lat = (post['latitude'] as num?)?.toDouble();
-    final lng = (post['longitude'] as num?)?.toDouble();
-    if (lat == null || lng == null) return false;
-    if (lat == 0 && lng == 0) return false;
-    if (lat.abs() > 90 || lng.abs() > 180) return false;
-    return true;
-  }
-
-  Future<void> _openGeoInMaps(double lat, double lng) async {
-    final uri = Uri.parse('geo:$lat,$lng?q=$lat,$lng');
-    try {
-      final launched =
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (!launched && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open maps app.')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not open maps: $e')),
-        );
-      }
-    }
-  }
-
-  String? _locationSubtitle(Map<String, dynamic> post) {
-    final address =
-        post['address'] as String? ?? post['formattedAddress'] as String?;
-    if (address != null && address.trim().isNotEmpty) return address.trim();
-    final locationName = post['locationName'] as String?;
-    if (locationName != null &&
-        locationName.trim().isNotEmpty &&
-        VenueNameService.looksLikeAddress(locationName)) {
-      return locationName.trim();
-    }
-    return null;
-  }
-
   Widget _buildCompactLocationSection(Map<String, dynamic> post) {
     final lat = (post['latitude'] as num).toDouble();
     final lng = (post['longitude'] as num).toDouble();
-    final target = LatLng(lat, lng);
     final locationName = _displayVenueName;
     final subtitle = _locationSubtitle(post);
 
@@ -521,33 +525,10 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
       padding: const EdgeInsets.all(14),
       child: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: SizedBox(
-              width: 96,
-              height: 96,
-              child: GoogleMap(
-                key: ValueKey<String>('map_${lat}_$lng'),
-                initialCameraPosition: CameraPosition(
-                  target: target,
-                  zoom: 15,
-                ),
-                markers: {
-                  Marker(
-                    markerId: const MarkerId('post_location'),
-                    position: target,
-                  ),
-                },
-                zoomControlsEnabled: false,
-                mapToolbarEnabled: false,
-                myLocationButtonEnabled: false,
-                compassEnabled: false,
-                scrollGesturesEnabled: false,
-                zoomGesturesEnabled: false,
-                rotateGesturesEnabled: false,
-                tiltGesturesEnabled: false,
-              ),
-            ),
+          PostLocationMapPreview(
+            latitude: lat,
+            longitude: lng,
+            locationName: locationName,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -578,7 +559,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 ],
                 const SizedBox(height: 10),
                 TextButton(
-                  onPressed: () => _openGeoInMaps(lat, lng),
+                  onPressed: () => PostLocationMapPreview.openInMaps(
+                    context,
+                    lat,
+                    lng,
+                    label: locationName,
+                  ),
                   style: TextButton.styleFrom(
                     foregroundColor: PeeplDetailTokens.accentBlue,
                     padding: EdgeInsets.zero,
@@ -601,22 +587,45 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     );
   }
 
+  int _liveNowCount() {
+    if (_activePresence.isNotEmpty) return _activePresence.length;
+    return _venuePeeps.length;
+  }
+
+  bool _liveNowUsesPresence() => _activePresence.isNotEmpty;
+
   List<String> _liveUsernames() {
-    final currentPostId = widget.postData['id'] as String?;
-    final others = _venuePeeps.where((p) => p['id'] != currentPostId).toList();
-    final currentInVenue =
-        _venuePeeps.where((p) => p['id'] == currentPostId).toList();
-    final displayPeeps = [...currentInVenue, ...others];
-    return displayPeeps
+    if (_activePresence.isNotEmpty) {
+      return _activePresence
+          .map((p) => p['username'] as String? ?? 'Anonymous')
+          .where((name) => name.isNotEmpty)
+          .toList();
+    }
+
+    return _venuePeeps
         .map((p) => p['username'] as String? ?? 'Anonymous')
+        .where((name) => name.isNotEmpty)
         .toList();
   }
 
   String? _liveActivityText() {
-    if (_venuePeeps.isEmpty) return null;
-    final latest = _venuePeeps.last;
+    if (_venuePeeps.isEmpty) {
+      if (_activePresence.isNotEmpty) {
+        return 'Checked in within the last 15 minutes';
+      }
+      return null;
+    }
+
+    final latest = _venuePeeps.first;
     final name = latest['username'] as String? ?? 'Someone';
-    return '$name posted';
+    final timeLabel = _relativeTime(latest['timestamp']);
+    if (timeLabel.isEmpty) return '$name posted recently';
+    return '$name posted $timeLabel';
+  }
+
+  bool _hasRecentActivity() {
+    if (_activePresence.isNotEmpty) return true;
+    return _venuePeeps.isNotEmpty;
   }
 
   @override
@@ -625,7 +634,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
     final postId = post['id'] as String?;
     final horizontalMetrics = _horizontalMetrics(post);
-    final commentsCount = (post['commentsCount'] as num?)?.toInt() ?? 0;
+    final commentsCount = _commentsCount;
 
     return Scaffold(
       backgroundColor: Colors.transparent,
@@ -701,7 +710,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             crowdingLevel: crowdingLevel,
             trendRaw: trendRaw,
             contributorCount: _contributorCount,
-            isLive: crowdingLevel > 0 || _venuePeeps.isNotEmpty,
+            isLive: crowdingLevel > 0 || _hasRecentActivity(),
           ),
         ),
         Padding(
@@ -754,7 +763,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                 snapshot.hasData ? snapshot.data!.docs.length : null;
             return DetailLiveNowModule(
               usernames: _liveUsernames(),
-              totalCount: _venuePeeps.length,
+              totalCount: _liveNowCount(),
+              presenceBased: _liveNowUsesPresence(),
               isLoading: _loadingVenuePeeps,
               isSubmittingExploreLive: _isSubmittingCrowdsource,
               onExploreLive: _sendExploreLiveRequest,
@@ -827,7 +837,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           ),
         ),
         if (postId != null) _buildCommentsStream(postId),
-        if (_hasValidMapCoords(post)) _buildCompactLocationSection(post),
+        if (PostLocationMapPreview.hasValidCoords(post))
+          _buildCompactLocationSection(post),
         if (hasDeals) DetailDealsCard(onTap: () {}),
       ],
     );
@@ -919,6 +930,11 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           );
         }
         if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          if (_commentsCount != 0 && mounted) {
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) setState(() => _commentsCount = 0);
+            });
+          }
           return const Padding(
             padding: EdgeInsets.only(bottom: 12),
             child: Text(
@@ -931,7 +947,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           );
         }
 
-        final items = _interleaveAdsIntoComments(snapshot.data!.docs);
+        final docs = snapshot.data!.docs;
+        if (_commentsCount != docs.length && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _commentsCount = docs.length);
+          });
+        }
+
+        final items = _interleaveAdsIntoComments(docs);
 
         return Column(
           children: items.map((item) {

@@ -83,6 +83,14 @@ service cloud.firestore {
       allow create, delete: if request.auth != null && request.auth.uid == likeUserId;
     }
 
+    match /location_posts/{postId}/comments/{commentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.uid || isAppAdmin()
+      );
+    }
+
     // Native ads (feed + admin toggle)
     match /native_ads/{adId} {
       allow read: if true;
@@ -115,7 +123,8 @@ service cloud.firestore {
 
     // Live check-in presence — doc id is the user's UID.
     match /presence/{userId} {
-      allow read, write: if request.auth != null
+      allow read: if request.auth != null;
+      allow create, update, delete: if request.auth != null
         && request.auth.uid == userId;
     }
     
