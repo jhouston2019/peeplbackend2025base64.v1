@@ -736,6 +736,7 @@ class NotificationService {
     });
   }
 
+  Future<void> markPermissionPromptShown() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kHasRequestedPushPermissionKey, true);
     await prefs.setBool(_kPushPermissionShownKey, true);
