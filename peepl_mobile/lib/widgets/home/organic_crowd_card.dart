@@ -69,107 +69,165 @@ class OrganicCrowdCard extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: _horizontalMargin),
-      child: FeedCardTapScale(
-        onTap: onTap,
-        child: SizedBox(
-          height: _height(context),
-          child: DecoratedBox(
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(
-                  color: PeeplHomeTokens.organicSeparator,
-                  width: PeeplHomeTokens.organicCardBorderWidth,
-                ),
+      child: SizedBox(
+        height: _height(context),
+        child: DecoratedBox(
+          decoration: const BoxDecoration(
+            border: Border(
+              top: BorderSide(
+                color: PeeplHomeTokens.organicSeparator,
+                width: PeeplHomeTokens.organicCardBorderWidth,
               ),
             ),
-            child: ClipRect(
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  FeedCardImage(source: imageUrl),
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                          colors: [
-                            _navyOverlay.withValues(alpha: 0.14),
-                            _navyOverlay.withValues(alpha: 0.0),
-                            _navyOverlay.withValues(alpha: 0.0),
-                            _navyOverlay.withValues(alpha: 0.20),
-                            _navyOverlay.withValues(alpha: 0.56),
-                            _navyOverlay.withValues(alpha: 0.70),
-                          ],
-                          stops: const [0.0, 0.24, 0.52, 0.72, 0.88, 1.0],
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (onShare != null)
-                    Positioned(
-                      top: compact ? 8 : 10,
-                      right: compact ? 8 : 10,
-                      child: Material(
-                        color: Colors.black.withValues(alpha: 0.45),
-                        borderRadius: BorderRadius.circular(20),
-                        child: InkWell(
-                          onTap: onShare,
-                          borderRadius: BorderRadius.circular(20),
-                          child: Padding(
-                            padding: EdgeInsets.all(compact ? 6 : 8),
-                            child: Icon(
-                              Icons.ios_share_rounded,
-                              color: PeeplHomeTokens.white,
-                              size: compact ? 16 : 18,
+          ),
+          child: ClipRect(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                FeedCardTapScale(
+                  onTap: onTap,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      FeedCardImage(source: imageUrl),
+                      Positioned.fill(
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.centerLeft,
+                              end: Alignment.centerRight,
+                              colors: [
+                                _navyOverlay.withValues(alpha: 0.14),
+                                _navyOverlay.withValues(alpha: 0.0),
+                                _navyOverlay.withValues(alpha: 0.0),
+                                _navyOverlay.withValues(alpha: 0.20),
+                                _navyOverlay.withValues(alpha: 0.56),
+                                _navyOverlay.withValues(alpha: 0.70),
+                              ],
+                              stops: const [0.0, 0.24, 0.52, 0.72, 0.88, 1.0],
                             ),
                           ),
                         ),
                       ),
-                    ),
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: horizontalPadding,
-                      right: _crowdEdgeInset,
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              titleWidget,
-                              if (subtitleLabel != null &&
-                                  subtitleLabel!.isNotEmpty) ...[
-                                SizedBox(height: compact ? 2 : 3),
-                                Text(
-                                  subtitleLabel!,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
-                                    color: PeeplHomeTokens.white
-                                        .withValues(alpha: 0.7),
-                                    fontSize: metaSize,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.0,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+                      Padding(
+                        padding: EdgeInsets.only(
+                          left: horizontalPadding,
+                          right: _crowdEdgeInset,
                         ),
-                        CrowdStatusPanel(
-                          data: crowdData,
-                          compact: compact,
-                          showTrend: false,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  titleWidget,
+                                  if (subtitleLabel != null &&
+                                      subtitleLabel!.isNotEmpty) ...[
+                                    SizedBox(height: compact ? 2 : 3),
+                                    Text(
+                                      subtitleLabel!,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: PeeplHomeTokens.white
+                                            .withValues(alpha: 0.7),
+                                        fontSize: metaSize,
+                                        fontWeight: FontWeight.w400,
+                                        height: 1.0,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                            SizedBox(width: compact ? 52 : 58),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: horizontalPadding,
+                    right: _crowdEdgeInset,
+                  ),
+                  child: Row(
+                    children: [
+                      const Spacer(),
+                      Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CrowdStatusPanel(
+                            data: crowdData,
+                            compact: compact,
+                            showTrend: false,
+                          ),
+                          if (onShare != null) ...[
+                            SizedBox(height: compact ? 4 : 6),
+                            _ShareLabel(
+                              compact: compact,
+                              onTap: onShare!,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShareLabel extends StatelessWidget {
+  const _ShareLabel({
+    required this.compact,
+    required this.onTap,
+  });
+
+  final bool compact;
+  final VoidCallback onTap;
+
+  static const _shadows = [
+    Shadow(
+      offset: Offset.zero,
+      blurRadius: 6,
+      color: Color(0x99000000),
+    ),
+    Shadow(
+      offset: Offset(0, 1),
+      blurRadius: 3,
+      color: Color(0xE6000000),
+    ),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.symmetric(
+          horizontal: compact ? 2 : 4,
+          vertical: compact ? 2 : 3,
+        ),
+        child: Text(
+          'Share',
+          style: TextStyle(
+            color: PeeplHomeTokens.white.withValues(alpha: 0.92),
+            fontSize: compact ? 10 : 11,
+            fontWeight: FontWeight.w700,
+            height: 1.0,
+            letterSpacing: 0.2,
+            shadows: _shadows,
           ),
         ),
       ),

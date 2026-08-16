@@ -1204,19 +1204,33 @@ class _FeedScreenState extends State<FeedScreen> {
       return;
     }
 
-    final postId = post['id'] as String?;
-    if (postId == null || postId.isEmpty) return;
+    final postId =
+        (post['id'] as String?) ?? (post['postId'] as String?) ?? '';
+    if (postId.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not share this Peep.')),
+      );
+      return;
+    }
 
-    final locationName = await VenueNameService.displayNameForPost(post);
-    final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
+    try {
+      final locationName = await VenueNameService.displayNameForPost(post);
+      final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
-    await ShareService.instance.sharePeep(
-      peepId: postId,
-      locationName: locationName,
-      crowdingLevel: crowdingLevel,
-      sharingUserId: user.uid,
-      shareContext: 'home_feed',
-    );
+      await ShareService.instance.sharePeep(
+        peepId: postId,
+        locationName: locationName,
+        crowdingLevel: crowdingLevel,
+        sharingUserId: user.uid,
+        shareContext: 'home_feed',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not share: $e')),
+      );
+    }
   }
 
   Widget _buildSponsoredCard(Map<String, dynamic> item) {
