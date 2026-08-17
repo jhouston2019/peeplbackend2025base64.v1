@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/growth_analytics_service.dart';
 import '../services/remote_config_service.dart';
 import '../services/share_service.dart';
+import 'peepl_positive_message.dart';
 
 class PostPeepShareSheet extends StatelessWidget {
   const PostPeepShareSheet({
@@ -240,6 +241,9 @@ class PostPeepShareSheet extends StatelessWidget {
               copy.dismissLabel,
               style: TextStyle(color: Colors.grey[500]),
             ),
+          ),
+          PeeplPositiveMessage(
+            contextKey: 'post_peep_share_$shareContext',
           ),
         ],
       ),

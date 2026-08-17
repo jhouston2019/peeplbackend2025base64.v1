@@ -7,6 +7,7 @@ import '../services/feed_service.dart';
 import '../services/share_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../utils/post_delete_actions.dart';
 import '../widgets/crowd_meter.dart';
 import '../widgets/detail/post_location_map_preview.dart';
 
@@ -134,6 +135,18 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     }
   }
 
+  Future<void> _deleteOwnPost(String postId, String locationName) async {
+    final deleted = await confirmAndDeletePost(
+      context,
+      _feedService,
+      postId: postId,
+      locationName: locationName,
+    );
+    if (deleted && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
   Future<void> _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
     final postId = _post?['id'] as String?;
@@ -257,6 +270,8 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
     final timeStr = _relativeTime(post['timestamp']);
     final chips = _criteriaChips(post);
     final crowdLabel = CrowdMeter.wordLabel(crowdLevel);
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isOwner = FeedService.isPostOwner(post, currentUser?.uid);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -421,15 +436,21 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                           label: const Text('Share'),
                         ),
                         TextButton.icon(
-                          onPressed: postId != null
-                              ? () => Navigator.pushNamed(
-                                    context,
-                                    '/report',
-                                    arguments: postId,
-                                  )
-                              : null,
-                          icon: const Icon(Icons.flag_outlined),
-                          label: const Text('Report'),
+                          onPressed: isOwner && postId != null
+                              ? () => _deleteOwnPost(postId, locationName)
+                              : postId != null
+                                  ? () => Navigator.pushNamed(
+                                        context,
+                                        '/report',
+                                        arguments: postId,
+                                      )
+                                  : null,
+                          icon: Icon(
+                            isOwner
+                                ? Icons.delete_outline
+                                : Icons.flag_outlined,
+                          ),
+                          label: Text(isOwner ? 'Delete' : 'Report'),
                         ),
                       ],
                     ),

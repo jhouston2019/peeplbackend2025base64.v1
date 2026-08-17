@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'merchant_interactions.dart';
 import 'peepl_merchant_tokens.dart';
+import '../peepl_positive_message.dart';
 
 class MerchantCampaignSuccessScreen extends StatefulWidget {
   const MerchantCampaignSuccessScreen({
@@ -165,6 +166,10 @@ class _MerchantCampaignSuccessScreenState
                           fontWeight: FontWeight.w700,
                         ),
                       ),
+                    ),
+                    const PeeplPositiveMessage(
+                      contextKey: 'merchant_campaign_success',
+                      onLightBackground: false,
                     ),
                   ],
                 ),

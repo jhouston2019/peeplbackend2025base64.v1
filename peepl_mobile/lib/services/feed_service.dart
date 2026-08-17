@@ -287,6 +287,75 @@ class FeedService {
     }
   }
 
+  static String locationIdFromName(String locationName) {
+    final normalized =
+        locationName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '_');
+    return normalized.length > 100 ? normalized.substring(0, 100) : normalized;
+  }
+
+  static bool isPostOwner(Map<String, dynamic> post, String? userId) {
+    if (userId == null || userId.isEmpty) return false;
+    return post['userId'] == userId;
+  }
+
+  Future<void> deleteLocationPost(String postId) async {
+    final postRef = _firestore.collection('location_posts').doc(postId);
+    final postDoc = await postRef.get();
+    if (!postDoc.exists) {
+      throw Exception('Post not found');
+    }
+    final data = postDoc.data()!;
+
+    await _deleteSubcollection(postRef.collection('likes'));
+    await _deleteSubcollection(postRef.collection('comments'));
+
+    final imageUrl = data['imageUrl'] as String?;
+    if (imageUrl != null && imageUrl.isNotEmpty) {
+      try {
+        await _storage.refFromURL(imageUrl).delete();
+      } catch (_) {
+        // Best-effort storage cleanup; do not block post removal.
+      }
+    }
+
+    final locationName = data['locationName'] as String?;
+    if (locationName != null && locationName.trim().isNotEmpty) {
+      final locationId = locationIdFromName(locationName.trim());
+      if (locationId.isNotEmpty) {
+        try {
+          final locRef = _firestore.collection('locations').doc(locationId);
+          await _firestore.runTransaction((transaction) async {
+            final locDoc = await transaction.get(locRef);
+            if (!locDoc.exists) return;
+            final count = (locDoc.data()?['peepCount'] as num?)?.toInt() ?? 0;
+            if (count > 1) {
+              transaction.update(locRef, {'peepCount': FieldValue.increment(-1)});
+            } else if (count == 1) {
+              transaction.update(locRef, {'peepCount': 0});
+            }
+          });
+        } catch (_) {
+          // Best-effort location count cleanup.
+        }
+      }
+    }
+
+    await postRef.delete();
+  }
+
+  Future<void> _deleteSubcollection(CollectionReference<Map<String, dynamic>> col) async {
+    const batchSize = 200;
+    while (true) {
+      final snap = await col.limit(batchSize).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final doc in snap.docs) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
+    }
+  }
+
   /// Aggregates [location_posts] by [locationName] (same query as VenueListScreen).
   Future<List<VenueSummary>> fetchVenueSummaries({int limit = 2000}) async {
     final snap = await _firestore

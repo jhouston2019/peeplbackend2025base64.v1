@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/share_service.dart';
 import '../utils/post_peep_share_prompt.dart';
+import '../widgets/peepl_positive_message.dart';
 
 class PioneerCongratScreen extends StatefulWidget {
   /// Optionally supplied when pushed directly. If null the screen reads
@@ -235,6 +236,10 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
                           ),
                         ),
                       ),
+                    ),
+                    const PeeplPositiveMessage(
+                      contextKey: 'pioneer_congrat',
+                      onLightBackground: false,
                     ),
                   ],
                 ),

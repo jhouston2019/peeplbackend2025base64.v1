@@ -17,6 +17,7 @@ import '../constants/local_deals.dart';
 import '../constants/national_brand_ads.dart';
 import '../services/ad_cadence_service.dart';
 import '../services/admob_service.dart';
+import '../services/feed_service.dart';
 import '../services/geofence_service.dart';
 import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
@@ -24,6 +25,7 @@ import '../services/notification_service.dart';
 import '../services/share_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/crowd_display_mapper.dart';
+import '../utils/post_delete_actions.dart';
 import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/feed_card_image.dart';
 import '../widgets/home/editorial_feed_layout.dart';
@@ -37,6 +39,7 @@ import '../widgets/home/quick_filter_row.dart';
 import '../widgets/home/peepl_bottom_navigation.dart';
 import '../widgets/home/sponsored_native_card.dart';
 import '../widgets/quick_peep_sheet.dart';
+import '../widgets/peepl_positive_message.dart';
 import 'location_detail_screen.dart';
 
 /// Peepl Home Feed — Sponsored Card Specification
@@ -88,6 +91,7 @@ class FeedScreen extends StatefulWidget {
 class _FeedScreenState extends State<FeedScreen> {
   final NativeAdsService _adsService = NativeAdsService();
   final AdCadenceService _cadence = AdCadenceService();
+  final FeedService _feedService = FeedService();
   final ScrollController _scrollController = ScrollController();
 
   StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? _feedSub;
@@ -1169,6 +1173,11 @@ class _FeedScreenState extends State<FeedScreen> {
     double? marginHorizontal,
   }) {
     final compact = size == OrganicCardSize.half;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final isOwner = FeedService.isPostOwner(post, currentUser?.uid);
+    final postId =
+        (post['id'] as String?) ?? (post['postId'] as String?) ?? '';
+
     return OrganicCrowdCard(
       imageUrl: (post['imageUrl'] ?? '').toString(),
       nameWidget: ResolvedVenueName(
@@ -1187,6 +1196,19 @@ class _FeedScreenState extends State<FeedScreen> {
       size: size,
       marginHorizontal: marginHorizontal,
       onShare: (origin) => _shareOrganicPost(post, sharePositionOrigin: origin),
+      onLongPress: isOwner && postId.isNotEmpty
+          ? () async {
+              final locationName =
+                  await VenueNameService.displayNameForPost(post);
+              if (!mounted) return;
+              await confirmAndDeletePost(
+                context,
+                _feedService,
+                postId: postId,
+                locationName: locationName,
+              );
+            }
+          : null,
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => LocationDetailScreen(postData: post)),
@@ -1596,6 +1618,9 @@ class _FeedScreenState extends State<FeedScreen> {
                   style: TextStyle(color: Colors.grey[600]),
                 ),
               ),
+              const PeeplPositiveMessage(
+                contextKey: 'app_open_peep_prompt',
+              ),
             ],
           ),
         ),
@@ -1651,6 +1676,9 @@ class _FeedScreenState extends State<FeedScreen> {
                   ),
                 ),
               ],
+            ),
+            const PeeplPositiveMessage(
+              contextKey: 'venue_entry_prompt',
             ),
           ],
         ),

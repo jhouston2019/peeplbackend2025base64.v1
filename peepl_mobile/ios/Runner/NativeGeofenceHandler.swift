@@ -282,10 +282,11 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     private func showWalkInNotification(venueName: String, venueId: String) {
         let content = UNMutableNotificationContent()
-        content.title = "You just walked in 👀"
         if venueName == "this location" {
+            content.title = "You just walked in 👀"
             content.body = "How is it right now?"
         } else {
+            content.title = "👀 You're at \(venueName)"
             content.body = "How's \(venueName) right now?"
         }
         content.sound = .default

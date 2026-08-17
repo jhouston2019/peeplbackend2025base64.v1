@@ -30,6 +30,7 @@ class PeeplGeofenceService {
 
   /// locationId → display name (for callbacks that still need the name).
   final Map<String, String> _locationNames = {};
+  final Map<String, String> _locationAddresses = {};
 
   bool _isActive = false;
   bool _permanentlyDenied = false;
@@ -207,17 +208,25 @@ class PeeplGeofenceService {
           .get();
 
       _locationNames.clear();
+      _locationAddresses.clear();
       final geofences = <Geofence>[];
       for (final doc in snapshot.docs) {
         final data = doc.data();
         final isActive = data['isActive'] as bool? ?? true;
         if (!isActive) continue;
 
-        final name = data['locationName'] as String?;
+        final name = (data['venueName'] as String?)?.trim().isNotEmpty == true
+            ? (data['venueName'] as String).trim()
+            : (data['locationName'] as String?)?.trim();
         final lat = (data['latitude'] as num?)?.toDouble();
         final lng = (data['longitude'] as num?)?.toDouble();
+        final address = (data['address'] as String?)?.trim().isNotEmpty == true
+            ? (data['address'] as String).trim()
+            : (data['formattedAddress'] as String?)?.trim();
 
-        if (name == null || lat == null || lng == null) continue;
+        if (name == null || name.isEmpty || lat == null || lng == null) {
+          continue;
+        }
 
         final placeId = data['placeId'] as String?;
         final locationId = (placeId != null && placeId.isNotEmpty)
@@ -225,6 +234,9 @@ class PeeplGeofenceService {
             : doc.id;
 
         _locationNames[locationId] = name;
+        if (address != null && address.isNotEmpty) {
+          _locationAddresses[locationId] = address;
+        }
         geofences.add(
           Geofence(
             id: locationId,
@@ -295,6 +307,7 @@ class PeeplGeofenceService {
       venueId: geofence.id,
       lat: location.latitude,
       lng: location.longitude,
+      address: _locationAddresses[geofence.id],
     );
   }
 
@@ -317,12 +330,16 @@ class PeeplGeofenceService {
     String locationId,
     String locationName,
     double lat,
-    double lng,
-  ) async {
+    double lng, {
+    String? address,
+  }) async {
     if (kIsWeb || !_isActive) return;
 
     try {
       _locationNames[locationId] = locationName;
+      if (address != null && address.isNotEmpty) {
+        _locationAddresses[locationId] = address;
+      }
       _geofenceService.addGeofence(
         Geofence(
           id: locationId,

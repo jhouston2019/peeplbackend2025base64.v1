@@ -3,6 +3,8 @@ const admin = require('firebase-admin');
 const { getFirestore, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getMessaging } = require('firebase-admin/messaging');
 
+const { appendPositiveToBody } = require('./peepl_positive_messages');
+
 admin.initializeApp();
 
 const db = getFirestore();
@@ -25,15 +27,20 @@ async function getFcmToken(uid) {
 }
 
 // ─── HELPER: send a single FCM message ─────────────────────────────────────
-async function sendFcm(token, title, body, data = {}) {
+async function sendFcm(token, title, body, data = {}, options = {}) {
   if (!token) return;
+  const { recipientUid } = options;
+  const finalBody = appendPositiveToBody(body, {
+    recipientUid,
+    notificationType: data.type,
+  });
   const stringData = Object.fromEntries(
     Object.entries(data).map(([key, value]) => [key, String(value ?? '')]),
   );
   try {
     await messaging.send({
       token,
-      notification: { title, body },
+      notification: { title, body: finalBody },
       data: stringData,
       apns: {
         payload: {
@@ -235,7 +242,7 @@ async function notifyUserOfCrowdsourceRequest(uid, request, requestDocId) {
     latitude: String(request.latitude),
     longitude: String(request.longitude),
     requestId: request.requestId || requestDocId,
-  });
+  }, { recipientUid: uid });
   return true;
 }
 
@@ -473,7 +480,7 @@ exports.onCrowdsourceRequest = functions.firestore
         (userSnap.exists && userSnap.data()?.fcmToken) ||
         (await getFcmToken(uid));
       if (!token) return false;
-      await sendFcm(token, 'Peep Request Nearby', body, fcmData);
+      await sendFcm(token, 'Peep Request Nearby', body, fcmData, { recipientUid: uid });
       return true;
     });
 
@@ -587,13 +594,18 @@ exports.onPresenceCreated = functions.firestore
       const fcmToken = await getFcmToken(requesterId);
       if (!fcmToken) continue;
 
+      const arrivalBody = appendPositiveToBody(
+        `A user just checked in at ${locationName || request.locationName}. ` +
+          'Tap to get a live crowd update.',
+        { recipientUid: requesterId, notificationType: 'arrival_fulfilled' },
+      );
+
       fcmPromises.push(
         messaging.send({
           token: fcmToken,
           notification: {
             title: '📍 Someone just arrived!',
-            body: `A user just checked in at ${locationName || request.locationName}. ` +
-                  'Tap to get a live crowd update.',
+            body: arrivalBody,
           },
           data: {
             type: 'arrival_fulfilled',
@@ -669,7 +681,8 @@ exports.onLikeCreated = functions.firestore
         type: 'post_liked',
         postId,
         locationName,
-      }
+      },
+      { recipientUid: postOwnerId },
     );
 
     return null;
@@ -753,6 +766,7 @@ exports.onNewPost = functions.firestore
             postId,
             locationName,
           },
+          { recipientUid: doc.id },
         ),
       );
     }
@@ -824,6 +838,7 @@ exports.onCrowdsourceResponseCreated = functions.firestore
         requestId: data.requestId || snap.id,
         locationName,
       },
+      { recipientUid: requesterId },
     );
 
     console.log('onCrowdsourceResponseCreated: notified', requesterId);
@@ -1079,6 +1094,8 @@ async function upsertLocationFromPost(postData) {
       createdAt: FieldValue.serverTimestamp(),
       lastPeeped: FieldValue.serverTimestamp(),
       peepCount: 1,
+      ...(postData.venueName ? { venueName: postData.venueName } : {}),
+      ...(postData.address ? { address: postData.address } : {}),
     });
     return { created: true, updated: false };
   }
@@ -1277,7 +1294,7 @@ exports.onPeepCreatedCrowdAlert = functions.firestore
           peepId: postId,
           postId,
           locationId: String(follow.locationId || resolvedLocationId),
-        });
+        }, { recipientUid: followerUserId });
 
         await followDoc.ref.update({
           lastAlertedAt: FieldValue.serverTimestamp(),
@@ -1320,7 +1337,7 @@ exports.onVenueEntryEvent = functions.firestore
   .document('venue_entry_events/{eventId}')
   .onCreate(async (snap, context) => {
     const data = snap.data();
-    const { userId, venueName, venueId, latitude, longitude, notificationSent } = data;
+    const { userId, venueName, venueId, latitude, longitude, address, notificationSent } = data;
 
     if (notificationSent === true) {
       return null;
@@ -1378,8 +1395,24 @@ exports.onVenueEntryEvent = functions.firestore
       return null;
     }
 
-    const title = 'You just walked in 👀';
-    const body = `How's ${venueName} right now?`;
+    const trimmedName = String(venueName || '').trim();
+    const trimmedAddress = typeof address === 'string' ? address.trim() : '';
+    const title = trimmedName && trimmedName !== 'Current location' && trimmedName !== 'this location'
+      ? `👀 You're at ${trimmedName}`
+      : 'You just walked in 👀';
+    let functionalBody = 'How is it right now? Peep it.';
+    if (trimmedName && trimmedAddress &&
+        trimmedAddress.toLowerCase() !== trimmedName.toLowerCase()) {
+      functionalBody = `How's ${trimmedName} (${trimmedAddress}) right now? Peep it.`;
+    } else if (trimmedName && trimmedName !== 'Current location' && trimmedName !== 'this location') {
+      functionalBody = `How's ${trimmedName} right now? Peep it.`;
+    } else if (trimmedAddress) {
+      functionalBody = `You're at ${trimmedAddress} — how is it right now? Peep it.`;
+    }
+    const body = appendPositiveToBody(functionalBody, {
+      recipientUid: userId,
+      notificationType: 'walk_in_prompt',
+    });
 
     try {
       await messaging.send({
@@ -1387,10 +1420,11 @@ exports.onVenueEntryEvent = functions.firestore
         notification: { title, body },
         data: {
           type: 'walk_in_prompt',
-          venueName: String(venueName),
+          venueName: String(trimmedName || venueName),
           venueId: String(venueId),
           latitude: String(latitude ?? ''),
           longitude: String(longitude ?? ''),
+          ...(trimmedAddress ? { address: trimmedAddress } : {}),
           click_action: 'FLUTTER_NOTIFICATION_CLICK',
         },
         apns: {

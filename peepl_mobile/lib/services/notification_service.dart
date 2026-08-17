@@ -12,13 +12,118 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import '../models/milestone.dart';
 import '../services/feed_service.dart';
+import '../widgets/peepl_positive_message.dart';
 import 'crowdsource_service.dart';
 import 'debug_log_service.dart';
 import 'growth_analytics_service.dart';
 import 'peep_prompt_suppression_service.dart';
+import 'peepl_positive_messages.dart';
 import 'presence_service.dart';
 import 'location_label_service.dart';
 import 'location_service.dart';
+import 'venue_name_service.dart';
+
+bool _looksLikeInternalSlug(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return false;
+  if (trimmed.startsWith('poi:') ||
+      trimmed.startsWith('place:') ||
+      trimmed.startsWith('coord:')) {
+    return true;
+  }
+  return RegExp(r'^[a-z0-9_]+$').hasMatch(trimmed) && trimmed.contains('_');
+}
+
+bool _isWeakWalkInLabel(String value) {
+  final trimmed = value.trim();
+  if (trimmed.isEmpty) return true;
+  if (trimmed == 'Current location' ||
+      trimmed == 'this location' ||
+      trimmed == 'Unknown Venue') {
+    return true;
+  }
+  return VenueNameService.looksLikeAddress(trimmed) ||
+      _looksLikeInternalSlug(trimmed);
+}
+
+Future<({String name, String? address})> _resolveWalkInLabels({
+  required String venueName,
+  String? storedAddress,
+  required double lat,
+  required double lng,
+}) async {
+  var name = venueName.trim();
+  String? address = storedAddress?.trim();
+
+  if (_isWeakWalkInLabel(name)) {
+    if (VenueNameService.looksLikeAddress(name)) {
+      address ??= name;
+      name = '';
+    }
+    final placesName = await VenueNameService.resolveVenueName(lat, lng);
+    if (placesName != null && placesName.isNotEmpty) {
+      name = placesName;
+    }
+  }
+
+  if (_isWeakWalkInLabel(name)) {
+    final label = await LocationLabelService.resolve(lat, lng);
+    if (label.isNotEmpty && label != 'Current location') {
+      if (VenueNameService.looksLikeAddress(label)) {
+        address ??= label;
+        if (name.isEmpty) {
+          name = label.split(',').first.trim();
+        }
+      } else {
+        name = label;
+      }
+    }
+  }
+
+  if (address == null || address.isEmpty) {
+    final label = await LocationLabelService.resolve(lat, lng);
+    if (label.isNotEmpty &&
+        label != 'Current location' &&
+        label.toLowerCase() != name.toLowerCase()) {
+      address = label;
+    }
+  }
+
+  if (name.isEmpty) {
+    name = address?.split(',').first.trim() ?? 'Current location';
+  }
+
+  return (name: name, address: address);
+}
+
+String _walkInNotificationTitle(String name) {
+  final trimmed = name.trim();
+  if (trimmed.isEmpty ||
+      trimmed == 'Current location' ||
+      trimmed == 'this location') {
+    return 'You just walked in 👀';
+  }
+  return "👀 You're at $trimmed";
+}
+
+String _walkInFunctionalBody(String name, String? address) {
+  final trimmed = name.trim();
+  final addr = address?.trim();
+  if (trimmed.isNotEmpty &&
+      trimmed != 'Current location' &&
+      trimmed != 'this location') {
+    if (addr != null &&
+        addr.isNotEmpty &&
+        addr.toLowerCase() != trimmed.toLowerCase()) {
+      return "How's $trimmed ($addr) right now? Peep it.";
+    }
+    return "How's $trimmed right now? Peep it.";
+  }
+  if (addr != null && addr.isNotEmpty) {
+    return "You're at $addr — how is it right now? Peep it.";
+  }
+  return 'How is it right now? Peep it.';
+}
 
 /// Firestore composite indexes required before production deploy.
 ///
@@ -48,6 +153,7 @@ Future<void> _writeVenueEntryEventToFirestore({
   required String venueId,
   required double latitude,
   required double longitude,
+  String? address,
 }) async {
   if (userId.isEmpty || venueName.isEmpty || venueId.isEmpty) return;
   if (latitude.isNaN ||
@@ -63,6 +169,7 @@ Future<void> _writeVenueEntryEventToFirestore({
       'venueId': venueId,
       'latitude': latitude,
       'longitude': longitude,
+      if (address != null && address.isNotEmpty) 'address': address,
       'timestamp': FieldValue.serverTimestamp(),
       'notificationSent': false,
     });
@@ -78,25 +185,35 @@ Future<void> _showWalkInLocalNotificationFromData(
 }) async {
   final rawVenueName =
       data['venueName']?.toString() ?? data['locationName']?.toString() ?? '';
+  final storedAddress = data['address']?.toString();
   final venueId =
       (data['venueId'] ?? data['locationId'])?.toString() ?? rawVenueName;
   final lat = double.tryParse(data['latitude']?.toString() ?? '');
   final lng = double.tryParse(data['longitude']?.toString() ?? '');
 
-  var displayName = rawVenueName;
+  late String displayName;
+  String? displayAddress;
   if (lat != null && lng != null) {
-    final resolved = await LocationLabelService.resolve(lat, lng);
-    if (resolved.isNotEmpty && resolved != 'Current location') {
-      displayName = resolved;
-    }
+    final labels = await _resolveWalkInLabels(
+      venueName: rawVenueName,
+      storedAddress: storedAddress,
+      lat: lat,
+      lng: lng,
+    );
+    displayName = labels.name;
+    displayAddress = labels.address;
+  } else {
+    displayName = rawVenueName;
+    displayAddress = storedAddress;
   }
 
   final notificationTitle =
-      title ?? "You just walked in 👀";
-  final notificationBody =
-      body ?? (displayName.isNotEmpty
-          ? "How's $displayName right now?"
-          : 'How is it right now? Peep it.');
+      title ?? _walkInNotificationTitle(displayName);
+  final notificationBody = body ??
+      await PeeplPositiveMessages.instance.enrichPushBody(
+        _walkInFunctionalBody(displayName, displayAddress),
+        notificationType: 'walk_in_prompt',
+      );
 
   const walkInChannel = AndroidNotificationChannel(
     'peepl_walk_in',
@@ -121,6 +238,8 @@ Future<void> _showWalkInLocalNotificationFromData(
     'type': 'walk_in_prompt',
     'locationName': displayName,
     'venueName': displayName,
+    if (displayAddress != null && displayAddress.isNotEmpty)
+      'address': displayAddress,
     'latitude': lat,
     'longitude': lng,
     'venueId': venueId,
@@ -244,6 +363,7 @@ class NotificationService {
     required String venueId,
     required double lat,
     required double lng,
+    String? address,
   }) async {
     if (!await isLocationAlertsEnabled()) {
       debugPrint('[NotificationService] Venue entry skipped (location alerts off)');
@@ -285,15 +405,21 @@ class NotificationService {
 
     await _updateUserLastLocation(lat, lng);
 
-    final displayName = venueName.isNotEmpty
-        ? venueName
-        : await LocationLabelService.resolve(lat, lng);
+    final labels = await _resolveWalkInLabels(
+      venueName: venueName,
+      storedAddress: address,
+      lat: lat,
+      lng: lng,
+    );
+    final displayName = labels.name;
+    final displayAddress = labels.address;
 
     await GrowthAnalyticsService.logEvent(
       'growth_venue_entry_detected',
       {
         'venueId': venueId,
         'venueName': displayName,
+        if (displayAddress != null) 'address': displayAddress,
       },
     );
 
@@ -324,6 +450,7 @@ class NotificationService {
         venueId: venueId,
         lat: lat,
         lng: lng,
+        address: displayAddress,
       );
       await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
       await GrowthAnalyticsService.logEvent(
@@ -343,6 +470,7 @@ class NotificationService {
       venueId: venueId,
       lat: lat,
       lng: lng,
+      address: displayAddress,
     );
     await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
     if (uid != null) {
@@ -352,6 +480,7 @@ class NotificationService {
         venueId: venueId,
         latitude: lat,
         longitude: lng,
+        address: displayAddress,
       ));
     }
     await GrowthAnalyticsService.logEvent(
@@ -374,20 +503,28 @@ class NotificationService {
     required String venueId,
     required double lat,
     required double lng,
+    String? address,
   }) async {
     final payload = jsonEncode({
       'type': 'walk_in_prompt',
       'locationName': venueName,
       'venueName': venueName,
+      if (address != null && address.isNotEmpty) 'address': address,
       'latitude': lat,
       'longitude': lng,
       'venueId': venueId,
     });
 
+    final walkInBody =
+        await PeeplPositiveMessages.instance.enrichPushBody(
+      _walkInFunctionalBody(venueName, address),
+      notificationType: 'walk_in_prompt',
+    );
+
     await _localNotifications.show(
       venueId.hashCode,
-      "👀 You're at $venueName",
-      'How is it right now? Peep it.',
+      _walkInNotificationTitle(venueName),
+      walkInBody,
       NotificationDetails(
         android: AndroidNotificationDetails(
           _walkInChannel.id,
@@ -599,7 +736,10 @@ class NotificationService {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              const PeeplPositiveMessage(
+                contextKey: 'peep_submission_success',
+              ),
+              const SizedBox(height: 8),
               Text(
                 'Tap to dismiss',
                 textAlign: TextAlign.center,
@@ -657,7 +797,10 @@ class NotificationService {
                       color: Color(0xFF1A1A1A),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  PeeplPositiveMessage(
+                    contextKey: 'milestone_$id',
+                  ),
+                  const SizedBox(height: 8),
                   Text(
                     'Tap to dismiss',
                     textAlign: TextAlign.center,
@@ -764,10 +907,15 @@ class NotificationService {
                 : 'very crowded';
 
         if (_isAppForeground) {
+          final responseBody =
+              await PeeplPositiveMessages.instance.enrichPushBody(
+            '$username just posted about $locationName — it\'s $levelLabel. Tap to see.',
+            notificationType: 'crowdsource_response',
+          );
           await _localNotifications.show(
             docId.hashCode,
             'Your Peep request was answered!',
-            '$username just posted about $locationName — it\'s $levelLabel. Tap to see.',
+            responseBody,
             NotificationDetails(
               android: AndroidNotificationDetails(
                 _channel.id,
