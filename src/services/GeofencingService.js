@@ -1,7 +1,9 @@
 const admin = require('firebase-admin');
 const logger = require('../utils/logger');
 const notificationService = require('./NotificationService');
-const { calculateDistance } = require('../utils/geo');
+const { calculateDistance, extractCoords, isValidCoord } = require('../utils/geo');
+
+const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 class GeofencingService {
   constructor() {
@@ -61,6 +63,22 @@ class GeofencingService {
         updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
+      // Mirror into users doc so Cloud Functions can target this user for Get-a-Peep.
+      if (isValidCoord(latitude, longitude)) {
+        await admin.firestore().collection(USERS_COLLECTION).doc(userId).set(
+          {
+            lastLocation: {
+              latitude,
+              longitude,
+              updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            },
+            lastKnownLatitude: latitude,
+            lastKnownLongitude: longitude,
+          },
+          { merge: true },
+        );
+      }
+
       // Check geofences immediately for this user
       await this.checkUserGeofences(userId, location);
 
@@ -100,11 +118,14 @@ class GeofencingService {
       const newGeofences = new Set();
 
       for (const venue of nearbyVenues) {
+        const venueCoords = extractCoords(venue);
+        if (!venueCoords) continue;
+
         const distance = calculateDistance(
           userLocation.latitude,
           userLocation.longitude,
-          venue.latitude,
-          venue.longitude
+          venueCoords.latitude,
+          venueCoords.longitude
         ) * 1000;
 
         // If user is within geofence radius
@@ -203,17 +224,24 @@ class GeofencingService {
       const nearbyVenues = [];
       venuesSnapshot.forEach(doc => {
         const venue = doc.data();
+        const coords = extractCoords(venue);
+        if (!coords) return;
+
         const distance = calculateDistance(
           latitude,
           longitude,
-          venue.latitude,
-          venue.longitude
+          coords.latitude,
+          coords.longitude
         ) * 1000;
 
         if (distance <= radius) {
           nearbyVenues.push({
             id: doc.id,
             ...venue,
+            latitude: coords.latitude,
+            longitude: coords.longitude,
+            lat: coords.latitude,
+            lng: coords.longitude,
             distance
           });
         }

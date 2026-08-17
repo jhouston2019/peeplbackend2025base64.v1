@@ -142,6 +142,8 @@ class PlacesVenueDetector {
 
       if (venueMonitoredCheck?.call(placeId, name) ?? false) {
 
+        // Registered locations use PeeplGeofenceService GeofenceStatus.DWELL.
+
         return;
 
       }

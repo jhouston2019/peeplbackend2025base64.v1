@@ -631,6 +631,8 @@ app.post("/venues", authenticateToken, [
       ...req.body,
       lat,
       lng,
+      latitude: lat,
+      longitude: lng,
       geohash: geofire.geohashForPoint([lat, lng]),
       nameLower: String(req.body.name || "").toLowerCase(),
       cityLower: cityLower || String(req.body.address || "").toLowerCase(),

@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
 const logger = require('../utils/logger');
+const { extractCoords } = require('../utils/geo');
 
 class NotificationService {
   constructor() {
@@ -99,11 +100,16 @@ class NotificationService {
         return { success: false, error: 'No device tokens found' };
       }
 
+      const venueCoords = extractCoords(venue);
+      if (!venueCoords) {
+        return { success: false, error: 'Venue coordinates missing' };
+      }
+
       const distance = this.calculateDistance(
         userLocation.latitude,
         userLocation.longitude,
-        venue.latitude,
-        venue.longitude
+        venueCoords.latitude,
+        venueCoords.longitude
       );
 
       const notification = {

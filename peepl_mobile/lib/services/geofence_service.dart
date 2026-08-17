@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
@@ -5,6 +7,7 @@ import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
 import 'debug_log_service.dart';
+import 'notification_service.dart';
 import 'places_venue_detector.dart';
 
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
@@ -17,7 +20,7 @@ class PeeplGeofenceService {
   final GeofenceService _geofenceService = GeofenceService.instance.setup(
     interval: 20000,
     accuracy: 100,
-    loiteringDelayMs: 60000,
+    loiteringDelayMs: 120000,
     statusChangeDelayMs: 10000,
     useActivityRecognition: false,
     allowMockLocations: false,
@@ -268,9 +271,31 @@ class PeeplGeofenceService {
     GeofenceStatus geofenceStatus,
     Location location,
   ) async {
-    if (geofenceStatus != GeofenceStatus.ENTER) return;
-    // Walk-in prompts require ~2 min dwell; handled by PlacesVenueDetector
-    // via _onLocationChanged — not on raw geofence enter (avoids drive-by).
+    // ENTER is ignored to avoid drive-by prompts; DWELL fires after
+    // [loiteringDelayMs] (~2 min) while still inside the registered geofence.
+    if (geofenceStatus != GeofenceStatus.DWELL) return;
+
+    final venueName = _locationNames[geofence.id];
+    if (venueName == null) return;
+
+    debugPrint(
+      '[PeeplGeofenceService] Registry dwell complete for $venueName (${geofence.id})',
+    );
+    await DebugLogService.log(
+      'GEOFENCE',
+      'registry_dwell_complete',
+      data: {
+        'locationId': geofence.id,
+        'venueName': venueName,
+      },
+    );
+
+    await NotificationService.instance.handleVenueEntry(
+      venueName: venueName,
+      venueId: geofence.id,
+      lat: location.latitude,
+      lng: location.longitude,
+    );
   }
 
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}

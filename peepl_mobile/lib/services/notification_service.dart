@@ -687,6 +687,8 @@ class NotificationService {
             'longitude': longitude,
             'updatedAt': FieldValue.serverTimestamp(),
           },
+          'lastKnownLatitude': latitude,
+          'lastKnownLongitude': longitude,
         },
         SetOptions(merge: true),
       );

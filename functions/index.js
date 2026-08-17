@@ -65,12 +65,29 @@ function locationNamesMatch(a, b) {
 
 function isValidCoord(lat, lng) {
   if (lat == null || lng == null) return false;
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return false;
   if (lat === 0 && lng === 0) return false;
   if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return false;
   return true;
 }
 
+function extractCoords(data) {
+  if (!data || typeof data !== 'object') return null;
+
+  const rawLat = data.latitude ?? data.lat;
+  const rawLng = data.longitude ?? data.lng;
+  if (rawLat == null || rawLng == null) return null;
+
+  const latitude = typeof rawLat === 'number' ? rawLat : parseFloat(rawLat);
+  const longitude = typeof rawLng === 'number' ? rawLng : parseFloat(rawLng);
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+
+  return { latitude, longitude };
+}
+
 async function resolveCoordsForLocationName(locationName) {
+  const normalized = normalizeLocationName(locationName);
+
   try {
     const postsSnap = await db
       .collection('location_posts')
@@ -79,9 +96,9 @@ async function resolveCoordsForLocationName(locationName) {
       .limit(1)
       .get();
     if (!postsSnap.empty) {
-      const post = postsSnap.docs[0].data();
-      if (isValidCoord(post.latitude, post.longitude)) {
-        return { latitude: post.latitude, longitude: post.longitude };
+      const coords = extractCoords(postsSnap.docs[0].data());
+      if (coords && isValidCoord(coords.latitude, coords.longitude)) {
+        return coords;
       }
     }
   } catch (e) {
@@ -95,15 +112,31 @@ async function resolveCoordsForLocationName(locationName) {
       .limit(1)
       .get();
     if (!locSnap.empty) {
-      const loc = locSnap.docs[0].data();
-      const lat = loc.latitude ?? loc.lat;
-      const lng = loc.longitude ?? loc.lng;
-      if (isValidCoord(lat, lng)) {
-        return { latitude: lat, longitude: lng };
+      const coords = extractCoords(locSnap.docs[0].data());
+      if (coords && isValidCoord(coords.latitude, coords.longitude)) {
+        return coords;
       }
     }
   } catch (e) {
     console.error('resolveCoords locations query error:', e);
+  }
+
+  if (normalized.length > 0) {
+    try {
+      const venueSnap = await db
+        .collection('venues')
+        .where('nameLower', '==', normalized)
+        .limit(1)
+        .get();
+      if (!venueSnap.empty) {
+        const coords = extractCoords(venueSnap.docs[0].data());
+        if (coords && isValidCoord(coords.latitude, coords.longitude)) {
+          return coords;
+        }
+      }
+    } catch (e) {
+      console.error('resolveCoords venues query error:', e);
+    }
   }
 
   return null;
@@ -164,11 +197,14 @@ async function findActiveCrowdsourceRequests(locationName, latitude, longitude) 
         ) {
           continue;
         }
+        const requestCoords = extractCoords(data);
+        if (!requestCoords) continue;
+
         const dist = haversineKm(
           latitude,
           longitude,
-          data.latitude,
-          data.longitude,
+          requestCoords.latitude,
+          requestCoords.longitude,
         );
         if (dist <= radiusKm) {
           seen.add(doc.id);
@@ -222,18 +258,22 @@ function haversineKm(lat1, lon1, lat2, lon2) {
 // and nearby users via lastKnown* or lastLocation coords.
 function getUserCoords(userData) {
   if (userData.lastKnownLatitude != null && userData.lastKnownLongitude != null) {
-    return {
-      latitude: userData.lastKnownLatitude,
-      longitude: userData.lastKnownLongitude,
-    };
+    const latitude = Number(userData.lastKnownLatitude);
+    const longitude = Number(userData.lastKnownLongitude);
+    if (isValidCoord(latitude, longitude)) {
+      return { latitude, longitude };
+    }
   }
+
   const lastLoc = userData.lastLocation;
   if (lastLoc?.latitude != null && lastLoc?.longitude != null) {
-    return {
-      latitude: lastLoc.latitude,
-      longitude: lastLoc.longitude,
-    };
+    const latitude = Number(lastLoc.latitude);
+    const longitude = Number(lastLoc.longitude);
+    if (isValidCoord(latitude, longitude)) {
+      return { latitude, longitude };
+    }
   }
+
   return null;
 }
 
@@ -466,7 +506,7 @@ exports.onPresenceCreated = functions.firestore
     const { latitude, longitude, locationName, userId, uid } = presence;
     const arrivedUserId = userId || uid || context.params.presenceId;
 
-    if (!latitude || !longitude) {
+    if (!isValidCoord(Number(latitude), Number(longitude))) {
       console.log('onPresenceCreated: missing coords, skipping');
       return null;
     }
@@ -650,34 +690,53 @@ exports.onNewPost = functions.firestore
       return null;
     }
 
-    const KM_DELTA = 0.009; // ~1 km latitude band
-
-    let usersSnap = { docs: [] };
-    try {
-      usersSnap = await db
-        .collection(USERS_COLLECTION)
-        .where('lastLocation.latitude', '>=', latitude - KM_DELTA)
-        .where('lastLocation.latitude', '<=', latitude + KM_DELTA)
-        .limit(200)
-        .get();
-    } catch (e) {
-      console.error('onNewPost user query error:', e);
+    if (!isValidCoord(Number(latitude), Number(longitude))) {
+      console.log('onNewPost: invalid coordinates, skipping.');
+      return null;
     }
 
-    const sends = [];
-    for (const doc of usersSnap.docs) {
-      if (doc.id === posterId) continue;
+    const KM_DELTA = 0.009; // ~1 km latitude band
 
-      const lastLoc = doc.data().lastLocation;
-      if (!lastLoc || lastLoc.latitude == null || lastLoc.longitude == null) {
-        continue;
+    async function safeUserQuery(label, fn) {
+      try {
+        return await fn();
+      } catch (e) {
+        console.error(`onNewPost user query error (${label}):`, e);
+        return { docs: [] };
       }
+    }
+
+    const [usersByLastLocation, usersByLastKnown] = await Promise.all([
+      safeUserQuery('lastLocation', () =>
+        db
+          .collection(USERS_COLLECTION)
+          .where('lastLocation.latitude', '>=', latitude - KM_DELTA)
+          .where('lastLocation.latitude', '<=', latitude + KM_DELTA)
+          .limit(200)
+          .get()),
+      safeUserQuery('lastKnownLatitude', () =>
+        db
+          .collection(USERS_COLLECTION)
+          .where('lastKnownLatitude', '>=', latitude - KM_DELTA)
+          .where('lastKnownLatitude', '<=', latitude + KM_DELTA)
+          .limit(200)
+          .get()),
+    ]);
+
+    const sends = [];
+    const seenUsers = new Set();
+    for (const doc of [...usersByLastLocation.docs, ...usersByLastKnown.docs]) {
+      if (doc.id === posterId || seenUsers.has(doc.id)) continue;
+      seenUsers.add(doc.id);
+
+      const coords = getUserCoords(doc.data());
+      if (!coords) continue;
 
       const dist = haversineKm(
         latitude,
         longitude,
-        lastLoc.latitude,
-        lastLoc.longitude,
+        coords.latitude,
+        coords.longitude,
       );
       if (dist > 1) continue;
 
@@ -994,12 +1053,13 @@ exports.seedLocation = functions.https.onCall(async (data, context) => {
 // ─── HELPER: upsert locations collection from a location_posts document ────
 async function upsertLocationFromPost(postData) {
   const locationName = postData.locationName;
-  const latitude = postData.latitude;
-  const longitude = postData.longitude;
+  const coords = extractCoords(postData);
 
-  if (!locationName || !latitude || !longitude) {
+  if (!locationName || !coords || !isValidCoord(coords.latitude, coords.longitude)) {
     return { created: false, updated: false };
   }
+
+  const { latitude, longitude } = coords;
 
   const locationId = generateLocationId(locationName);
   if (!locationId) {
@@ -1078,7 +1138,9 @@ exports.onPostCreated = functions.firestore
     const postId = context.params.postId;
     const { latitude, longitude, crowdingLevel, locationName, userId } = data;
 
-    if (!latitude || !longitude || crowdingLevel === undefined) return null;
+    if (!isValidCoord(Number(latitude), Number(longitude)) || crowdingLevel === undefined) {
+      return null;
+    }
 
     try {
       await detectCrowdAnomaly(data, postId);
@@ -1386,10 +1448,13 @@ exports.backfillLocationsFromPosts = functions.https.onRequest(async (req, res) 
       for (const doc of snapshot.docs) {
         const data = doc.data();
         const locationName = data.locationName;
-        const latitude = data.latitude;
-        const longitude = data.longitude;
+        const coords = extractCoords(data);
 
-        if (!locationName || !latitude || !longitude) continue;
+        if (!locationName || !coords || !isValidCoord(coords.latitude, coords.longitude)) {
+          continue;
+        }
+
+        const { latitude, longitude } = coords;
 
         processed++;
         const locationId = locationName
