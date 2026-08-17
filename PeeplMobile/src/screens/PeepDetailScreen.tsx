@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -110,6 +110,9 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
   const [commentText, setCommentText] = useState('');
   const [posting, setPosting] = useState(false);
   const [liked, setLiked] = useState(false);
+  const scrollRef = useRef<ScrollView>(null);
+  const commentInputRef = useRef<TextInput>(null);
+  const commentsSectionY = useRef(0);
 
   const loadPeep = useCallback(async () => {
     try {
@@ -175,6 +178,11 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
     }
   };
 
+  const engageComments = () => {
+    scrollRef.current?.scrollTo({ y: commentsSectionY.current, animated: true });
+    setTimeout(() => commentInputRef.current?.focus(), 300);
+  };
+
   const postComment = async () => {
     const t = commentText.trim();
     if (!t) return;
@@ -215,7 +223,12 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={88}
     >
-      <ScrollView style={styles.flex} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.flex}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.heroWrap}>
           <ImageBackground
             source={{ uri: photo || 'https://via.placeholder.com/800x480' }}
@@ -292,7 +305,7 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
             <Icon name={liked ? 'favorite' : 'favorite-border'} size={26} color={liked ? '#E91E63' : PRIMARY} />
             <Text style={styles.actionLabel}>Like</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionBtn} onPress={() => {}}>
+          <TouchableOpacity style={styles.actionBtn} onPress={engageComments}>
             <Icon name="chat-bubble-outline" size={26} color={PRIMARY} />
             <Text style={styles.actionLabel}>Comment</Text>
           </TouchableOpacity>
@@ -327,31 +340,40 @@ export default function PeepDetailScreen({ route, navigation }: Props) {
           </TouchableOpacity>
         ) : null}
 
-        <Text style={styles.sectionTitle}>Comments</Text>
-        {comments.map(item => (
-          <View key={item.id} style={styles.commentRow}>
-            <Image
-              source={{ uri: 'https://via.placeholder.com/40' }}
-              style={styles.cAvatar}
-            />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.cUser}>{item.username || 'User'}</Text>
-              <Text style={styles.cText}>{item.text}</Text>
-              <Text style={styles.cTime}>
-                {formatAgo(item.createdAt as string | { seconds?: number } | undefined)}
-              </Text>
+        <View
+          onLayout={event => {
+            commentsSectionY.current = event.nativeEvent.layout.y;
+          }}
+        >
+          <Text style={styles.sectionTitle}>Comments</Text>
+          {comments.map(item => (
+            <View key={item.id} style={styles.commentRow}>
+              <Image
+                source={{ uri: 'https://via.placeholder.com/40' }}
+                style={styles.cAvatar}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.cUser}>{item.username || 'User'}</Text>
+                <Text style={styles.cText}>{item.text}</Text>
+                <Text style={styles.cTime}>
+                  {formatAgo(item.createdAt as string | { seconds?: number } | undefined)}
+                </Text>
+              </View>
             </View>
-          </View>
-        ))}
+          ))}
+        </View>
       </ScrollView>
 
       <View style={styles.inputRow}>
         <TextInput
+          ref={commentInputRef}
           style={styles.input}
           placeholder="Write a comment..."
           placeholderTextColor="#999"
           value={commentText}
           onChangeText={setCommentText}
+          returnKeyType="send"
+          onSubmitEditing={postComment}
         />
         <TouchableOpacity style={styles.postBtn} onPress={postComment} disabled={posting}>
           <Text style={styles.postBtnText}>Post</Text>
