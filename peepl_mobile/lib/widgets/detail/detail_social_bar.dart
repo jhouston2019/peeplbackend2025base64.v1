@@ -12,6 +12,8 @@ class DetailSocialBar extends StatelessWidget {
     required this.onLikesCountTap,
     required this.onShareTap,
     required this.onReportTap,
+    this.isOwner = false,
+    this.onDeleteTap,
   });
 
   final bool isLiked;
@@ -21,6 +23,8 @@ class DetailSocialBar extends StatelessWidget {
   final VoidCallback onLikesCountTap;
   final VoidCallback onShareTap;
   final VoidCallback onReportTap;
+  final bool isOwner;
+  final VoidCallback? onDeleteTap;
 
   @override
   Widget build(BuildContext context) {
@@ -65,10 +69,12 @@ class DetailSocialBar extends StatelessWidget {
             _separator(),
             Expanded(
               child: _ActionCell(
-                icon: Icons.flag_outlined,
-                label: 'Report',
-                color: PeeplDetailTokens.textSecondary,
-                onTap: onReportTap,
+                icon: isOwner ? Icons.delete_outline : Icons.flag_outlined,
+                label: isOwner ? 'Delete' : 'Report',
+                color: isOwner
+                    ? const Color(0xFFFF4D6D)
+                    : PeeplDetailTokens.textSecondary,
+                onTap: isOwner ? (onDeleteTap ?? () {}) : onReportTap,
               ),
             ),
           ],

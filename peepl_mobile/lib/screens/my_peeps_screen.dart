@@ -3,7 +3,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
 
+import '../services/feed_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../utils/post_delete_actions.dart';
 import '../widgets/crowd_meter.dart';
 import '../widgets/resolved_venue_name.dart';
 import 'location_detail_screen.dart';
@@ -22,6 +24,7 @@ class MyPeepsScreen extends StatefulWidget {
 
 class _MyPeepsScreenState extends State<MyPeepsScreen> {
   final _db = FirebaseFirestore.instance;
+  final _feedService = FeedService();
   String? _username;
   _DateFilter _dateFilter = _DateFilter.all;
 
@@ -101,47 +104,12 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
   }
 
   Future<void> _confirmDelete(String docId, String locationName) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete post?'),
-        content: Text(
-          locationName.isNotEmpty
-              ? 'Remove your crowd report at $locationName? This cannot be undone.'
-              : 'Remove this crowd report? This cannot be undone.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text(
-              'Delete',
-              style: TextStyle(color: Colors.red),
-            ),
-          ),
-        ],
-      ),
+    await confirmAndDeletePost(
+      context,
+      _feedService,
+      postId: docId,
+      locationName: locationName,
     );
-
-    if (confirmed != true || !mounted) return;
-
-    try {
-      await _db.collection('location_posts').doc(docId).delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Post deleted')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to delete: $e')),
-        );
-      }
-    }
   }
 
   static String _timeAgo(dynamic ts) {
@@ -446,6 +414,25 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
                         ),
                       ),
                       CrowdMeter(level: crowdingLevel, size: 60),
+                      if (_isOwn && docId.isNotEmpty) ...[
+                        const SizedBox(width: 4),
+                        Material(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          borderRadius: BorderRadius.circular(20),
+                          child: IconButton(
+                            icon: const Icon(
+                              Icons.delete_outline,
+                              color: Colors.white,
+                              size: 18,
+                            ),
+                            padding: const EdgeInsets.all(6),
+                            constraints: const BoxConstraints(),
+                            tooltip: 'Delete post',
+                            onPressed: () =>
+                                _confirmDelete(docId, locationName),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ],

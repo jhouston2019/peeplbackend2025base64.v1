@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import '../services/feed_service.dart';
 import '../theme/peepl_app_tokens.dart';
 
 const Color _kPeeplBlue = PeeplAppTokens.shellNavy;
@@ -414,10 +415,7 @@ class _PostsTab extends StatelessWidget {
     );
     if (ok != true || !context.mounted) return;
     try {
-      await FirebaseFirestore.instance
-          .collection('location_posts')
-          .doc(postId)
-          .delete();
+      await FeedService().deleteLocationPost(postId);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Post deleted.')),

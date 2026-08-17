@@ -6,10 +6,12 @@ class FeedCardTapScale extends StatefulWidget {
     super.key,
     required this.onTap,
     required this.child,
+    this.onLongPress,
   });
 
   final VoidCallback onTap;
   final Widget child;
+  final VoidCallback? onLongPress;
 
   @override
   State<FeedCardTapScale> createState() => _FeedCardTapScaleState();
@@ -27,6 +29,7 @@ class _FeedCardTapScaleState extends State<FeedCardTapScale> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
       onTapDown: (_) => _setPressed(true),
       onTapUp: (_) => _setPressed(false),
       onTapCancel: () => _setPressed(false),

@@ -22,6 +22,7 @@ class OrganicCrowdCard extends StatelessWidget {
     this.size = OrganicCardSize.featured,
     this.marginHorizontal,
     this.onShare,
+    this.onLongPress,
   }) : assert(name != null || nameWidget != null,
             'Provide either name or nameWidget');
 
@@ -34,6 +35,7 @@ class OrganicCrowdCard extends StatelessWidget {
   final OrganicCardSize size;
   final double? marginHorizontal;
   final void Function(Rect shareOrigin)? onShare;
+  final VoidCallback? onLongPress;
 
   static const _navyOverlay = Color(0xFF050F19);
 
@@ -88,6 +90,7 @@ class OrganicCrowdCard extends StatelessWidget {
               children: [
                 FeedCardTapScale(
                   onTap: onTap,
+                  onLongPress: onLongPress,
                   child: Stack(
                     fit: StackFit.expand,
                     children: [

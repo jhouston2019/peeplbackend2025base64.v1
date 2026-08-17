@@ -14,6 +14,7 @@ import '../services/native_ads_service.dart';
 import '../services/presence_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
+import '../utils/post_delete_actions.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/detail/detail_comment_input.dart';
 import '../widgets/detail/detail_comment_tile.dart';
@@ -137,6 +138,45 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         await _feedService.isLocationFollowed(user.uid, _locationId);
     if (!mounted) return;
     setState(() => _isFollowing = followed);
+  }
+
+  bool get _isPostOwner {
+    final user = FirebaseAuth.instance.currentUser;
+    return FeedService.isPostOwner(widget.postData, user?.uid);
+  }
+
+  void _openReport() {
+    Navigator.pushNamed(
+      context,
+      '/report',
+      arguments: {
+        'postId': widget.postData['id'] as String? ?? '',
+        'reportedUserId': widget.postData['userId'] as String? ?? '',
+      },
+    );
+  }
+
+  Future<void> _deleteOwnPost() async {
+    final postId = widget.postData['id'] as String?;
+    if (postId == null || postId.isEmpty) return;
+    final deleted = await confirmAndDeletePost(
+      context,
+      _feedService,
+      postId: postId,
+      locationName: _displayVenueName,
+    );
+    if (deleted && mounted) {
+      Navigator.pop(context);
+    }
+  }
+
+  Future<void> _showPostMenu() async {
+    await showPostActionMenu(
+      context,
+      isOwner: _isPostOwner,
+      onReport: _openReport,
+      onDelete: _deleteOwnPost,
+    );
   }
 
   Future<void> _toggleFollow(String locationName) async {
@@ -743,14 +783,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           onFollow: () => _toggleFollow(locationName),
           isFollowing: _isFollowing,
           isFollowLoading: _isFollowLoading,
-          onMenu: () => Navigator.pushNamed(
-            context,
-            '/report',
-            arguments: {
-              'postId': post['id'] as String? ?? '',
-              'reportedUserId': post['userId'] as String? ?? '',
-            },
-          ),
+          onMenu: _showPostMenu,
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -853,14 +886,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             }
           },
           onShareTap: () => _sharePeep(shareContext: 'detail_social_bar'),
-          onReportTap: () => Navigator.pushNamed(
-            context,
-            '/report',
-            arguments: {
-              'postId': widget.postData['id'] as String? ?? '',
-              'reportedUserId': widget.postData['userId'] as String? ?? '',
-            },
-          ),
+          isOwner: _isPostOwner,
+          onDeleteTap: _deleteOwnPost,
+          onReportTap: _openReport,
         ),
         DetailPeepCard(
           caption: description,
@@ -869,14 +897,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           isLiked: _isLiked,
           onLikeTap: _toggleLike,
           photoUrl: photoUrl,
-          onMenu: () => Navigator.pushNamed(
-            context,
-            '/report',
-            arguments: {
-              'postId': widget.postData['id'] as String? ?? '',
-              'reportedUserId': widget.postData['userId'] as String? ?? '',
-            },
-          ),
+          onMenu: _showPostMenu,
         ),
         Padding(
           padding: const EdgeInsets.only(bottom: 8),
