@@ -45,6 +45,8 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   final NativeAdsService _adsService = NativeAdsService();
   final AdCadenceService _cadence = AdCadenceService();
   final TextEditingController _commentController = TextEditingController();
+  final FocusNode _commentFocusNode = FocusNode();
+  final GlobalKey _commentsSectionKey = GlobalKey();
 
   bool _isLiked = false;
   bool _isSubmittingComment = false;
@@ -479,6 +481,19 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     return ShareService.fallbackShareOrigin;
   }
 
+  void _engageComments() {
+    final sectionContext = _commentsSectionKey.currentContext;
+    if (sectionContext != null) {
+      Scrollable.ensureVisible(
+        sectionContext,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        alignment: 0.2,
+      );
+    }
+    _commentFocusNode.requestFocus();
+  }
+
   Future<void> _submitComment() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -492,7 +507,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
     final postId = widget.postData['id'] as String?;
-    if (postId == null) return;
+    if (postId == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Comments are unavailable for this peep.')),
+        );
+      }
+      return;
+    }
 
     setState(() => _isSubmittingComment = true);
     try {
@@ -751,6 +773,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             ),
             DetailCommentInput(
               controller: _commentController,
+              focusNode: _commentFocusNode,
               isSubmitting: _isSubmittingComment,
               onSubmit: _submitComment,
             ),
@@ -886,6 +909,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
             }
           },
           onShareTap: () => _sharePeep(shareContext: 'detail_social_bar'),
+          onCommentTap: _engageComments,
           isOwner: _isPostOwner,
           onDeleteTap: _deleteOwnPost,
           onReportTap: _openReport,
@@ -896,10 +920,12 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
           timeLabel: timeLabel,
           isLiked: _isLiked,
           onLikeTap: _toggleLike,
+          onReplyTap: _engageComments,
           photoUrl: photoUrl,
           onMenu: _showPostMenu,
         ),
         Padding(
+          key: _commentsSectionKey,
           padding: const EdgeInsets.only(bottom: 8),
           child: Text(
             'Comments · $commentsCount',
@@ -1055,6 +1081,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   @override
   void dispose() {
     _commentController.dispose();
+    _commentFocusNode.dispose();
     super.dispose();
   }
 }

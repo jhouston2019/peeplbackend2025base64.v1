@@ -11,6 +11,7 @@ class DetailPeepCard extends StatelessWidget {
     required this.timeLabel,
     required this.isLiked,
     required this.onLikeTap,
+    this.onReplyTap,
     this.photoUrl,
     this.onMenu,
   });
@@ -20,6 +21,7 @@ class DetailPeepCard extends StatelessWidget {
   final String timeLabel;
   final bool isLiked;
   final VoidCallback onLikeTap;
+  final VoidCallback? onReplyTap;
   final String? photoUrl;
   final VoidCallback? onMenu;
 
@@ -117,7 +119,7 @@ class DetailPeepCard extends StatelessWidget {
                 constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
               ),
               IconButton(
-                onPressed: () {},
+                onPressed: onReplyTap,
                 icon: const Icon(
                   Icons.reply_rounded,
                   color: PeeplDetailTokens.textSecondary,

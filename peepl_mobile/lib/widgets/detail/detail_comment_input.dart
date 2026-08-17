@@ -9,11 +9,13 @@ class DetailCommentInput extends StatelessWidget {
     required this.controller,
     required this.isSubmitting,
     required this.onSubmit,
+    this.focusNode,
   });
 
   final TextEditingController controller;
   final bool isSubmitting;
   final VoidCallback onSubmit;
+  final FocusNode? focusNode;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +31,7 @@ class DetailCommentInput extends StatelessWidget {
               Expanded(
                 child: TextField(
                   controller: controller,
+                  focusNode: focusNode,
                   style: const TextStyle(color: PeeplDetailTokens.textPrimary),
                   decoration: InputDecoration(
                     hintText: 'Add a comment...',

@@ -10,6 +10,7 @@ class DetailSocialBar extends StatelessWidget {
     required this.commentsCount,
     required this.onLikeTap,
     required this.onLikesCountTap,
+    required this.onCommentTap,
     required this.onShareTap,
     required this.onReportTap,
     this.isOwner = false,
@@ -21,6 +22,7 @@ class DetailSocialBar extends StatelessWidget {
   final int commentsCount;
   final VoidCallback onLikeTap;
   final VoidCallback onLikesCountTap;
+  final VoidCallback onCommentTap;
   final VoidCallback onShareTap;
   final VoidCallback onReportTap;
   final bool isOwner;
@@ -54,7 +56,7 @@ class DetailSocialBar extends StatelessWidget {
                 icon: Icons.chat_bubble_outline_rounded,
                 label: '$commentsCount',
                 color: PeeplDetailTokens.textSecondary,
-                onTap: () {},
+                onTap: onCommentTap,
               ),
             ),
             _separator(),
