@@ -2,17 +2,32 @@ workflows:
   android-workflow:
     name: Android Build
     max_build_duration: 60
+    instance_type: linux_x2
     environment:
       flutter: 3.41.6
+      android_signing:
+        - peepl_keystore
+      groups:
+        - a
     scripts:
-      - name: Get Flutter packages
-        script: flutter packages pub get
+      - name: Flutter clean and pub get
+        script: |
+          set -e
+          flutter clean
+          flutter pub get
         working_directory: peepl_mobile
-      - name: Build APK
-        script: flutter build apk --release
+      - name: Build AAB
+        script: |
+          set -e
+          flutter build appbundle --release \
+            --dart-define=GOOGLE_PLACES_API_KEY=$GOOGLE_PLACES_API_KEY
         working_directory: peepl_mobile
     artifacts:
-      - peepl_mobile/build/**/outputs/**/*.apk
+      - peepl_mobile/build/**/outputs/**/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
   ios-workflow:
     name: iOS Build
     max_build_duration: 60
