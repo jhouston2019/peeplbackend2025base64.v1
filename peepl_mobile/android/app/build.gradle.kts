@@ -9,7 +9,7 @@ plugins {
 }
 
 val keystoreProperties = Properties()
-val keystorePropertiesFile = file("../key.properties")
+val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
@@ -42,10 +42,14 @@ android {
 
     signingConfigs {
         create("release") {
-            keyAlias = keystoreProperties["keyAlias"] as String
-            keyPassword = keystoreProperties["keyPassword"] as String
-            storeFile = file(keystoreProperties["storeFile"] as String)
-            storePassword = keystoreProperties["storePassword"] as String
+            keyAlias = keystoreProperties["keyAlias"] as? String ?: System.getenv("CM_KEY_ALIAS") ?: ""
+            keyPassword = keystoreProperties["keyPassword"] as? String ?: System.getenv("CM_KEY_PASSWORD") ?: ""
+            storeFile = if (keystoreProperties["storeFile"] != null) {
+                file(keystoreProperties["storeFile"] as String)
+            } else {
+                file(System.getenv("CM_KEYSTORE_PATH") ?: "")
+            }
+            storePassword = keystoreProperties["storePassword"] as? String ?: System.getenv("CM_STORE_PASSWORD") ?: ""
         }
     }
 
