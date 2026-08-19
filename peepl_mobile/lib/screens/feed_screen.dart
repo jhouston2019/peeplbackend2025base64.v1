@@ -362,7 +362,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final url = Uri.parse(
         'https://maps.googleapis.com/maps/api/geocode/json'
         '?address=$encoded'
-        '&key=AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8',
+        '&key=AIzaSyAROeS73A4uhjNjZx_mMbqUnW99M0rv31o',
       );
       final response = await http.get(url);
       final data = json.decode(response.body);

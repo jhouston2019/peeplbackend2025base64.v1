@@ -38,7 +38,7 @@ class PlacesVenueDetector {
 
   static const String _apiKey =
 
-      'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
+      'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99M0rv31o';
 
   static const double _detectionRadiusMeters = 200.0;
 

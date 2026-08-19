@@ -14,7 +14,7 @@ import CoreLocation
   ) -> Bool {
 
     FirebaseApp.configure()
-    GMSServices.provideAPIKey("AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8")
+    GMSServices.provideAPIKey("AIzaSyAROeS73A4uhjNjZx_mMbqUnW99M0rv31o")
     NativeGeofenceHandler.shared.startMonitoring()
     print("[NativeGeofence] AppDelegate: significant location monitoring started")
     GeneratedPluginRegistrant.register(with: self)

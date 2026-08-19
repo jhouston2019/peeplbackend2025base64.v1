@@ -8,7 +8,7 @@ import 'debug_log_service.dart';
 class VenueNameService {
   VenueNameService._();
 
-  static const String _apiKey = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
+  static const String _apiKey = 'AIzaSyD1cbXZCQS_Bcu7kmJOcHlUZm4TxLKucJA';
 
   static final RegExp _coordinatePair = RegExp(
     r'^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$',

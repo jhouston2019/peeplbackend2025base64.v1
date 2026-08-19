@@ -7,7 +7,7 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const PLACES_API_KEY = 'AIzaSyBkJayDy4YBldg0Y5Ux7sR5Qww8am59vV8';
+const PLACES_API_KEY = 'AIzaSyD1cbXZCQS_Bcu7kmJOcHlUZm4TxLKucJA';
 const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
 
 function looksLikeAddress(name) {
