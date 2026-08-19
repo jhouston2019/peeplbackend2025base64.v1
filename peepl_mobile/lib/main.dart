@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -75,8 +76,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       NotificationService.instance.onVenueEntryInAppPrompt = (name) {
         FeedScreen.onGeofenceVenueEntry?.call(name);
       };
-      final geofenceService = geofence_svc.PeeplGeofenceService.instance;
-      await geofenceService.initialize();
+      if (Platform.isIOS) {
+        final geofenceService = geofence_svc.PeeplGeofenceService.instance;
+        await geofenceService.initialize();
+      }
       await DeepLinkHandler.initialize(navigatorKey);
 
       if (mounted) setState(() => _ready = true);
