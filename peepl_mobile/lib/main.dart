@@ -73,15 +73,21 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     NotificationService.instance.attachNavigator(navigatorKey).then((_) async {
-      NotificationService.instance.onVenueEntryInAppPrompt = (name) {
-        FeedScreen.onGeofenceVenueEntry?.call(name);
-      };
-      if (Platform.isIOS) {
-        final geofenceService = geofence_svc.PeeplGeofenceService.instance;
-        await geofenceService.initialize();
+      try {
+        NotificationService.instance.onVenueEntryInAppPrompt = (name) {
+          FeedScreen.onGeofenceVenueEntry?.call(name);
+        };
+        if (Platform.isIOS) {
+          final geofenceService = geofence_svc.PeeplGeofenceService.instance;
+          await geofenceService.initialize();
+        }
+        await DeepLinkHandler.initialize(navigatorKey);
+      } catch (e, stack) {
+        debugPrint('[Startup] initState error: $e\n$stack');
       }
-      await DeepLinkHandler.initialize(navigatorKey);
-
+      if (mounted) setState(() => _ready = true);
+    }).catchError((e, stack) {
+      debugPrint('[Startup] attachNavigator error: $e\n$stack');
       if (mounted) setState(() => _ready = true);
     });
   }
