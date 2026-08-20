@@ -168,6 +168,11 @@ class PeeplGeofenceService {
         return;
       }
 
+      // Listeners live in initialize(). main.dart skips that on Android to
+      // avoid a startup crash, so start() must register them before loading
+      // geofences or walk-in dwell never fires.
+      await initialize();
+
       _isActive = true;
       await DebugLogService.log('GEOFENCE', 'geofence_started');
     } catch (e) {

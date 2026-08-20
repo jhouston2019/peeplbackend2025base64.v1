@@ -6,6 +6,10 @@ import UserNotifications
 /// Detects venue arrivals after the user has stayed ~2 minutes on-site at low
 /// speed, then resolves the nearest place label (any business/POI, or a generic
 /// fallback when no name exists).
+///
+/// The 2-minute wait is a scheduled local notification, not a second GPS fix.
+/// Sitting still does not produce location callbacks (`distanceFilter` is 30 m),
+/// so waiting for another update would never complete the dwell.
 class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     static let shared = NativeGeofenceHandler()
@@ -15,6 +19,7 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     private var lastProcessedLocation: CLLocation?
     private var candidate: VenueCandidate?
+    private var pendingVenueId: String?
 
     private let debounceMeters: CLLocationDistance = 30
     /// User must remain within this radius of the dwell anchor.
@@ -28,10 +33,13 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
     private let venueCooldownSeconds: TimeInterval = 4 * 60 * 60
     private let lastVenueKey = "peepl_last_walk_in_venue"
     private let lastVenueTimeKey = "peepl_last_walk_in_time"
+    private let pendingNotificationId = "peepl_pending_walk_in"
 
     private struct VenueCandidate {
         let anchor: CLLocation
         let firstSeen: Date
+        let fireAt: Date
+        var notificationScheduled: Bool
     }
 
     override init() {
@@ -62,6 +70,7 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         locationManager.stopMonitoringSignificantLocationChanges()
         locationManager.stopMonitoringVisits()
         locationManager.stopUpdatingLocation()
+        cancelPendingWalkIn()
         candidate = nil
     }
 
@@ -92,12 +101,17 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
     }
 
     func locationManager(_ manager: CLLocationManager, didVisit visit: CLVisit) {
-        guard visit.departureDate == Date.distantFuture else { return }
+        guard visit.departureDate == Date.distantFuture else {
+            cancelPendingWalkIn()
+            candidate = nil
+            return
+        }
         let location = CLLocation(
             latitude: visit.coordinate.latitude,
             longitude: visit.coordinate.longitude
         )
-        evaluateDwell(at: location, bypassDebounce: true)
+        // CLVisit arrival already means iOS confirmed a stay. Prompt immediately.
+        evaluateDwell(at: location, bypassDebounce: true, deliverImmediately: true)
     }
 
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
@@ -106,55 +120,114 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
 
     // MARK: - Dwell detection
 
-    private func evaluateDwell(at location: CLLocation, bypassDebounce: Bool = false) {
-        if !bypassDebounce,
-           let last = lastProcessedLocation,
-           location.distance(from: last) < debounceMeters {
-            return
-        }
-        lastProcessedLocation = location
-
+    private func evaluateDwell(
+        at location: CLLocation,
+        bypassDebounce: Bool = false,
+        deliverImmediately: Bool = false
+    ) {
         if isMovingTooFast(location) {
             if candidate != nil {
                 print("[NativeGeofence] clearing dwell — user is moving")
             }
+            cancelPendingWalkIn()
             candidate = nil
+            lastProcessedLocation = location
             return
         }
 
         if let current = candidate {
             if location.distance(from: current.anchor) > candidateRadiusMeters {
                 print("[NativeGeofence] clearing dwell — left anchor area")
-                candidate = VenueCandidate(anchor: location, firstSeen: Date())
+                cancelPendingWalkIn()
+                startDwell(at: location, deliverImmediately: deliverImmediately)
                 return
             }
 
-            let elapsed = Date().timeIntervalSince(current.firstSeen)
-            if elapsed < dwellRequiredSeconds {
-                print("[NativeGeofence] dwelling \(Int(elapsed))s / \(Int(dwellRequiredSeconds))s")
-                return
+            if deliverImmediately {
+                cancelPendingWalkIn()
+                startDwell(at: location, deliverImmediately: true)
             }
-
-            candidate = nil
-            resolveVenueLabel(near: location) { [weak self] venueName, venueId in
-                guard let self = self else { return }
-                if self.isOnCooldown(venueId: venueId) {
-                    print("[NativeGeofence] cooldown active for \(venueName)")
-                    return
-                }
-                self.markPrompted(venueId: venueId)
-                self.showWalkInNotification(venueName: venueName, venueId: venueId)
-            }
+            lastProcessedLocation = location
             return
         }
 
-        candidate = VenueCandidate(anchor: location, firstSeen: Date())
-        print("[NativeGeofence] started dwell anchor at \(location.coordinate.latitude), \(location.coordinate.longitude)")
+        if !bypassDebounce,
+           !deliverImmediately,
+           let last = lastProcessedLocation,
+           location.distance(from: last) < debounceMeters {
+            return
+        }
+
+        startDwell(at: location, deliverImmediately: deliverImmediately)
+    }
+
+    private func startDwell(at location: CLLocation, deliverImmediately: Bool) {
+        lastProcessedLocation = location
+        let now = Date()
+        let fireAt = now.addingTimeInterval(deliverImmediately ? 1 : dwellRequiredSeconds)
+        candidate = VenueCandidate(
+            anchor: location,
+            firstSeen: now,
+            fireAt: fireAt,
+            notificationScheduled: false
+        )
+        print("[NativeGeofence] started dwell anchor at \(location.coordinate.latitude), \(location.coordinate.longitude) fireAt=\(fireAt)")
+        scheduleWalkIn(at: location)
     }
 
     private func isMovingTooFast(_ location: CLLocation) -> Bool {
         guard location.speed >= 0 else { return false }
+        // Indoor GPS often reports bogus speed; don't abort dwell on a poor fix.
+        if location.horizontalAccuracy < 0 || location.horizontalAccuracy > 50 {
+            return false
+        }
         return location.speed > maxSpeedMetersPerSecond
+    }
+
+    /// Starts the 2-minute clock immediately, then fills in the venue name.
+    /// Geocoding must not delay the prompt past arrival + 2 minutes.
+    private func scheduleWalkIn(at location: CLLocation) {
+        guard var current = candidate else { return }
+        guard !current.notificationScheduled else { return }
+        current.notificationScheduled = true
+        candidate = current
+
+        let fireAt = current.fireAt
+        let fallbackId = coordinateVenueId(for: location)
+
+        showWalkInNotification(
+            venueName: "this location",
+            venueId: fallbackId,
+            latitude: location.coordinate.latitude,
+            longitude: location.coordinate.longitude,
+            fireAt: fireAt
+        )
+        pendingVenueId = fallbackId
+
+        resolveVenueLabel(near: location) { [weak self] venueName, venueId in
+            guard let self = self else { return }
+            guard self.candidate != nil else {
+                print("[NativeGeofence] skip named update — candidate cleared")
+                return
+            }
+            if self.isOnCooldown(venueId: venueId) {
+                print("[NativeGeofence] cooldown active for \(venueName)")
+                self.cancelPendingWalkIn()
+                return
+            }
+            self.markPrompted(venueId: venueId)
+            self.pendingVenueId = venueId
+            if fireAt.timeIntervalSinceNow <= 0 {
+                return
+            }
+            self.showWalkInNotification(
+                venueName: venueName,
+                venueId: venueId,
+                latitude: location.coordinate.latitude,
+                longitude: location.coordinate.longitude,
+                fireAt: fireAt
+            )
+        }
     }
 
     /// Resolves the best available place label — any POI/business first, generic fallback OK.
@@ -280,28 +353,75 @@ class NativeGeofenceHandler: NSObject, CLLocationManagerDelegate {
         defaults.set(Date().timeIntervalSince1970, forKey: lastVenueTimeKey)
     }
 
-    private func showWalkInNotification(venueName: String, venueId: String) {
+    private func unmarkPromptedIfPending() {
+        let defaults = UserDefaults.standard
+        guard let pending = pendingVenueId,
+              defaults.string(forKey: lastVenueKey) == pending else { return }
+        defaults.removeObject(forKey: lastVenueKey)
+        defaults.removeObject(forKey: lastVenueTimeKey)
+    }
+
+    private func cancelPendingWalkIn() {
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [pendingNotificationId])
+        unmarkPromptedIfPending()
+        pendingVenueId = nil
+        candidate?.notificationScheduled = false
+    }
+
+    private func trigger(for fireAt: Date) -> UNNotificationTrigger {
+        let remaining = fireAt.timeIntervalSinceNow
+        if remaining <= 1 {
+            return UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
+        }
+        var comps = Calendar.current.dateComponents(
+            [.year, .month, .day, .hour, .minute, .second],
+            from: fireAt
+        )
+        comps.nanosecond = 0
+        return UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
+    }
+
+    private func showWalkInNotification(
+        venueName: String,
+        venueId: String,
+        latitude: CLLocationDegrees,
+        longitude: CLLocationDegrees,
+        fireAt: Date
+    ) {
         let content = UNMutableNotificationContent()
         if venueName == "this location" {
             content.title = "You just walked in 👀"
-            content.body = "How is it right now?"
+            content.body = "How is it right now? Peep it."
         } else {
             content.title = "👀 You're at \(venueName)"
-            content.body = "How's \(venueName) right now?"
+            content.body = "How's \(venueName) right now? Peep it."
         }
         content.sound = .default
+        content.userInfo = [
+            "type": "walk_in_prompt",
+            "venueName": venueName,
+            "locationName": venueName,
+            "venueId": venueId,
+            "latitude": String(latitude),
+            "longitude": String(longitude),
+        ]
+
+        UNUserNotificationCenter.current()
+            .removePendingNotificationRequests(withIdentifiers: [pendingNotificationId])
 
         let request = UNNotificationRequest(
-            identifier: "venue_entry_\(venueId)_\(Date().timeIntervalSince1970)",
+            identifier: pendingNotificationId,
             content: content,
-            trigger: nil
+            trigger: trigger(for: fireAt)
         )
 
         UNUserNotificationCenter.current().add(request) { error in
             if let error = error {
                 print("[NativeGeofence] notification failed: \(error)")
             } else {
-                print("[NativeGeofence] notification delivered for \(venueName)")
+                let remaining = max(0, Int(fireAt.timeIntervalSinceNow))
+                print("[NativeGeofence] notification scheduled in \(remaining)s for \(venueName)")
             }
         }
     }
