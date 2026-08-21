@@ -1183,13 +1183,7 @@ class _FeedScreenState extends State<FeedScreen> {
       nameWidget: ResolvedVenueName(
         post: post,
         maxLines: compact ? 1 : 2,
-        style: TextStyle(
-          color: PeeplHomeTokens.white,
-          fontSize: compact ? 15.0 : 16.0,
-          fontWeight: FontWeight.w700,
-          height: 1.1,
-          letterSpacing: -0.2,
-        ),
+        style: OrganicCrowdCard.titleStyle(compact: compact),
       ),
       crowdData: CrowdDisplayMapper.fromPost(post),
       subtitleLabel: _subtitleLine(post),

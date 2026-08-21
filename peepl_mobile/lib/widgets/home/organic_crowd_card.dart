@@ -39,6 +39,31 @@ class OrganicCrowdCard extends StatelessWidget {
 
   static const _navyOverlay = Color(0xFF050F19);
 
+  /// Dark halo so venue names stay readable over busy photos.
+  static const titleShadows = [
+    Shadow(
+      offset: Offset.zero,
+      blurRadius: 8,
+      color: Color(0xCC000000),
+    ),
+    Shadow(
+      offset: Offset(0, 1),
+      blurRadius: 3,
+      color: Color(0xE6000000),
+    ),
+  ];
+
+  static TextStyle titleStyle({required bool compact}) {
+    return TextStyle(
+      color: PeeplHomeTokens.white,
+      fontSize: compact ? 16.0 : 17.0,
+      fontWeight: FontWeight.w700,
+      height: 1.1,
+      letterSpacing: -0.2,
+      shadows: titleShadows,
+    );
+  }
+
   double _height(BuildContext context) => size == OrganicCardSize.featured
       ? PeeplHomeTokens.featuredCardHeightFor(context)
       : PeeplHomeTokens.halfCardHeightFor(context);
@@ -52,23 +77,15 @@ class OrganicCrowdCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final compact = size == OrganicCardSize.half;
-    final titleSize = compact ? 15.0 : 16.0;
     final metaSize = compact ? 11.0 : 12.0;
     final horizontalPadding = compact ? 10.0 : 14.0;
     final nameMaxLines = compact ? 1 : 2;
-    final titleStyle = TextStyle(
-      color: PeeplHomeTokens.white,
-      fontSize: titleSize,
-      fontWeight: FontWeight.w700,
-      height: 1.1,
-      letterSpacing: -0.2,
-    );
     final titleWidget = nameWidget ??
         Text(
           name!,
           maxLines: nameMaxLines,
           overflow: TextOverflow.ellipsis,
-          style: titleStyle,
+          style: OrganicCrowdCard.titleStyle(compact: compact),
         );
 
     return Padding(
