@@ -9,17 +9,41 @@ admin.initializeApp({
 const db = admin.firestore();
 const PLACES_API_KEY = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-const NEARBY_RADII = [100, 200, 300];
 const MAX_VENUE_DISTANCE_METERS = 200;
-const PREFERRED_TYPES = new Set([
+const RANK_BY_DISTANCE_TYPES = [
+  'restaurant',
+  'bar',
+  'night_club',
+  'cafe',
+  'bakery',
+  'meal_takeaway',
   'tourist_attraction',
-  'amusement_park',
-  'museum',
-  'stadium',
-  'park',
-  'point_of_interest',
-  'establishment',
+  'store',
+];
+
+const EXCLUDED_TYPES = new Set([
+  'locality',
+  'political',
+  'route',
+  'real_estate_agency',
+  'finance',
+  'insurance_agency',
+  'accounting',
+  'lawyer',
+  'courthouse',
+  'local_government_office',
+  'general_contractor',
+  'moving_company',
+  'electrician',
+  'plumber',
+  'storage',
+  'car_dealer',
+  'car_repair',
+  'gas_station',
 ]);
+
+const DEPRIORITIZED_NAME =
+  /\b(properties|property management|financial advisor|insurance|personnel|capital management|edward jones|realty|real estate|law firm|attorney|accounting|consulting group)\b/i;
 
 function looksLikeAddress(name) {
   if (!name) return true;
@@ -39,7 +63,9 @@ function isWeakVenueName(name) {
   ) {
     return true;
   }
-  return looksLikeAddress(trimmed);
+  if (looksLikeAddress(trimmed)) return true;
+  if (DEPRIORITIZED_NAME.test(trimmed)) return true;
+  return false;
 }
 
 function placesGet(url) {
@@ -78,56 +104,42 @@ function resultDistanceMeters(result, lat, lng) {
   return haversineMeters(lat, lng, loc.lat, loc.lng);
 }
 
-function scoreResult(result, lat, lng) {
+function isEligibleVenue(result) {
+  const name = result.name;
+  if (isWeakVenueName(name)) return false;
   const types = result.types || [];
-  let score = 0;
-  for (const type of types) {
-    if (PREFERRED_TYPES.has(type)) score += 12;
-    if (type === 'locality' || type === 'political' || type === 'route') {
-      score -= 40;
-    }
-  }
-  if ((result.name || '').includes(' ')) score += 6;
-  const distance = resultDistanceMeters(result, lat, lng);
-  if (distance != null) score -= Math.round(distance / 10);
-  return score;
-}
-
-function bestNameFromResults(results, lat, lng) {
-  if (!results || results.length === 0) return null;
-
-  let bestName = null;
-  let bestScore = -9999;
-  for (const result of results) {
-    const name = result.name;
-    if (isWeakVenueName(name)) continue;
-    const distance = resultDistanceMeters(result, lat, lng);
-    if (distance != null && distance > MAX_VENUE_DISTANCE_METERS) continue;
-    const score = scoreResult(result, lat, lng);
-    if (score > bestScore) {
-      bestScore = score;
-      bestName = name;
-    }
-  }
-  return bestName;
+  if (types.some((t) => EXCLUDED_TYPES.has(t))) return false;
+  return types.some(
+    (t) =>
+      RANK_BY_DISTANCE_TYPES.includes(t) ||
+      t === 'food' ||
+      t === 'point_of_interest',
+  );
 }
 
 async function fetchVenueName(lat, lng) {
-  for (const radius of NEARBY_RADII) {
-    const nearbyUrl =
+  let closestName = null;
+  let closestDistance = null;
+
+  for (const type of RANK_BY_DISTANCE_TYPES) {
+    const url =
       `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-      `?location=${lat},${lng}&radius=${radius}&type=establishment&key=${PLACES_API_KEY}`;
-    const nearby = await placesGet(nearbyUrl);
-    const nearbyName = bestNameFromResults(nearby.results, lat, lng);
-    if (nearbyName) return nearbyName;
+      `?location=${lat},${lng}&rankby=distance&type=${type}&key=${PLACES_API_KEY}`;
+    const response = await placesGet(url);
+    const results = response.results || [];
+
+    for (const result of results.slice(0, 8)) {
+      if (!isEligibleVenue(result)) continue;
+      const distance = resultDistanceMeters(result, lat, lng);
+      if (distance == null || distance > MAX_VENUE_DISTANCE_METERS) continue;
+      if (closestDistance == null || distance < closestDistance) {
+        closestDistance = distance;
+        closestName = result.name;
+      }
+    }
   }
 
-  const textUrl =
-    `https://maps.googleapis.com/maps/api/place/textsearch/json` +
-    `?query=${encodeURIComponent('point of interest')}` +
-    `&location=${lat},${lng}&radius=${MAX_VENUE_DISTANCE_METERS}&key=${PLACES_API_KEY}`;
-  const text = await placesGet(textUrl);
-  return bestNameFromResults(text.results, lat, lng);
+  return closestName;
 }
 
 async function sleep(ms) {
@@ -147,13 +159,7 @@ async function fixVenueNames() {
     const data = doc.data();
     const { locationName, latitude, longitude } = data;
 
-    if (!looksLikeAddress(locationName)) {
-      skipped++;
-      continue;
-    }
-
-    if (!latitude || !longitude) {
-      console.log(`SKIP: ${doc.id} has no coordinates`);
+    if (!latitude || !longitude || (latitude === 0 && longitude === 0)) {
       skipped++;
       continue;
     }
@@ -165,10 +171,10 @@ async function fixVenueNames() {
           locationName: venueName,
           venueName,
         };
-        if (looksLikeAddress(locationName)) {
+        if (looksLikeAddress(locationName) || DEPRIORITIZED_NAME.test(locationName || '')) {
           update.address = locationName;
         }
-        await db.collection('location_posts').doc(doc.id).update(update);
+        await doc.ref.update(update);
         console.log(`UPDATED: "${locationName}" → "${venueName}"`);
         updated++;
       } else {
@@ -179,7 +185,7 @@ async function fixVenueNames() {
       failed++;
     }
 
-    await sleep(200);
+    await sleep(250);
   }
 
   console.log(`\nDone. Updated: ${updated}, Skipped: ${skipped}, Failed: ${failed}`);
