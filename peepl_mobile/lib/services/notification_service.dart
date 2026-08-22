@@ -7,6 +7,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../firebase_options.dart';
@@ -183,6 +184,7 @@ Future<void> _showWalkInLocalNotificationFromData(
   String? title,
   String? body,
 }) async {
+  try {
   final rawVenueName =
       data['venueName']?.toString() ?? data['locationName']?.toString() ?? '';
   final storedAddress = data['address']?.toString();
@@ -229,7 +231,7 @@ Future<void> _showWalkInLocalNotificationFromData(
   await androidPlugin?.createNotificationChannel(walkInChannel);
 
   const initSettings = InitializationSettings(
-    android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+    android: AndroidInitializationSettings('@drawable/ic_notification'),
     iOS: DarwinInitializationSettings(),
   );
   await localNotifications.initialize(initSettings);
@@ -256,7 +258,7 @@ Future<void> _showWalkInLocalNotificationFromData(
         channelDescription: walkInChannel.description,
         importance: Importance.high,
         priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_notification',
       ),
       iOS: const DarwinNotificationDetails(
         presentAlert: true,
@@ -266,44 +268,51 @@ Future<void> _showWalkInLocalNotificationFromData(
     ),
     payload: payload,
   );
+  } catch (e) {
+    debugPrint('[FCM] _showWalkInLocalNotificationFromData error: $e');
+  }
 }
 
 // Must be top-level — FCM requirement for background handling.
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  try {
+    WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  final type = message.data['type']?.toString();
+    final type = message.data['type']?.toString();
 
-  if (type == 'geofence_entry') {
-    final data = message.data;
-    final lat = double.tryParse(data['latitude']?.toString() ?? '');
-    final lng = double.tryParse(data['longitude']?.toString() ?? '');
-    if (lat == null || lng == null) return;
+    if (type == 'geofence_entry') {
+      final data = message.data;
+      final lat = double.tryParse(data['latitude']?.toString() ?? '');
+      final lng = double.tryParse(data['longitude']?.toString() ?? '');
+      if (lat == null || lng == null) return;
 
-    await _writeVenueEntryEventToFirestore(
-      userId: data['userId']?.toString() ?? '',
-      venueName: data['venueName']?.toString() ?? '',
-      venueId: data['venueId']?.toString() ?? '',
-      latitude: lat,
-      longitude: lng,
+      await _writeVenueEntryEventToFirestore(
+        userId: data['userId']?.toString() ?? '',
+        venueName: data['venueName']?.toString() ?? '',
+        venueId: data['venueId']?.toString() ?? '',
+        latitude: lat,
+        longitude: lng,
+      );
+      return;
+    }
+
+    if (type == 'walk_in_prompt') {
+      await _showWalkInLocalNotificationFromData(
+        message.data,
+        title: message.notification?.title,
+        body: message.notification?.body,
+      );
+      return;
+    }
+
+    debugPrint(
+      '[FCM Background] ${message.messageId}: ${message.notification?.title}',
     );
-    return;
+  } catch (e) {
+    debugPrint('[FCM Background] handler error: $e');
   }
-
-  if (type == 'walk_in_prompt') {
-    await _showWalkInLocalNotificationFromData(
-      message.data,
-      title: message.notification?.title,
-      body: message.notification?.body,
-    );
-    return;
-  }
-
-  debugPrint(
-    '[FCM Background] ${message.messageId}: ${message.notification?.title}',
-  );
 }
 
 class NotificationService {
@@ -521,56 +530,69 @@ class NotificationService {
       notificationType: 'walk_in_prompt',
     );
 
-    await _localNotifications.show(
-      venueId.hashCode,
-      _walkInNotificationTitle(venueName),
-      walkInBody,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _walkInChannel.id,
-          _walkInChannel.name,
-          channelDescription: _walkInChannel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
+    try {
+      await _localNotifications.show(
+        venueId.hashCode,
+        _walkInNotificationTitle(venueName),
+        walkInBody,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _walkInChannel.id,
+            _walkInChannel.name,
+            channelDescription: _walkInChannel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: '@drawable/ic_notification',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: payload,
-    );
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('[FCM] _deliverWalkInLocalNotification show error: $e');
+    }
   }
 
   /// Core FCM and local-notification setup. Call from main() after
   /// Firebase.initializeApp().
   Future<void> initialize() async {
-    FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
+    try {
+      FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
-    final androidPlugin = _localNotifications
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>();
-    await androidPlugin?.createNotificationChannel(_channel);
-    await androidPlugin?.createNotificationChannel(_walkInChannel);
+      final androidPlugin = _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>();
+      await androidPlugin?.createNotificationChannel(_channel);
+      await androidPlugin?.createNotificationChannel(_walkInChannel);
 
-    const initSettings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
-      iOS: DarwinInitializationSettings(),
-    );
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: _onLocalNotificationTap,
-    );
+      const initSettings = InitializationSettings(
+        android: AndroidInitializationSettings('@drawable/ic_notification'),
+        iOS: DarwinInitializationSettings(),
+      );
+      await _localNotifications.initialize(
+        initSettings,
+        onDidReceiveNotificationResponse: _onLocalNotificationTap,
+      );
 
-    await _fcm.setForegroundNotificationPresentationOptions(
-      alert: false,
-      badge: true,
-      sound: true,
-    );
+      await _fcm.setForegroundNotificationPresentationOptions(
+        alert: false,
+        badge: true,
+        sound: true,
+      );
 
-    _fcm.onTokenRefresh.listen(_saveTokenToFirestore);
+      _fcm.onTokenRefresh.listen(
+        _saveTokenToFirestore,
+        onError: (Object e) {
+          debugPrint('[FCM] onTokenRefresh listener error: $e');
+        },
+      );
+    } catch (e) {
+      debugPrint('[FCM] initialize error: $e');
+    }
   }
 
   /// Attach the app navigator and wire FCM foreground/tap listeners.
@@ -580,8 +602,18 @@ class NotificationService {
     if (_listenersAttached) return;
     _listenersAttached = true;
 
-    FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
-    FirebaseMessaging.onMessageOpenedApp.listen(_handleNotificationTap);
+    FirebaseMessaging.onMessage.listen(
+      _handleForegroundMessage,
+      onError: (Object e) {
+        debugPrint('[FCM] onMessage listener error: $e');
+      },
+    );
+    FirebaseMessaging.onMessageOpenedApp.listen(
+      _handleNotificationTap,
+      onError: (Object e) {
+        debugPrint('[FCM] onMessageOpenedApp listener error: $e');
+      },
+    );
 
     if (!_coldStartWalkInCaptured) {
       final initialMessage = await _fcm.getInitialMessage();
@@ -677,8 +709,16 @@ class NotificationService {
     required String userId,
     required String locationName,
   }) async {
-    final userSnap =
-        await _db.collection(kUsersCollection).doc(userId).get();
+    DocumentSnapshot<Map<String, dynamic>>? userSnap;
+    try {
+      userSnap =
+          await _db.collection(kUsersCollection).doc(userId).get();
+    } catch (e) {
+      debugPrint(
+        '[FCM] _showPeepSubmissionSuccessBottomSheet user get error: $e',
+      );
+      return;
+    }
     final totalImpact =
         (userSnap.data()?['totalImpact'] as num?)?.toInt() ?? 0;
 
@@ -845,10 +885,21 @@ class NotificationService {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
 
-    final pos = await LocationService.getCurrentLocation(forceRefresh: true);
-    if (pos == null) return;
+    Position? pos;
+    try {
+      pos = await LocationService.getCurrentLocation(forceRefresh: true);
+    } catch (e) {
+      debugPrint('[NotificationService] getCurrentLocation error: $e');
+    }
+    try {
+      if (pos != null) {
+        await _updateUserLastLocation(pos.latitude, pos.longitude);
+      }
+    } catch (e) {
+      debugPrint('[NotificationService] _updateUserLastLocation error: $e');
+    }
 
-    await _updateUserLastLocation(pos.latitude, pos.longitude);
+    if (pos == null) return;
 
     try {
       final displayName =
@@ -912,37 +963,43 @@ class NotificationService {
             '$username just posted about $locationName — it\'s $levelLabel. Tap to see.',
             notificationType: 'crowdsource_response',
           );
-          await _localNotifications.show(
-            docId.hashCode,
-            'Your Peep request was answered!',
-            responseBody,
-            NotificationDetails(
-              android: AndroidNotificationDetails(
-                _channel.id,
-                _channel.name,
-                channelDescription: _channel.description,
-                importance: Importance.high,
-                priority: Priority.high,
-                icon: '@mipmap/ic_launcher',
+          try {
+            await _localNotifications.show(
+              docId.hashCode,
+              'Your Peep request was answered!',
+              responseBody,
+              NotificationDetails(
+                android: AndroidNotificationDetails(
+                  _channel.id,
+                  _channel.name,
+                  channelDescription: _channel.description,
+                  importance: Importance.high,
+                  priority: Priority.high,
+                  icon: '@drawable/ic_notification',
+                ),
+                iOS: const DarwinNotificationDetails(
+                  presentAlert: true,
+                  presentBadge: true,
+                  presentSound: true,
+                ),
               ),
-              iOS: const DarwinNotificationDetails(
-                presentAlert: true,
-                presentBadge: true,
-                presentSound: true,
-              ),
-            ),
-            payload: jsonEncode({
-              'type': 'crowdsource_response',
-              'postId': data['postId'],
-              'requestId': docId,
-            }),
-          );
+              payload: jsonEncode({
+                'type': 'crowdsource_response',
+                'postId': data['postId'],
+                'requestId': docId,
+              }),
+            );
+          } catch (e) {
+            debugPrint('[FCM] crowdsource listener show error: $e');
+          }
         } else {
           debugPrint(
             '[FCM] crowdsource_response doc $docId (background FCM expected)',
           );
         }
       }
+    }, onError: (Object e) {
+      debugPrint('[FCM] crowdsource response listener error: $e');
     });
   }
 
@@ -968,7 +1025,11 @@ class NotificationService {
     await prefs.setBool(_kPushNotificationsEnabledKey, enabled);
 
     if (enabled) {
-      await _fcm.requestPermission(alert: true, badge: true, sound: true);
+      try {
+        await _fcm.requestPermission(alert: true, badge: true, sound: true);
+      } catch (e) {
+        debugPrint('[FCM] requestPermission error: $e');
+      }
       await _refreshAndSaveToken();
       _startCrowdsourceResponseListener();
     } else {
@@ -999,12 +1060,16 @@ class NotificationService {
   }
 
   Future<void> requestPermissions() async {
-    await _fcm.requestPermission(
-      alert: true,
-      badge: true,
-      sound: true,
-      provisional: false,
-    );
+    try {
+      await _fcm.requestPermission(
+        alert: true,
+        badge: true,
+        sound: true,
+        provisional: false,
+      );
+    } catch (e) {
+      debugPrint('[FCM] requestPermission error: $e');
+    }
 
     await _localNotifications
         .resolvePlatformSpecificImplementation<
@@ -1100,27 +1165,31 @@ class NotificationService {
     final body = notification?.body ?? message.data['body'] as String? ?? '';
     final android = notification?.android;
 
-    await _localNotifications.show(
-      message.hashCode,
-      title,
-      body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: android?.smallIcon ?? '@mipmap/ic_launcher',
+    try {
+      await _localNotifications.show(
+        message.hashCode,
+        title,
+        body,
+        NotificationDetails(
+          android: AndroidNotificationDetails(
+            _channel.id,
+            _channel.name,
+            channelDescription: _channel.description,
+            importance: Importance.high,
+            priority: Priority.high,
+            icon: android?.smallIcon ?? '@drawable/ic_notification',
+          ),
+          iOS: const DarwinNotificationDetails(
+            presentAlert: true,
+            presentBadge: true,
+            presentSound: true,
+          ),
         ),
-        iOS: const DarwinNotificationDetails(
-          presentAlert: true,
-          presentBadge: true,
-          presentSound: true,
-        ),
-      ),
-      payload: jsonEncode(message.data),
-    );
+        payload: jsonEncode(message.data),
+      );
+    } catch (e) {
+      debugPrint('[FCM] _handleForegroundMessage show error: $e');
+    }
   }
 
   Future<void> _persistNotification(RemoteMessage message) async {
@@ -1129,14 +1198,18 @@ class NotificationService {
 
     // TODO: add Firestore index on notifications.items.messageId if query is slow
     if (message.messageId != null) {
-      final existing = await _db
-          .collection('notifications')
-          .doc(uid)
-          .collection('items')
-          .where('messageId', isEqualTo: message.messageId)
-          .limit(1)
-          .get();
-      if (existing.docs.isNotEmpty) return;
+      try {
+        final existing = await _db
+            .collection('notifications')
+            .doc(uid)
+            .collection('items')
+            .where('messageId', isEqualTo: message.messageId)
+            .limit(1)
+            .get();
+        if (existing.docs.isNotEmpty) return;
+      } catch (e) {
+        debugPrint('[FCM] _persistNotification dedup error: $e');
+      }
     }
 
     final title = message.notification?.title ?? '';

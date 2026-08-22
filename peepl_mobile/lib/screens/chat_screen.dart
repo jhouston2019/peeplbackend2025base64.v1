@@ -125,6 +125,15 @@ class _ChatScreenState extends State<ChatScreen> {
           );
         }
 
+        if (snapshot.hasError) {
+          return const Center(
+            child: Text(
+              'Could not load messages.',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          );
+        }
+
         final docs = snapshot.data?.docs ?? [];
         if (docs.isEmpty) {
           return Center(

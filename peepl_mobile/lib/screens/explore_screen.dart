@@ -28,16 +28,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _searchController.addListener(() {
       setState(() => _searchQuery = _searchController.text.trim());
     });
-    _initLocation();
+    _initLocationSafely();
+  }
+
+  Future<void> _initLocationSafely() async {
+    try {
+      await _initLocation();
+    } catch (e) {
+      debugPrint('[ExploreScreen] _initLocation error: $e');
+    }
   }
 
   Future<void> _initLocation() async {
-    final pos = await LocationService.getCurrentLocation();
-    if (!mounted || pos == null) return;
-    setState(() {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-    });
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (!mounted || pos == null) return;
+      setState(() {
+        _userLat = pos.latitude;
+        _userLng = pos.longitude;
+      });
+    } catch (e) {
+      debugPrint('[ExploreScreen] getCurrentLocation error: $e');
+    }
   }
 
   @override

@@ -230,6 +230,15 @@ class _MyGroupsTab extends StatelessWidget {
           return const Center(child: CircularProgressIndicator());
         }
 
+        if (snap.hasError) {
+          return const Center(
+            child: Text(
+              'Could not load groups.',
+              style: TextStyle(color: PeeplAppTokens.textMuted),
+            ),
+          );
+        }
+
         final docs = snap.data?.docs ?? [];
         if (docs.isEmpty) {
           return const Center(
@@ -407,6 +416,15 @@ class _DiscoverGroupsTabState extends State<_DiscoverGroupsTab> {
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snap.hasError) {
+                return const Center(
+                  child: Text(
+                    'Could not load groups.',
+                    style: TextStyle(color: PeeplAppTokens.textMuted),
+                  ),
+                );
               }
 
               var docs = (snap.data?.docs ?? []).where((doc) {

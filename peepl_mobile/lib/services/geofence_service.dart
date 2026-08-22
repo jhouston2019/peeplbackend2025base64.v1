@@ -17,16 +17,34 @@ class PeeplGeofenceService {
   PeeplGeofenceService._();
   static final PeeplGeofenceService instance = PeeplGeofenceService._();
 
-  final GeofenceService _geofenceService = GeofenceService.instance.setup(
-    interval: 20000,
-    accuracy: 100,
-    loiteringDelayMs: 120000,
-    statusChangeDelayMs: 10000,
-    useActivityRecognition: false,
-    allowMockLocations: false,
-    printDevLog: false,
-    geofenceRadiusSortType: GeofenceRadiusSortType.DESC,
-  );
+  GeofenceService? _geofenceServiceInstance;
+  bool _geofenceDisabled = false;
+
+  /// True when native geofence setup failed; callers can surface feedback.
+  bool get geofenceDisabled => _geofenceDisabled;
+
+  GeofenceService? get _geofenceService {
+    if (_geofenceDisabled) return null;
+    if (_geofenceServiceInstance != null) return _geofenceServiceInstance;
+    try {
+      _geofenceServiceInstance = GeofenceService.instance.setup(
+        interval: 20000,
+        accuracy: 100,
+        loiteringDelayMs: 120000,
+        statusChangeDelayMs: 10000,
+        useActivityRecognition: false,
+        allowMockLocations: false,
+        printDevLog: false,
+        geofenceRadiusSortType: GeofenceRadiusSortType.DESC,
+      );
+    } catch (e) {
+      _geofenceDisabled = true;
+      debugPrint(
+        '[PeeplGeofenceService] GeofenceService.setup failed — geofencing disabled: $e',
+      );
+    }
+    return _geofenceServiceInstance;
+  }
 
   /// locationId → display name (for callbacks that still need the name).
   final Map<String, String> _locationNames = {};
@@ -125,10 +143,12 @@ class PeeplGeofenceService {
     try {
       if (_listenersRegistered) return;
       PlacesVenueDetector.instance.venueMonitoredCheck = isVenueMonitored;
-      _geofenceService.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
-      _geofenceService.addLocationChangeListener(_onLocationChanged);
-      _geofenceService.addActivityChangeListener(_onActivityChanged);
-      _geofenceService.addStreamErrorListener(_onError);
+      final service = _geofenceService;
+      if (service == null) return;
+      service.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
+      service.addLocationChangeListener(_onLocationChanged);
+      service.addActivityChangeListener(_onActivityChanged);
+      service.addStreamErrorListener(_onError);
       _listenersRegistered = true;
     } catch (e) {
       debugPrint('[PeeplGeofenceService] initialize failed (non-fatal): $e');
@@ -138,6 +158,11 @@ class PeeplGeofenceService {
   /// Activates geofencing when location permission is sufficient. Idempotent.
   Future<void> start() async {
     if (kIsWeb) return;
+
+    if (_geofenceDisabled || _geofenceService == null) {
+      debugPrint('[Geofence] start() skipped — service disabled or null');
+      return;
+    }
 
     if (_permanentlyDenied) {
       _logDenialOnce('Geofencing permanently disabled.');
@@ -172,6 +197,11 @@ class PeeplGeofenceService {
       // avoid a startup crash, so start() must register them before loading
       // geofences or walk-in dwell never fires.
       await initialize();
+
+      if (_geofenceService == null) {
+        debugPrint('[Geofence] start() skipped — service disabled or null');
+        return;
+      }
 
       _isActive = true;
       await DebugLogService.log('GEOFENCE', 'geofence_started');
@@ -263,7 +293,7 @@ class PeeplGeofenceService {
         },
       );
 
-      await _geofenceService.start(geofences);
+      await _geofenceService?.start(geofences);
       debugPrint(
         '[PeeplGeofenceService] Started with ${geofences.length} geofences.',
       );
@@ -288,6 +318,7 @@ class PeeplGeofenceService {
     GeofenceStatus geofenceStatus,
     Location location,
   ) async {
+    try {
     // ENTER is ignored to avoid drive-by prompts; DWELL fires after
     // [loiteringDelayMs] (~2 min) while still inside the registered geofence.
     if (geofenceStatus != GeofenceStatus.DWELL) return;
@@ -314,6 +345,9 @@ class PeeplGeofenceService {
       lng: location.longitude,
       address: _locationAddresses[geofence.id],
     );
+    } catch (e) {
+      debugPrint('[PeeplGeofenceService] _onGeofenceStatusChanged error: $e');
+    }
   }
 
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}
@@ -345,7 +379,7 @@ class PeeplGeofenceService {
       if (address != null && address.isNotEmpty) {
         _locationAddresses[locationId] = address;
       }
-      _geofenceService.addGeofence(
+      _geofenceService?.addGeofence(
         Geofence(
           id: locationId,
           latitude: lat,
@@ -361,7 +395,11 @@ class PeeplGeofenceService {
   }
 
   void dispose() {
-    _geofenceService.stop();
+    try {
+      _geofenceService?.stop();
+    } catch (e) {
+      debugPrint('[PeeplGeofenceService] stop error (non-fatal): $e');
+    }
     _isActive = false;
   }
 }

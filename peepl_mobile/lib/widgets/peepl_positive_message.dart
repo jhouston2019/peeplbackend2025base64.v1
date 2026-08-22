@@ -34,6 +34,8 @@ class _PeeplPositiveMessageState extends State<PeeplPositiveMessage> {
         .next(surface: 'popup', context: widget.contextKey)
         .then((message) {
       if (mounted) setState(() => _message = message);
+    }).catchError((Object e) {
+      debugPrint('[PeeplPositiveMessage] next error: $e');
     });
   }
 

@@ -31,27 +31,49 @@ ThemeData _buildDarkTheme() => PeeplAppTokens.buildTheme();
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
-
-  await RemoteConfigService.instance.initialize();
-
-  await AdmobService.initialize();
-
-  if (!kIsWeb) {
-    Stripe.publishableKey = kStripePublishableKey;
-    await Stripe.instance.applySettings();
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e) {
+    debugPrint('[Firebase] initializeApp error: $e');
   }
 
-  await NotificationService.instance.initialize();
+  try {
+    await RemoteConfigService.instance.initialize();
+  } catch (e) {
+    debugPrint('[RemoteConfig] initialize error: $e');
+  }
 
-  if (!kIsWeb) {
+  try {
+    await AdmobService.initialize();
+  } catch (e) {
+    debugPrint('[AdMob] initialize error: $e');
+  }
+
+  if (!kIsWeb && Platform.isIOS) {
+    Stripe.publishableKey = kStripePublishableKey;
+    try {
+      await Stripe.instance.applySettings();
+    } catch (e) {
+      debugPrint('[Stripe] applySettings error: $e');
+    }
+  }
+
+  try {
+    await NotificationService.instance.initialize();
+  } catch (e) {
+    debugPrint('[NotificationService] initialize error: $e');
+  }
+
+  try {
     final initialMessage = await FirebaseMessaging.instance.getInitialMessage();
     if (initialMessage != null &&
         initialMessage.data['type'] == 'walk_in_prompt') {
       NotificationService.instance.captureColdStartWalkIn(initialMessage);
     }
+  } catch (e) {
+    debugPrint('[FCM] getInitialMessage error: $e');
   }
 
   runApp(const MyApp());

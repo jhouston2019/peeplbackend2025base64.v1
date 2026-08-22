@@ -91,6 +91,7 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
     _confettiController.play();
 
     if (_shareArgs != null) {
+      if (!context.mounted) return;
       await schedulePostPeepSharePrompt(
         context: context,
         args: _shareArgs!,
@@ -101,26 +102,30 @@ class _PioneerCongratScreenState extends State<PioneerCongratScreen> {
   Future<void> _shareAchievement() async {
     if (_resolvedName.isEmpty) return;
 
-    final postId = _shareArgs?.postId;
-    final user = FirebaseAuth.instance.currentUser;
-    if (postId == null || postId.isEmpty || user == null) {
+    try {
+      final postId = _shareArgs?.postId;
+      final user = FirebaseAuth.instance.currentUser;
+      if (postId == null || postId.isEmpty || user == null) {
+        await Share.share(
+          'I just became the Pioneer of $_resolvedName on Peepl! 🏆 '
+          'Know before you go: https://peepl.app',
+        );
+        return;
+      }
+
+      final shareUrl = await ShareService.instance.generatePeepShareUrl(
+        peepId: postId,
+        sharingUserId: user.uid,
+        shareContext: 'pioneer_achievement',
+      );
+
       await Share.share(
         'I just became the Pioneer of $_resolvedName on Peepl! 🏆 '
-        'Know before you go: https://peepl.app',
+        'Know before you go: $shareUrl',
       );
-      return;
+    } catch (e) {
+      debugPrint('[PioneerCongratScreen] _shareAchievement error: $e');
     }
-
-    final shareUrl = await ShareService.instance.generatePeepShareUrl(
-      peepId: postId,
-      sharingUserId: user.uid,
-      shareContext: 'pioneer_achievement',
-    );
-
-    await Share.share(
-      'I just became the Pioneer of $_resolvedName on Peepl! 🏆 '
-      'Know before you go: $shareUrl',
-    );
   }
 
   @override

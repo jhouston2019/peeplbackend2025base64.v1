@@ -217,42 +217,47 @@ class _WhereShouldWeGoScreenState extends State<WhereShouldWeGoScreen> {
   }
 
   Future<Map<String, dynamic>> _loadVenueComparison(String locationName) async {
-    final snap = await _db
-        .collection('location_posts')
-        .where('locationName', isEqualTo: locationName)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
+    try {
+      final snap = await _db
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
 
-    if (snap.docs.isEmpty) {
+      if (snap.docs.isEmpty) {
+        return _noDataVenue(locationName);
+      }
+
+      final doc = snap.docs.first;
+      final data = doc.data();
+      final ts = data['timestamp'];
+      DateTime? postedAt;
+      if (ts is Timestamp) postedAt = ts.toDate();
+      if (postedAt == null) return _noDataVenue(locationName);
+
+      final age = DateTime.now().difference(postedAt);
+      if (age.inHours >= _staleHours) {
+        return _noDataVenue(locationName, latitude: data['latitude'], longitude: data['longitude']);
+      }
+
+      final level = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
+      return {
+        'locationName': locationName,
+        'hasRecentData': true,
+        'crowdingLevel': level,
+        'crowdLabel': ShareService.crowdWordLabel(level),
+        'lastPeeped': postedAt.toIso8601String(),
+        'lastPeepedMinutes': age.inMinutes,
+        'peepId': doc.id,
+        'imageUrl': data['imageUrl'],
+        'latitude': (data['latitude'] as num?)?.toDouble(),
+        'longitude': (data['longitude'] as num?)?.toDouble(),
+      };
+    } catch (e) {
+      debugPrint('[WhereShouldWeGoScreen] _loadVenueComparison error: $e');
       return _noDataVenue(locationName);
     }
-
-    final doc = snap.docs.first;
-    final data = doc.data();
-    final ts = data['timestamp'];
-    DateTime? postedAt;
-    if (ts is Timestamp) postedAt = ts.toDate();
-    if (postedAt == null) return _noDataVenue(locationName);
-
-    final age = DateTime.now().difference(postedAt);
-    if (age.inHours >= _staleHours) {
-      return _noDataVenue(locationName, latitude: data['latitude'], longitude: data['longitude']);
-    }
-
-    final level = (data['crowdingLevel'] as num?)?.toInt() ?? 0;
-    return {
-      'locationName': locationName,
-      'hasRecentData': true,
-      'crowdingLevel': level,
-      'crowdLabel': ShareService.crowdWordLabel(level),
-      'lastPeeped': postedAt.toIso8601String(),
-      'lastPeepedMinutes': age.inMinutes,
-      'peepId': doc.id,
-      'imageUrl': data['imageUrl'],
-      'latitude': (data['latitude'] as num?)?.toDouble(),
-      'longitude': (data['longitude'] as num?)?.toDouble(),
-    };
   }
 
   Map<String, dynamic> _noDataVenue(

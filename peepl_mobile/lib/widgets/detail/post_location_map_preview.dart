@@ -1,6 +1,6 @@
 import 'dart:io' show Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show debugPrint, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -89,32 +89,15 @@ class PostLocationMapPreview extends StatelessWidget {
         child: SizedBox(
           height: height,
           width: fullWidth ? double.infinity : width,
-          child: kIsWeb ? _buildFallback(context) : _buildMap(context),
+          child: kIsWeb
+              ? _buildFallback(context)
+              : _GoogleMapWithFallback(
+                  latitude: latitude,
+                  longitude: longitude,
+                  fallback: _buildFallback(context),
+                ),
         ),
       ),
-    );
-  }
-
-  Widget _buildMap(BuildContext context) {
-    final target = LatLng(latitude, longitude);
-    return GoogleMap(
-      key: ValueKey<String>('map_${latitude}_$longitude'),
-      initialCameraPosition: CameraPosition(target: target, zoom: 15),
-      markers: {
-        Marker(
-          markerId: const MarkerId('post_location'),
-          position: target,
-        ),
-      },
-      liteModeEnabled: !kIsWeb && Platform.isAndroid,
-      zoomControlsEnabled: false,
-      mapToolbarEnabled: false,
-      myLocationButtonEnabled: false,
-      compassEnabled: false,
-      scrollGesturesEnabled: false,
-      zoomGesturesEnabled: false,
-      rotateGesturesEnabled: false,
-      tiltGesturesEnabled: false,
     );
   }
 
@@ -143,5 +126,59 @@ class PostLocationMapPreview extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _GoogleMapWithFallback extends StatefulWidget {
+  const _GoogleMapWithFallback({
+    required this.latitude,
+    required this.longitude,
+    required this.fallback,
+  });
+
+  final double latitude;
+  final double longitude;
+  final Widget fallback;
+
+  @override
+  State<_GoogleMapWithFallback> createState() => _GoogleMapWithFallbackState();
+}
+
+class _GoogleMapWithFallbackState extends State<_GoogleMapWithFallback> {
+  bool _failed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    if (_failed) return widget.fallback;
+
+    final target = LatLng(widget.latitude, widget.longitude);
+    try {
+      return GoogleMap(
+        key: ValueKey<String>('map_${widget.latitude}_${widget.longitude}'),
+        initialCameraPosition: CameraPosition(target: target, zoom: 15),
+        markers: {
+          Marker(
+            markerId: const MarkerId('post_location'),
+            position: target,
+          ),
+        },
+        liteModeEnabled: !kIsWeb && Platform.isAndroid,
+        zoomControlsEnabled: false,
+        mapToolbarEnabled: false,
+        myLocationButtonEnabled: false,
+        compassEnabled: false,
+        scrollGesturesEnabled: false,
+        zoomGesturesEnabled: false,
+        rotateGesturesEnabled: false,
+        tiltGesturesEnabled: false,
+        onMapCreated: (_) {},
+      );
+    } catch (e) {
+      debugPrint('[PostLocationMapPreview] GoogleMap error: $e');
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _failed = true);
+      });
+      return widget.fallback;
+    }
   }
 }

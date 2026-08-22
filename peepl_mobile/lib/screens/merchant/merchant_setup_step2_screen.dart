@@ -135,20 +135,24 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
   Future<void> _saveCurrentAsTemplate() async {
     final name = _campaignType ?? _headlineCtrl.text.trim();
     if (name.isEmpty) return;
-    await MerchantTemplateService.saveTemplate(
-      MerchantCampaignTemplate(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
-        name: name,
-        campaignType: _campaignType,
-        headline: _headlineCtrl.text.trim(),
-        bodyText: _bodyCtrl.text.trim(),
-        ctaText: _ctaText,
-        ctaUrl: _ctaUrlCtrl.text.trim(),
-        duration: _duration,
-        radiusMiles: _radiusMiles,
-        targetLocation: _targetLocationCtrl.text.trim(),
-      ),
-    );
+    try {
+      await MerchantTemplateService.saveTemplate(
+        MerchantCampaignTemplate(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: name,
+          campaignType: _campaignType,
+          headline: _headlineCtrl.text.trim(),
+          bodyText: _bodyCtrl.text.trim(),
+          ctaText: _ctaText,
+          ctaUrl: _ctaUrlCtrl.text.trim(),
+          duration: _duration,
+          radiusMiles: _radiusMiles,
+          targetLocation: _targetLocationCtrl.text.trim(),
+        ),
+      );
+    } catch (e) {
+      debugPrint('[MerchantSetupStep2] _saveCurrentAsTemplate error: $e');
+    }
   }
 
   void _showSnackBar(String message, {bool isError = true}) {
@@ -201,8 +205,13 @@ class _MerchantSetupStep2ScreenState extends State<MerchantSetupStep2Screen> {
   Future<String> _uploadAdImage(String uid) async {
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final ref = FirebaseStorage.instance.ref('ad_images/$uid/$timestamp.jpg');
-    await ref.putFile(_adImageFile!);
-    return ref.getDownloadURL();
+    try {
+      await ref.putFile(_adImageFile!);
+      return ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('[MerchantSetupStep2] _uploadAdImage error: $e');
+      rethrow;
+    }
   }
 
   Future<void> _launchCampaign() async {

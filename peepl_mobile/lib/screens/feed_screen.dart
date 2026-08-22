@@ -184,13 +184,9 @@ class _FeedScreenState extends State<FeedScreen> {
       _cadence.init().then((_) {
         if (!mounted) return;
         setState(() => _feedItems = _rebuildFeedItems());
-      }),
+      }).catchError((e) => debugPrint('[Feed] cadence init error: $e')),
     );
-    _resolveLocation();
-    _loadFeedData();
-    _loadDealBanner();
-    _loadAds();
-    _checkComebackStatus();
+    unawaited(_runInitBootstraps());
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!kIsWeb) {
         unawaited(_startGeofencingIfPermitted());
@@ -200,6 +196,20 @@ class _FeedScreenState extends State<FeedScreen> {
       }
     });
     FeedScreen.onGeofenceVenueEntry = _showVenueEntryPrompt;
+  }
+
+  Future<void> _runInitBootstraps() async {
+    try {
+      _loadFeedData();
+      await Future.wait<void>([
+        _resolveLocation(),
+        _loadDealBanner(),
+        _loadAds(),
+        _checkComebackStatus(),
+      ]);
+    } catch (e) {
+      debugPrint('[FeedScreen] initState bootstrap error: $e');
+    }
   }
 
   void _onFilterChanged() {
@@ -374,16 +384,18 @@ class _FeedScreenState extends State<FeedScreen> {
             'lng': (r['geometry']['location']['lng'] as num).toDouble(),
           };
         }).toList();
-        setState(
-          () => _citySuggestions = List<Map<String, dynamic>>.from(results),
-        );
+        if (mounted) {
+          setState(
+            () => _citySuggestions = List<Map<String, dynamic>>.from(results),
+          );
+        }
       } else {
-        setState(() => _citySuggestions = []);
+        if (mounted) setState(() => _citySuggestions = []);
       }
     } catch (_) {
-      setState(() => _citySuggestions = []);
+      if (mounted) setState(() => _citySuggestions = []);
     } finally {
-      setState(() => _isSearchingCity = false);
+      if (mounted) setState(() => _isSearchingCity = false);
     }
   }
 
@@ -614,6 +626,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _startGeofencingIfPermitted() async {
     try {
+      if (PeeplGeofenceService.instance.geofenceDisabled) {
+        debugPrint('[Feed] Geofencing disabled — skipping start');
+        return;
+      }
       if (PeeplGeofenceService.instance.isActive) return;
       await PeeplGeofenceService.instance.start();
       if (PeeplGeofenceService.instance.isActive) {
@@ -1326,7 +1342,11 @@ class _FeedScreenState extends State<FeedScreen> {
       if (destinationUrl.isNotEmpty) {
         final uri = Uri.tryParse(destinationUrl);
         if (uri != null && await canLaunchUrl(uri)) {
-          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          try {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          } catch (e) {
+            debugPrint('[Feed] launchUrl error: $e');
+          }
         }
         return;
       }
@@ -1802,7 +1822,11 @@ class _FeedScreenState extends State<FeedScreen> {
     if (destination.isNotEmpty) {
       final uri = Uri.tryParse(destination);
       if (uri != null && await canLaunchUrl(uri)) {
-        await launchUrl(uri, mode: LaunchMode.externalApplication);
+        try {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+        } catch (e) {
+          debugPrint('[Feed] launchUrl error: $e');
+        }
         return;
       }
     }

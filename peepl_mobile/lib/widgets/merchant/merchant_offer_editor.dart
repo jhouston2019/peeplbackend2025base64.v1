@@ -217,7 +217,17 @@ class _FeedPreview extends StatelessWidget {
               width: 72,
               height: 72,
               child: imageFile != null
-                  ? Image.file(imageFile!, fit: BoxFit.cover)
+                  ? Image.file(
+                      imageFile!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: PeeplMerchantTokens.cardElevated,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          color: PeeplMerchantTokens.textMuted,
+                        ),
+                      ),
+                    )
                   : ColoredBox(
                       color: PeeplMerchantTokens.cardElevated,
                       child: const Icon(
@@ -411,7 +421,17 @@ class _ImagePickerTile extends StatelessWidget {
               ? Stack(
                   fit: StackFit.expand,
                   children: [
-                    Image.file(imageFile!, fit: BoxFit.cover),
+                    Image.file(
+                      imageFile!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => ColoredBox(
+                        color: PeeplMerchantTokens.cardElevated,
+                        child: const Icon(
+                          Icons.broken_image_outlined,
+                          color: PeeplMerchantTokens.textMuted,
+                        ),
+                      ),
+                    ),
                     Positioned(
                       right: 10,
                       bottom: 10,

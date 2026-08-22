@@ -106,47 +106,63 @@ class _ShareScreenState extends State<ShareScreen> {
   Future<void> _sharePostCard() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || _postId == null || _postId!.isEmpty) return;
-    await ShareService.instance.sharePeep(
-      peepId: _postId!,
-      locationName: _locationName,
-      crowdingLevel: _crowdingLevel ?? 5,
-      sharingUserId: uid,
-      shareContext: 'share_screen',
-    );
+    try {
+      await ShareService.instance.sharePeep(
+        peepId: _postId!,
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        sharingUserId: uid,
+        shareContext: 'share_screen',
+      );
+    } catch (e) {
+      debugPrint('[ShareScreen] _sharePostCard error: $e');
+    }
   }
 
   Future<void> _copyPostShare() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null || _postId == null || _postId!.isEmpty) return;
-    final text = await ShareService.instance.buildPeepShareMessage(
-      peepId: _postId!,
-      locationName: _locationName,
-      crowdingLevel: _crowdingLevel ?? 5,
-      sharingUserId: uid,
-      shareContext: 'share_screen',
-    );
-    await _copyLink(text);
+    try {
+      final text = await ShareService.instance.buildPeepShareMessage(
+        peepId: _postId!,
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        sharingUserId: uid,
+        shareContext: 'share_screen',
+      );
+      await _copyLink(text);
+    } catch (e) {
+      debugPrint('[ShareScreen] _copyPostShare error: $e');
+    }
   }
 
   Future<void> _shareLocationCard() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    await ShareService.instance.shareVenueStatus(
-      locationName: _locationName,
-      crowdingLevel: _crowdingLevel ?? 5,
-      sharingUserId: uid,
-    );
+    try {
+      await ShareService.instance.shareVenueStatus(
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        sharingUserId: uid,
+      );
+    } catch (e) {
+      debugPrint('[ShareScreen] _shareLocationCard error: $e');
+    }
   }
 
   Future<void> _copyLocationShare() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid == null) return;
-    final text = await ShareService.instance.buildVenueShareMessage(
-      locationName: _locationName,
-      crowdingLevel: _crowdingLevel ?? 5,
-      sharingUserId: uid,
-    );
-    await _copyLink(text);
+    try {
+      final text = await ShareService.instance.buildVenueShareMessage(
+        locationName: _locationName,
+        crowdingLevel: _crowdingLevel ?? 5,
+        sharingUserId: uid,
+      );
+      await _copyLink(text);
+    } catch (e) {
+      debugPrint('[ShareScreen] _copyLocationShare error: $e');
+    }
   }
 
   Future<void> _share(String text) async {

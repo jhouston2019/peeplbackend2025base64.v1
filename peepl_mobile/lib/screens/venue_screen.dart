@@ -106,11 +106,15 @@ class _VenueScreenState extends State<VenueScreen> {
   }
 
   Future<void> _shareVenue(int currentCrowd) async {
-    final crowdingWord = CrowdMeter.wordLabel(currentCrowd);
-    await Share.share(
-      'Check out $_venueName on Peepl — currently $crowdingWord! '
-      'https://peepl.app',
-    );
+    try {
+      final crowdingWord = CrowdMeter.wordLabel(currentCrowd);
+      await Share.share(
+        'Check out $_venueName on Peepl — currently $crowdingWord! '
+        'https://peepl.app',
+      );
+    } catch (e) {
+      debugPrint('[VenueScreen] _shareVenue error: $e');
+    }
   }
 
   Future<void> _sendAskRequest() async {

@@ -10,13 +10,17 @@ class AdmobService {
   static String get nativeAdUnitId => _testNativeAdUnitId;
 
   static Future<void> initialize() async {
-    await MobileAds.instance.initialize();
-    await MobileAds.instance.updateRequestConfiguration(
-      RequestConfiguration(
-        testDeviceIds: [
-          '33BE2250B43518CCDA7DE426D04EE231',
-        ],
-      ),
-    );
+    try {
+      await MobileAds.instance.initialize();
+      await MobileAds.instance.updateRequestConfiguration(
+        RequestConfiguration(
+          testDeviceIds: [
+            '33BE2250B43518CCDA7DE426D04EE231',
+          ],
+        ),
+      );
+    } catch (e) {
+      debugPrint('[AdmobService] initialize error: $e');
+    }
   }
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/milestone.dart';
 import 'crowd_intelligence_service.dart';
@@ -26,44 +27,54 @@ class FeedService {
     String locationId,
     String locationName,
   ) async {
-    final docId = followDocumentId(userId, locationId);
-    await _firestore.collection('location_follows').doc(docId).set({
-      'userId': userId,
-      'locationId': locationId,
-      'locationName': locationName,
-      'followedAt': FieldValue.serverTimestamp(),
-      'alertsEnabled': true,
-      'lastAlertedAt': null,
-      'lastKnownCrowdingLevel': null,
-    });
-
-    await GrowthAnalyticsService.logEvent(
-      'growth_location_followed',
-      {
+    try {
+      final docId = followDocumentId(userId, locationId);
+      await _firestore.collection('location_follows').doc(docId).set({
         'userId': userId,
         'locationId': locationId,
         'locationName': locationName,
-        'timestamp': DateTime.now().toIso8601String(),
-      },
-    );
+        'followedAt': FieldValue.serverTimestamp(),
+        'alertsEnabled': true,
+        'lastAlertedAt': null,
+        'lastKnownCrowdingLevel': null,
+      });
+
+      await GrowthAnalyticsService.logEvent(
+        'growth_location_followed',
+        {
+          'userId': userId,
+          'locationId': locationId,
+          'locationName': locationName,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      debugPrint('[FeedService] followLocation error: $e');
+      rethrow;
+    }
   }
 
   Future<void> unfollowLocation(String userId, String locationId) async {
-    final docId = followDocumentId(userId, locationId);
-    final doc = await _firestore.collection('location_follows').doc(docId).get();
-    final locationName = doc.data()?['locationName'] as String? ?? locationId;
+    try {
+      final docId = followDocumentId(userId, locationId);
+      final doc = await _firestore.collection('location_follows').doc(docId).get();
+      final locationName = doc.data()?['locationName'] as String? ?? locationId;
 
-    await _firestore.collection('location_follows').doc(docId).delete();
+      await _firestore.collection('location_follows').doc(docId).delete();
 
-    await GrowthAnalyticsService.logEvent(
-      'growth_location_unfollowed',
-      {
-        'userId': userId,
-        'locationId': locationId,
-        'locationName': locationName,
-        'timestamp': DateTime.now().toIso8601String(),
-      },
-    );
+      await GrowthAnalyticsService.logEvent(
+        'growth_location_unfollowed',
+        {
+          'userId': userId,
+          'locationId': locationId,
+          'locationName': locationName,
+          'timestamp': DateTime.now().toIso8601String(),
+        },
+      );
+    } catch (e) {
+      debugPrint('[FeedService] unfollowLocation error: $e');
+      rethrow;
+    }
   }
 
   Future<bool> isLocationFollowed(String userId, String locationId) async {
@@ -85,7 +96,10 @@ class FeedService {
         .orderBy('imageUrl')
         .orderBy('timestamp', descending: true)
         .limit(50)
-        .snapshots();
+        .snapshots()
+        .handleError((Object e) {
+      debugPrint('[FeedService] getLocationFeedStream error: $e');
+    });
   }
 
   Future<String> addLocationPost({
@@ -246,31 +260,41 @@ class FeedService {
   }
 
   Future<void> likeLocationPost(String postId, String userId) async {
-    final postRef = _firestore.collection('location_posts').doc(postId);
-    final likeRef = postRef.collection('likes').doc(userId);
-    await _firestore.runTransaction((transaction) async {
-      final likeDoc = await transaction.get(likeRef);
-      final postDoc = await transaction.get(postRef);
-      if (!postDoc.exists) throw Exception('Post not found');
-      if (!likeDoc.exists) {
-        transaction.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
-        transaction.update(postRef, {'likesCount': FieldValue.increment(1)});
-      }
-    });
+    try {
+      final postRef = _firestore.collection('location_posts').doc(postId);
+      final likeRef = postRef.collection('likes').doc(userId);
+      await _firestore.runTransaction((transaction) async {
+        final likeDoc = await transaction.get(likeRef);
+        final postDoc = await transaction.get(postRef);
+        if (!postDoc.exists) throw Exception('Post not found');
+        if (!likeDoc.exists) {
+          transaction.set(likeRef, {'likedAt': FieldValue.serverTimestamp()});
+          transaction.update(postRef, {'likesCount': FieldValue.increment(1)});
+        }
+      });
+    } catch (e) {
+      debugPrint('[FeedService] likeLocationPost error: $e');
+      rethrow;
+    }
   }
 
   Future<void> unlikeLocationPost(String postId, String userId) async {
-    final postRef = _firestore.collection('location_posts').doc(postId);
-    final likeRef = postRef.collection('likes').doc(userId);
-    await _firestore.runTransaction((transaction) async {
-      final likeDoc = await transaction.get(likeRef);
-      final postDoc = await transaction.get(postRef);
-      if (!postDoc.exists) throw Exception('Post not found');
-      if (likeDoc.exists) {
-        transaction.delete(likeRef);
-        transaction.update(postRef, {'likesCount': FieldValue.increment(-1)});
-      }
-    });
+    try {
+      final postRef = _firestore.collection('location_posts').doc(postId);
+      final likeRef = postRef.collection('likes').doc(userId);
+      await _firestore.runTransaction((transaction) async {
+        final likeDoc = await transaction.get(likeRef);
+        final postDoc = await transaction.get(postRef);
+        if (!postDoc.exists) throw Exception('Post not found');
+        if (likeDoc.exists) {
+          transaction.delete(likeRef);
+          transaction.update(postRef, {'likesCount': FieldValue.increment(-1)});
+        }
+      });
+    } catch (e) {
+      debugPrint('[FeedService] unlikeLocationPost error: $e');
+      rethrow;
+    }
   }
 
   Future<bool> isLocationPostLiked(String postId, String userId) async {
@@ -299,146 +323,172 @@ class FeedService {
   }
 
   Future<void> deleteLocationPost(String postId) async {
-    final postRef = _firestore.collection('location_posts').doc(postId);
-    final postDoc = await postRef.get();
-    if (!postDoc.exists) {
-      throw Exception('Post not found');
-    }
-    final data = postDoc.data()!;
-
-    await _deleteSubcollection(postRef.collection('likes'));
-    await _deleteSubcollection(postRef.collection('comments'));
-
-    final imageUrl = data['imageUrl'] as String?;
-    if (imageUrl != null && imageUrl.isNotEmpty) {
-      try {
-        await _storage.refFromURL(imageUrl).delete();
-      } catch (_) {
-        // Best-effort storage cleanup; do not block post removal.
+    try {
+      final postRef = _firestore.collection('location_posts').doc(postId);
+      final postDoc = await postRef.get();
+      if (!postDoc.exists) {
+        throw Exception('Post not found');
       }
-    }
+      final data = postDoc.data()!;
 
-    final locationName = data['locationName'] as String?;
-    if (locationName != null && locationName.trim().isNotEmpty) {
-      final locationId = locationIdFromName(locationName.trim());
-      if (locationId.isNotEmpty) {
+      await _deleteSubcollection(postRef.collection('likes'));
+      await _deleteSubcollection(postRef.collection('comments'));
+
+      final imageUrl = data['imageUrl'] as String?;
+      if (imageUrl != null && imageUrl.isNotEmpty) {
         try {
-          final locRef = _firestore.collection('locations').doc(locationId);
-          await _firestore.runTransaction((transaction) async {
-            final locDoc = await transaction.get(locRef);
-            if (!locDoc.exists) return;
-            final count = (locDoc.data()?['peepCount'] as num?)?.toInt() ?? 0;
-            if (count > 1) {
-              transaction.update(locRef, {'peepCount': FieldValue.increment(-1)});
-            } else if (count == 1) {
-              transaction.update(locRef, {'peepCount': 0});
-            }
-          });
+          await _storage.refFromURL(imageUrl).delete();
         } catch (_) {
-          // Best-effort location count cleanup.
+          // Best-effort storage cleanup; do not block post removal.
         }
       }
-    }
 
-    await postRef.delete();
+      final locationName = data['locationName'] as String?;
+      if (locationName != null && locationName.trim().isNotEmpty) {
+        final locationId = locationIdFromName(locationName.trim());
+        if (locationId.isNotEmpty) {
+          try {
+            final locRef = _firestore.collection('locations').doc(locationId);
+            await _firestore.runTransaction((transaction) async {
+              final locDoc = await transaction.get(locRef);
+              if (!locDoc.exists) return;
+              final count = (locDoc.data()?['peepCount'] as num?)?.toInt() ?? 0;
+              if (count > 1) {
+                transaction.update(locRef, {'peepCount': FieldValue.increment(-1)});
+              } else if (count == 1) {
+                transaction.update(locRef, {'peepCount': 0});
+              }
+            });
+          } catch (_) {
+            // Best-effort location count cleanup.
+          }
+        }
+      }
+
+      await postRef.delete();
+    } catch (e) {
+      debugPrint('[FeedService] deleteLocationPost error: $e');
+      rethrow;
+    }
   }
 
   Future<void> _deleteSubcollection(CollectionReference<Map<String, dynamic>> col) async {
-    const batchSize = 200;
-    while (true) {
-      final snap = await col.limit(batchSize).get();
-      if (snap.docs.isEmpty) break;
-      final batch = _firestore.batch();
-      for (final doc in snap.docs) {
-        batch.delete(doc.reference);
+    try {
+      const batchSize = 200;
+      while (true) {
+        final snap = await col.limit(batchSize).get();
+        if (snap.docs.isEmpty) break;
+        final batch = _firestore.batch();
+        for (final doc in snap.docs) {
+          batch.delete(doc.reference);
+        }
+        await batch.commit();
       }
-      await batch.commit();
+    } catch (e) {
+      debugPrint('[FeedService] _deleteSubcollection error: $e');
+      rethrow;
     }
   }
 
   /// Aggregates [location_posts] by [locationName] (same query as VenueListScreen).
   Future<List<VenueSummary>> fetchVenueSummaries({int limit = 2000}) async {
-    final snap = await _firestore
-        .collection('location_posts')
-        .orderBy('timestamp', descending: true)
-        .limit(limit)
-        .get();
+    try {
+      final snap = await _firestore
+          .collection('location_posts')
+          .orderBy('timestamp', descending: true)
+          .limit(limit)
+          .get();
 
-    final byName = <String, VenueSummary>{};
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final name = data['locationName'] as String? ?? '';
-      if (name.isEmpty) continue;
+      final byName = <String, VenueSummary>{};
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final name = data['locationName'] as String? ?? '';
+        if (name.isEmpty) continue;
 
-      final existing = byName[name];
-      if (existing == null) {
-        byName[name] = VenueSummary.fromPost(name, data, 1);
-      } else {
-        byName[name] = existing.copyWith(postCount: existing.postCount + 1);
+        final existing = byName[name];
+        if (existing == null) {
+          byName[name] = VenueSummary.fromPost(name, data, 1);
+        } else {
+          byName[name] = existing.copyWith(postCount: existing.postCount + 1);
+        }
       }
-    }
 
-    final list = byName.values.toList()
-      ..sort((a, b) => b.lastPosted.compareTo(a.lastPosted));
-    return list;
+      final list = byName.values.toList()
+        ..sort((a, b) => b.lastPosted.compareTo(a.lastPosted));
+      return list;
+    } catch (e) {
+      debugPrint('[FeedService] fetchVenueSummaries error: $e');
+      return [];
+    }
   }
 
   /// Contribution stats for My Peepl (Phase 2).
   Future<Map<String, dynamic>> getUserStats(String userId) async {
-    final snap = await _firestore
-        .collection('location_posts')
-        .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .get();
+    try {
+      final snap = await _firestore
+          .collection('location_posts')
+          .where('userId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true)
+          .get();
 
-    var totalLikes = 0;
-    final places = <String>{};
-    Timestamp? firstPeepDate;
-    final recentPeeps = <Map<String, dynamic>>[];
+      var totalLikes = 0;
+      final places = <String>{};
+      Timestamp? firstPeepDate;
+      final recentPeeps = <Map<String, dynamic>>[];
 
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      totalLikes += (data['likesCount'] as num?)?.toInt() ?? 0;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        totalLikes += (data['likesCount'] as num?)?.toInt() ?? 0;
 
-      final name = data['locationName'] as String?;
-      if (name != null && name.trim().isNotEmpty) {
-        places.add(name.trim());
-      }
-
-      final ts = data['timestamp'];
-      if (ts is Timestamp) {
-        if (firstPeepDate == null || ts.compareTo(firstPeepDate!) < 0) {
-          firstPeepDate = ts;
+        final name = data['locationName'] as String?;
+        if (name != null && name.trim().isNotEmpty) {
+          places.add(name.trim());
         }
-      }
 
-      if (recentPeeps.length < 5) {
-        recentPeeps.add({
-          'locationName': data['locationName'] as String? ?? '',
-          'crowdingLevel': (data['crowdingLevel'] as num?)?.toInt() ?? 0,
-          'timestamp': data['timestamp'],
-          'likesCount': (data['likesCount'] as num?)?.toInt() ?? 0,
-        });
-      }
-    }
-
-    if (firstPeepDate == null && snap.docs.isNotEmpty) {
-      for (final doc in snap.docs.reversed) {
-        final ts = doc.data()['timestamp'];
+        final ts = data['timestamp'];
         if (ts is Timestamp) {
-          firstPeepDate = ts;
-          break;
+          if (firstPeepDate == null || ts.compareTo(firstPeepDate!) < 0) {
+            firstPeepDate = ts;
+          }
+        }
+
+        if (recentPeeps.length < 5) {
+          recentPeeps.add({
+            'locationName': data['locationName'] as String? ?? '',
+            'crowdingLevel': (data['crowdingLevel'] as num?)?.toInt() ?? 0,
+            'timestamp': data['timestamp'],
+            'likesCount': (data['likesCount'] as num?)?.toInt() ?? 0,
+          });
         }
       }
-    }
 
-    return {
-      'totalPeeps': snap.docs.length,
-      'totalPlaces': places.length,
-      'totalLikes': totalLikes,
-      'firstPeepDate': firstPeepDate,
-      'recentPeeps': recentPeeps,
-    };
+      if (firstPeepDate == null && snap.docs.isNotEmpty) {
+        for (final doc in snap.docs.reversed) {
+          final ts = doc.data()['timestamp'];
+          if (ts is Timestamp) {
+            firstPeepDate = ts;
+            break;
+          }
+        }
+      }
+
+      return {
+        'totalPeeps': snap.docs.length,
+        'totalPlaces': places.length,
+        'totalLikes': totalLikes,
+        'firstPeepDate': firstPeepDate,
+        'recentPeeps': recentPeeps,
+      };
+    } catch (e) {
+      debugPrint('[FeedService] getUserStats error: $e');
+      return {
+        'totalPeeps': 0,
+        'totalPlaces': 0,
+        'totalLikes': 0,
+        'firstPeepDate': null,
+        'recentPeeps': <Map<String, dynamic>>[],
+      };
+    }
   }
 
   /// Distinct users who posted at [locationName] within [window] (Phase 3).
@@ -448,83 +498,93 @@ class FeedService {
   ]) async {
     if (locationName.trim().isEmpty) return 0;
 
-    final cutoff = Timestamp.fromDate(DateTime.now().subtract(window));
-    final snap = await _firestore
-        .collection('location_posts')
-        .where('locationName', isEqualTo: locationName)
-        .where('timestamp', isGreaterThan: cutoff)
-        .get();
+    try {
+      final cutoff = Timestamp.fromDate(DateTime.now().subtract(window));
+      final snap = await _firestore
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .where('timestamp', isGreaterThan: cutoff)
+          .get();
 
-    final userIds = <String>{};
-    for (final doc in snap.docs) {
-      final uid = doc.data()['userId'] as String?;
-      if (uid != null && uid.isNotEmpty) userIds.add(uid);
+      final userIds = <String>{};
+      for (final doc in snap.docs) {
+        final uid = doc.data()['userId'] as String?;
+        if (uid != null && uid.isNotEmpty) userIds.add(uid);
+      }
+      return userIds.length;
+    } catch (e) {
+      debugPrint('[FeedService] getVenueContributorCount error: $e');
+      return 0;
     }
-    return userIds.length;
   }
 
   /// Returns newly earned milestone IDs and persists them on the user doc (Phase 4).
   Future<List<String>> checkMilestones(String userId) async {
-    final stats = await getUserStats(userId);
-    final totalPeeps = stats['totalPeeps'] as int? ?? 0;
-    final totalPlaces = stats['totalPlaces'] as int? ?? 0;
+    try {
+      final stats = await getUserStats(userId);
+      final totalPeeps = stats['totalPeeps'] as int? ?? 0;
+      final totalPlaces = stats['totalPlaces'] as int? ?? 0;
 
-    final userRef = _firestore.collection(usersCollection).doc(userId);
-    final userSnap = await userRef.get();
-    final earned = List<String>.from(
-      (userSnap.data()?['earnedMilestones'] as List<dynamic>? ?? [])
-          .map((e) => e.toString()),
-    );
+      final userRef = _firestore.collection(usersCollection).doc(userId);
+      final userSnap = await userRef.get();
+      final earned = List<String>.from(
+        (userSnap.data()?['earnedMilestones'] as List<dynamic>? ?? [])
+            .map((e) => e.toString()),
+      );
 
-    final newlyEarned = <String>[];
+      final newlyEarned = <String>[];
 
-    void tryEarn(String id, bool condition) {
-      if (condition && !earned.contains(id) && !newlyEarned.contains(id)) {
-        newlyEarned.add(id);
+      void tryEarn(String id, bool condition) {
+        if (condition && !earned.contains(id) && !newlyEarned.contains(id)) {
+          newlyEarned.add(id);
+        }
       }
-    }
 
-    tryEarn(Milestone.firstPeep, totalPeeps >= 1);
-    tryEarn(Milestone.fivePlaces, totalPlaces >= 5);
-    tryEarn(Milestone.tenPeeps, totalPeeps >= 10);
-    tryEarn(Milestone.twentyFivePeeps, totalPeeps >= 25);
+      tryEarn(Milestone.firstPeep, totalPeeps >= 1);
+      tryEarn(Milestone.fivePlaces, totalPlaces >= 5);
+      tryEarn(Milestone.tenPeeps, totalPeeps >= 10);
+      tryEarn(Milestone.twentyFivePeeps, totalPeeps >= 25);
 
-    if (!earned.contains(Milestone.pioneer) &&
-        !newlyEarned.contains(Milestone.pioneer)) {
-      final recentSnap = await _firestore
-          .collection('location_posts')
-          .where('userId', isEqualTo: userId)
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .get();
+      if (!earned.contains(Milestone.pioneer) &&
+          !newlyEarned.contains(Milestone.pioneer)) {
+        final recentSnap = await _firestore
+            .collection('location_posts')
+            .where('userId', isEqualTo: userId)
+            .orderBy('timestamp', descending: true)
+            .limit(1)
+            .get();
 
-      if (recentSnap.docs.isNotEmpty) {
-        final locationName =
-            recentSnap.docs.first.data()['locationName'] as String? ?? '';
-        if (locationName.isNotEmpty) {
-          final firstSnap = await _firestore
-              .collection('location_posts')
-              .where('locationName', isEqualTo: locationName)
-              .orderBy('timestamp', descending: false)
-              .limit(1)
-              .get();
+        if (recentSnap.docs.isNotEmpty) {
+          final locationName =
+              recentSnap.docs.first.data()['locationName'] as String? ?? '';
+          if (locationName.isNotEmpty) {
+            final firstSnap = await _firestore
+                .collection('location_posts')
+                .where('locationName', isEqualTo: locationName)
+                .orderBy('timestamp', descending: false)
+                .limit(1)
+                .get();
 
-          if (firstSnap.docs.isNotEmpty &&
-              firstSnap.docs.first.data()['userId'] == userId) {
-            newlyEarned.add(Milestone.pioneer);
+            if (firstSnap.docs.isNotEmpty &&
+                firstSnap.docs.first.data()['userId'] == userId) {
+              newlyEarned.add(Milestone.pioneer);
+            }
           }
         }
       }
-    }
 
-    if (newlyEarned.isNotEmpty) {
-      await userRef.set(
-        {'earnedMilestones': FieldValue.arrayUnion(newlyEarned)},
-        SetOptions(merge: true),
-      );
-    }
+      if (newlyEarned.isNotEmpty) {
+        await userRef.set(
+          {'earnedMilestones': FieldValue.arrayUnion(newlyEarned)},
+          SetOptions(merge: true),
+        );
+      }
 
-    return newlyEarned;
+      return newlyEarned;
+    } catch (e) {
+      debugPrint('[FeedService] checkMilestones error: $e');
+      return [];
+    }
   }
 
   /// Stats for the current calendar week (Monday through now).
@@ -547,35 +607,44 @@ class FeedService {
     DateTime start,
     DateTime end,
   ) async {
-    final snap = await _firestore
-        .collection('location_posts')
-        .where('userId', isEqualTo: userId)
-        .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
-        .get();
+    try {
+      final snap = await _firestore
+          .collection('location_posts')
+          .where('userId', isEqualTo: userId)
+          .where('timestamp', isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+          .get();
 
-    var peepCount = 0;
-    var impactCount = 0;
-    final places = <String>{};
+      var peepCount = 0;
+      var impactCount = 0;
+      final places = <String>{};
 
-    for (final doc in snap.docs) {
-      final data = doc.data();
-      final ts = data['timestamp'];
-      if (ts is Timestamp && ts.toDate().isAfter(end)) continue;
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        final ts = data['timestamp'];
+        if (ts is Timestamp && ts.toDate().isAfter(end)) continue;
 
-      peepCount++;
-      impactCount += (data['helpedCount'] as num?)?.toInt() ?? 0;
+        peepCount++;
+        impactCount += (data['helpedCount'] as num?)?.toInt() ?? 0;
 
-      final name = data['locationName'] as String?;
-      if (name != null && name.trim().isNotEmpty) {
-        places.add(name.trim());
+        final name = data['locationName'] as String?;
+        if (name != null && name.trim().isNotEmpty) {
+          places.add(name.trim());
+        }
       }
-    }
 
-    return {
-      'peepCount': peepCount,
-      'placeCount': places.length,
-      'impactCount': impactCount,
-    };
+      return {
+        'peepCount': peepCount,
+        'placeCount': places.length,
+        'impactCount': impactCount,
+      };
+    } catch (e) {
+      debugPrint('[FeedService] _recapForRange error: $e');
+      return {
+        'peepCount': 0,
+        'placeCount': 0,
+        'impactCount': 0,
+      };
+    }
   }
 
   /// Increment [helpedCount] when another user views a Peep (Phase 5).

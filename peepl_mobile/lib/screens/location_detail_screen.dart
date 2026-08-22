@@ -82,13 +82,33 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         'Unknown Location';
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _commentsCount = (widget.postData['commentsCount'] as num?)?.toInt() ?? 0;
-    _checkIfLiked();
-    _loadFollowState();
-    _initAds();
-    _loadLiveNowData();
-    _loadContributorCount();
-    _recordPeepViewForVenue();
-    _resolveDisplayVenueName();
+    _initLikeAndFollowState();
+    _runInitBootstraps();
+  }
+
+  Future<void> _initLikeAndFollowState() async {
+    try {
+      await Future.wait([
+        _checkIfLiked(),
+        _loadFollowState(),
+      ]);
+    } catch (e) {
+      debugPrint('[LocationDetailScreen] initState like/follow error: $e');
+    }
+  }
+
+  Future<void> _runInitBootstraps() async {
+    try {
+      await Future.wait([
+        _initAds(),
+        _loadLiveNowData(),
+        _loadContributorCount(),
+        _recordPeepViewForVenue(),
+        _resolveDisplayVenueName(),
+      ]);
+    } catch (e) {
+      debugPrint('[LocationDetailScreen] initState bootstrap error: $e');
+    }
   }
 
   Future<void> _resolveDisplayVenueName() async {
@@ -253,20 +273,25 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
     final recencyCutoff = DateTime.now().subtract(const Duration(hours: 4));
 
     QuerySnapshot<Map<String, dynamic>> snapshot;
-    if (locationName.trim().isNotEmpty) {
-      snapshot = await FirebaseFirestore.instance
-          .collection('location_posts')
-          .where('locationName', isEqualTo: locationName.trim())
-          .orderBy('timestamp', descending: true)
-          .limit(25)
-          .get();
-    } else if (latitude != null && longitude != null) {
-      snapshot = await FirebaseFirestore.instance
-          .collection('location_posts')
-          .orderBy('timestamp', descending: true)
-          .limit(100)
-          .get();
-    } else {
+    try {
+      if (locationName.trim().isNotEmpty) {
+        snapshot = await FirebaseFirestore.instance
+            .collection('location_posts')
+            .where('locationName', isEqualTo: locationName.trim())
+            .orderBy('timestamp', descending: true)
+            .limit(25)
+            .get();
+      } else if (latitude != null && longitude != null) {
+        snapshot = await FirebaseFirestore.instance
+            .collection('location_posts')
+            .orderBy('timestamp', descending: true)
+            .limit(100)
+            .get();
+      } else {
+        return [];
+      }
+    } catch (e) {
+      debugPrint('LocationDetailScreen._fetchPeepsForVenue error: $e');
       return [];
     }
 
@@ -314,9 +339,15 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   Future<void> _initAds() async {
     await _cadence.init(pattern: [3, 3, 3, 3]);
 
-    final pos = await LocationService.getCurrentLocation();
-    final userLat = pos?.latitude;
-    final userLng = pos?.longitude;
+    double? userLat;
+    double? userLng;
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      userLat = pos?.latitude;
+      userLng = pos?.longitude;
+    } catch (e) {
+      debugPrint('[LocationDetailScreen] _initAds getCurrentLocation error: $e');
+    }
 
     final venueLat = (widget.postData['latitude'] as num?)?.toDouble();
     final venueLng = (widget.postData['longitude'] as num?)?.toDouble();

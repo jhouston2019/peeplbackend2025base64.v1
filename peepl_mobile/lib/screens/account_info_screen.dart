@@ -143,6 +143,9 @@ class _AccountInfoScreenState extends State<AccountInfoScreen> {
       final ref = _storage.ref('profile_photos/$_uid.jpg');
       await ref.putFile(_pendingPhotoFile!);
       return await ref.getDownloadURL();
+    } catch (e) {
+      debugPrint('[AccountInfoScreen] _uploadProfilePhoto error: $e');
+      return _photoUrl;
     } finally {
       if (mounted) setState(() => _uploadingPhoto = false);
     }

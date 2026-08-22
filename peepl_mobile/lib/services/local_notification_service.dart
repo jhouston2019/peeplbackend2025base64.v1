@@ -28,7 +28,7 @@ class LocalNotificationService {
     _navigatorKey = navigatorKey;
     try {
       const androidSettings =
-          AndroidInitializationSettings('@mipmap/ic_launcher');
+          AndroidInitializationSettings('@drawable/ic_notification');
       const iosSettings = DarwinInitializationSettings(
         requestAlertPermission: false,
         requestBadgePermission: false,
@@ -69,7 +69,7 @@ class LocalNotificationService {
         'Crowd Check-ins',
         importance: Importance.high,
         priority: Priority.high,
-        icon: '@mipmap/ic_launcher',
+        icon: '@drawable/ic_notification',
         color: PeeplAppTokens.accentBlue,
       );
       const iosDetails = DarwinNotificationDetails(

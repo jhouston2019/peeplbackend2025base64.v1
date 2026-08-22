@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'debug_log_service.dart';
@@ -82,8 +83,13 @@ class AdCadenceService {
     if (isFirstSession != null) {
       _isFirstSession = isFirstSession;
     } else {
-      final prefs = await SharedPreferences.getInstance();
-      _isFirstSession = !(prefs.getBool('has_seen_feed') ?? false);
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        _isFirstSession = !(prefs.getBool('has_seen_feed') ?? false);
+      } catch (e) {
+        debugPrint('[AdCadenceService] SharedPreferences error: $e');
+        _isFirstSession = true;
+      }
     }
     _patternIndex = 0;
     _postsSinceAd = 0;

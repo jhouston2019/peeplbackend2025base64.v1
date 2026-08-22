@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'home/peepl_home_tokens.dart';
 import 'package:image_picker/image_picker.dart';
@@ -81,11 +82,19 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   @override
   void initState() {
     super.initState();
-    if (widget.venueName != null) {
-      _placeController.text = widget.venueName!;
-      _acquireCoordinates();
-    } else {
-      _detectLocation();
+    try {
+      if (widget.venueName != null) {
+        _placeController.text = widget.venueName!;
+        _acquireCoordinates().catchError((Object e) {
+          debugPrint('[QuickPeepSheet] initState _acquireCoordinates error: $e');
+        });
+      } else {
+        _detectLocation().catchError((Object e) {
+          debugPrint('[QuickPeepSheet] initState _detectLocation error: $e');
+        });
+      }
+    } catch (e) {
+      debugPrint('[QuickPeepSheet] initState error: $e');
     }
   }
 
@@ -99,6 +108,15 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     if (level <= 3) return const Color(0xFF4CAF50);
     if (level <= 6) return const Color(0xFFFFA726);
     return const Color(0xFFFF5722);
+  }
+
+  Future<void> _onRedetectLocationTap() async {
+    if (_isLocating) return;
+    try {
+      await _detectLocation();
+    } catch (e) {
+      debugPrint('[QuickPeepSheet] _onRedetectLocationTap error: $e');
+    }
   }
 
   Future<void> _acquireCoordinates() async {
@@ -159,9 +177,11 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
               _latitude!,
               _longitude!,
             );
-        setState(() {
-          _placeController.text = fallback;
-        });
+        if (mounted) {
+          setState(() {
+            _placeController.text = fallback;
+          });
+        }
       }
     } finally {
       if (!mounted) return;
@@ -205,6 +225,16 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         await _acquireCoordinates();
       }
 
+      final imageFile = File(photo.path);
+      if (!await imageFile.exists()) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Photo file not found')),
+          );
+        }
+        return;
+      }
+
       final postId = await FeedService().addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
@@ -212,7 +242,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         latitude: _latitude ?? 0.0,
         longitude: _longitude ?? 0.0,
         crowdingLevel: _crowdLevel.round(),
-        imageFile: File(photo.path),
+        imageFile: imageFile,
         vibe: _selectedVibe,
         waitTime: _venueType == 'Restaurant' ? _selectedWaitTime : null,
         maleFemaleRatio: _malePercent.round(),
@@ -348,7 +378,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                       ),
                       SizedBox(width: 8),
                       GestureDetector(
-                        onTap: _isLocating ? null : _detectLocation,
+                        onTap: _onRedetectLocationTap,
                         child: Container(
                           width: 44,
                           height: 44,

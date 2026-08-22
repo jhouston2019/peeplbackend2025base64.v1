@@ -26,10 +26,14 @@ class ShareService {
     String text, {
     Rect? sharePositionOrigin,
   }) async {
-    await Share.share(
-      text,
-      sharePositionOrigin: sharePositionOrigin ?? fallbackShareOrigin,
-    );
+    try {
+      await Share.share(
+        text,
+        sharePositionOrigin: sharePositionOrigin ?? fallbackShareOrigin,
+      );
+    } catch (e) {
+      debugPrint('[ShareService] presentShareSheet error: $e');
+    }
   }
 
   static String crowdWordLabel(int level) {
@@ -146,7 +150,8 @@ class ShareService {
         'growth_share_error',
         {'reason': 'null_peepId', 'shareContext': shareContext},
       );
-      throw StateError('Missing peep id');
+      debugPrint('[ShareService] sharePeep skipped: missing peep id');
+      return;
     }
 
     try {
@@ -190,7 +195,6 @@ class ShareService {
       );
     } catch (e) {
       debugPrint('[ShareService] sharePeep failed: $e');
-      rethrow;
     }
   }
 
@@ -208,11 +212,11 @@ class ShareService {
       );
       return;
     }
-    throw UnimplementedError(
-      'Public social sharing not yet implemented. '
-      'Activate by implementing this method when '
-      'publicSocialSharingEnabled is set to true.',
+    debugPrint(
+      '[ShareService] generateSocialCard not yet implemented '
+      '(peepId: $peepId)',
     );
+    return;
   }
 
   Future<void> shareVenueStatus({
@@ -271,7 +275,6 @@ class ShareService {
       );
     } catch (e) {
       debugPrint('[ShareService] shareVenueStatus failed: $e');
-      rethrow;
     }
   }
 
@@ -325,7 +328,6 @@ class ShareService {
       );
     } catch (e) {
       debugPrint('[ShareService] venue_comparisons write failed: $e');
-      rethrow;
     }
 
     await GrowthAnalyticsService.logEvent(
@@ -340,10 +342,14 @@ class ShareService {
     );
 
     final text = buildGroupShareText(venues: venues, shareUrl: shareUrl);
-    await presentShareSheet(
-      text,
-      sharePositionOrigin: sharePositionOrigin,
-    );
+    try {
+      await presentShareSheet(
+        text,
+        sharePositionOrigin: sharePositionOrigin,
+      );
+    } catch (e) {
+      debugPrint('[ShareService] shareVenueGroup presentShareSheet error: $e');
+    }
   }
 
   Future<void> shareDeal({
@@ -408,7 +414,6 @@ class ShareService {
       );
     } catch (e) {
       debugPrint('[ShareService] shareDeal failed: $e');
-      rethrow;
     }
   }
 

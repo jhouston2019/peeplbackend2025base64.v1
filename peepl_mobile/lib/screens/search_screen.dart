@@ -62,10 +62,18 @@ class _SearchScreenState extends State<SearchScreen>
     _tabController = TabController(length: 2, vsync: this);
     _searchCtrl.addListener(_onSearchTextChanged);
     _loadRecentSearches();
-    _initUserLocation();
+    _initUserLocationSafely();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _searchFocus.requestFocus();
     });
+  }
+
+  Future<void> _initUserLocationSafely() async {
+    try {
+      await _initUserLocation();
+    } catch (e) {
+      debugPrint('[SearchScreen] _initUserLocation error: $e');
+    }
   }
 
   @override
@@ -79,12 +87,16 @@ class _SearchScreenState extends State<SearchScreen>
   }
 
   Future<void> _initUserLocation() async {
-    final pos = await LocationService.getCurrentLocation();
-    if (pos == null || !mounted) return;
-    setState(() {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
-    });
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (pos == null || !mounted) return;
+      setState(() {
+        _userLat = pos.latitude;
+        _userLng = pos.longitude;
+      });
+    } catch (e) {
+      debugPrint('[SearchScreen] getCurrentLocation error: $e');
+    }
   }
 
   Future<void> _loadRecentSearches() async {

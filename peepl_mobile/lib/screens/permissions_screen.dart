@@ -52,7 +52,11 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
   }
 
   Future<void> _continueToHome() async {
-    await NotificationService.instance.onUserSignedIn();
+    try {
+      await NotificationService.instance.onUserSignedIn();
+    } catch (e) {
+      debugPrint('[PermissionsScreen] _continueToHome error: $e');
+    }
     if (!mounted) return;
     Navigator.pushReplacementNamed(context, '/home');
     WidgetsBinding.instance.addPostFrameCallback((_) {

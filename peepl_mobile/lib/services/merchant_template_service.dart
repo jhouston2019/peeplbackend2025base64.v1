@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Local campaign templates — no backend changes required.
@@ -114,20 +115,25 @@ class MerchantTemplateService {
   ];
 
   static Future<List<MerchantCampaignTemplate>> loadSaved() async {
-    final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getStringList(_storageKey) ?? [];
-    return raw
-        .map((s) {
-          try {
-            return MerchantCampaignTemplate.fromJson(
-              jsonDecode(s) as Map<String, dynamic>,
-            );
-          } catch (_) {
-            return null;
-          }
-        })
-        .whereType<MerchantCampaignTemplate>()
-        .toList();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getStringList(_storageKey) ?? [];
+      return raw
+          .map((s) {
+            try {
+              return MerchantCampaignTemplate.fromJson(
+                jsonDecode(s) as Map<String, dynamic>,
+              );
+            } catch (_) {
+              return null;
+            }
+          })
+          .whereType<MerchantCampaignTemplate>()
+          .toList();
+    } catch (e) {
+      debugPrint('[MerchantTemplateService] loadSaved error: $e');
+      return [];
+    }
   }
 
   static Future<void> saveTemplate(MerchantCampaignTemplate template) async {

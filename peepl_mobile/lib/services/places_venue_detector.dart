@@ -206,17 +206,21 @@ class PlacesVenueDetector {
 
 
 
-    await NotificationService.instance.handleVenueEntry(
+    try {
+      await NotificationService.instance.handleVenueEntry(
 
-      venueName: venueName,
+        venueName: venueName,
 
-      venueId: venueId,
+        venueId: venueId,
 
-      lat: lat,
+        lat: lat,
 
-      lng: lng,
+        lng: lng,
 
-    );
+      );
+    } catch (e) {
+      debugPrint('[PlacesVenueDetector] handleVenueEntry error: $e');
+    }
 
 
 

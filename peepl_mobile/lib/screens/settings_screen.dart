@@ -77,7 +77,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _setPushEnabled(bool val) async {
     setState(() => _pushEnabled = val);
-    await NotificationService.instance.applyPushPreference(val);
+    try {
+      await NotificationService.instance.applyPushPreference(val);
+    } catch (e) {
+      debugPrint('[SettingsScreen] _setPushEnabled error: $e');
+    }
   }
 
   Future<void> _setLocationAlerts(bool val) async {
@@ -89,19 +93,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _setProfileVisibility(String? val) async {
     if (val == null || _uid.isEmpty) return;
     setState(() => _profileVisibility = val);
-    await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
-      {'profileVisibility': val},
-      SetOptions(merge: true),
-    );
+    try {
+      await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
+        {'profileVisibility': val},
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      debugPrint('[SettingsScreen] _setProfileVisibility error: $e');
+    }
   }
 
   Future<void> _setLocationSharing(bool val) async {
     setState(() => _locationSharingEnabled = val);
     if (_uid.isEmpty) return;
-    await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
-      {'locationSharingEnabled': val},
-      SetOptions(merge: true),
-    );
+    try {
+      await _db.collection('CAASNAhaDbPrl0zH1yDn5qRqAtJ3').doc(_uid).set(
+        {'locationSharingEnabled': val},
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      debugPrint('[SettingsScreen] _setLocationSharing error: $e');
+    }
   }
 
   Future<void> _confirmSignOut(BuildContext context) async {
@@ -394,6 +406,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           .doc(user.uid)
           .snapshots(),
       builder: (context, snap) {
+        if (snap.hasError) {
+          return const SizedBox.shrink();
+        }
+
         final data = snap.data?.data();
         if (data == null || data['isAdmin'] != true) {
           return const SizedBox.shrink();

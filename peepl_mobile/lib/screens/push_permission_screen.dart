@@ -7,8 +7,12 @@ class PushPermissionScreen extends StatelessWidget {
   const PushPermissionScreen({super.key});
 
   Future<void> _requestAndContinue(BuildContext context) async {
-    await NotificationService.instance.requestPermissions();
-    await NotificationService.instance.onUserSignedIn();
+    try {
+      await NotificationService.instance.requestPermissions();
+      await NotificationService.instance.onUserSignedIn();
+    } catch (e) {
+      debugPrint('[PushPermissionScreen] _requestAndContinue error: $e');
+    }
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -20,7 +24,11 @@ class PushPermissionScreen extends StatelessWidget {
   Future<void> _skipAndContinue(BuildContext context) async {
     await NotificationService.instance.markPermissionPromptShown();
     // Still refresh token if OS permission was granted earlier.
-    await NotificationService.instance.onUserSignedIn();
+    try {
+      await NotificationService.instance.onUserSignedIn();
+    } catch (e) {
+      debugPrint('[PushPermissionScreen] _skipAndContinue error: $e');
+    }
     if (context.mounted) {
       Navigator.pushReplacementNamed(context, '/home');
       WidgetsBinding.instance.addPostFrameCallback((_) {

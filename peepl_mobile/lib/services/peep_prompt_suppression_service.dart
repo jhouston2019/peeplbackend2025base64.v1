@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'remote_config_service.dart';
@@ -40,7 +41,16 @@ class PeepPromptSuppressionService {
       );
     }
 
-    final prefs = await SharedPreferences.getInstance();
+    SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (e) {
+      debugPrint('[PeepPromptSuppression] SharedPreferences error: $e');
+      return const PeepPromptSuppressionResult(
+        suppress: true,
+        reason: 'prefs_error',
+      );
+    }
     final lastMs = prefs.getInt(_lastSentKey(venueId));
 
     if (lastMs != null) {
@@ -90,19 +100,23 @@ class PeepPromptSuppressionService {
   }
 
   Future<void> recordPromptSent(String venueId) async {
-    final prefs = await SharedPreferences.getInstance();
-    final nowMs = DateTime.now().millisecondsSinceEpoch;
-    await prefs.setInt(_lastSentKey(venueId), nowMs);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final nowMs = DateTime.now().millisecondsSinceEpoch;
+      await prefs.setInt(_lastSentKey(venueId), nowMs);
 
-    final today = _todayDateString();
-    final storedDate = prefs.getString(_dailyDateKey);
-    var dailyCount = prefs.getInt(_dailyCountKey) ?? 0;
-    if (storedDate != today) {
-      dailyCount = 0;
+      final today = _todayDateString();
+      final storedDate = prefs.getString(_dailyDateKey);
+      var dailyCount = prefs.getInt(_dailyCountKey) ?? 0;
+      if (storedDate != today) {
+        dailyCount = 0;
+      }
+      dailyCount += 1;
+      await prefs.setString(_dailyDateKey, today);
+      await prefs.setInt(_dailyCountKey, dailyCount);
+    } catch (e) {
+      debugPrint('[PeepPromptSuppression] recordPromptSent error: $e');
     }
-    dailyCount += 1;
-    await prefs.setString(_dailyDateKey, today);
-    await prefs.setInt(_dailyCountKey, dailyCount);
   }
 
   /// Alias for [recordPromptSent] — call after a walk-in prompt is delivered.

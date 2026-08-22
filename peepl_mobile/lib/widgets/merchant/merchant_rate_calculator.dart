@@ -265,7 +265,7 @@ class _MerchantRateCalculatorState extends State<MerchantRateCalculator> {
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 90)),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _slot = DateTime(
             picked.year,
             picked.month,
@@ -280,7 +280,7 @@ class _MerchantRateCalculatorState extends State<MerchantRateCalculator> {
       context: context,
       initialTime: TimeOfDay(hour: _slot.hour, minute: 0),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() => _slot = DateTime(
             _slot.year,
             _slot.month,

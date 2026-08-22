@@ -68,7 +68,7 @@ class PostPeepShareSheet extends StatelessWidget {
     }
   }
 
-  Future<void> _launchShareSheet() async {
+  Future<void> _launchShareSheet(BuildContext context) async {
     try {
       await GrowthAnalyticsService.logEvent(
         'growth_post_peep_share_initiated',
@@ -88,10 +88,10 @@ class PostPeepShareSheet extends StatelessWidget {
     } catch (e) {
       debugPrint('[PostPeepShareSheet] share failed: $e');
     }
-    onDismissed();
+    if (context.mounted) onDismissed();
   }
 
-  Future<void> _launchSms() async {
+  Future<void> _launchSms(BuildContext context) async {
     try {
       await GrowthAnalyticsService.logEvent(
         'growth_post_peep_share_initiated',
@@ -138,10 +138,10 @@ class PostPeepShareSheet extends StatelessWidget {
         );
       } catch (_) {}
     }
-    onDismissed();
+    if (context.mounted) onDismissed();
   }
 
-  Future<void> _launchSocialCard() async {
+  Future<void> _launchSocialCard(BuildContext context) async {
     try {
       await ShareService.instance.generateSocialCard(
         peepId: peepId,
@@ -154,7 +154,7 @@ class PostPeepShareSheet extends StatelessWidget {
     } catch (e) {
       debugPrint('[PostPeepShareSheet] social card failed: $e');
     }
-    onDismissed();
+    if (context.mounted) onDismissed();
   }
 
   void _dismissWithAnalytics() {
@@ -191,8 +191,8 @@ class PostPeepShareSheet extends StatelessWidget {
               height: 48,
               child: ElevatedButton(
                 onPressed: shareContext == 'bring_the_crew'
-                    ? () => _launchSms()
-                    : () => _launchShareSheet(),
+                    ? () => _launchSms(context)
+                    : () => _launchShareSheet(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1565C0),
                   foregroundColor: Colors.white,
@@ -208,7 +208,7 @@ class PostPeepShareSheet extends StatelessWidget {
             SizedBox(
               height: 48,
               child: OutlinedButton(
-                onPressed: () => _launchShareSheet(),
+                onPressed: () => _launchShareSheet(context),
                 style: OutlinedButton.styleFrom(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -223,7 +223,7 @@ class PostPeepShareSheet extends StatelessWidget {
             SizedBox(
               height: 48,
               child: OutlinedButton.icon(
-                onPressed: () => _launchSocialCard(),
+                onPressed: () => _launchSocialCard(context),
                 icon: const Icon(Icons.auto_stories_outlined),
                 label: const Text('Share to Story'),
                 style: OutlinedButton.styleFrom(

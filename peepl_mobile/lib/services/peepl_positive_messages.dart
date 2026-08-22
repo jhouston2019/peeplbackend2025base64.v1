@@ -163,7 +163,13 @@ class PeeplPositiveMessages {
     String? context,
     bool logAnalytics = true,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
+    SharedPreferences prefs;
+    try {
+      prefs = await SharedPreferences.getInstance();
+    } catch (e) {
+      debugPrint('[PeeplPositiveMessages] SharedPreferences error: $e');
+      return PeeplPositiveMessageResult(id: 1, text: messages.first);
+    }
     final lastId = prefs.getInt(_lastIdKey);
 
     var order = _readOrder(prefs);

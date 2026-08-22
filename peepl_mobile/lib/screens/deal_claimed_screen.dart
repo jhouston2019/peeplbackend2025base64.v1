@@ -138,9 +138,13 @@ class _DealClaimedScreenState extends State<DealClaimedScreen>
   }
 
   Future<void> _shareDeal() async {
-    await Share.share(
-      'I just got a deal at $_businessName on Peepl! 🎉',
-    );
+    try {
+      await Share.share(
+        'I just got a deal at $_businessName on Peepl! 🎉',
+      );
+    } catch (e) {
+      debugPrint('[DealClaimedScreen] _shareDeal error: $e');
+    }
   }
 
   @override

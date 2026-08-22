@@ -195,27 +195,32 @@ class CrowdsourceService {
     final defaultMessage =
         'Someone is curious about $trimmedName, would you mind sharing a peep?';
 
-    await requestRef.set({
-      'requestId': requestId,
-      'requestedBy': requestedBy,
-      'requesterFcmToken': fcmToken,
-      if (postAuthorId != null &&
-          postAuthorId.isNotEmpty &&
-          postAuthorId != requestedBy)
-        'postAuthorId': postAuthorId,
-      'locationName': trimmedName,
-      'latitude': lat,
-      'longitude': lng,
-      'radiusKm': radiusKm,
-      'message': message ?? defaultMessage,
-      'timestamp': FieldValue.serverTimestamp(),
-      'expiresAt': Timestamp.fromDate(expiresAt),
-      'status': 'pending',
-      'targetCount': null,
-      'sentAt': null,
-      'source': source,
-      'fulfilled': false,
-    });
+    try {
+      await requestRef.set({
+        'requestId': requestId,
+        'requestedBy': requestedBy,
+        'requesterFcmToken': fcmToken,
+        if (postAuthorId != null &&
+            postAuthorId.isNotEmpty &&
+            postAuthorId != requestedBy)
+          'postAuthorId': postAuthorId,
+        'locationName': trimmedName,
+        'latitude': lat,
+        'longitude': lng,
+        'radiusKm': radiusKm,
+        'message': message ?? defaultMessage,
+        'timestamp': FieldValue.serverTimestamp(),
+        'expiresAt': Timestamp.fromDate(expiresAt),
+        'status': 'pending',
+        'targetCount': null,
+        'sentAt': null,
+        'source': source,
+        'fulfilled': false,
+      });
+    } catch (e) {
+      debugPrint('[CrowdsourceService] createRequest set error: $e');
+      rethrow;
+    }
 
     await GrowthAnalyticsService.logEvent(
       'growth_peep_requested',
@@ -259,20 +264,24 @@ class CrowdsourceService {
     final deadline = DateTime.now().add(timeout);
     while (DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(const Duration(milliseconds: 500));
-      final snap =
-          await _db.collection('crowdsource_requests').doc(requestId).get();
-      final data = snap.data();
-      if (data == null) continue;
+      try {
+        final snap =
+            await _db.collection('crowdsource_requests').doc(requestId).get();
+        final data = snap.data();
+        if (data == null) continue;
 
-      final status = data['status'] as String? ?? 'pending';
-      if (status != 'pending') {
-        return CrowdsourceDeliveryResult(
-          requestId: requestId,
-          status: status,
-          targetCount: (data['targetCount'] as num?)?.toInt(),
-          sentCount: (data['sentCount'] as num?)?.toInt(),
-          errorCode: data['error'] as String?,
-        );
+        final status = data['status'] as String? ?? 'pending';
+        if (status != 'pending') {
+          return CrowdsourceDeliveryResult(
+            requestId: requestId,
+            status: status,
+            targetCount: (data['targetCount'] as num?)?.toInt(),
+            sentCount: (data['sentCount'] as num?)?.toInt(),
+            errorCode: data['error'] as String?,
+          );
+        }
+      } catch (e) {
+        debugPrint('[CrowdsourceService] createRequestAndAwaitDelivery poll error: $e');
       }
     }
 

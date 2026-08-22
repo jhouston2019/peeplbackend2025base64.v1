@@ -20,13 +20,22 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
   GoogleMapController? _mapController;
   Set<Circle> _circles = {};
   bool _isLoading = true;
+  bool _locationPermissionGranted = false;
   LatLng _mapCenter = _kAtlanta;
   double _mapZoom = 13;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    _initializeSafely();
+  }
+
+  Future<void> _initializeSafely() async {
+    try {
+      await _initialize();
+    } catch (e) {
+      debugPrint('[HeatMapScreen] initState _initialize error: $e');
+    }
   }
 
   Future<void> _initialize() async {
@@ -40,10 +49,13 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
   Future<void> _loadUserLocation() async {
     try {
       final position = await _getCurrentPosition();
-      if (position == null || !mounted) return;
+      if (!mounted) return;
       setState(() {
-        _mapCenter = LatLng(position.latitude, position.longitude);
-        _mapZoom = 14;
+        if (position != null) {
+          _locationPermissionGranted = true;
+          _mapCenter = LatLng(position.latitude, position.longitude);
+          _mapZoom = 14;
+        }
       });
     } catch (e) {
       debugPrint('HeatMapScreen location: $e');
@@ -51,23 +63,28 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
   }
 
   Future<Position?> _getCurrentPosition() async {
-    final enabled = await Geolocator.isLocationServiceEnabled();
-    if (!enabled) return null;
+    try {
+      final enabled = await Geolocator.isLocationServiceEnabled();
+      if (!enabled) return null;
 
-    var permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-    }
-    if (permission == LocationPermission.denied ||
-        permission == LocationPermission.deniedForever) {
+      var permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+      }
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        return null;
+      }
+
+      return Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[HeatMapScreen] _getCurrentPosition error: $e');
       return null;
     }
-
-    return Geolocator.getCurrentPosition(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.medium,
-      ),
-    );
   }
 
   Future<void> _loadLocationPosts() async {
@@ -128,13 +145,17 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
 
   Future<void> _recenterOnUser() async {
     final position = await _getCurrentPosition();
-    if (position == null || _mapController == null) return;
-    await _mapController!.animateCamera(
-      CameraUpdate.newLatLngZoom(
-        LatLng(position.latitude, position.longitude),
-        14,
-      ),
-    );
+    if (!mounted || position == null || _mapController == null) return;
+    try {
+      await _mapController!.animateCamera(
+        CameraUpdate.newLatLngZoom(
+          LatLng(position.latitude, position.longitude),
+          14,
+        ),
+      );
+    } catch (e) {
+      debugPrint('[HeatMapScreen] _recenterOnUser error: $e');
+    }
   }
 
   Widget _buildLegend() {
@@ -221,7 +242,7 @@ class _HeatMapScreenState extends State<HeatMapScreen> {
                   ),
                   onMapCreated: (controller) => _mapController = controller,
                   circles: _circles,
-                  myLocationEnabled: true,
+                  myLocationEnabled: _locationPermissionGranted,
                   myLocationButtonEnabled: false,
                   zoomControlsEnabled: false,
                   mapToolbarEnabled: false,

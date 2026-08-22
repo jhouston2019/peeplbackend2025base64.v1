@@ -197,15 +197,19 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
 
   Future<File> _resolveImageFile() async {
     if (_selectedImage != null) return _selectedImage!;
-    final response = await http.get(Uri.parse(_defaultImageUrl));
-    if (response.statusCode != 200) {
-      throw Exception('Could not load default image');
+    try {
+      final response = await http.get(Uri.parse(_defaultImageUrl));
+      if (response.statusCode != 200) {
+        throw Exception('Could not load default image');
+      }
+      final file = File(
+        '${Directory.systemTemp.path}/peepl_quick_${DateTime.now().millisecondsSinceEpoch}.jpg',
+      );
+      await file.writeAsBytes(response.bodyBytes);
+      return file;
+    } catch (e) {
+      throw Exception('Could not load default image: $e');
     }
-    final file = File(
-      '${Directory.systemTemp.path}/peepl_quick_${DateTime.now().millisecondsSinceEpoch}.jpg',
-    );
-    await file.writeAsBytes(response.bodyBytes);
-    return file;
   }
 
   String _buildDescription() {

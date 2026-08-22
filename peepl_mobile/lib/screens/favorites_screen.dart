@@ -203,7 +203,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
           .collection('favorites')
           .doc(docId)
           .delete();
-      setState(() => _items.removeWhere((item) => item.docId == docId));
+      if (mounted) {
+        setState(() => _items.removeWhere((item) => item.docId == docId));
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,4 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+
 import 'notification_service.dart';
 
 class AuthService {
@@ -9,7 +11,11 @@ class AuthService {
   Stream<User?> get userStream => _auth.authStateChanges();
 
   Future<void> signOut() async {
-    await NotificationService.instance.onUserSignedOut();
-    await _auth.signOut();
+    try {
+      await NotificationService.instance.onUserSignedOut();
+      await _auth.signOut();
+    } catch (e) {
+      debugPrint('[AuthService] signOut error: $e');
+    }
   }
 }

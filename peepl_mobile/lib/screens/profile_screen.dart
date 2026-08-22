@@ -113,30 +113,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<String?> _loadPioneerVenue(String userId) async {
-    final recentSnap = await FirebaseFirestore.instance
-        .collection('location_posts')
-        .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .limit(1)
-        .get();
+    try {
+      final recentSnap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('userId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
 
-    if (recentSnap.docs.isEmpty) return null;
-    final locationName =
-        recentSnap.docs.first.data()['locationName'] as String? ?? '';
-    if (locationName.isEmpty) return null;
+      if (recentSnap.docs.isEmpty) return null;
+      final locationName =
+          recentSnap.docs.first.data()['locationName'] as String? ?? '';
+      if (locationName.isEmpty) return null;
 
-    final firstSnap = await FirebaseFirestore.instance
-        .collection('location_posts')
-        .where('locationName', isEqualTo: locationName)
-        .orderBy('timestamp', descending: false)
-        .limit(1)
-        .get();
+      final firstSnap = await FirebaseFirestore.instance
+          .collection('location_posts')
+          .where('locationName', isEqualTo: locationName)
+          .orderBy('timestamp', descending: false)
+          .limit(1)
+          .get();
 
-    if (firstSnap.docs.isEmpty) return null;
-    if (firstSnap.docs.first.data()['userId'] == userId) {
-      return locationName;
+      if (firstSnap.docs.isEmpty) return null;
+      if (firstSnap.docs.first.data()['userId'] == userId) {
+        return locationName;
+      }
+      return null;
+    } catch (e) {
+      debugPrint('[ProfileScreen] _loadPioneerVenue error: $e');
+      return null;
     }
-    return null;
   }
 
   ({Map<String, dynamic>? recap, String title}) _pickRecap(

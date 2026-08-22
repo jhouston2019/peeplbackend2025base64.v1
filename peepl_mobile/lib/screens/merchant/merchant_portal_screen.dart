@@ -141,6 +141,20 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
     return StreamBuilder<DocumentSnapshot>(
       stream: FirebaseFirestore.instance.collection('merchants').doc(_uid).snapshots(),
       builder: (context, merchantSnap) {
+        if (merchantSnap.hasError) {
+          return Scaffold(
+            backgroundColor: Colors.transparent,
+            body: PeeplHomeBackground(
+              child: Center(
+                child: Text(
+                  'Could not load merchant profile.',
+                  style: TextStyle(color: PeeplMerchantTokens.textMuted),
+                ),
+              ),
+            ),
+          );
+        }
+
         final merchantData = merchantSnap.data?.data() as Map<String, dynamic>?;
         final businessName =
             (merchantData?['businessName'] as String?) ?? 'Your Business';
@@ -159,6 +173,20 @@ class _MerchantPortalScreenState extends State<MerchantPortalScreen> {
                 backgroundColor: Colors.transparent,
                 body: PeeplHomeBackground(
                   child: const MerchantDashboardSkeleton(),
+                ),
+              );
+            }
+
+            if (adsSnap.hasError) {
+              return Scaffold(
+                backgroundColor: Colors.transparent,
+                body: PeeplHomeBackground(
+                  child: Center(
+                    child: Text(
+                      'Could not load campaigns.',
+                      style: TextStyle(color: PeeplMerchantTokens.textMuted),
+                    ),
+                  ),
                 ),
               );
             }

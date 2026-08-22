@@ -35,11 +35,11 @@ class _DealsScreenState extends State<DealsScreen> {
       _loading = true;
     });
 
-    final pos = await LocationService.getCurrentLocation();
-    _userLat = pos?.latitude;
-    _userLng = pos?.longitude;
-
     try {
+      final pos = await LocationService.getCurrentLocation();
+      _userLat = pos?.latitude;
+      _userLng = pos?.longitude;
+
       final snap = await FirebaseFirestore.instance
           .collection('native_ads')
           .where('isActive', isEqualTo: true)
@@ -181,12 +181,16 @@ class _DealsScreenState extends State<DealsScreen> {
         : _advertiserName(ad);
     final venueName = _advertiserName(ad);
 
-    await ShareService.instance.shareDeal(
-      dealId: dealId,
-      dealTitle: dealTitle,
-      venueName: venueName,
-      sharingUserId: uid,
-    );
+    try {
+      await ShareService.instance.shareDeal(
+        dealId: dealId,
+        dealTitle: dealTitle,
+        venueName: venueName,
+        sharingUserId: uid,
+      );
+    } catch (e) {
+      debugPrint('[DealsScreen] _onShareDeal error: $e');
+    }
   }
 
   @override

@@ -114,7 +114,7 @@ class _SeedLocationsScreenState extends State<SeedLocationsScreen> {
       _lngController.clear();
       _radiusController.text = '150';
       _venueTypeController.clear();
-      setState(() => _isActive = true);
+      if (mounted) setState(() => _isActive = true);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -122,7 +122,7 @@ class _SeedLocationsScreenState extends State<SeedLocationsScreen> {
         );
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

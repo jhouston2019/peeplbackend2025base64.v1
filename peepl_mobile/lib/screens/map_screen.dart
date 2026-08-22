@@ -53,11 +53,20 @@ class _MapScreenState extends State<MapScreen> {
 
   final Map<String, BitmapDescriptor> _markerBitmaps = {};
   final TextEditingController _searchController = TextEditingController();
+  bool _locationPermissionGranted = false;
 
   @override
   void initState() {
     super.initState();
-    _initialize();
+    _initializeSafely();
+  }
+
+  Future<void> _initializeSafely() async {
+    try {
+      await _initialize();
+    } catch (e) {
+      debugPrint('[MapScreen] initState _initialize error: $e');
+    }
   }
 
   @override
@@ -68,24 +77,33 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _initialize() async {
-    await _buildMarkerBitmaps();
+    try {
+      await _buildMarkerBitmaps();
 
-    final pos = await LocationService.getCurrentLocation();
-    if (pos != null && mounted) {
-      setState(() {
-        _mapCenter = LatLng(pos.latitude, pos.longitude);
-        _mapZoom = 14;
-      });
-    }
+      try {
+        final pos = await LocationService.getCurrentLocation();
+        if (pos != null && mounted) {
+          setState(() {
+            _locationPermissionGranted = true;
+            _mapCenter = LatLng(pos.latitude, pos.longitude);
+            _mapZoom = 14;
+          });
+        }
+      } catch (e) {
+        debugPrint('[MapScreen] getCurrentLocation error: $e');
+      }
 
-    await _loadPosts();
+      await _loadPosts();
 
-    if (_mapController != null && mounted) {
-      _mapController!.animateCamera(
-        CameraUpdate.newCameraPosition(
-          CameraPosition(target: _mapCenter, zoom: _mapZoom),
-        ),
-      );
+      if (_mapController != null && mounted) {
+        _mapController!.animateCamera(
+          CameraUpdate.newCameraPosition(
+            CameraPosition(target: _mapCenter, zoom: _mapZoom),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('[MapScreen] _initialize error: $e');
     }
   }
 
@@ -263,15 +281,19 @@ class _MapScreenState extends State<MapScreen> {
   Future<void> _goToMyLocation() async {
     LocationService.clearCache();
     final pos = await LocationService.getCurrentLocation();
-    if (pos == null || _mapController == null) return;
-    await _mapController!.animateCamera(
-      CameraUpdate.newCameraPosition(
-        CameraPosition(
-          target: LatLng(pos.latitude, pos.longitude),
-          zoom: 14,
+    if (!mounted || pos == null || _mapController == null) return;
+    try {
+      await _mapController!.animateCamera(
+        CameraUpdate.newCameraPosition(
+          CameraPosition(
+            target: LatLng(pos.latitude, pos.longitude),
+            zoom: 14,
+          ),
         ),
-      ),
-    );
+      );
+    } catch (e) {
+      debugPrint('[MapScreen] _goToMyLocation error: $e');
+    }
   }
 
   void _onSearchChanged(String value) {
@@ -321,7 +343,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
             onMapCreated: (controller) => _mapController = controller,
             markers: _markers,
-            myLocationEnabled: true,
+            myLocationEnabled: _locationPermissionGranted,
             myLocationButtonEnabled: false,
             zoomControlsEnabled: false,
             mapToolbarEnabled: false,

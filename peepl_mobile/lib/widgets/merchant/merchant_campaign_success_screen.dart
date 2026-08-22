@@ -42,7 +42,11 @@ class _MerchantCampaignSuccessScreenState
       vsync: this,
       duration: const Duration(milliseconds: 900),
     )..forward();
-    HapticFeedback.mediumImpact();
+    try {
+      HapticFeedback.mediumImpact();
+    } catch (e) {
+      debugPrint('[MerchantCampaignSuccessScreen] haptic error: $e');
+    }
   }
 
   @override

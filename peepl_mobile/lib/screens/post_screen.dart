@@ -302,15 +302,19 @@ class _PostScreenState extends State<PostScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (_hasNotificationLocation &&
-          _latitude != null &&
-          _longitude != null) {
-        if (mounted) setState(() => _locationReady = true);
-        return;
-      }
-      final acquired = await _acquireLocation();
-      if (mounted) {
-        setState(() => _locationReady = acquired);
+      try {
+        if (_hasNotificationLocation &&
+            _latitude != null &&
+            _longitude != null) {
+          if (mounted) setState(() => _locationReady = true);
+          return;
+        }
+        final acquired = await _acquireLocation();
+        if (mounted) {
+          setState(() => _locationReady = acquired);
+        }
+      } catch (e) {
+        debugPrint('[PostScreen] initState location error: $e');
       }
     });
   }
@@ -380,10 +384,12 @@ class _PostScreenState extends State<PostScreen> {
         desiredAccuracy: LocationAccuracy.high,
         timeLimit: Duration(seconds: 10),
       );
-      setState(() {
-        _latitude = pos.latitude;
-        _longitude = pos.longitude;
-      });
+      if (mounted) {
+        setState(() {
+          _latitude = pos.latitude;
+          _longitude = pos.longitude;
+        });
+      }
       final venueName =
           await VenueNameService.getVenueName(pos.latitude, pos.longitude);
       if (venueName != null && venueName.isNotEmpty) {
@@ -443,16 +449,23 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _initVideoPreview(String path) async {
-    await _disposeVideoOnly();
-    final controller = VideoPlayerController.file(File(path));
-    await controller.initialize();
-    controller.setLooping(true);
-    await controller.play();
-    if (!mounted) {
-      await controller.dispose();
-      return;
+    try {
+      await _disposeVideoOnly();
+      final controller = VideoPlayerController.file(File(path));
+      await controller.initialize();
+      controller.setLooping(true);
+      await controller.play();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() => _videoController = controller);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not play video: $e')),
+      );
     }
-    setState(() => _videoController = controller);
   }
 
   Future<void> _selectImage() async {
@@ -498,16 +511,19 @@ class _PostScreenState extends State<PostScreen> {
       );
       if (pickedFile != null) {
         final selectedFile = File(pickedFile.path);
-        setState(() {
-          _selectedImage = selectedFile;
-          _aiSuggestedScore = null;
-          _aiSuggestedDescription = null;
-          _aiValidationPassed = null;
-          _aiValidationConfidence = null;
-        });
+        if (mounted) {
+          setState(() {
+            _selectedImage = selectedFile;
+            _aiSuggestedScore = null;
+            _aiSuggestedDescription = null;
+            _aiValidationPassed = null;
+            _aiValidationConfidence = null;
+          });
+        }
         _runAiAnalysis(selectedFile);
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not access image: $e')),
       );
@@ -535,10 +551,17 @@ class _PostScreenState extends State<PostScreen> {
   }
 
   Future<void> _pickVideo(ImageSource source) async {
-    final XFile? file = await _imagePicker.pickVideo(source: source);
-    if (file == null || !mounted) return;
-    setState(() => _videoFile = file);
-    await _initVideoPreview(file.path);
+    try {
+      final XFile? file = await _imagePicker.pickVideo(source: source);
+      if (file == null || !mounted) return;
+      setState(() => _videoFile = file);
+      await _initVideoPreview(file.path);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not access video: $e')),
+      );
+    }
   }
 
   void _showVideoPickerSheet() {
@@ -586,6 +609,7 @@ class _PostScreenState extends State<PostScreen> {
     if (_latitude == null || _longitude == null) {
       final acquired = await _acquireLocation();
       if (!acquired) {
+        if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -704,11 +728,12 @@ class _PostScreenState extends State<PostScreen> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Failed to submit post: $e')),
       );
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

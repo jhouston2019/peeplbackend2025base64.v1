@@ -25,11 +25,16 @@ class DeepLinkHandler {
 
     _navigatorKey = navigatorKey;
 
-    _authSub ??= FirebaseAuth.instance.authStateChanges().listen((user) {
-      if (user != null && (pendingPeepId != null || pendingGroupId != null)) {
-        unawaited(processPending());
-      }
-    });
+    _authSub ??= FirebaseAuth.instance.authStateChanges().listen(
+      (user) {
+        if (user != null && (pendingPeepId != null || pendingGroupId != null)) {
+          unawaited(processPending());
+        }
+      },
+      onError: (Object e) {
+        debugPrint('[DeepLink] authStateChanges error: $e');
+      },
+    );
 
     try {
       final initialUri = await _appLinks.getInitialLink();

@@ -88,10 +88,14 @@ class _TrendingScreenState extends State<TrendingScreen> {
 
   Future<void> _initAds() async {
     await _cadence.init(pattern: [3, 3, 3, 3]);
-    final pos = await LocationService.getCurrentLocation();
-    if (pos != null && mounted) {
-      _userLat = pos.latitude;
-      _userLng = pos.longitude;
+    try {
+      final pos = await LocationService.getCurrentLocation();
+      if (pos != null && mounted) {
+        _userLat = pos.latitude;
+        _userLng = pos.longitude;
+      }
+    } catch (e) {
+      debugPrint('[TrendingScreen] _initAds getCurrentLocation error: $e');
     }
     try {
       final ads = await _adsService.getAdsForFeed(
@@ -134,10 +138,14 @@ class _TrendingScreenState extends State<TrendingScreen> {
 
       // Get user location if not yet resolved
       if (_userLat == null) {
-        final pos = await LocationService.getCurrentLocation();
-        if (pos != null && mounted) {
-          _userLat = pos.latitude;
-          _userLng = pos.longitude;
+        try {
+          final pos = await LocationService.getCurrentLocation();
+          if (pos != null && mounted) {
+            _userLat = pos.latitude;
+            _userLng = pos.longitude;
+          }
+        } catch (e) {
+          debugPrint('[TrendingScreen] _loadTrending getCurrentLocation error: $e');
         }
       }
 
