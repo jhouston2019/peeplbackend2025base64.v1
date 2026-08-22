@@ -222,24 +222,32 @@ class VenueNameService {
 
     debugPrint('[VenueNameService] requesting: $url');
 
-    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    try {
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 10));
 
-    await DebugLogService.log('VENUE_NAME', 'places_response', data: {
-      'status_code': response.statusCode,
-      'body': response.body.substring(0, response.body.length.clamp(0, 500)),
-      'latitude': latitude,
-      'longitude': longitude,
-      'radius': radiusMeters,
-    });
+      await DebugLogService.log('VENUE_NAME', 'places_response', data: {
+        'status_code': response.statusCode,
+        'body': response.body.substring(0, response.body.length.clamp(0, 500)),
+        'latitude': latitude,
+        'longitude': longitude,
+        'radius': radiusMeters,
+      });
 
-    if (response.statusCode != 200) return const [];
+      if (response.statusCode != 200) return const [];
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final status = json['status'] as String?;
-    final results = json['results'] as List<dynamic>?;
-    if (status != 'OK' || results == null || results.isEmpty) return const [];
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = json['status'] as String?;
+      final results = json['results'] as List<dynamic>?;
+      if (status != 'OK' || results == null || results.isEmpty) {
+        return const [];
+      }
 
-    return results.cast<Map<String, dynamic>>();
+      return results.cast<Map<String, dynamic>>();
+    } catch (e) {
+      debugPrint('[VenueNameService] _nearbyResults error: $e');
+      return const [];
+    }
   }
 
   static Future<String?> _textSearchVenueName(
@@ -254,31 +262,37 @@ class VenueNameService {
       '&key=$_apiKey',
     );
 
-    final response = await http.get(url).timeout(const Duration(seconds: 10));
-    if (response.statusCode != 200) return null;
+    try {
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return null;
 
-    final json = jsonDecode(response.body) as Map<String, dynamic>;
-    final status = json['status'] as String?;
-    final results = json['results'] as List<dynamic>?;
-    if (status != 'OK' || results == null || results.isEmpty) return null;
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      final status = json['status'] as String?;
+      final results = json['results'] as List<dynamic>?;
+      if (status != 'OK' || results == null || results.isEmpty) return null;
 
-    String? bestName;
-    var bestScore = -9999;
+      String? bestName;
+      var bestScore = -9999;
 
-    for (final raw in results) {
-      final result = raw as Map<String, dynamic>;
-      final name = result['name'] as String?;
-      if (name == null || isWeakVenueName(name)) continue;
-      if (await _isLocalityName(name, latitude, longitude)) continue;
+      for (final raw in results) {
+        final result = raw as Map<String, dynamic>;
+        final name = result['name'] as String?;
+        if (name == null || isWeakVenueName(name)) continue;
+        if (await _isLocalityName(name, latitude, longitude)) continue;
 
-      final score = _scorePlaceResult(result, latitude, longitude);
-      if (score > bestScore) {
-        bestScore = score;
-        bestName = name;
+        final score = _scorePlaceResult(result, latitude, longitude);
+        if (score > bestScore) {
+          bestScore = score;
+          bestName = name;
+        }
       }
-    }
 
-    return bestName;
+      return bestName;
+    } catch (e) {
+      debugPrint('[VenueNameService] _textSearchVenueName error: $e');
+      return null;
+    }
   }
 
   static Future<bool> _isLocalityName(
@@ -291,12 +305,12 @@ class VenueNameService {
       if (placemarks.isEmpty) return false;
 
       final place = placemarks.first;
-      final candidates = <String>{
+      final candidates = [
         place.locality,
         place.subLocality,
         place.administrativeArea,
         place.name,
-      }
+      ]
           .whereType<String>()
           .map((value) => value.trim().toLowerCase())
           .where((value) => value.isNotEmpty);
