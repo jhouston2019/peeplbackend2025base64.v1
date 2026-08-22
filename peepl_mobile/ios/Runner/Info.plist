@@ -62,7 +62,7 @@
 	<key>NSMotionUsageDescription</key>
 	<string>Peepl uses motion data to detect when you arrive at a venue so you can report crowd levels.</string>
 	<key>GMSApiKey</key>
-	<string>AIzaSyAROeS73A4uhjNjZx_mMbqUnW99M0rv31o</string>
+	<string>AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o</string>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>geo</string>

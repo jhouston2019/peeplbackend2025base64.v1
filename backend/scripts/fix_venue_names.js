@@ -7,40 +7,108 @@ admin.initializeApp({
 });
 
 const db = admin.firestore();
-const PLACES_API_KEY = 'AIzaSyD1cbXZCQS_Bcu7kmJOcHlUZm4TxLKucJA';
-const USERS_COLLECTION = 'CAASNAhaDbPrl0zH1yDn5qRqAtJ3';
+const PLACES_API_KEY = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
+
+const NEARBY_RADII = [100, 300, 800, 1500];
+const PREFERRED_TYPES = new Set([
+  'tourist_attraction',
+  'amusement_park',
+  'museum',
+  'stadium',
+  'park',
+  'point_of_interest',
+  'establishment',
+]);
 
 function looksLikeAddress(name) {
   if (!name) return true;
-  // Matches patterns like "434 High St SW" or "US-19 N" or "2042 Johnson Ferry Rd"
-  return /^\d+\s|^US-\d+|^[A-Z]{2}-\d+|\bRd\b|\bSt\b|\bAve\b|\bBlvd\b|\bPkwy\b|\bDr\b|\bLn\b|\bHwy\b/i.test(name);
+  return /^\d+\s|^US-\d+|^[A-Z]{2}-\d+|\bRd\b|\bSt\b|\bAve\b|\bBlvd\b|\bPkwy\b|\bDr\b|\bLn\b|\bHwy\b|\bRoad\b/i.test(
+    name,
+  );
 }
 
-function fetchVenueName(lat, lng) {
+function isWeakVenueName(name) {
+  if (!name) return true;
+  const trimmed = String(name).trim();
+  if (!trimmed) return true;
+  if (
+    trimmed === 'Current location' ||
+    trimmed === 'this location' ||
+    trimmed === 'Unknown Venue'
+  ) {
+    return true;
+  }
+  return looksLikeAddress(trimmed);
+}
+
+function placesGet(url) {
   return new Promise((resolve, reject) => {
-    const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
-      `?location=${lat},${lng}&rankby=distance&type=establishment&key=${PLACES_API_KEY}`;
-    https.get(url, (res) => {
-      let data = '';
-      res.on('data', chunk => data += chunk);
-      res.on('end', () => {
-        try {
-          const parsed = JSON.parse(data);
-          if (parsed.results && parsed.results.length > 0) {
-            resolve(parsed.results[0].name);
-          } else {
-            resolve(null);
+    https
+      .get(url, (res) => {
+        let data = '';
+        res.on('data', (chunk) => (data += chunk));
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data));
+          } catch (e) {
+            reject(e);
           }
-        } catch (e) {
-          reject(e);
-        }
-      });
-    }).on('error', reject);
+        });
+      })
+      .on('error', reject);
   });
 }
 
+function scoreResult(result) {
+  const types = result.types || [];
+  let score = 0;
+  for (const type of types) {
+    if (PREFERRED_TYPES.has(type)) score += 12;
+    if (type === 'locality' || type === 'political' || type === 'route') {
+      score -= 40;
+    }
+  }
+  if ((result.name || '').includes(' ')) score += 6;
+  return score;
+}
+
+function bestNameFromResults(results) {
+  if (!results || results.length === 0) return null;
+
+  let bestName = null;
+  let bestScore = -9999;
+  for (const result of results) {
+    const name = result.name;
+    if (isWeakVenueName(name)) continue;
+    const score = scoreResult(result);
+    if (score > bestScore) {
+      bestScore = score;
+      bestName = name;
+    }
+  }
+  return bestName;
+}
+
+async function fetchVenueName(lat, lng) {
+  for (const radius of NEARBY_RADII) {
+    const nearbyUrl =
+      `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
+      `?location=${lat},${lng}&radius=${radius}&type=establishment&key=${PLACES_API_KEY}`;
+    const nearby = await placesGet(nearbyUrl);
+    const nearbyName = bestNameFromResults(nearby.results);
+    if (nearbyName) return nearbyName;
+  }
+
+  const textUrl =
+    `https://maps.googleapis.com/maps/api/place/textsearch/json` +
+    `?query=${encodeURIComponent('point of interest')}` +
+    `&location=${lat},${lng}&radius=2000&key=${PLACES_API_KEY}`;
+  const text = await placesGet(textUrl);
+  return bestNameFromResults(text.results);
+}
+
 async function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 async function fixVenueNames() {
@@ -57,7 +125,6 @@ async function fixVenueNames() {
     const { locationName, latitude, longitude } = data;
 
     if (!looksLikeAddress(locationName)) {
-      console.log(`SKIP: "${locationName}" looks like a real name`);
       skipped++;
       continue;
     }
@@ -71,13 +138,17 @@ async function fixVenueNames() {
     try {
       const venueName = await fetchVenueName(latitude, longitude);
       if (venueName && venueName !== locationName) {
-        await db.collection('location_posts').doc(doc.id).update({
+        const update = {
           locationName: venueName,
-        });
+          venueName,
+        };
+        if (looksLikeAddress(locationName)) {
+          update.address = locationName;
+        }
+        await db.collection('location_posts').doc(doc.id).update(update);
         console.log(`UPDATED: "${locationName}" → "${venueName}"`);
         updated++;
       } else {
-        console.log(`NO CHANGE: "${locationName}" — no better name found`);
         skipped++;
       }
     } catch (e) {
@@ -85,7 +156,6 @@ async function fixVenueNames() {
       failed++;
     }
 
-    // Throttle to avoid hitting Places API rate limits
     await sleep(200);
   }
 
@@ -93,7 +163,7 @@ async function fixVenueNames() {
   process.exit(0);
 }
 
-fixVenueNames().catch(err => {
+fixVenueNames().catch((err) => {
   console.error('Fatal error:', err);
   process.exit(1);
 });

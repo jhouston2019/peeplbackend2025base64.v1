@@ -55,7 +55,7 @@ class OrganicCrowdCard extends StatelessWidget {
 
   static TextStyle titleStyle({required bool compact}) {
     return TextStyle(
-      color: PeeplHomeTokens.white,
+      color: PeeplHomeTokens.organicVenueName,
       fontSize: compact ? 16.0 : 17.0,
       fontWeight: FontWeight.w700,
       height: 1.1,

@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 
 import 'debug_log_service.dart';
@@ -8,7 +10,19 @@ import 'debug_log_service.dart';
 class VenueNameService {
   VenueNameService._();
 
-  static const String _apiKey = 'AIzaSyD1cbXZCQS_Bcu7kmJOcHlUZm4TxLKucJA';
+  static const String _apiKey = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
+
+  static const _nearbyRadiiMeters = [100, 300, 800, 1500];
+
+  static const _preferredPlaceTypes = {
+    'tourist_attraction',
+    'amusement_park',
+    'museum',
+    'stadium',
+    'park',
+    'point_of_interest',
+    'establishment',
+  };
 
   static final RegExp _coordinatePair = RegExp(
     r'^-?\d+(?:\.\d+)?\s*,\s*-?\d+(?:\.\d+)?$',
@@ -34,6 +48,19 @@ class VenueNameService {
     return false;
   }
 
+  /// True when [value] is not useful as a venue label (address, city name, etc.).
+  static bool isWeakVenueName(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) return true;
+    if (trimmed == 'Current location' ||
+        trimmed == 'this location' ||
+        trimmed == 'Unknown Venue' ||
+        trimmed == 'Unknown Location') {
+      return true;
+    }
+    return looksLikeAddress(trimmed);
+  }
+
   static String? _nonEmpty(String? raw) {
     if (raw == null) return null;
     final trimmed = raw.trim();
@@ -44,7 +71,7 @@ class VenueNameService {
   static String? storedVenueName(Map<String, dynamic> post) {
     for (final key in ['venueName', 'businessName', 'locationName']) {
       final raw = _nonEmpty(post[key]?.toString());
-      if (raw == null || looksLikeAddress(raw)) continue;
+      if (raw == null || isWeakVenueName(raw)) continue;
       return raw.split(',').first.trim();
     }
     return null;
@@ -99,45 +126,202 @@ class VenueNameService {
     return addressFallback(post) ?? 'Unknown Venue';
   }
 
-  /// Returns the nearest establishment name from Google Places Nearby Search,
-  /// or null if no result or on any error.
+  /// Returns the best establishment name near [latitude]/[longitude], trying
+  /// multiple Nearby Search radii and Text Search before giving up.
   static Future<String?> resolveVenueName(
     double latitude,
     double longitude,
   ) async {
     try {
-      final url = Uri.parse(
-        'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
-        '?location=$latitude,$longitude'
-        '&radius=100'
-        '&type=establishment'
-        '&key=$_apiKey',
-      );
+      for (final radius in _nearbyRadiiMeters) {
+        final name = await _bestNearbyName(latitude, longitude, radius);
+        if (name != null) return name;
+      }
 
-      debugPrint('[VenueNameService] requesting: $url');
-
-      final response = await http.get(url).timeout(const Duration(seconds: 10));
-
-      await DebugLogService.log('VENUE_NAME', 'places_response', data: {
-        'status_code': response.statusCode,
-        'body': response.body.substring(0, response.body.length.clamp(0, 500)),
-        'latitude': latitude,
-        'longitude': longitude,
-      });
-
-      if (response.statusCode != 200) return null;
-
-      final json = jsonDecode(response.body) as Map<String, dynamic>;
-      final status = json['status'] as String?;
-      final results = json['results'] as List<dynamic>?;
-
-      if (status != 'OK' || results == null || results.isEmpty) return null;
-
-      return results.first['name'] as String?;
+      return await _textSearchVenueName(latitude, longitude);
     } catch (e) {
-      await DebugLogService.log('VENUE_NAME', 'places_error', data: {'error': e.toString()});
+      await DebugLogService.log('VENUE_NAME', 'places_error', data: {
+        'error': e.toString(),
+      });
       return null;
     }
+  }
+
+  static Future<String?> _bestNearbyName(
+    double latitude,
+    double longitude,
+    int radiusMeters,
+  ) async {
+    final results = await _nearbyResults(
+      latitude,
+      longitude,
+      radiusMeters: radiusMeters,
+    );
+    if (results.isEmpty) return null;
+
+    String? bestName;
+    var bestScore = -9999;
+
+    for (final result in results) {
+      final name = result['name'] as String?;
+      if (name == null || isWeakVenueName(name)) continue;
+      if (await _isLocalityName(name, latitude, longitude)) continue;
+
+      final score = _scorePlaceResult(result, latitude, longitude);
+      if (score > bestScore) {
+        bestScore = score;
+        bestName = name;
+      }
+    }
+
+    return bestName;
+  }
+
+  static int _scorePlaceResult(
+    Map<String, dynamic> result,
+    double latitude,
+    double longitude,
+  ) {
+    final types = (result['types'] as List?)?.cast<String>() ?? const [];
+    var score = 0;
+
+    for (final type in types) {
+      if (_preferredPlaceTypes.contains(type)) score += 12;
+      if (type == 'locality' || type == 'political' || type == 'route') {
+        score -= 40;
+      }
+    }
+
+    final name = (result['name'] as String?)?.trim() ?? '';
+    if (name.contains(' ')) score += 6;
+
+    final geometry = result['geometry'] as Map<String, dynamic>?;
+    final location = geometry?['location'] as Map<String, dynamic>?;
+    final lat = (location?['lat'] as num?)?.toDouble();
+    final lng = (location?['lng'] as num?)?.toDouble();
+    if (lat != null && lng != null) {
+      final distance = _haversineMeters(latitude, longitude, lat, lng);
+      score -= (distance / 25).round();
+    }
+
+    return score;
+  }
+
+  static Future<List<Map<String, dynamic>>> _nearbyResults(
+    double latitude,
+    double longitude, {
+    required int radiusMeters,
+  }) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/nearbysearch/json'
+      '?location=$latitude,$longitude'
+      '&radius=$radiusMeters'
+      '&type=establishment'
+      '&key=$_apiKey',
+    );
+
+    debugPrint('[VenueNameService] requesting: $url');
+
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+    await DebugLogService.log('VENUE_NAME', 'places_response', data: {
+      'status_code': response.statusCode,
+      'body': response.body.substring(0, response.body.length.clamp(0, 500)),
+      'latitude': latitude,
+      'longitude': longitude,
+      'radius': radiusMeters,
+    });
+
+    if (response.statusCode != 200) return const [];
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final status = json['status'] as String?;
+    final results = json['results'] as List<dynamic>?;
+    if (status != 'OK' || results == null || results.isEmpty) return const [];
+
+    return results.cast<Map<String, dynamic>>();
+  }
+
+  static Future<String?> _textSearchVenueName(
+    double latitude,
+    double longitude,
+  ) async {
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/textsearch/json'
+      '?query=${Uri.encodeComponent('point of interest')}'
+      '&location=$latitude,$longitude'
+      '&radius=2000'
+      '&key=$_apiKey',
+    );
+
+    final response = await http.get(url).timeout(const Duration(seconds: 10));
+    if (response.statusCode != 200) return null;
+
+    final json = jsonDecode(response.body) as Map<String, dynamic>;
+    final status = json['status'] as String?;
+    final results = json['results'] as List<dynamic>?;
+    if (status != 'OK' || results == null || results.isEmpty) return null;
+
+    String? bestName;
+    var bestScore = -9999;
+
+    for (final raw in results) {
+      final result = raw as Map<String, dynamic>;
+      final name = result['name'] as String?;
+      if (name == null || isWeakVenueName(name)) continue;
+      if (await _isLocalityName(name, latitude, longitude)) continue;
+
+      final score = _scorePlaceResult(result, latitude, longitude);
+      if (score > bestScore) {
+        bestScore = score;
+        bestName = name;
+      }
+    }
+
+    return bestName;
+  }
+
+  static Future<bool> _isLocalityName(
+    String name,
+    double latitude,
+    double longitude,
+  ) async {
+    try {
+      final placemarks = await placemarkFromCoordinates(latitude, longitude);
+      if (placemarks.isEmpty) return false;
+
+      final place = placemarks.first;
+      final candidates = <String>{
+        place.locality,
+        place.subLocality,
+        place.administrativeArea,
+        place.name,
+      }
+          .whereType<String>()
+          .map((value) => value.trim().toLowerCase())
+          .where((value) => value.isNotEmpty);
+
+      return candidates.contains(name.trim().toLowerCase());
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static double _haversineMeters(
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
+    const earthRadius = 6371000.0;
+    final dLat = (lat2 - lat1) * math.pi / 180;
+    final dLng = (lng2 - lng1) * math.pi / 180;
+    final a = math.sin(dLat / 2) * math.sin(dLat / 2) +
+        math.cos(lat1 * math.pi / 180) *
+            math.cos(lat2 * math.pi / 180) *
+            math.sin(dLng / 2) *
+            math.sin(dLng / 2);
+    return earthRadius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
   /// Returns lat/lng for a street address or place name via Google Geocoding API.
