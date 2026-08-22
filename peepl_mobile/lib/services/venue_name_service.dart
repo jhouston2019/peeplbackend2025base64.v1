@@ -12,7 +12,11 @@ class VenueNameService {
 
   static const String _apiKey = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-  static const _nearbyRadiiMeters = [100, 300, 800, 1500];
+  static const _nearbyRadiiMeters = [100, 200, 300];
+
+  /// Venues farther than this from the GPS pin are ignored — prevents picking
+  /// unrelated businesses or distant attractions (e.g. a farm 2 km away).
+  static const _maxVenueDistanceMeters = 200.0;
 
   static const _preferredPlaceTypes = {
     'tourist_attraction',
@@ -167,6 +171,9 @@ class VenueNameService {
       if (name == null || isWeakVenueName(name)) continue;
       if (await _isLocalityName(name, latitude, longitude)) continue;
 
+      final distance = _resultDistanceMeters(result, latitude, longitude);
+      if (distance != null && distance > _maxVenueDistanceMeters) continue;
+
       final score = _scorePlaceResult(result, latitude, longitude);
       if (score > bestScore) {
         bestScore = score;
@@ -201,10 +208,23 @@ class VenueNameService {
     final lng = (location?['lng'] as num?)?.toDouble();
     if (lat != null && lng != null) {
       final distance = _haversineMeters(latitude, longitude, lat, lng);
-      score -= (distance / 25).round();
+      score -= (distance / 10).round();
     }
 
     return score;
+  }
+
+  static double? _resultDistanceMeters(
+    Map<String, dynamic> result,
+    double latitude,
+    double longitude,
+  ) {
+    final geometry = result['geometry'] as Map<String, dynamic>?;
+    final location = geometry?['location'] as Map<String, dynamic>?;
+    final lat = (location?['lat'] as num?)?.toDouble();
+    final lng = (location?['lng'] as num?)?.toDouble();
+    if (lat == null || lng == null) return null;
+    return _haversineMeters(latitude, longitude, lat, lng);
   }
 
   static Future<List<Map<String, dynamic>>> _nearbyResults(
@@ -258,7 +278,7 @@ class VenueNameService {
       'https://maps.googleapis.com/maps/api/place/textsearch/json'
       '?query=${Uri.encodeComponent('point of interest')}'
       '&location=$latitude,$longitude'
-      '&radius=2000'
+      '&radius=${_maxVenueDistanceMeters.round()}'
       '&key=$_apiKey',
     );
 
@@ -280,6 +300,9 @@ class VenueNameService {
         final name = result['name'] as String?;
         if (name == null || isWeakVenueName(name)) continue;
         if (await _isLocalityName(name, latitude, longitude)) continue;
+
+        final distance = _resultDistanceMeters(result, latitude, longitude);
+        if (distance != null && distance > _maxVenueDistanceMeters) continue;
 
         final score = _scorePlaceResult(result, latitude, longitude);
         if (score > bestScore) {

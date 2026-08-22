@@ -39,20 +39,6 @@ class OrganicCrowdCard extends StatelessWidget {
 
   static const _navyOverlay = Color(0xFF050F19);
 
-  /// Dark halo so venue names stay readable over busy photos.
-  static const titleShadows = [
-    Shadow(
-      offset: Offset.zero,
-      blurRadius: 8,
-      color: Color(0xCC000000),
-    ),
-    Shadow(
-      offset: Offset(0, 1),
-      blurRadius: 3,
-      color: Color(0xE6000000),
-    ),
-  ];
-
   static TextStyle titleStyle({required bool compact}) {
     return TextStyle(
       color: PeeplHomeTokens.organicVenueName,
@@ -60,7 +46,6 @@ class OrganicCrowdCard extends StatelessWidget {
       fontWeight: FontWeight.w700,
       height: 1.1,
       letterSpacing: -0.2,
-      shadows: titleShadows,
     );
   }
 
@@ -143,7 +128,10 @@ class OrganicCrowdCard extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  titleWidget,
+                                  _OrganicTitleBackdrop(
+                                    compact: compact,
+                                    child: titleWidget,
+                                  ),
                                   if (subtitleLabel != null &&
                                       subtitleLabel!.isNotEmpty) ...[
                                     SizedBox(height: compact ? 2 : 3),
@@ -202,6 +190,46 @@ class OrganicCrowdCard extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Frosted dark strip behind venue names — blurs the photo underneath
+/// instead of smearing shadow onto the letterforms.
+class _OrganicTitleBackdrop extends StatelessWidget {
+  const _OrganicTitleBackdrop({
+    required this.compact,
+    required this.child,
+  });
+
+  final bool compact;
+  final Widget child;
+
+  static const _tint = Color(0x73000000);
+
+  @override
+  Widget build(BuildContext context) {
+    final radius = compact ? 4.0 : 5.0;
+    final blurSigma = compact ? 7.0 : 9.0;
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: _tint,
+            borderRadius: BorderRadius.circular(radius),
+          ),
+          child: Padding(
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 6 : 8,
+              vertical: compact ? 2 : 3,
+            ),
+            child: child,
           ),
         ),
       ),

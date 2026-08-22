@@ -9,7 +9,8 @@ admin.initializeApp({
 const db = admin.firestore();
 const PLACES_API_KEY = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-const NEARBY_RADII = [100, 300, 800, 1500];
+const NEARBY_RADII = [100, 200, 300];
+const MAX_VENUE_DISTANCE_METERS = 200;
 const PREFERRED_TYPES = new Set([
   'tourist_attraction',
   'amusement_park',
@@ -59,7 +60,25 @@ function placesGet(url) {
   });
 }
 
-function scoreResult(result) {
+function haversineMeters(lat1, lng1, lat2, lng2) {
+  const earthRadius = 6371000;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLng = ((lng2 - lng1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLng / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function resultDistanceMeters(result, lat, lng) {
+  const loc = result.geometry && result.geometry.location;
+  if (!loc) return null;
+  return haversineMeters(lat, lng, loc.lat, loc.lng);
+}
+
+function scoreResult(result, lat, lng) {
   const types = result.types || [];
   let score = 0;
   for (const type of types) {
@@ -69,10 +88,12 @@ function scoreResult(result) {
     }
   }
   if ((result.name || '').includes(' ')) score += 6;
+  const distance = resultDistanceMeters(result, lat, lng);
+  if (distance != null) score -= Math.round(distance / 10);
   return score;
 }
 
-function bestNameFromResults(results) {
+function bestNameFromResults(results, lat, lng) {
   if (!results || results.length === 0) return null;
 
   let bestName = null;
@@ -80,7 +101,9 @@ function bestNameFromResults(results) {
   for (const result of results) {
     const name = result.name;
     if (isWeakVenueName(name)) continue;
-    const score = scoreResult(result);
+    const distance = resultDistanceMeters(result, lat, lng);
+    if (distance != null && distance > MAX_VENUE_DISTANCE_METERS) continue;
+    const score = scoreResult(result, lat, lng);
     if (score > bestScore) {
       bestScore = score;
       bestName = name;
@@ -95,16 +118,16 @@ async function fetchVenueName(lat, lng) {
       `https://maps.googleapis.com/maps/api/place/nearbysearch/json` +
       `?location=${lat},${lng}&radius=${radius}&type=establishment&key=${PLACES_API_KEY}`;
     const nearby = await placesGet(nearbyUrl);
-    const nearbyName = bestNameFromResults(nearby.results);
+    const nearbyName = bestNameFromResults(nearby.results, lat, lng);
     if (nearbyName) return nearbyName;
   }
 
   const textUrl =
     `https://maps.googleapis.com/maps/api/place/textsearch/json` +
     `?query=${encodeURIComponent('point of interest')}` +
-    `&location=${lat},${lng}&radius=2000&key=${PLACES_API_KEY}`;
+    `&location=${lat},${lng}&radius=${MAX_VENUE_DISTANCE_METERS}&key=${PLACES_API_KEY}`;
   const text = await placesGet(textUrl);
-  return bestNameFromResults(text.results);
+  return bestNameFromResults(text.results, lat, lng);
 }
 
 async function sleep(ms) {
