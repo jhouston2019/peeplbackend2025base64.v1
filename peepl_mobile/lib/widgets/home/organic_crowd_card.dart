@@ -35,8 +35,6 @@ class OrganicCrowdCard extends StatelessWidget {
   final void Function(Rect shareOrigin)? onShare;
   final VoidCallback? onLongPress;
 
-  static const _navyOverlay = Color(0xFF050F19);
-
   static TextStyle titleStyle({required bool compact}) {
     return TextStyle(
       color: PeeplHomeTokens.organicVenueName,
@@ -107,21 +105,18 @@ class OrganicCrowdCard extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       FeedCardImage(source: imageUrl),
-                      Positioned.fill(
+                      const Positioned.fill(
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
                               begin: Alignment.centerLeft,
                               end: Alignment.centerRight,
                               colors: [
-                                _navyOverlay.withValues(alpha: 0.14),
-                                _navyOverlay.withValues(alpha: 0.0),
-                                _navyOverlay.withValues(alpha: 0.0),
-                                _navyOverlay.withValues(alpha: 0.20),
-                                _navyOverlay.withValues(alpha: 0.56),
-                                _navyOverlay.withValues(alpha: 0.70),
+                                PeeplHomeTokens.crowdOverlayLeft,
+                                PeeplHomeTokens.crowdOverlayMid,
+                                PeeplHomeTokens.crowdOverlayRight,
                               ],
-                              stops: const [0.0, 0.24, 0.52, 0.72, 0.88, 1.0],
+                              stops: [0.0, 0.45, 1.0],
                             ),
                           ),
                         ),
