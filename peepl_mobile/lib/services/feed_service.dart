@@ -138,21 +138,26 @@ class FeedService {
 
       var displayName = locationName.trim();
       String? streetAddress;
-      if (VenueNameService.looksLikeAddress(displayName)) {
-        streetAddress = displayName;
+
+      final hasCoords = !(latitude == 0 && longitude == 0) &&
+          !latitude.isNaN &&
+          !longitude.isNaN;
+
+      if (!hasCoords) {
+        throw StateError('Cannot post without a GPS location');
       }
 
-      // Resolve from GPS once at post time when the label is not usable.
       if (VenueNameService.isWeakVenueName(displayName)) {
-        final resolved = await VenueNameService.resolveVenueName(
-          latitude,
-          longitude,
-        );
+        displayName =
+            await VenueNameService.resolveLabelAtPin(latitude, longitude);
+        if (VenueNameService.looksLikeAddress(displayName)) {
+          streetAddress = displayName;
+        }
+      } else if (VenueNameService.looksLikeAddress(displayName)) {
+        streetAddress = displayName;
+        final resolved =
+            await VenueNameService.resolveVenueName(latitude, longitude);
         if (resolved != null && resolved.isNotEmpty) {
-          if (streetAddress == null &&
-              VenueNameService.looksLikeAddress(locationName)) {
-            streetAddress = locationName.trim();
-          }
           displayName = resolved;
         }
       }

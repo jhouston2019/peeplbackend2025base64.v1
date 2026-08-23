@@ -155,12 +155,12 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         _locationPermissionDenied = false;
       });
 
-      final name = await VenueNameService.resolveVenueName(
+      final name = await VenueNameService.resolveLabelAtPin(
         pos.latitude,
         pos.longitude,
       );
       if (!mounted) return;
-      if (name != null && name.isNotEmpty) {
+      if (name.isNotEmpty) {
         _locationController.text = name;
       }
     } catch (e, st) {
@@ -246,37 +246,45 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   String? _waitTime() => _criteria[3].value;
 
   Future<void> _submitPost() async {
-    if (_locationController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Waiting for location…')),
-      );
-      return;
-    }
-
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     setState(() => _isLoading = true);
 
     try {
-      final locationName = _locationController.text.trim();
-      final imageFile = await _resolveImageFile();
-
       if (!_fromVenueEntry) {
         final position =
             await LocationService.getCurrentLocation(forceRefresh: true);
         if (position != null) {
           _latitude = position.latitude;
           _longitude = position.longitude;
+          _locationController.text = await VenueNameService.resolveLabelAtPin(
+            _latitude!,
+            _longitude!,
+          );
         }
       }
+
+      if (_latitude == null ||
+          _longitude == null ||
+          (_latitude == 0 && _longitude == 0)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Waiting for location…')),
+          );
+        }
+        return;
+      }
+
+      final locationName = _locationController.text.trim();
+      final imageFile = await _resolveImageFile();
 
       final postId = await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: locationName,
-        latitude: _latitude ?? 40.7829,
-        longitude: _longitude ?? -73.9654,
+        locationName: locationName.isNotEmpty ? locationName : 'Current location',
+        latitude: _latitude!,
+        longitude: _longitude!,
         crowdingLevel: _crowdingLevel,
         imageFile: imageFile,
         description: _buildDescription(),

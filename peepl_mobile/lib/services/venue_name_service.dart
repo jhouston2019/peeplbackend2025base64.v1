@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:http/http.dart' as http;
 
 import 'debug_log_service.dart';
+import 'location_label_service.dart';
 
 class VenueNameService {
   VenueNameService._();
@@ -203,6 +204,15 @@ class VenueNameService {
 
   static Future<String> displayNameForPostAsync(Map<String, dynamic> post) async =>
       labelForPost(post);
+
+  static Future<String> resolveLabelAtPin(
+    double latitude,
+    double longitude,
+  ) async {
+    final venue = await resolveVenueName(latitude, longitude);
+    if (venue != null && venue.isNotEmpty) return venue;
+    return LocationLabelService.resolve(latitude, longitude);
+  }
 
   static Future<String?> resolveVenueName(
     double latitude,
