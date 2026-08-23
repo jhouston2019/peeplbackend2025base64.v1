@@ -22,17 +22,6 @@ class ResolvedVenueName extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stored = VenueNameService.storedVenueName(post);
-    if (stored != null) {
-      return Text(
-        stored,
-        style: style,
-        maxLines: maxLines,
-        overflow: TextOverflow.ellipsis,
-        textAlign: textAlign,
-      );
-    }
-
     return FutureBuilder<String>(
       future: VenueNameService.displayNameForPost(post),
       builder: (context, snapshot) {

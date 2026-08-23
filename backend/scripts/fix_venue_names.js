@@ -9,7 +9,9 @@ admin.initializeApp({
 const db = admin.firestore();
 const PLACES_API_KEY = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-const MAX_VENUE_DISTANCE_METERS = 200;
+const MAX_VENUE_DISTANCE_METERS = 35;
+const STORED_NAME_CONFIRM_METERS = 60;
+
 const RANK_BY_DISTANCE_TYPES = [
   'restaurant',
   'bar',
@@ -18,13 +20,34 @@ const RANK_BY_DISTANCE_TYPES = [
   'bakery',
   'meal_takeaway',
   'tourist_attraction',
-  'store',
+  'museum',
+  'stadium',
+  'amusement_park',
+  'park',
 ];
+
+const FOOD_DRINK_TYPES = new Set([
+  'restaurant',
+  'bar',
+  'night_club',
+  'cafe',
+  'bakery',
+  'meal_takeaway',
+  'food',
+  'tourist_attraction',
+  'museum',
+  'stadium',
+  'amusement_park',
+  'park',
+]);
 
 const EXCLUDED_TYPES = new Set([
   'locality',
   'political',
   'route',
+  'premise',
+  'subpremise',
+  'street_address',
   'real_estate_agency',
   'finance',
   'insurance_agency',
@@ -40,10 +63,17 @@ const EXCLUDED_TYPES = new Set([
   'car_dealer',
   'car_repair',
   'gas_station',
+  'store',
+  'clothing_store',
+  'shoe_store',
+  'home_goods_store',
+  'transit_station',
+  'beauty_salon',
+  'hair_care',
 ]);
 
 const DEPRIORITIZED_NAME =
-  /\b(properties|property management|financial advisor|insurance|personnel|capital management|edward jones|realty|real estate|law firm|attorney|accounting|consulting group)\b/i;
+  /\b(properties|property management|financial advisor|insurance|personnel|capital management|edward jones|realty|real estate|law firm|attorney|accounting|consulting group|models of atlanta|click models)\b/i;
 
 function looksLikeAddress(name) {
   if (!name) return true;
@@ -59,13 +89,36 @@ function isWeakVenueName(name) {
   if (
     trimmed === 'Current location' ||
     trimmed === 'this location' ||
-    trimmed === 'Unknown Venue'
+    trimmed === 'Unknown Venue' ||
+    trimmed === 'Unknown Location' ||
+    trimmed === 'Home' ||
+    trimmed === 'Park' ||
+    trimmed === 'the house'
   ) {
     return true;
   }
   if (looksLikeAddress(trimmed)) return true;
   if (DEPRIORITIZED_NAME.test(trimmed)) return true;
   return false;
+}
+
+function normalizeName(value) {
+  return String(value).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+function namesMatch(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  return a.includes(b) || b.includes(a);
+}
+
+function storedVenueName(data) {
+  for (const key of ['venueName', 'businessName', 'locationName']) {
+    const raw = data[key];
+    if (!raw || isWeakVenueName(raw)) continue;
+    return String(raw).split(',')[0].trim();
+  }
+  return null;
 }
 
 function placesGet(url) {
@@ -109,17 +162,55 @@ function isEligibleVenue(result) {
   if (isWeakVenueName(name)) return false;
   const types = result.types || [];
   if (types.some((t) => EXCLUDED_TYPES.has(t))) return false;
-  return types.some(
-    (t) =>
-      RANK_BY_DISTANCE_TYPES.includes(t) ||
-      t === 'food' ||
-      t === 'point_of_interest',
-  );
+  if (!types.some((t) => FOOD_DRINK_TYPES.has(t))) return false;
+  return true;
 }
 
-async function fetchVenueName(lat, lng) {
-  let closestName = null;
-  let closestDistance = null;
+function scoreCandidate(result, distanceMeters) {
+  let score = distanceMeters;
+  const types = result.types || [];
+  if (types.includes('restaurant')) score -= 4;
+  if (types.includes('bar')) score -= 3;
+  if (types.includes('night_club')) score -= 2;
+  if (types.includes('cafe')) score -= 2;
+  if (types.includes('bakery')) score -= 1;
+  if (types.includes('tourist_attraction')) score -= 1;
+  if (types.includes('park')) score -= 1;
+  if (types.length === 1 && types[0] === 'point_of_interest') score += 8;
+  return score;
+}
+
+async function storedNameMatchesLocation(storedName, lat, lng) {
+  const url =
+    `https://maps.googleapis.com/maps/api/place/findplacefromtext/json` +
+    `?input=${encodeURIComponent(storedName)}` +
+    `&inputtype=textquery` +
+    `&fields=name,geometry` +
+    `&locationbias=circle:${STORED_NAME_CONFIRM_METERS}@${lat},${lng}` +
+    `&key=${PLACES_API_KEY}`;
+  const response = await placesGet(url);
+  if (response.status !== 'OK') return false;
+
+  const normalizedStored = normalizeName(storedName);
+  for (const candidate of response.candidates || []) {
+    if (!candidate.name) continue;
+    if (!namesMatch(normalizedStored, normalizeName(candidate.name))) continue;
+    const distance = resultDistanceMeters(candidate, lat, lng);
+    if (distance != null && distance <= STORED_NAME_CONFIRM_METERS) {
+      return true;
+    }
+  }
+  return false;
+}
+
+async function fetchVenueName(lat, lng, storedHint) {
+  if (storedHint && (await storedNameMatchesLocation(storedHint, lat, lng))) {
+    return storedHint;
+  }
+
+  const seenPlaceIds = new Set();
+  let bestName = null;
+  let bestScore = null;
 
   for (const type of RANK_BY_DISTANCE_TYPES) {
     const url =
@@ -128,18 +219,23 @@ async function fetchVenueName(lat, lng) {
     const response = await placesGet(url);
     const results = response.results || [];
 
-    for (const result of results.slice(0, 8)) {
+    for (const result of results.slice(0, 5)) {
+      if (result.place_id) {
+        if (seenPlaceIds.has(result.place_id)) continue;
+        seenPlaceIds.add(result.place_id);
+      }
       if (!isEligibleVenue(result)) continue;
       const distance = resultDistanceMeters(result, lat, lng);
       if (distance == null || distance > MAX_VENUE_DISTANCE_METERS) continue;
-      if (closestDistance == null || distance < closestDistance) {
-        closestDistance = distance;
-        closestName = result.name;
+      const score = scoreCandidate(result, distance);
+      if (bestScore == null || score < bestScore) {
+        bestScore = score;
+        bestName = result.name;
       }
     }
   }
 
-  return closestName;
+  return bestName;
 }
 
 async function sleep(ms) {
@@ -165,13 +261,22 @@ async function fixVenueNames() {
     }
 
     try {
-      const venueName = await fetchVenueName(latitude, longitude);
-      if (venueName && venueName !== locationName) {
+      const storedHint = storedVenueName(data);
+      const venueName = await fetchVenueName(latitude, longitude, storedHint);
+      if (!venueName) {
+        skipped++;
+        continue;
+      }
+
+      if (venueName !== locationName) {
         const update = {
           locationName: venueName,
           venueName,
         };
-        if (looksLikeAddress(locationName) || DEPRIORITIZED_NAME.test(locationName || '')) {
+        if (
+          looksLikeAddress(locationName) ||
+          DEPRIORITIZED_NAME.test(locationName || '')
+        ) {
           update.address = locationName;
         }
         await doc.ref.update(update);
@@ -185,7 +290,7 @@ async function fixVenueNames() {
       failed++;
     }
 
-    await sleep(250);
+    await sleep(300);
   }
 
   console.log(`\nDone. Updated: ${updated}, Skipped: ${skipped}, Failed: ${failed}`);

@@ -140,13 +140,15 @@ class FeedService {
       String? streetAddress;
       if (VenueNameService.looksLikeAddress(displayName)) {
         streetAddress = displayName;
-        final resolved = await VenueNameService.resolveVenueName(
-          latitude,
-          longitude,
-        );
-        if (resolved != null && resolved.isNotEmpty) {
-          displayName = resolved;
-        }
+      }
+
+      final resolved = await VenueNameService.displayNameForPost({
+        'locationName': displayName,
+        'latitude': latitude,
+        'longitude': longitude,
+      });
+      if (resolved.isNotEmpty) {
+        displayName = resolved;
       }
 
       final doc = <String, dynamic>{

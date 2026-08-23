@@ -12,10 +12,12 @@ class VenueNameService {
 
   static const String _apiKey = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-  /// Only attach a Google Places name when the listing is essentially at the pin.
-  static const _maxVenueDistanceMeters = 45.0;
+  /// Attach a Google Places name only when the listing is at the GPS pin.
+  static const _maxVenueDistanceMeters = 35.0;
 
-  /// Queried in order — first eligible hit within [_maxVenueDistanceMeters] wins.
+  /// Stored business labels are kept when Places confirms them near the pin.
+  static const _storedNameConfirmMeters = 60.0;
+
   static const _rankByDistanceTypes = [
     'restaurant',
     'bar',
@@ -24,12 +26,34 @@ class VenueNameService {
     'bakery',
     'meal_takeaway',
     'tourist_attraction',
+    'museum',
+    'stadium',
+    'amusement_park',
+    'park',
   ];
+
+  static const _foodDrinkTypes = {
+    'restaurant',
+    'bar',
+    'night_club',
+    'cafe',
+    'bakery',
+    'meal_takeaway',
+    'food',
+    'tourist_attraction',
+    'museum',
+    'stadium',
+    'amusement_park',
+    'park',
+  };
 
   static const _excludedPlaceTypes = {
     'locality',
     'political',
     'route',
+    'premise',
+    'subpremise',
+    'street_address',
     'real_estate_agency',
     'finance',
     'insurance_agency',
@@ -49,12 +73,15 @@ class VenueNameService {
     'clothing_store',
     'shoe_store',
     'home_goods_store',
+    'transit_station',
+    'beauty_salon',
+    'hair_care',
   };
 
   static final _deprioritizedNamePattern = RegExp(
     r'\b(properties|property management|financial advisor|insurance|personnel|'
     r'capital management|edward jones|realty|real estate|law firm|attorney|'
-    r'accounting|consulting group)\b',
+    r'accounting|consulting group|models of atlanta|click models)\b',
     caseSensitive: false,
   );
 
@@ -87,7 +114,10 @@ class VenueNameService {
     if (trimmed == 'Current location' ||
         trimmed == 'this location' ||
         trimmed == 'Unknown Venue' ||
-        trimmed == 'Unknown Location') {
+        trimmed == 'Unknown Location' ||
+        trimmed == 'Home' ||
+        trimmed == 'Park' ||
+        trimmed == 'the house') {
       return true;
     }
     if (looksLikeAddress(trimmed)) return true;
@@ -142,23 +172,27 @@ class VenueNameService {
     return future;
   }
 
-  /// Prefer the name saved on the post. Only hit Places when the stored value
-  /// is missing or looks like an address / weak label.
+  /// Resolve from GPS every time. Stored labels are hints, not the source of truth.
   static Future<String> displayNameForPost(Map<String, dynamic> post) async {
-    final stored = storedVenueName(post);
-    if (stored != null) return stored;
-
     final lat = (post['latitude'] as num?)?.toDouble();
     final lng = (post['longitude'] as num?)?.toDouble();
+    final stored = storedVenueName(post);
+
     if (lat != null &&
         lng != null &&
         !(lat == 0 && lng == 0) &&
         !lat.isNaN &&
         !lng.isNaN) {
+      if (stored != null &&
+          await _storedNameMatchesLocation(stored, lat, lng)) {
+        return stored;
+      }
+
       final resolved = await _resolveCached(lat, lng);
       if (resolved != null && resolved.isNotEmpty) return resolved;
     }
 
+    if (stored != null) return stored;
     return addressFallback(post) ?? 'Unknown Venue';
   }
 
@@ -167,7 +201,7 @@ class VenueNameService {
     double longitude,
   ) async {
     try {
-      final ranked = await _closestRankedVenue(latitude, longitude);
+      final ranked = await _bestNearbyVenue(latitude, longitude);
       if (ranked != null) return ranked;
 
       return await _resolveFromReverseGeocode(latitude, longitude);
@@ -179,11 +213,71 @@ class VenueNameService {
     }
   }
 
-  /// First Google rank-by-distance result per type that is actually at the pin.
-  static Future<String?> _closestRankedVenue(
+  static Future<bool> _storedNameMatchesLocation(
+    String storedName,
     double latitude,
     double longitude,
   ) async {
+    final query = storedName.trim();
+    if (query.isEmpty) return false;
+
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
+      '?input=${Uri.encodeComponent(query)}'
+      '&inputtype=textquery'
+      '&fields=name,geometry'
+      '&locationbias=circle:${_storedNameConfirmMeters.toInt()}@$latitude,$longitude'
+      '&key=$_apiKey',
+    );
+
+    try {
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return false;
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (json['status'] != 'OK') return false;
+
+      final candidates = json['candidates'] as List<dynamic>? ?? const [];
+      final normalizedStored = _normalizeName(query);
+
+      for (final raw in candidates) {
+        final candidate = raw as Map<String, dynamic>;
+        final name = candidate['name'] as String?;
+        if (name == null) continue;
+        if (!_namesMatch(normalizedStored, _normalizeName(name))) continue;
+
+        final distance = _resultDistanceMeters(candidate, latitude, longitude);
+        if (distance != null && distance <= _storedNameConfirmMeters) {
+          return true;
+        }
+      }
+    } catch (_) {
+      return false;
+    }
+
+    return false;
+  }
+
+  static String _normalizeName(String value) =>
+      value.toLowerCase().replaceAll(RegExp(r"[^a-z0-9]"), '');
+
+  static bool _namesMatch(String a, String b) {
+    if (a.isEmpty || b.isEmpty) return false;
+    if (a == b) return true;
+    if (a.contains(b) || b.contains(a)) return true;
+    return false;
+  }
+
+  /// Collect nearby candidates across venue types and pick the best-scored hit.
+  static Future<String?> _bestNearbyVenue(
+    double latitude,
+    double longitude,
+  ) async {
+    final seenPlaceIds = <String>{};
+    String? bestName;
+    double? bestScore;
+
     for (final type in _rankByDistanceTypes) {
       final results = await _nearbyRankByDistance(
         latitude,
@@ -192,7 +286,13 @@ class VenueNameService {
       );
       if (results.isEmpty) continue;
 
-      for (final result in results.take(3)) {
+      for (final result in results.take(5)) {
+        final placeId = result['place_id'] as String?;
+        if (placeId != null) {
+          if (seenPlaceIds.contains(placeId)) continue;
+          seenPlaceIds.add(placeId);
+        }
+
         if (!_isEligibleVenue(result)) continue;
 
         final name = result['name'] as String?;
@@ -202,11 +302,37 @@ class VenueNameService {
         final distance = _resultDistanceMeters(result, latitude, longitude);
         if (distance == null || distance > _maxVenueDistanceMeters) continue;
 
-        return name;
+        final score = _scoreCandidate(result, distance);
+        if (bestScore == null || score < bestScore) {
+          bestScore = score;
+          bestName = name;
+        }
       }
     }
 
-    return null;
+    return bestName;
+  }
+
+  static double _scoreCandidate(
+    Map<String, dynamic> result,
+    double distanceMeters,
+  ) {
+    var score = distanceMeters;
+    final types = (result['types'] as List?)?.cast<String>() ?? const [];
+
+    if (types.contains('restaurant')) score -= 4;
+    if (types.contains('bar')) score -= 3;
+    if (types.contains('night_club')) score -= 2;
+    if (types.contains('cafe')) score -= 2;
+    if (types.contains('bakery')) score -= 1;
+    if (types.contains('tourist_attraction')) score -= 1;
+    if (types.contains('park')) score -= 1;
+
+    if (types.length == 1 && types.first == 'point_of_interest') {
+      score += 8;
+    }
+
+    return score;
   }
 
   static bool _isEligibleVenue(Map<String, dynamic> result) {
@@ -214,14 +340,11 @@ class VenueNameService {
     if (name == null || isWeakVenueName(name)) return false;
 
     final types = (result['types'] as List?)?.cast<String>() ?? const [];
+    if (types.isEmpty) return false;
     if (types.any(_excludedPlaceTypes.contains)) return false;
+    if (!types.any(_foodDrinkTypes.contains)) return false;
 
-    return types.any(
-      (type) =>
-          _rankByDistanceTypes.contains(type) ||
-          type == 'food' ||
-          type == 'point_of_interest',
-    );
+    return true;
   }
 
   static Future<String?> _resolveFromReverseGeocode(
