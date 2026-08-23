@@ -12,10 +12,10 @@ class VenueNameService {
 
   static const String _apiKey = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
-  /// Venues farther than this from the GPS pin are ignored.
-  static const _maxVenueDistanceMeters = 200.0;
+  /// Only attach a Google Places name when the listing is essentially at the pin.
+  static const _maxVenueDistanceMeters = 45.0;
 
-  /// Visit-oriented place types queried with rankby=distance (closest first).
+  /// Queried in order — first eligible hit within [_maxVenueDistanceMeters] wins.
   static const _rankByDistanceTypes = [
     'restaurant',
     'bar',
@@ -24,7 +24,6 @@ class VenueNameService {
     'bakery',
     'meal_takeaway',
     'tourist_attraction',
-    'store',
   ];
 
   static const _excludedPlaceTypes = {
@@ -46,6 +45,10 @@ class VenueNameService {
     'car_dealer',
     'car_repair',
     'gas_station',
+    'store',
+    'clothing_store',
+    'shoe_store',
+    'home_goods_store',
   };
 
   static final _deprioritizedNamePattern = RegExp(
@@ -69,7 +72,6 @@ class VenueNameService {
   static final Map<String, String> _resolvedCache = {};
   static final Map<String, Future<String?>> _inFlight = {};
 
-  /// True when [value] looks like a street address or lat,lng coordinate pair.
   static bool looksLikeAddress(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return false;
@@ -79,7 +81,6 @@ class VenueNameService {
     return false;
   }
 
-  /// True when [value] is not useful as a venue label (address, city name, etc.).
   static bool isWeakVenueName(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) return true;
@@ -100,7 +101,6 @@ class VenueNameService {
     return trimmed.isEmpty ? null : trimmed;
   }
 
-  /// Returns a stored venue-style name from post fields, never an address.
   static String? storedVenueName(Map<String, dynamic> post) {
     for (final key in ['venueName', 'businessName', 'locationName']) {
       final raw = _nonEmpty(post[key]?.toString());
@@ -110,7 +110,6 @@ class VenueNameService {
     return null;
   }
 
-  /// Address-only fallback when no venue name is available.
   static String? addressFallback(Map<String, dynamic> post) {
     for (final key in ['address', 'formattedAddress', 'locationName']) {
       final raw = _nonEmpty(post[key]?.toString());
@@ -143,9 +142,12 @@ class VenueNameService {
     return future;
   }
 
-  /// Venue name for display: always tries GPS resolution first so bad stored
-  /// labels (e.g. a neighboring realtor) get corrected automatically.
+  /// Prefer the name saved on the post. Only hit Places when the stored value
+  /// is missing or looks like an address / weak label.
   static Future<String> displayNameForPost(Map<String, dynamic> post) async {
+    final stored = storedVenueName(post);
+    if (stored != null) return stored;
+
     final lat = (post['latitude'] as num?)?.toDouble();
     final lng = (post['longitude'] as num?)?.toDouble();
     if (lat != null &&
@@ -157,13 +159,9 @@ class VenueNameService {
       if (resolved != null && resolved.isNotEmpty) return resolved;
     }
 
-    final stored = storedVenueName(post);
-    if (stored != null) return stored;
-
     return addressFallback(post) ?? 'Unknown Venue';
   }
 
-  /// Returns the closest visitable establishment near the GPS pin.
   static Future<String?> resolveVenueName(
     double latitude,
     double longitude,
@@ -181,55 +179,34 @@ class VenueNameService {
     }
   }
 
-  /// Closest eligible venue from rankby=distance queries (restaurant, bar, etc.).
-  /// When two venues are within this distance, prefer the one with more reviews.
-  static const _tieBreakDistanceMeters = 25.0;
-
+  /// First Google rank-by-distance result per type that is actually at the pin.
   static Future<String?> _closestRankedVenue(
     double latitude,
     double longitude,
   ) async {
-    String? closestName;
-    double? closestDistance;
-    var closestReviews = -1;
-
     for (final type in _rankByDistanceTypes) {
       final results = await _nearbyRankByDistance(
         latitude,
         longitude,
         type: type,
       );
+      if (results.isEmpty) continue;
 
-      for (final result in results.take(8)) {
+      for (final result in results.take(3)) {
         if (!_isEligibleVenue(result)) continue;
-        if (await _isLocalityName(
-          result['name'] as String? ?? '',
-          latitude,
-          longitude,
-        )) {
-          continue;
-        }
+
+        final name = result['name'] as String?;
+        if (name == null || isWeakVenueName(name)) continue;
+        if (await _isLocalityName(name, latitude, longitude)) continue;
 
         final distance = _resultDistanceMeters(result, latitude, longitude);
         if (distance == null || distance > _maxVenueDistanceMeters) continue;
 
-        final reviews =
-            (result['user_ratings_total'] as num?)?.toInt() ?? 0;
-        final isCloser = closestDistance == null || distance < closestDistance!;
-        final isTieBreak =
-            closestDistance != null &&
-            (distance - closestDistance!).abs() <= _tieBreakDistanceMeters &&
-            reviews > closestReviews;
-
-        if (isCloser || isTieBreak) {
-          closestDistance = distance;
-          closestName = result['name'] as String?;
-          closestReviews = reviews;
-        }
+        return name;
       }
     }
 
-    return closestName;
+    return null;
   }
 
   static bool _isEligibleVenue(Map<String, dynamic> result) {
@@ -370,7 +347,6 @@ class VenueNameService {
     return earthRadius * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a));
   }
 
-  /// Returns lat/lng for a street address or place name via Google Geocoding API.
   static Future<({double latitude, double longitude})?> geocodeAddress(
     String address,
   ) async {
@@ -410,7 +386,6 @@ class VenueNameService {
     }
   }
 
-  /// @deprecated Use [resolveVenueName] instead.
   static Future<String?> getVenueName(
     double latitude,
     double longitude,

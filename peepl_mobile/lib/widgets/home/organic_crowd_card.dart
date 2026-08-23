@@ -46,6 +46,13 @@ class OrganicCrowdCard extends StatelessWidget {
       fontWeight: FontWeight.w700,
       height: 1.1,
       letterSpacing: -0.2,
+      shadows: const [
+        Shadow(
+          offset: Offset(0, 1),
+          blurRadius: 2,
+          color: Color(0x99000000),
+        ),
+      ],
     );
   }
 
@@ -208,12 +215,12 @@ class _OrganicTitleBackdrop extends StatelessWidget {
   final bool compact;
   final Widget child;
 
-  static const _tint = Color(0x73000000);
+  static const _tint = Color(0x40000000);
 
   @override
   Widget build(BuildContext context) {
-    final radius = compact ? 4.0 : 5.0;
-    final blurSigma = compact ? 7.0 : 9.0;
+    final radius = compact ? 3.0 : 4.0;
+    final blurSigma = compact ? 2.5 : 3.0;
 
     return ClipRRect(
       borderRadius: BorderRadius.circular(radius),
@@ -226,8 +233,8 @@ class _OrganicTitleBackdrop extends StatelessWidget {
           ),
           child: Padding(
             padding: EdgeInsets.symmetric(
-              horizontal: compact ? 6 : 8,
-              vertical: compact ? 2 : 3,
+              horizontal: compact ? 4 : 5,
+              vertical: compact ? 1 : 2,
             ),
             child: child,
           ),
