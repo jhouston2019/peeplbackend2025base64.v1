@@ -131,6 +131,7 @@ class FeedService {
     double? aiValidationConfidence,
     String? aiDescription,
     String? crowdsourceRequestId,
+    bool preserveLocationName = false,
   }) async {
     try {
       await _validateImageFile(imageFile);
@@ -147,7 +148,12 @@ class FeedService {
         throw StateError('Cannot post without a GPS location');
       }
 
-      if (VenueNameService.isWeakVenueName(displayName)) {
+      if (preserveLocationName) {
+        if (displayName.isEmpty) {
+          displayName =
+              await VenueNameService.resolveLabelAtPin(latitude, longitude);
+        }
+      } else if (VenueNameService.isWeakVenueName(displayName)) {
         displayName =
             await VenueNameService.resolveLabelAtPin(latitude, longitude);
         if (VenueNameService.looksLikeAddress(displayName)) {

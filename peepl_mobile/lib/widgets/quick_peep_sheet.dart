@@ -62,6 +62,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   ];
 
   final _picker = ImagePicker();
+  final _locationController = TextEditingController();
 
   double _crowdLevel = 5;
   double _malePercent = 50;
@@ -72,7 +73,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   bool _isLoading = false;
   bool _isLocating = false;
   String? _locationError;
-  String _locationLabel = '';
+  bool _locationEditedByUser = false;
 
   double? _latitude;
   double? _longitude;
@@ -83,7 +84,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     try {
       if (widget.venueName != null &&
           !VenueNameService.isWeakVenueName(widget.venueName!)) {
-        _locationLabel = widget.venueName!;
+        _locationController.text = widget.venueName!;
         _acquireCoordinates().catchError((Object e) {
           debugPrint('[QuickPeepSheet] initState _acquireCoordinates error: $e');
         });
@@ -99,7 +100,13 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
 
   @override
   void dispose() {
+    _locationController.dispose();
     super.dispose();
+  }
+
+  void _applyDetectedLabel(String label) {
+    if (_locationEditedByUser) return;
+    _locationController.text = label;
   }
 
   Color _getCrowdingColor(int level) {
@@ -110,6 +117,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
 
   Future<void> _onRedetectLocationTap() async {
     if (_isLocating) return;
+    setState(() => _locationEditedByUser = false);
     try {
       await _detectLocation();
     } catch (e) {
@@ -157,9 +165,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       final label = await VenueNameService.resolveLabelAtPin(lat, lng);
 
       if (!mounted) return;
-      setState(() {
-        _locationLabel = label;
-      });
+      setState(() => _applyDetectedLabel(label));
     } catch (e) {
       debugPrint('[QuickPeep] _detectLocation error: $e');
       if (!mounted) return;
@@ -169,9 +175,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
           _longitude!,
         );
         if (mounted) {
-          setState(() {
-            _locationLabel = fallback;
-          });
+          setState(() => _applyDetectedLabel(fallback));
         }
       }
     } finally {
@@ -183,7 +187,8 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   }
 
   Future<bool> _ensureLocationReady() async {
-    if (_latitude == null || _longitude == null || _locationLabel.isEmpty) {
+    final label = _locationController.text.trim();
+    if (_latitude == null || _longitude == null || label.isEmpty) {
       await _detectLocation();
     } else {
       final position =
@@ -191,18 +196,23 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       if (position != null) {
         _latitude = position.latitude;
         _longitude = position.longitude;
-        _locationLabel = await VenueNameService.resolveLabelAtPin(
-          _latitude!,
-          _longitude!,
-        );
+        if (!_locationEditedByUser) {
+          _applyDetectedLabel(
+            await VenueNameService.resolveLabelAtPin(
+              _latitude!,
+              _longitude!,
+            ),
+          );
+        }
       }
     }
 
+    final readyLabel = _locationController.text.trim();
     return _latitude != null &&
         _longitude != null &&
         !(_latitude == 0 && _longitude == 0) &&
-        _locationLabel.trim().isNotEmpty &&
-        _locationLabel != 'Current location';
+        readyLabel.isNotEmpty &&
+        readyLabel != 'Current location';
   }
 
   Future<void> _submitPost() async {
@@ -256,10 +266,11 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         return;
       }
 
+      final locationName = _locationController.text.trim();
       final postId = await FeedService().addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: widget.venueName ?? _locationLabel,
+        locationName: locationName,
         latitude: _latitude!,
         longitude: _longitude!,
         crowdingLevel: _crowdLevel.round(),
@@ -269,6 +280,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         maleFemaleRatio: _malePercent.round(),
         adultKidRatio: _adultPercent.round(),
         venueType: _venueType,
+        preserveLocationName: _locationEditedByUser,
       );
 
       if (context.mounted) {
@@ -344,56 +356,62 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                   Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 12,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: Colors.grey.shade300),
-                            color: Colors.grey.shade50,
-                          ),
-                          child: Row(
-                            children: [
-                              if (_isLocating)
-                                const Padding(
-                                  padding: EdgeInsets.only(right: 8),
-                                  child: SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Color(0xFF1565C0),
+                        child: TextField(
+                          controller: _locationController,
+                          enabled: !_isLocating && !_isLoading,
+                          decoration: InputDecoration(
+                            hintText: _isLocating
+                                ? 'Detecting your location…'
+                                : 'Waiting for GPS…',
+                            prefixIcon: _isLocating
+                                ? const Padding(
+                                    padding: EdgeInsets.all(12),
+                                    child: SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Color(0xFF1565C0),
+                                      ),
                                     ),
+                                  )
+                                : const Icon(
+                                    Icons.location_on,
+                                    color: Color(0xFF1565C0),
                                   ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.location_on,
-                                  color: Color(0xFF1565C0),
-                                ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _isLocating
-                                      ? 'Detecting your location…'
-                                      : (_locationLabel.isNotEmpty
-                                          ? _locationLabel
-                                          : 'Waiting for GPS…'),
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: _locationLabel.isEmpty
-                                        ? Colors.grey[600]
-                                        : Colors.black87,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            enabledBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide:
+                                  BorderSide(color: Colors.grey.shade300),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            suffixIcon: !_isLocating &&
+                                    _locationController.text.isNotEmpty
+                                ? Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                    color: Colors.grey[600],
+                                  )
+                                : null,
                           ),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          onChanged: (_) {
+                            setState(() {
+                              _locationEditedByUser = true;
+                              _locationError = null;
+                            });
+                          },
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -422,6 +440,13 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                     Text(
                       _locationError!,
                       style: const TextStyle(color: Colors.red, fontSize: 11),
+                    ),
+                  ] else if (!_isLocating &&
+                      _locationController.text.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      'Wrong place? Tap to edit, or refresh GPS.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],
                   const SizedBox(height: 16),

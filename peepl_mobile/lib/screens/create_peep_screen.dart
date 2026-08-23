@@ -36,6 +36,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   bool _fromVenueEntry = false;
   bool _locationPermissionDenied = false;
   bool _isResolvingVenueName = false;
+  bool _locationEditedByUser = false;
 
   double? _latitude;
   double? _longitude;
@@ -109,7 +110,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     try {
       final resolved = await VenueNameService.resolveVenueName(lat, lng);
       if (!mounted) return;
-      if (resolved != null && resolved.isNotEmpty) {
+      if (resolved != null && resolved.isNotEmpty && !_locationEditedByUser) {
         setState(() => _locationController.text = resolved);
       }
     } finally {
@@ -160,7 +161,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         pos.longitude,
       );
       if (!mounted) return;
-      if (name.isNotEmpty) {
+      if (name.isNotEmpty && !_locationEditedByUser) {
         _locationController.text = name;
       }
     } catch (e, st) {
@@ -258,10 +259,12 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         if (position != null) {
           _latitude = position.latitude;
           _longitude = position.longitude;
-          _locationController.text = await VenueNameService.resolveLabelAtPin(
-            _latitude!,
-            _longitude!,
-          );
+          if (!_locationEditedByUser) {
+            _locationController.text = await VenueNameService.resolveLabelAtPin(
+              _latitude!,
+              _longitude!,
+            );
+          }
         }
       }
 
@@ -277,12 +280,21 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
       }
 
       final locationName = _locationController.text.trim();
+      if (locationName.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Enter a location name')),
+          );
+        }
+        return;
+      }
+
       final imageFile = await _resolveImageFile();
 
       final postId = await _feedService.addLocationPost(
         userId: user.uid,
         username: user.displayName ?? user.email?.split('@')[0] ?? 'Anonymous',
-        locationName: locationName.isNotEmpty ? locationName : 'Current location',
+        locationName: locationName,
         latitude: _latitude!,
         longitude: _longitude!,
         crowdingLevel: _crowdingLevel,
@@ -291,6 +303,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         waitTime: _waitTime(),
         noiseLevel: _noiseLevel(),
         adultKidRatio: _adultKidRatio(),
+        preserveLocationName: _locationEditedByUser,
       );
 
       final pioneerCount = await FirebaseFirestore.instance
@@ -422,52 +435,102 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   }
 
   Widget _buildLocationRow() {
-    final location = _locationController.text.trim();
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(
-            Icons.location_on,
-            color: Colors.white.withValues(alpha: 0.85),
-            size: 20,
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: (_isGeolocating || _isResolvingVenueName)
-                ? Text(
-                    _isResolvingVenueName
-                        ? 'Finding venue name…'
-                        : 'Finding your location…',
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.7),
-                      fontSize: 15,
-                    ),
-                  )
-                : Text(
-                    location.isNotEmpty
-                        ? location
-                        : (_locationPermissionDenied
-                            ? 'Location unavailable'
-                            : 'Detecting location…'),
-                    style: const TextStyle(
-                      color: PeeplAppTokens.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-          ),
-          if (!_isGeolocating && !_hasNotificationLocation)
-            IconButton(
-              tooltip: 'Refresh location',
-              icon: Icon(
-                Icons.my_location,
-                color: Colors.white.withValues(alpha: 0.75),
-                size: 20,
+          Row(
+            children: [
+              Expanded(
+                child: (_isGeolocating || _isResolvingVenueName)
+                    ? Text(
+                        _isResolvingVenueName
+                            ? 'Finding venue name…'
+                            : 'Finding your location…',
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.7),
+                          fontSize: 15,
+                        ),
+                      )
+                    : TextField(
+                        controller: _locationController,
+                        enabled: !_isLoading,
+                        style: const TextStyle(
+                          color: PeeplAppTokens.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        decoration: InputDecoration(
+                          isDense: true,
+                          hintText: _locationPermissionDenied
+                              ? 'Location unavailable'
+                              : 'Detecting location…',
+                          hintStyle: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.5),
+                            fontSize: 15,
+                          ),
+                          prefixIcon: Icon(
+                            Icons.location_on,
+                            color: Colors.white.withValues(alpha: 0.85),
+                            size: 20,
+                          ),
+                          prefixIconConstraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 24,
+                          ),
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: UnderlineInputBorder(
+                            borderSide: BorderSide(
+                              color: Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                          ),
+                          suffixIcon: _locationController.text.isNotEmpty
+                              ? Icon(
+                                  Icons.edit_outlined,
+                                  size: 16,
+                                  color: Colors.white.withValues(alpha: 0.5),
+                                )
+                              : null,
+                        ),
+                        onChanged: (_) {
+                          setState(() => _locationEditedByUser = true);
+                        },
+                      ),
               ),
-              onPressed: _isLoading ? null : _resolveLocationAndGeocode,
+              if (!_isGeolocating && !_hasNotificationLocation)
+                IconButton(
+                  tooltip: 'Refresh location',
+                  icon: Icon(
+                    Icons.my_location,
+                    color: Colors.white.withValues(alpha: 0.75),
+                    size: 20,
+                  ),
+                  onPressed: _isLoading
+                      ? null
+                      : () {
+                          setState(() => _locationEditedByUser = false);
+                          _resolveLocationAndGeocode();
+                        },
+                ),
+            ],
+          ),
+          if (!_isGeolocating &&
+              !_isResolvingVenueName &&
+              _locationController.text.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 4, top: 2),
+              child: Text(
+                'Wrong place? Tap to edit, or refresh GPS.',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.45),
+                ),
+              ),
             ),
         ],
       ),
