@@ -177,6 +177,8 @@ function scoreCandidate(result, distanceMeters) {
   if (types.includes('tourist_attraction')) score -= 1;
   if (types.includes('park')) score -= 1;
   if (types.length === 1 && types[0] === 'point_of_interest') score += 8;
+  const ratings = result.user_ratings_total || 0;
+  score -= Math.log(ratings + 1) * 1.5;
   return score;
 }
 

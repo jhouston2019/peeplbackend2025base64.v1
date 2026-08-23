@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
 import '../../utils/crowd_display_mapper.dart';
@@ -46,11 +44,16 @@ class OrganicCrowdCard extends StatelessWidget {
       fontWeight: FontWeight.w700,
       height: 1.1,
       letterSpacing: -0.2,
-      shadows: const [
+      shadows: [
         Shadow(
-          offset: Offset(0, 1),
-          blurRadius: 2,
-          color: Color(0x99000000),
+          offset: const Offset(0, 1),
+          blurRadius: compact ? 6.0 : 7.0,
+          color: Colors.black.withValues(alpha: 0.75),
+        ),
+        Shadow(
+          offset: const Offset(0, 2),
+          blurRadius: compact ? 10.0 : 12.0,
+          color: Colors.black.withValues(alpha: 0.45),
         ),
       ],
     );
@@ -135,10 +138,7 @@ class OrganicCrowdCard extends StatelessWidget {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  _OrganicTitleBackdrop(
-                                    compact: compact,
-                                    child: titleWidget,
-                                  ),
+                                  titleWidget,
                                   if (subtitleLabel != null &&
                                       subtitleLabel!.isNotEmpty) ...[
                                     SizedBox(height: compact ? 2 : 3),
@@ -197,46 +197,6 @@ class OrganicCrowdCard extends StatelessWidget {
                 ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Frosted dark strip behind venue names — blurs the photo underneath
-/// instead of smearing shadow onto the letterforms.
-class _OrganicTitleBackdrop extends StatelessWidget {
-  const _OrganicTitleBackdrop({
-    required this.compact,
-    required this.child,
-  });
-
-  final bool compact;
-  final Widget child;
-
-  static const _tint = Color(0x40000000);
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = compact ? 3.0 : 4.0;
-    final blurSigma = compact ? 2.5 : 3.0;
-
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: _tint,
-            borderRadius: BorderRadius.circular(radius),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: compact ? 4 : 5,
-              vertical: compact ? 1 : 2,
-            ),
-            child: child,
           ),
         ),
       ),

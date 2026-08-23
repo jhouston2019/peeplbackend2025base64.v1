@@ -332,6 +332,11 @@ class VenueNameService {
       score += 8;
     }
 
+    // Duplicate listings at the same address (e.g. Chopblock vs The Stag at
+    // 110 Main St) — prefer the widely-reviewed canonical business.
+    final ratings = (result['user_ratings_total'] as num?)?.toInt() ?? 0;
+    score -= math.log(ratings + 1) * 1.5;
+
     return score;
   }
 
