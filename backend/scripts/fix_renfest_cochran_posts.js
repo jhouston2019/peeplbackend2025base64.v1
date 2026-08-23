@@ -1,4 +1,5 @@
-const admin = require('firebase-admin');
+// DEPRECATED — incorrectly relabeled Cochran Rd residence posts as RenFest.
+// Use revert_renfest_cochran_mislabels.js instead.
 
 const serviceAccount = require('../serviceAccountKey.json');
 admin.initializeApp({

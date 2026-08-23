@@ -78,7 +78,7 @@ const EXCLUDED_TYPES = new Set([
 ]);
 
 const DEPRIORITIZED_NAME =
-  /\b(properties|property management|financial advisor|insurance|personnel|capital management|edward jones|realty|real estate|law firm|attorney|accounting|consulting group|models of atlanta|click models)\b/i;
+  /\b(properties|property management|financial advisor|insurance|personnel|capital management|edward jones|realty|real estate|law firm|attorney|accounting|consulting group|models of atlanta|click models|resource brokers|media group|law llc)\b/i;
 
 function looksLikeAddress(name) {
   if (!name) return true;
@@ -238,13 +238,16 @@ async function storedNameMatchesLocation(storedName, lat, lng) {
 }
 
 async function fetchVenueName(lat, lng, storedHint) {
-  if (storedHint && (await storedNameMatchesLocation(storedHint, lat, lng))) {
+  if (
+    storedHint &&
+    !EVENT_NAME.test(storedHint) &&
+    (await storedNameMatchesLocation(storedHint, lat, lng))
+  ) {
     return storedHint;
   }
 
   const seenPlaceIds = new Set();
-  let bestName = null;
-  let bestScore = null;
+  const candidates = [];
 
   for (const type of RANK_BY_DISTANCE_TYPES) {
     const url =
@@ -261,15 +264,29 @@ async function fetchVenueName(lat, lng, storedHint) {
       if (!isEligibleVenue(result)) continue;
       const distance = resultDistanceMeters(result, lat, lng);
       if (distance == null || distance > maxDistanceForResult(result)) continue;
-      const score = scoreCandidate(result, distance);
-      if (bestScore == null || score < bestScore) {
-        bestScore = score;
-        bestName = result.name;
-      }
+      candidates.push({
+        name: result.name,
+        score: scoreCandidate(result, distance),
+        distance,
+        ratings: result.user_ratings_total || 0,
+        types: result.types || [],
+      });
     }
   }
 
-  return bestName;
+  if (candidates.length === 0) return null;
+
+  candidates.sort((a, b) => a.score - b.score);
+  const bestDistance = Math.min(...candidates.map((c) => c.distance));
+  const nearby = candidates.filter((c) => c.distance - bestDistance <= 12);
+  nearby.sort((a, b) => {
+    const foodA = a.types.some((t) => FOOD_DRINK_TYPES.has(t)) ? 1 : 0;
+    const foodB = b.types.some((t) => FOOD_DRINK_TYPES.has(t)) ? 1 : 0;
+    if (foodA !== foodB) return foodB - foodA;
+    if (b.ratings !== a.ratings) return b.ratings - a.ratings;
+    return a.score - b.score;
+  });
+  return nearby[0].name;
 }
 
 async function sleep(ms) {

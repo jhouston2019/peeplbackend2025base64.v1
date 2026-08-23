@@ -94,7 +94,8 @@ class VenueNameService {
   static final _deprioritizedNamePattern = RegExp(
     r'\b(properties|property management|financial advisor|insurance|personnel|'
     r'capital management|edward jones|realty|real estate|law firm|attorney|'
-    r'accounting|consulting group|models of atlanta|click models)\b',
+    r'accounting|consulting group|models of atlanta|click models|'
+    r'resource brokers|media group|law llc)\b',
     caseSensitive: false,
   );
 
@@ -185,7 +186,7 @@ class VenueNameService {
     return future;
   }
 
-  /// Resolve from GPS every time. Stored labels are hints, not the source of truth.
+  /// Resolve from GPS. Never apply an event/festival name unless the pin is there.
   static Future<String> displayNameForPost(Map<String, dynamic> post) async {
     final lat = (post['latitude'] as num?)?.toDouble();
     final lng = (post['longitude'] as num?)?.toDouble();
@@ -197,11 +198,12 @@ class VenueNameService {
         !lat.isNaN &&
         !lng.isNaN) {
       if (stored != null && _eventNamePattern.hasMatch(stored)) {
-        final eventName = await _resolveNamedEvent(stored);
+        final eventName = await _resolveNamedEventAtLocation(stored, lat, lng);
         if (eventName != null) return eventName;
       }
 
       if (stored != null &&
+          !_eventNamePattern.hasMatch(stored) &&
           await _storedNameMatchesLocation(stored, lat, lng)) {
         return stored;
       }
@@ -210,13 +212,7 @@ class VenueNameService {
       if (resolved != null && resolved.isNotEmpty) return resolved;
     }
 
-    if (stored != null) {
-      if (_eventNamePattern.hasMatch(stored)) {
-        final eventName = await _resolveNamedEvent(stored);
-        if (eventName != null) return eventName;
-      }
-      return stored;
-    }
+    if (stored != null && !_eventNamePattern.hasMatch(stored)) return stored;
     return addressFallback(post) ?? 'Unknown Venue';
   }
 
@@ -299,8 +295,7 @@ class VenueNameService {
     double longitude,
   ) async {
     final seenPlaceIds = <String>{};
-    String? bestName;
-    double? bestScore;
+    final candidates = <_VenueCandidate>[];
 
     for (final type in _rankByDistanceTypes) {
       final results = await _nearbyRankByDistance(
@@ -327,15 +322,43 @@ class VenueNameService {
         final maxDistance = _maxDistanceForResult(result);
         if (distance == null || distance > maxDistance) continue;
 
-        final score = _scoreCandidate(result, distance);
-        if (bestScore == null || score < bestScore) {
-          bestScore = score;
-          bestName = name;
-        }
+        candidates.add(
+          _VenueCandidate(
+            name: name,
+            score: _scoreCandidate(result, distance),
+            distance: distance,
+            ratings: (result['user_ratings_total'] as num?)?.toInt() ?? 0,
+            vicinity: result['vicinity'] as String?,
+            types: (result['types'] as List?)?.cast<String>() ?? const [],
+          ),
+        );
       }
     }
 
-    return bestName;
+    if (candidates.isEmpty) return null;
+    return _pickBestCandidate(candidates);
+  }
+
+  static String _pickBestCandidate(List<_VenueCandidate> candidates) {
+    candidates.sort((a, b) => a.score.compareTo(b.score));
+    final bestDistance = candidates
+        .map((candidate) => candidate.distance)
+        .reduce(math.min);
+
+    final nearby = candidates
+        .where((candidate) => candidate.distance - bestDistance <= 12)
+        .toList();
+
+    nearby.sort((a, b) {
+      final foodA = a.types.any(_foodDrinkTypes.contains) ? 1 : 0;
+      final foodB = b.types.any(_foodDrinkTypes.contains) ? 1 : 0;
+      if (foodA != foodB) return foodB.compareTo(foodA);
+      final ratingCmp = b.ratings.compareTo(a.ratings);
+      if (ratingCmp != 0) return ratingCmp;
+      return a.score.compareTo(b.score);
+    });
+
+    return nearby.first.name;
   }
 
   static double _scoreCandidate(
@@ -408,7 +431,11 @@ class VenueNameService {
     return _maxVenueDistanceMeters;
   }
 
-  static Future<String?> _resolveNamedEvent(String query) async {
+  static Future<String?> _resolveNamedEventAtLocation(
+    String query,
+    double latitude,
+    double longitude,
+  ) async {
     final trimmed = query.trim();
     if (trimmed.isEmpty || !_eventNamePattern.hasMatch(trimmed)) return null;
 
@@ -416,7 +443,7 @@ class VenueNameService {
       'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
       '?input=${Uri.encodeComponent(trimmed)}'
       '&inputtype=textquery'
-      '&fields=name'
+      '&fields=name,geometry'
       '&key=$_apiKey',
     );
 
@@ -433,8 +460,13 @@ class VenueNameService {
         final candidate = raw as Map<String, dynamic>;
         final name = candidate['name'] as String?;
         if (name == null || isWeakVenueName(name)) continue;
-        if (_namesMatch(_normalizeName(trimmed), _normalizeName(name)) ||
-            _eventNamePattern.hasMatch(name)) {
+        if (!_namesMatch(_normalizeName(trimmed), _normalizeName(name)) &&
+            !_eventNamePattern.hasMatch(name)) {
+          continue;
+        }
+
+        final distance = _resultDistanceMeters(candidate, latitude, longitude);
+        if (distance != null && distance <= _maxMajorEventDistanceMeters) {
           return name;
         }
       }
@@ -612,4 +644,22 @@ class VenueNameService {
     double longitude,
   ) =>
       resolveVenueName(latitude, longitude);
+}
+
+class _VenueCandidate {
+  const _VenueCandidate({
+    required this.name,
+    required this.score,
+    required this.distance,
+    required this.ratings,
+    required this.vicinity,
+    required this.types,
+  });
+
+  final String name;
+  final double score;
+  final double distance;
+  final int ratings;
+  final String? vicinity;
+  final List<String> types;
 }
