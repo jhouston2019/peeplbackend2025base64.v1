@@ -48,7 +48,7 @@ class VenueNameService {
     'gas_station',
   };
 
-  static const _deprioritizedNamePattern = RegExp(
+  static final _deprioritizedNamePattern = RegExp(
     r'\b(properties|property management|financial advisor|insurance|personnel|'
     r'capital management|edward jones|realty|real estate|law firm|attorney|'
     r'accounting|consulting group)\b',
