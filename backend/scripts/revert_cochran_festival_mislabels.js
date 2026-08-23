@@ -7,7 +7,8 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Original residence location before the incorrect festival relabel.
+// DEPRECATED — this script incorrectly reverted Fairburn Renaissance Festival
+// posts back to a Gainesville Cochran Rd address. Use fix_renfest_cochran_posts.js.
 const COCHRAN_RESIDENCE = {
   locationName: '3633 Cochran Rd, Gainesville, GA',
   latitude: 34.3690721,

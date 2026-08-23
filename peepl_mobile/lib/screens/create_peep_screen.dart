@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 
 import '../services/feed_service.dart';
+import '../services/location_service.dart';
 import '../services/venue_name_service.dart';
 import '../widgets/crowd_meter.dart';
 
@@ -260,6 +261,15 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     try {
       final locationName = _locationController.text.trim();
       final imageFile = await _resolveImageFile();
+
+      if (!_fromVenueEntry) {
+        final position =
+            await LocationService.getCurrentLocation(forceRefresh: true);
+        if (position != null) {
+          _latitude = position.latitude;
+          _longitude = position.longitude;
+        }
+      }
 
       final postId = await _feedService.addLocationPost(
         userId: user.uid,

@@ -221,7 +221,12 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     setState(() => _isLoading = true);
 
     try {
-      if (_latitude == null || _longitude == null) {
+      final position =
+          await LocationService.getCurrentLocation(forceRefresh: true);
+      if (position != null) {
+        _latitude = position.latitude;
+        _longitude = position.longitude;
+      } else if (_latitude == null || _longitude == null) {
         await _acquireCoordinates();
       }
 

@@ -15,8 +15,14 @@ class VenueNameService {
   /// Attach a Google Places name only when the listing is at the GPS pin.
   static const _maxVenueDistanceMeters = 35.0;
 
+  /// Large festivals / venues can span a wide area — allow a looser match.
+  static const _maxMajorEventDistanceMeters = 250.0;
+
   /// Stored business labels are kept when Places confirms them near the pin.
   static const _storedNameConfirmMeters = 60.0;
+
+  /// Google often lists big events as POI/establishment only.
+  static const _minMajorPoiRatings = 75;
 
   static const _rankByDistanceTypes = [
     'restaurant',
@@ -30,6 +36,8 @@ class VenueNameService {
     'stadium',
     'amusement_park',
     'park',
+    'point_of_interest',
+    'establishment',
   ];
 
   static const _foodDrinkTypes = {
@@ -77,6 +85,11 @@ class VenueNameService {
     'beauty_salon',
     'hair_care',
   };
+
+  static final _eventNamePattern = RegExp(
+    r'\b(festival|fair|renfest|renaissance)\b',
+    caseSensitive: false,
+  );
 
   static final _deprioritizedNamePattern = RegExp(
     r'\b(properties|property management|financial advisor|insurance|personnel|'
@@ -183,6 +196,11 @@ class VenueNameService {
         !(lat == 0 && lng == 0) &&
         !lat.isNaN &&
         !lng.isNaN) {
+      if (stored != null && _eventNamePattern.hasMatch(stored)) {
+        final eventName = await _resolveNamedEvent(stored);
+        if (eventName != null) return eventName;
+      }
+
       if (stored != null &&
           await _storedNameMatchesLocation(stored, lat, lng)) {
         return stored;
@@ -192,7 +210,13 @@ class VenueNameService {
       if (resolved != null && resolved.isNotEmpty) return resolved;
     }
 
-    if (stored != null) return stored;
+    if (stored != null) {
+      if (_eventNamePattern.hasMatch(stored)) {
+        final eventName = await _resolveNamedEvent(stored);
+        if (eventName != null) return eventName;
+      }
+      return stored;
+    }
     return addressFallback(post) ?? 'Unknown Venue';
   }
 
@@ -300,7 +324,8 @@ class VenueNameService {
         if (await _isLocalityName(name, latitude, longitude)) continue;
 
         final distance = _resultDistanceMeters(result, latitude, longitude);
-        if (distance == null || distance > _maxVenueDistanceMeters) continue;
+        final maxDistance = _maxDistanceForResult(result);
+        if (distance == null || distance > maxDistance) continue;
 
         final score = _scoreCandidate(result, distance);
         if (bestScore == null || score < bestScore) {
@@ -327,6 +352,9 @@ class VenueNameService {
     if (types.contains('bakery')) score -= 1;
     if (types.contains('tourist_attraction')) score -= 1;
     if (types.contains('park')) score -= 1;
+    if (_eventNamePattern.hasMatch(result['name'] as String? ?? '')) {
+      score -= 6;
+    }
 
     if (types.length == 1 && types.first == 'point_of_interest') {
       score += 8;
@@ -335,6 +363,11 @@ class VenueNameService {
     // Duplicate listings at the same address (e.g. Chopblock vs The Stag at
     // 110 Main St) — prefer the widely-reviewed canonical business.
     final ratings = (result['user_ratings_total'] as num?)?.toInt() ?? 0;
+    if (ratings >= _minMajorPoiRatings &&
+        (types.contains('point_of_interest') ||
+            types.contains('establishment'))) {
+      score -= 8;
+    }
     score -= math.log(ratings + 1) * 1.5;
 
     return score;
@@ -347,9 +380,69 @@ class VenueNameService {
     final types = (result['types'] as List?)?.cast<String>() ?? const [];
     if (types.isEmpty) return false;
     if (types.any(_excludedPlaceTypes.contains)) return false;
-    if (!types.any(_foodDrinkTypes.contains)) return false;
+    if (types.any(_foodDrinkTypes.contains)) return true;
 
-    return true;
+    final ratings = (result['user_ratings_total'] as num?)?.toInt() ?? 0;
+    if (ratings >= _minMajorPoiRatings &&
+        (types.contains('point_of_interest') ||
+            types.contains('establishment'))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  static double _maxDistanceForResult(Map<String, dynamic> result) {
+    final types = (result['types'] as List?)?.cast<String>() ?? const [];
+    final name = result['name'] as String? ?? '';
+    final ratings = (result['user_ratings_total'] as num?)?.toInt() ?? 0;
+
+    if (_eventNamePattern.hasMatch(name) ||
+        (ratings >= _minMajorPoiRatings &&
+            (types.contains('point_of_interest') ||
+                types.contains('establishment') ||
+                types.contains('tourist_attraction')))) {
+      return _maxMajorEventDistanceMeters;
+    }
+
+    return _maxVenueDistanceMeters;
+  }
+
+  static Future<String?> _resolveNamedEvent(String query) async {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty || !_eventNamePattern.hasMatch(trimmed)) return null;
+
+    final url = Uri.parse(
+      'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
+      '?input=${Uri.encodeComponent(trimmed)}'
+      '&inputtype=textquery'
+      '&fields=name'
+      '&key=$_apiKey',
+    );
+
+    try {
+      final response =
+          await http.get(url).timeout(const Duration(seconds: 10));
+      if (response.statusCode != 200) return null;
+
+      final json = jsonDecode(response.body) as Map<String, dynamic>;
+      if (json['status'] != 'OK') return null;
+
+      final candidates = json['candidates'] as List<dynamic>? ?? const [];
+      for (final raw in candidates) {
+        final candidate = raw as Map<String, dynamic>;
+        final name = candidate['name'] as String?;
+        if (name == null || isWeakVenueName(name)) continue;
+        if (_namesMatch(_normalizeName(trimmed), _normalizeName(name)) ||
+            _eventNamePattern.hasMatch(name)) {
+          return name;
+        }
+      }
+    } catch (_) {
+      return null;
+    }
+
+    return null;
   }
 
   static Future<String?> _resolveFromReverseGeocode(

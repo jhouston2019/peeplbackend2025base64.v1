@@ -10,7 +10,10 @@ const db = admin.firestore();
 const PLACES_API_KEY = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
 const MAX_VENUE_DISTANCE_METERS = 35;
+const MAX_MAJOR_EVENT_DISTANCE_METERS = 250;
+const MIN_MAJOR_POI_RATINGS = 75;
 const STORED_NAME_CONFIRM_METERS = 60;
+const EVENT_NAME = /\b(festival|fair|renfest|renaissance)\b/i;
 
 const RANK_BY_DISTANCE_TYPES = [
   'restaurant',
@@ -24,6 +27,8 @@ const RANK_BY_DISTANCE_TYPES = [
   'stadium',
   'amusement_park',
   'park',
+  'point_of_interest',
+  'establishment',
 ];
 
 const FOOD_DRINK_TYPES = new Set([
@@ -162,8 +167,28 @@ function isEligibleVenue(result) {
   if (isWeakVenueName(name)) return false;
   const types = result.types || [];
   if (types.some((t) => EXCLUDED_TYPES.has(t))) return false;
-  if (!types.some((t) => FOOD_DRINK_TYPES.has(t))) return false;
-  return true;
+  if (types.some((t) => FOOD_DRINK_TYPES.has(t))) return true;
+  const ratings = result.user_ratings_total || 0;
+  return (
+    ratings >= MIN_MAJOR_POI_RATINGS &&
+    (types.includes('point_of_interest') || types.includes('establishment'))
+  );
+}
+
+function maxDistanceForResult(result) {
+  const types = result.types || [];
+  const name = result.name || '';
+  const ratings = result.user_ratings_total || 0;
+  if (
+    EVENT_NAME.test(name) ||
+    (ratings >= MIN_MAJOR_POI_RATINGS &&
+      (types.includes('point_of_interest') ||
+        types.includes('establishment') ||
+        types.includes('tourist_attraction')))
+  ) {
+    return MAX_MAJOR_EVENT_DISTANCE_METERS;
+  }
+  return MAX_VENUE_DISTANCE_METERS;
 }
 
 function scoreCandidate(result, distanceMeters) {
@@ -176,8 +201,15 @@ function scoreCandidate(result, distanceMeters) {
   if (types.includes('bakery')) score -= 1;
   if (types.includes('tourist_attraction')) score -= 1;
   if (types.includes('park')) score -= 1;
+  if (EVENT_NAME.test(result.name || '')) score -= 6;
   if (types.length === 1 && types[0] === 'point_of_interest') score += 8;
   const ratings = result.user_ratings_total || 0;
+  if (
+    ratings >= MIN_MAJOR_POI_RATINGS &&
+    (types.includes('point_of_interest') || types.includes('establishment'))
+  ) {
+    score -= 8;
+  }
   score -= Math.log(ratings + 1) * 1.5;
   return score;
 }
@@ -228,7 +260,7 @@ async function fetchVenueName(lat, lng, storedHint) {
       }
       if (!isEligibleVenue(result)) continue;
       const distance = resultDistanceMeters(result, lat, lng);
-      if (distance == null || distance > MAX_VENUE_DISTANCE_METERS) continue;
+      if (distance == null || distance > maxDistanceForResult(result)) continue;
       const score = scoreCandidate(result, distance);
       if (bestScore == null || score < bestScore) {
         bestScore = score;
