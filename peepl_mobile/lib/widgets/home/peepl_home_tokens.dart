@@ -57,8 +57,8 @@ class PeeplHomeTokens {
   /// Premium yellow fill for the CURRENT DEALS banner.
   static const tickerBackground = dealsYellow;
   static const white = Color(0xFFFFFFFF);
-  /// Light pale yellow for organic card venue/location names.
-  static const organicVenueName = Color(0xFFFFF3C4);
+  /// Organic card venue/location names.
+  static const organicVenueName = white;
   static const mutedWhite = Color(0xB3FFFFFF);
   static const cardFallback = Color(0xFF1A2B3A);
 
