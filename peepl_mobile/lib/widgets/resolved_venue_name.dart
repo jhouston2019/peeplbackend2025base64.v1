@@ -8,7 +8,6 @@ class ResolvedVenueName extends StatelessWidget {
     required this.post,
     this.style,
     this.maxLines = 1,
-    this.loadingText = '…',
     this.fallback = 'Unknown Venue',
     this.textAlign,
   });
@@ -16,27 +15,18 @@ class ResolvedVenueName extends StatelessWidget {
   final Map<String, dynamic> post;
   final TextStyle? style;
   final int? maxLines;
-  final String loadingText;
   final String fallback;
   final TextAlign? textAlign;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<String>(
-      future: VenueNameService.displayNameForPost(post),
-      builder: (context, snapshot) {
-        final name = snapshot.data ??
-            (snapshot.connectionState == ConnectionState.waiting
-                ? loadingText
-                : VenueNameService.addressFallback(post) ?? fallback);
-        return Text(
-          name,
-          style: style,
-          maxLines: maxLines,
-          overflow: TextOverflow.ellipsis,
-          textAlign: textAlign,
-        );
-      },
+    final name = VenueNameService.labelForPost(post);
+    return Text(
+      name.isEmpty ? fallback : name,
+      style: style,
+      maxLines: maxLines,
+      overflow: TextOverflow.ellipsis,
+      textAlign: textAlign,
     );
   }
 }

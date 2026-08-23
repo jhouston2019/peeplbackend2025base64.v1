@@ -1208,8 +1208,7 @@ class _FeedScreenState extends State<FeedScreen> {
       onShare: (origin) => _shareOrganicPost(post, sharePositionOrigin: origin),
       onLongPress: isOwner && postId.isNotEmpty
           ? () async {
-              final locationName =
-                  await VenueNameService.displayNameForPost(post);
+              final locationName = VenueNameService.labelForPost(post);
               if (!mounted) return;
               await confirmAndDeletePost(
                 context,
@@ -1250,7 +1249,7 @@ class _FeedScreenState extends State<FeedScreen> {
     }
 
     try {
-      final locationName = await VenueNameService.displayNameForPost(post);
+      final locationName = VenueNameService.labelForPost(post);
       final crowdingLevel = (post['crowdingLevel'] as num?)?.toInt() ?? 0;
 
       await ShareService.instance.sharePeep(

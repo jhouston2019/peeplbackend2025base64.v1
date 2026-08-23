@@ -13,7 +13,7 @@ class VenueNameService {
   static const String _apiKey = 'AIzaSyAROeS73A4uhjNjZx_mMbqUnW99MCrv31o';
 
   /// Attach a Google Places name only when the listing is at the GPS pin.
-  static const _maxVenueDistanceMeters = 35.0;
+  static const _maxVenueDistanceMeters = 25.0;
 
   /// Large festivals / venues can span a wide area — allow a looser match.
   static const _maxMajorEventDistanceMeters = 250.0;
@@ -36,8 +36,6 @@ class VenueNameService {
     'stadium',
     'amusement_park',
     'park',
-    'point_of_interest',
-    'establishment',
   ];
 
   static const _foodDrinkTypes = {
@@ -186,35 +184,25 @@ class VenueNameService {
     return future;
   }
 
-  /// Resolve from GPS. Never apply an event/festival name unless the pin is there.
-  static Future<String> displayNameForPost(Map<String, dynamic> post) async {
-    final lat = (post['latitude'] as num?)?.toDouble();
-    final lng = (post['longitude'] as num?)?.toDouble();
-    final stored = storedVenueName(post);
-
-    if (lat != null &&
-        lng != null &&
-        !(lat == 0 && lng == 0) &&
-        !lat.isNaN &&
-        !lng.isNaN) {
-      if (stored != null && _eventNamePattern.hasMatch(stored)) {
-        final eventName = await _resolveNamedEventAtLocation(stored, lat, lng);
-        if (eventName != null) return eventName;
-      }
-
-      if (stored != null &&
-          !_eventNamePattern.hasMatch(stored) &&
-          await _storedNameMatchesLocation(stored, lat, lng)) {
-        return stored;
-      }
-
-      final resolved = await _resolveCached(lat, lng);
-      if (resolved != null && resolved.isNotEmpty) return resolved;
+  /// Label saved on the post at creation time — never re-resolve from Places.
+  static String labelForPost(Map<String, dynamic> post) {
+    for (final key in ['venueName', 'businessName', 'locationName']) {
+      final raw = _nonEmpty(post[key]?.toString());
+      if (raw == null) continue;
+      final first = raw.split(',').first.trim();
+      if (first.isEmpty) continue;
+      if (key != 'locationName' && isWeakVenueName(first)) continue;
+      return first;
     }
-
-    if (stored != null && !_eventNamePattern.hasMatch(stored)) return stored;
     return addressFallback(post) ?? 'Unknown Venue';
   }
+
+  /// Same as [labelForPost] — display must not mutate stored post labels.
+  static String displayNameForPost(Map<String, dynamic> post) =>
+      labelForPost(post);
+
+  static Future<String> displayNameForPostAsync(Map<String, dynamic> post) async =>
+      labelForPost(post);
 
   static Future<String?> resolveVenueName(
     double latitude,
@@ -336,29 +324,13 @@ class VenueNameService {
     }
 
     if (candidates.isEmpty) return null;
-    return _pickBestCandidate(candidates);
-  }
 
-  static String _pickBestCandidate(List<_VenueCandidate> candidates) {
-    candidates.sort((a, b) => a.score.compareTo(b.score));
-    final bestDistance = candidates
-        .map((candidate) => candidate.distance)
-        .reduce(math.min);
-
-    final nearby = candidates
-        .where((candidate) => candidate.distance - bestDistance <= 12)
-        .toList();
-
-    nearby.sort((a, b) {
-      final foodA = a.types.any(_foodDrinkTypes.contains) ? 1 : 0;
-      final foodB = b.types.any(_foodDrinkTypes.contains) ? 1 : 0;
-      if (foodA != foodB) return foodB.compareTo(foodA);
-      final ratingCmp = b.ratings.compareTo(a.ratings);
-      if (ratingCmp != 0) return ratingCmp;
-      return a.score.compareTo(b.score);
+    candidates.sort((a, b) {
+      final distanceCmp = a.distance.compareTo(b.distance);
+      if ((a.distance - b.distance).abs() > 3) return distanceCmp;
+      return b.ratings.compareTo(a.ratings);
     });
-
-    return nearby.first.name;
+    return candidates.first.name;
   }
 
   static double _scoreCandidate(

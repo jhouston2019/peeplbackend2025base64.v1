@@ -142,13 +142,19 @@ class FeedService {
         streetAddress = displayName;
       }
 
-      final resolved = await VenueNameService.displayNameForPost({
-        'locationName': displayName,
-        'latitude': latitude,
-        'longitude': longitude,
-      });
-      if (resolved.isNotEmpty) {
-        displayName = resolved;
+      // Resolve from GPS once at post time when the label is not usable.
+      if (VenueNameService.isWeakVenueName(displayName)) {
+        final resolved = await VenueNameService.resolveVenueName(
+          latitude,
+          longitude,
+        );
+        if (resolved != null && resolved.isNotEmpty) {
+          if (streetAddress == null &&
+              VenueNameService.looksLikeAddress(locationName)) {
+            streetAddress = locationName.trim();
+          }
+          displayName = resolved;
+        }
       }
 
       final doc = <String, dynamic>{
@@ -173,6 +179,8 @@ class FeedService {
       };
       if (streetAddress != null && streetAddress != displayName) {
         doc['address'] = streetAddress;
+      }
+      if (!VenueNameService.isWeakVenueName(displayName)) {
         doc['venueName'] = displayName;
       }
       final desc = description?.trim();

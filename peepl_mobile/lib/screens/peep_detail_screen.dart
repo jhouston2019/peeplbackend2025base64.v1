@@ -49,21 +49,9 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
       _likesCount = (_post?['likesCount'] as num?)?.toInt() ?? 0;
       _commentsCount = (_post?['commentsCount'] as num?)?.toInt() ?? 0;
       if (_post != null) {
-        _displayVenueName = VenueNameService.storedVenueName(_post!) ??
-            VenueNameService.addressFallback(_post!) ??
-            'Unknown';
-        _resolveDisplayVenueName();
+        _displayVenueName = VenueNameService.labelForPost(_post!);
       }
       _checkIfLiked();
-    }
-  }
-
-  Future<void> _resolveDisplayVenueName() async {
-    final post = _post;
-    if (post == null) return;
-    final resolved = await VenueNameService.displayNameForPost(post);
-    if (mounted && resolved != _displayVenueName) {
-      setState(() => _displayVenueName = resolved);
     }
   }
 

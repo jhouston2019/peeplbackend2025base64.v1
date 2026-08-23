@@ -77,9 +77,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
   void initState() {
     super.initState();
     _locationId = _resolveLocationId(widget.postData);
-    _displayVenueName = VenueNameService.storedVenueName(widget.postData) ??
-        VenueNameService.addressFallback(widget.postData) ??
-        'Unknown Location';
+    _displayVenueName = VenueNameService.labelForPost(widget.postData);
     _likesCount = (widget.postData['likesCount'] as num?)?.toInt() ?? 0;
     _commentsCount = (widget.postData['commentsCount'] as num?)?.toInt() ?? 0;
     _initLikeAndFollowState();
@@ -104,17 +102,9 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         _loadLiveNowData(),
         _loadContributorCount(),
         _recordPeepViewForVenue(),
-        _resolveDisplayVenueName(),
       ]);
     } catch (e) {
       debugPrint('[LocationDetailScreen] initState bootstrap error: $e');
-    }
-  }
-
-  Future<void> _resolveDisplayVenueName() async {
-    final resolved = await VenueNameService.displayNameForPost(widget.postData);
-    if (mounted && resolved != _displayVenueName) {
-      setState(() => _displayVenueName = resolved);
     }
   }
 
