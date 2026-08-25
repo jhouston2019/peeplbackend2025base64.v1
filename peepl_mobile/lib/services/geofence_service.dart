@@ -334,11 +334,9 @@ class PeeplGeofenceService {
     );
 
     await NotificationService.instance.handleVenueEntry(
-      venueName: venueName,
       venueId: geofence.id,
       lat: location.latitude,
       lng: location.longitude,
-      address: _locationAddresses[geofence.id],
     );
     } catch (e) {
       debugPrint('[PeeplGeofenceService] _onGeofenceStatusChanged error: $e');

@@ -23,6 +23,7 @@ import 'peepl_positive_messages.dart';
 import 'presence_service.dart';
 import 'dwell_detector.dart';
 import 'location_service.dart';
+import 'location_label_service.dart';
 
 /// Context for Flow 1 organic walk-in prompts. No venue name — generic copy only.
 class WalkInPromptContext {
