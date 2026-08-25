@@ -1620,12 +1620,12 @@ const POST_TTL_MS = 28 * 24 * 60 * 60 * 1000;
 const EXPIRE_BATCH_SIZE = 400;
 
 async function deleteQueryCollection(colRef, batchSize = 200) {
-  while (true) {
-    const snap = await colRef.limit(batchSize).get();
-    if (snap.empty) break;
+  let snap = await colRef.limit(batchSize).get();
+  while (!snap.empty) {
     const batch = db.batch();
     snap.docs.forEach((doc) => batch.delete(doc.ref));
     await batch.commit();
+    snap = await colRef.limit(batchSize).get();
   }
 }
 
