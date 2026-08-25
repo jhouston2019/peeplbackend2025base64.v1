@@ -327,6 +327,7 @@ class _WhereShouldWeGoScreenState extends State<WhereShouldWeGoScreen> {
           locationName: name,
           latitude: lat,
           longitude: lng,
+          placeId: venue['placeId'] as String?,
           source: 'where_should_we_go',
         );
         requested++;

@@ -15,6 +15,7 @@ import '../services/presence_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../utils/post_delete_actions.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/detail/detail_comment_input.dart';
 import '../widgets/detail/detail_comment_tile.dart';
@@ -905,7 +906,14 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
                   : () => Navigator.pushNamed(
                         context,
                         '/post',
-                        arguments: {'locationName': locationName},
+                        arguments: ComposerLaunch.venueTapRouteArgs(
+                          locationName: locationName,
+                          latitude:
+                              (widget.postData['latitude'] as num?)?.toDouble(),
+                          longitude:
+                              (widget.postData['longitude'] as num?)?.toDouble(),
+                          placeId: widget.postData['placeId'] as String?,
+                        ),
                       ),
             );
           },
@@ -990,6 +998,7 @@ class _LocationDetailScreenState extends State<LocationDetailScreen> {
         locationName: locationName,
         latitude: latitude,
         longitude: longitude,
+        placeId: widget.postData['placeId'] as String?,
         source: 'location_detail',
         postAuthorId: postAuthorId,
       );

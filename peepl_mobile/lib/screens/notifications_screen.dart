@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
-
+import '../utils/composer_launch.dart';
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
 
@@ -234,20 +234,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       case 'crowdsource_request':
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
-        final requestId = data['requestId']?.toString();
         Navigator.pushNamed(
           context,
           '/post',
-          arguments: <String, dynamic>{
-            'locationName': data['locationName'] as String? ?? '',
-            if (lat != null) 'latitude': lat,
-            if (lng != null) 'longitude': lng,
-            if (requestId != null && requestId.isNotEmpty)
-              'requestId': requestId,
-          },
+          arguments: ComposerLaunch.crowdsourceRouteArgs(
+            locationName: data['locationName'] as String? ?? '',
+            latitude: lat,
+            longitude: lng,
+            placeId: data['placeId']?.toString(),
+            requestId: data['requestId']?.toString() ??
+                data['relatedId']?.toString(),
+          ),
         );
-        break;
-      case 'crowdsource_response':
+        break;      case 'crowdsource_response':
         final responsePostId = _resolvedPostId(data);
         if (responsePostId.isNotEmpty) {
           await _navigateToPost(context, responsePostId);
@@ -265,8 +264,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             'locationName': data['locationName'] as String? ??
                 data['venueName'] as String? ??
                 '',
+            'fromVenueEntry': true,
             if (walkLat != null) 'latitude': walkLat,
             if (walkLng != null) 'longitude': walkLng,
+            if ((data['venueId'] ?? data['locationId']) != null)
+              'venueId': (data['venueId'] ?? data['locationId']).toString(),
           },
         );
         break;

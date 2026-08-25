@@ -11,6 +11,7 @@ import '../services/location_service.dart';
 import '../services/native_ads_service.dart';
 import '../widgets/ad_card.dart';
 import '../widgets/crowd_dot_ring_meter.dart';
+import '../utils/composer_launch.dart';
 
 // ─── Data model ───────────────────────────────────────────────────────────────
 
@@ -599,7 +600,11 @@ class _TrendingScreenState extends State<TrendingScreen> {
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: () => Navigator.pushNamed(context, '/post'),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/post',
+                arguments: ComposerLaunch.directRouteArgs(),
+              ),
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Post a Peep'),
               style: ElevatedButton.styleFrom(

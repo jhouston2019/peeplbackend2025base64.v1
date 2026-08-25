@@ -259,8 +259,8 @@ service cloud.firestore {
 
     // Geofence venue registry — public read for client geofencing.
     // Writes are Admin SDK only (e.g. onPostCreated, backfillLocationsFromPosts).
-    // Client writes removed: admin SeedLocationsScreen and PlacesVenueDetector
-    // auto-seed will fail until routed through a Cloud Function or backend.
+    // Client writes removed: admin SeedLocationsScreen will fail until
+    // routed through a Cloud Function or backend.
     match /locations/{locationId} {
       allow read: if true;
       allow write: if false;

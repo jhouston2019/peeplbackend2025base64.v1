@@ -1,12 +1,22 @@
 import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
+import '../utils/composer_launch.dart';
 
 /// Shown when a venue has no crowd reports yet.
 /// The "Peep Here →" button navigates to /post prefilling the location name.
 class NoPeepsEmptyState extends StatelessWidget {
   final String locationName;
+  final double? latitude;
+  final double? longitude;
+  final String? placeId;
 
-  const NoPeepsEmptyState({super.key, required this.locationName});
+  const NoPeepsEmptyState({
+    super.key,
+    required this.locationName,
+    this.latitude,
+    this.longitude,
+    this.placeId,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +50,12 @@ class NoPeepsEmptyState extends StatelessWidget {
             onPressed: () => Navigator.pushNamed(
               context,
               '/post',
-              arguments: {'locationName': locationName},
+              arguments: ComposerLaunch.venueTapRouteArgs(
+                locationName: locationName,
+                latitude: latitude,
+                longitude: longitude,
+                placeId: placeId,
+              ),
             ),
             style: ElevatedButton.styleFrom(
               backgroundColor: PeeplAppTokens.background,

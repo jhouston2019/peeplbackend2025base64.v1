@@ -236,13 +236,18 @@ async function notifyUserOfCrowdsourceRequest(uid, request, requestDocId) {
     request.message ||
     `Someone is curious about ${locationName}, would you mind sharing a peep?`;
 
-  await sendFcm(token, 'Peep Request Nearby', body, {
+  const fcmData = {
     type: 'crowdsource_request',
     locationName,
     latitude: String(request.latitude),
     longitude: String(request.longitude),
     requestId: request.requestId || requestDocId,
-  }, { recipientUid: uid });
+  };
+  if (request.placeId) {
+    fcmData.placeId = String(request.placeId);
+  }
+
+  await sendFcm(token, 'Peep Request Nearby', body, fcmData, { recipientUid: uid });
   return true;
 }
 
@@ -294,6 +299,7 @@ exports.onCrowdsourceRequest = functions.firestore
       locationName,
       latitude,
       longitude,
+      placeId,
       radiusKm = 1,
       message,
       expiresAt,
@@ -364,6 +370,7 @@ exports.onCrowdsourceRequest = functions.firestore
       latitude: String(lat),
       longitude: String(lng),
       requestId,
+      ...(placeId ? { placeId: String(placeId) } : {}),
     };
 
     const targetIds = new Set();
@@ -974,7 +981,7 @@ function generateLocationId(locationName) {
 
 // ─── CALLABLE: seedLocation ───────────────────────────────────────────────
 // Authenticated clients seed the geofence registry after Prompt A locked
-// direct `locations` writes. Same schema as PlacesVenueDetector / admin seed.
+// direct `locations` writes. Same schema as admin seed.
 exports.seedLocation = functions.https.onCall(async (data, context) => {
   if (!context.auth) {
     throw new functions.https.HttpsError(
@@ -1096,6 +1103,7 @@ async function upsertLocationFromPost(postData) {
       peepCount: 1,
       ...(postData.venueName ? { venueName: postData.venueName } : {}),
       ...(postData.address ? { address: postData.address } : {}),
+      ...(postData.placeId ? { placeId: postData.placeId } : {}),
     });
     return { created: true, updated: false };
   }
@@ -1103,6 +1111,7 @@ async function upsertLocationFromPost(postData) {
   await locationRef.update({
     lastPeeped: FieldValue.serverTimestamp(),
     peepCount: FieldValue.increment(1),
+    ...(postData.placeId ? { placeId: postData.placeId } : {}),
   });
   return { created: false, updated: true };
 }
@@ -1604,5 +1613,80 @@ exports.sendReengagementPush = functions.pubsub
     }
 
     console.log(`sendReengagementPush: sent ${sent} notifications`);
+    return null;
+  });
+
+const POST_TTL_MS = 28 * 24 * 60 * 60 * 1000;
+const EXPIRE_BATCH_SIZE = 400;
+
+async function deleteQueryCollection(colRef, batchSize = 200) {
+  while (true) {
+    const snap = await colRef.limit(batchSize).get();
+    if (snap.empty) break;
+    const batch = db.batch();
+    snap.docs.forEach((doc) => batch.delete(doc.ref));
+    await batch.commit();
+  }
+}
+
+async function deletePostImage(imageUrl) {
+  if (!imageUrl || typeof imageUrl !== 'string') return;
+  try {
+    const marker = '/o/';
+    const idx = imageUrl.indexOf(marker);
+    if (idx === -1) return;
+    const pathPart = imageUrl.substring(idx + marker.length).split('?')[0];
+    const filePath = decodeURIComponent(pathPart);
+    await admin.storage().bucket().file(filePath).delete({ ignoreNotFound: true });
+  } catch (e) {
+    console.error('expireLocationPosts image delete failed:', e.message || e);
+  }
+}
+
+async function hardDeleteExpiredPost(doc) {
+  const postRef = doc.ref;
+  await deleteQueryCollection(postRef.collection('likes'));
+  await deleteQueryCollection(postRef.collection('comments'));
+  await deletePostImage(doc.data()?.imageUrl);
+  await postRef.delete();
+}
+
+// Daily 3 AM ET — hard-delete location_posts past expiresAt (or older than 28d).
+exports.expireLocationPosts = functions.pubsub
+  .schedule('0 3 * * *')
+  .timeZone('America/New_York')
+  .onRun(async () => {
+    const now = Timestamp.now();
+    const cutoff = Timestamp.fromMillis(Date.now() - POST_TTL_MS);
+
+    const [byExpiresAt, byTimestamp] = await Promise.all([
+      db
+        .collection('location_posts')
+        .where('expiresAt', '<=', now)
+        .limit(EXPIRE_BATCH_SIZE)
+        .get(),
+      db
+        .collection('location_posts')
+        .where('timestamp', '<', cutoff)
+        .limit(EXPIRE_BATCH_SIZE)
+        .get(),
+    ]);
+
+    const toDelete = new Map();
+    for (const doc of [...byExpiresAt.docs, ...byTimestamp.docs]) {
+      toDelete.set(doc.id, doc);
+    }
+
+    let deleted = 0;
+    for (const doc of toDelete.values()) {
+      try {
+        await hardDeleteExpiredPost(doc);
+        deleted += 1;
+      } catch (e) {
+        console.error('expireLocationPosts failed for', doc.id, e);
+      }
+    }
+
+    console.log(`expireLocationPosts: deleted ${deleted} posts`);
     return null;
   });

@@ -5,6 +5,7 @@ import '../services/ai_service.dart';
 import '../services/crowd_intelligence_service.dart';
 import '../services/feed_service.dart';
 import '../services/venue_name_service.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/quick_peep_sheet.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -201,6 +202,11 @@ class _PostScreenState extends State<PostScreen> {
   bool _fromVenueEntry = false;
   String? _crowdsourceRequestId;
   bool _isResolvingVenueName = false;
+  bool _locationEditedByUser = false;
+  bool _placesAttempted = false;
+  String? _placeId;
+  String? _composerSource;
+  ComposerLaunch? _launch;
 
   double _kidsPercentage = 0;
   double _femalePercentage = 50;
@@ -303,20 +309,66 @@ class _PostScreenState extends State<PostScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       try {
-        if (_hasNotificationLocation &&
-            _latitude != null &&
-            _longitude != null) {
+        if (_launch?.hasPrefilledCoords == true) {
           if (mounted) setState(() => _locationReady = true);
+          await _detectVenueOnce();
           return;
         }
+        _composerSource ??= 'direct';
         final acquired = await _acquireLocation();
         if (mounted) {
           setState(() => _locationReady = acquired);
         }
+        await _detectVenueOnce();
       } catch (e) {
         debugPrint('[PostScreen] initState location error: $e');
       }
     });
+  }
+
+  void _applyComposerLaunch(ComposerLaunch launch) {
+    _launch = launch;
+    _composerSource = launch.composerSource ??
+        (launch.fromVenueEntry ? 'walk_in' : 'direct');
+    _fromVenueEntry = launch.fromVenueEntry;
+    _hasNotificationLocation = launch.fromVenueEntry ||
+        launch.composerSource == 'crowdsource' ||
+        launch.composerSource == 'venue_tap' ||
+        (launch.locationName != null && launch.locationName!.trim().isNotEmpty) ||
+        launch.hasPrefilledCoords;
+
+    final name = launch.locationName?.trim();
+    if (name != null && name.isNotEmpty) {
+      _locationController.text = name;
+    }
+
+    if (launch.latitude != null && launch.longitude != null) {
+      _latitude = launch.latitude;
+      _longitude = launch.longitude;
+    }
+
+    final placeId = launch.placeId;
+    if (placeId != null && placeId.isNotEmpty) {
+      _placeId = placeId;
+    }
+
+    final requestId = launch.requestId?.trim();
+    if (requestId != null && requestId.isNotEmpty) {
+      _crowdsourceRequestId = requestId;
+    }
+
+    if (launch.shouldSkipPlaces()) {
+      _placesAttempted = true;
+    }
+
+    if (launch.hasPrefilledCoords) {
+      _locationReady = true;
+    }
+  }
+
+  bool _shouldCallPlaces() {
+    return (_launch ?? ComposerLaunch(composerSource: _composerSource))
+        .shouldCallPlaces(placesAttempted: _placesAttempted);
   }
 
   @override
@@ -324,46 +376,41 @@ class _PostScreenState extends State<PostScreen> {
     super.didChangeDependencies();
     if (!_locationPreFilled) {
       _locationPreFilled = true;
-      final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is Map && args['locationName'] != null) {
-        _hasNotificationLocation = true;
-        _fromVenueEntry = args['fromVenueEntry'] == true || _hasNotificationLocation;
-        _locationController.text = args['locationName'] as String;
-        final lat = args['latitude'];
-        final lng = args['longitude'];
-        if (lat is num) _latitude = lat.toDouble();
-        if (lng is num) _longitude = lng.toDouble();
-        final requestId = args['requestId']?.toString();
-        if (requestId != null && requestId.isNotEmpty) {
-          _crowdsourceRequestId = requestId;
-        }
-        if (_latitude != null && _longitude != null) {
-          _locationReady = true;
-        }
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          _resolveNotificationVenueName();
-        });
+      final launch = ComposerLaunch.fromRouteArgs(
+        ModalRoute.of(context)?.settings.arguments,
+      );
+      if (launch != null && launch.hasLaunchContext) {
+        _applyComposerLaunch(launch);
+      } else {
+        _composerSource = 'direct';
       }
     }
   }
 
-  Future<void> _resolveNotificationVenueName() async {
-    if (!mounted) return;
-
-    final raw = _locationController.text.trim();
-    if (raw.isEmpty) return;
-    if (!VenueNameService.looksLikeAddress(raw)) return;
+  Future<void> _detectVenueOnce() async {
+    if (_placesAttempted) return;
+    if (!_shouldCallPlaces()) {
+      _placesAttempted = true;
+      return;
+    }
 
     final lat = _latitude;
     final lng = _longitude;
     if (lat == null || lng == null) return;
 
-    setState(() => _isResolvingVenueName = true);
+    _placesAttempted = true;
+    if (mounted) setState(() => _isResolvingVenueName = true);
     try {
-      final resolved = await VenueNameService.resolveVenueName(lat, lng);
+      final result = await VenueNameService.searchNearbyTop(
+        latitude: lat,
+        longitude: lng,
+      );
       if (!mounted) return;
-      if (resolved != null && resolved.isNotEmpty) {
-        setState(() => _locationController.text = resolved);
+      if (result != null) {
+        _placeId = result.placeId;
+        if (!_locationEditedByUser) {
+          setState(() => _locationController.text = result.name);
+        }
       }
     } finally {
       if (mounted) setState(() => _isResolvingVenueName = false);
@@ -389,13 +436,6 @@ class _PostScreenState extends State<PostScreen> {
           _latitude = pos.latitude;
           _longitude = pos.longitude;
         });
-      }
-      final venueName =
-          await VenueNameService.getVenueName(pos.latitude, pos.longitude);
-      if (venueName != null && venueName.isNotEmpty) {
-        if (mounted) {
-          setState(() => _locationController.text = venueName);
-        }
       }
       return true;
     } catch (e) {
@@ -639,15 +679,6 @@ class _PostScreenState extends State<PostScreen> {
 
     try {
       var locationName = _locationController.text.trim();
-      if (VenueNameService.looksLikeAddress(locationName)) {
-        final resolved = await VenueNameService.resolveVenueName(
-          _latitude!,
-          _longitude!,
-        );
-        if (resolved != null && resolved.isNotEmpty) {
-          locationName = resolved;
-        }
-      }
 
       if (_selectedImage != null && _aiSuggestedScore == null) {
         final validation = await _aiService.validateCrowdScore(
@@ -698,6 +729,7 @@ class _PostScreenState extends State<PostScreen> {
         aiValidationConfidence: _aiValidationConfidence,
         aiDescription: _aiSuggestedDescription,
         crowdsourceRequestId: _crowdsourceRequestId,
+        placeId: _placeId,
       );
 
       final pioneerCount = await FirebaseFirestore.instance
@@ -1229,7 +1261,9 @@ class _PostScreenState extends State<PostScreen> {
         onTap: _isLoading
             ? null
             : () {
-                final args = <String, dynamic>{};
+                final args = <String, dynamic>{
+                  'composerSource': 'direct',
+                };
                 final name = _locationController.text.trim();
                 if (name.isNotEmpty) args['locationName'] = name;
                 if (_latitude != null) args['latitude'] = _latitude;
@@ -1237,7 +1271,7 @@ class _PostScreenState extends State<PostScreen> {
                 Navigator.pushNamed(
                   context,
                   '/create_peep',
-                  arguments: args.isEmpty ? null : args,
+                  arguments: args,
                 );
               },
         child: Padding(
@@ -1310,7 +1344,7 @@ class _PostScreenState extends State<PostScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              QuickPeepSheet.show(context);
+              QuickPeepSheet.show(context, composerSource: 'direct');
             },
             child: const Text(
               'Quick Mode',
@@ -1378,8 +1412,11 @@ class _PostScreenState extends State<PostScreen> {
             validator: (v) => v == null || v.trim().isEmpty
                 ? 'Please enter a location name'
                 : null,
+            onChanged: (_) => setState(() => _locationEditedByUser = true),
             decoration: InputDecoration(
-              hintText: 'e.g. Central Park, Hyde Park',
+              hintText: _placesAttempted
+                  ? 'Enter venue name'
+                  : 'e.g. Central Park, Hyde Park',
               border: InputBorder.none,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -1430,6 +1467,15 @@ class _PostScreenState extends State<PostScreen> {
                 style: TextStyle(fontSize: 11, color: Colors.orange[700]),
               ),
             ],
+          ),
+        if (!_isResolvingVenueName &&
+            _locationController.text.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              'Confirm this venue, or tap to edit.',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
           ),
       ],
     );

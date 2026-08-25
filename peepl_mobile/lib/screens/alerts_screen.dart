@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import '../theme/peepl_app_tokens.dart';
+import '../utils/composer_launch.dart';
 
 import 'location_detail_screen.dart';
 
@@ -107,11 +108,14 @@ class _AlertsScreenState extends State<AlertsScreen> {
       Navigator.pushNamed(
         context,
         '/post',
-        arguments: <String, dynamic>{
-          'locationName': data['locationName'] as String? ?? '',
-          if (lat != null) 'latitude': lat,
-          if (lng != null) 'longitude': lng,
-        },
+        arguments: ComposerLaunch.crowdsourceRouteArgs(
+          locationName: data['locationName'] as String? ?? '',
+          latitude: lat,
+          longitude: lng,
+          placeId: data['placeId']?.toString(),
+          requestId: data['requestId']?.toString() ??
+              data['relatedId']?.toString(),
+        ),
       );
       return;
     }

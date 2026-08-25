@@ -7,8 +7,8 @@ import 'package:geofence_service/geofence_service.dart';
 import 'package:geolocator/geolocator.dart' as geo;
 
 import 'debug_log_service.dart';
+import 'dwell_detector.dart';
 import 'notification_service.dart';
-import 'places_venue_detector.dart';
 
 // FIRESTORE COMPOSITE INDEXES — see also NotificationService header comment.
 // onPeepCreatedCrowdAlert: location_follows (locationId+alertsEnabled,
@@ -58,10 +58,6 @@ class PeeplGeofenceService {
   bool _firestoreErrorLogged = false;
 
   bool get isActive => _isActive;
-
-  bool isVenueMonitored(String placeId, String venueName) {
-    return _locationNames.containsKey(placeId);
-  }
 
   void _logDenialOnce(String message) {
     if (_denialLogged) return;
@@ -142,7 +138,6 @@ class PeeplGeofenceService {
 
     try {
       if (_listenersRegistered) return;
-      PlacesVenueDetector.instance.venueMonitoredCheck = isVenueMonitored;
       final service = _geofenceService;
       if (service == null) return;
       service.addGeofenceStatusChangeListener(_onGeofenceStatusChanged);
@@ -353,7 +348,7 @@ class PeeplGeofenceService {
   void _onActivityChanged(Activity prevActivity, Activity currActivity) {}
 
   void _onLocationChanged(Location location) {
-    PlacesVenueDetector.instance.onLocationUpdate(
+    DwellDetector.instance.onLocationUpdate(
       location.latitude,
       location.longitude,
     );

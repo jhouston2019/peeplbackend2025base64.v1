@@ -6,6 +6,7 @@ import 'package:share_plus/share_plus.dart';
 import '../theme/peepl_app_tokens.dart';
 
 import '../services/crowdsource_service.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/crowd_meter.dart';
 import 'location_detail_screen.dart';
 
@@ -30,6 +31,7 @@ class _VenueScreenState extends State<VenueScreen> {
   double? _latitude;
   double? _longitude;
   String? _latestPostId;
+  String? _placeId;
 
   String get _uid => FirebaseAuth.instance.currentUser?.uid ?? '';
 
@@ -138,6 +140,7 @@ class _VenueScreenState extends State<VenueScreen> {
         locationName: _venueName,
         latitude: _latitude!,
         longitude: _longitude!,
+        placeId: _placeId,
         source: 'venue_screen',
       );
       if (mounted) {
@@ -170,7 +173,12 @@ class _VenueScreenState extends State<VenueScreen> {
     Navigator.pushNamed(
       context,
       '/post',
-      arguments: {'locationName': _venueName},
+      arguments: ComposerLaunch.venueTapRouteArgs(
+        locationName: _venueName,
+        latitude: _latitude,
+        longitude: _longitude,
+        placeId: _placeId,
+      ),
     );
   }
 
@@ -226,6 +234,7 @@ class _VenueScreenState extends State<VenueScreen> {
           _latitude = (latest['latitude'] as num?)?.toDouble();
           _longitude = (latest['longitude'] as num?)?.toDouble();
           _latestPostId = latest['id'] as String?;
+          _placeId = latest['placeId'] as String?;
         }
 
         final stats = _computeStats(posts);

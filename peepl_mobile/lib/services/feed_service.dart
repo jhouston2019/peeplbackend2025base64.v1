@@ -8,7 +8,6 @@ import '../models/milestone.dart';
 import 'crowd_intelligence_service.dart';
 import 'growth_analytics_service.dart';
 import 'notification_service.dart';
-import 'venue_name_service.dart';
 
 class FeedService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -131,14 +130,14 @@ class FeedService {
     double? aiValidationConfidence,
     String? aiDescription,
     String? crowdsourceRequestId,
-    bool preserveLocationName = false,
+    String? placeId,
   }) async {
     try {
       await _validateImageFile(imageFile);
       final imageUrl = await _uploadImage(imageFile, userId);
 
-      var displayName = locationName.trim();
-      String? streetAddress;
+      final displayName = locationName.trim();
+      final trimmedPlaceId = placeId?.trim();
 
       final hasCoords = !(latitude == 0 && longitude == 0) &&
           !latitude.isNaN &&
@@ -148,35 +147,19 @@ class FeedService {
         throw StateError('Cannot post without a GPS location');
       }
 
-      if (preserveLocationName) {
-        if (displayName.isEmpty) {
-          displayName =
-              await VenueNameService.resolveLabelAtPin(latitude, longitude);
-        }
-      } else if (VenueNameService.isWeakVenueName(displayName)) {
-        displayName =
-            await VenueNameService.resolveLabelAtPin(latitude, longitude);
-        if (VenueNameService.looksLikeAddress(displayName)) {
-          streetAddress = displayName;
-        }
-      } else if (VenueNameService.looksLikeAddress(displayName)) {
-        streetAddress = displayName;
-        final resolved =
-            await VenueNameService.resolveVenueName(latitude, longitude);
-        if (resolved != null && resolved.isNotEmpty) {
-          displayName = resolved;
-        }
-      }
-
       final doc = <String, dynamic>{
         'userId': userId,
         'username': username,
         'locationName': displayName,
+        'venueName': displayName,
         'latitude': latitude,
         'longitude': longitude,
         'crowdingLevel': crowdingLevel,
         'imageUrl': imageUrl,
         'timestamp': FieldValue.serverTimestamp(),
+        'expiresAt': Timestamp.fromDate(
+          DateTime.now().add(const Duration(days: 28)),
+        ),
         'likesCount': 0,
         'commentsCount': 0,
         'isVerified': false,
@@ -188,11 +171,8 @@ class FeedService {
         'adultKidRatio': adultKidRatio.clamp(0, 100),
         'hasPets': hasPets,
       };
-      if (streetAddress != null && streetAddress != displayName) {
-        doc['address'] = streetAddress;
-      }
-      if (!VenueNameService.isWeakVenueName(displayName)) {
-        doc['venueName'] = displayName;
+      if (trimmedPlaceId != null && trimmedPlaceId.isNotEmpty) {
+        doc['placeId'] = trimmedPlaceId;
       }
       final desc = description?.trim();
       if (desc != null && desc.isNotEmpty) doc['description'] = desc;

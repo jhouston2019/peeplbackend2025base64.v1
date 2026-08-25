@@ -13,6 +13,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../firebase_options.dart';
 import '../models/milestone.dart';
 import '../services/feed_service.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/peepl_positive_message.dart';
 import 'crowdsource_service.dart';
 import 'debug_log_service.dart';
@@ -20,111 +21,28 @@ import 'growth_analytics_service.dart';
 import 'peep_prompt_suppression_service.dart';
 import 'peepl_positive_messages.dart';
 import 'presence_service.dart';
-import 'location_label_service.dart';
+import 'dwell_detector.dart';
 import 'location_service.dart';
-import 'venue_name_service.dart';
 
-bool _looksLikeInternalSlug(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return false;
-  if (trimmed.startsWith('poi:') ||
-      trimmed.startsWith('place:') ||
-      trimmed.startsWith('coord:')) {
-    return true;
-  }
-  return RegExp(r'^[a-z0-9_]+$').hasMatch(trimmed) && trimmed.contains('_');
+/// Context for Flow 1 organic walk-in prompts. No venue name — generic copy only.
+class WalkInPromptContext {
+  const WalkInPromptContext({
+    required this.lat,
+    required this.lng,
+    required this.venueId,
+    this.placeId,
+  });
+
+  final double lat;
+  final double lng;
+
+  /// Suppression cell id or registry location id — not necessarily a Place ID.
+  final String venueId;
+  final String? placeId;
 }
 
-bool _isWeakWalkInLabel(String value) {
-  final trimmed = value.trim();
-  if (trimmed.isEmpty) return true;
-  if (trimmed == 'Current location' ||
-      trimmed == 'this location' ||
-      trimmed == 'Unknown Venue') {
-    return true;
-  }
-  return VenueNameService.looksLikeAddress(trimmed) ||
-      _looksLikeInternalSlug(trimmed);
-}
-
-Future<({String name, String? address})> _resolveWalkInLabels({
-  required String venueName,
-  String? storedAddress,
-  required double lat,
-  required double lng,
-}) async {
-  var name = venueName.trim();
-  String? address = storedAddress?.trim();
-
-  if (_isWeakWalkInLabel(name)) {
-    if (VenueNameService.looksLikeAddress(name)) {
-      address ??= name;
-      name = '';
-    }
-    final placesName = await VenueNameService.resolveVenueName(lat, lng);
-    if (placesName != null && placesName.isNotEmpty) {
-      name = placesName;
-    }
-  }
-
-  if (_isWeakWalkInLabel(name)) {
-    final label = await LocationLabelService.resolve(lat, lng);
-    if (label.isNotEmpty && label != 'Current location') {
-      if (VenueNameService.looksLikeAddress(label)) {
-        address ??= label;
-        if (name.isEmpty) {
-          name = label.split(',').first.trim();
-        }
-      } else {
-        name = label;
-      }
-    }
-  }
-
-  if (address == null || address.isEmpty) {
-    final label = await LocationLabelService.resolve(lat, lng);
-    if (label.isNotEmpty &&
-        label != 'Current location' &&
-        label.toLowerCase() != name.toLowerCase()) {
-      address = label;
-    }
-  }
-
-  if (name.isEmpty) {
-    name = address?.split(',').first.trim() ?? 'Current location';
-  }
-
-  return (name: name, address: address);
-}
-
-String _walkInNotificationTitle(String name) {
-  final trimmed = name.trim();
-  if (trimmed.isEmpty ||
-      trimmed == 'Current location' ||
-      trimmed == 'this location') {
-    return 'You just walked in 👀';
-  }
-  return "👀 You're at $trimmed";
-}
-
-String _walkInFunctionalBody(String name, String? address) {
-  final trimmed = name.trim();
-  final addr = address?.trim();
-  if (trimmed.isNotEmpty &&
-      trimmed != 'Current location' &&
-      trimmed != 'this location') {
-    if (addr != null &&
-        addr.isNotEmpty &&
-        addr.toLowerCase() != trimmed.toLowerCase()) {
-      return "How's $trimmed ($addr) right now? Peep it.";
-    }
-    return "How's $trimmed right now? Peep it.";
-  }
-  if (addr != null && addr.isNotEmpty) {
-    return "You're at $addr — how is it right now? Peep it.";
-  }
-  return 'How is it right now? Peep it.';
-}
+const _walkInPromptTitle = 'How\'s the crowd there?';
+const _walkInPromptBody = 'Tap to share how crowded it is where you are.';
 
 /// Firestore composite indexes required before production deploy.
 ///
@@ -185,35 +103,15 @@ Future<void> _showWalkInLocalNotificationFromData(
   String? body,
 }) async {
   try {
-  final rawVenueName =
-      data['venueName']?.toString() ?? data['locationName']?.toString() ?? '';
-  final storedAddress = data['address']?.toString();
   final venueId =
-      (data['venueId'] ?? data['locationId'])?.toString() ?? rawVenueName;
+      (data['venueId'] ?? data['locationId'])?.toString() ?? 'walk_in';
   final lat = double.tryParse(data['latitude']?.toString() ?? '');
   final lng = double.tryParse(data['longitude']?.toString() ?? '');
 
-  late String displayName;
-  String? displayAddress;
-  if (lat != null && lng != null) {
-    final labels = await _resolveWalkInLabels(
-      venueName: rawVenueName,
-      storedAddress: storedAddress,
-      lat: lat,
-      lng: lng,
-    );
-    displayName = labels.name;
-    displayAddress = labels.address;
-  } else {
-    displayName = rawVenueName;
-    displayAddress = storedAddress;
-  }
-
-  final notificationTitle =
-      title ?? _walkInNotificationTitle(displayName);
+  final notificationTitle = title ?? _walkInPromptTitle;
   final notificationBody = body ??
       await PeeplPositiveMessages.instance.enrichPushBody(
-        _walkInFunctionalBody(displayName, displayAddress),
+        _walkInPromptBody,
         notificationType: 'walk_in_prompt',
       );
 
@@ -238,13 +136,10 @@ Future<void> _showWalkInLocalNotificationFromData(
 
   final payload = jsonEncode({
     'type': 'walk_in_prompt',
-    'locationName': displayName,
-    'venueName': displayName,
-    if (displayAddress != null && displayAddress.isNotEmpty)
-      'address': displayAddress,
-    'latitude': lat,
-    'longitude': lng,
+    if (lat != null) 'latitude': lat,
+    if (lng != null) 'longitude': lng,
     'venueId': venueId,
+    if (data['placeId'] != null) 'placeId': data['placeId'].toString(),
   });
 
   await localNotifications.show(
@@ -353,9 +248,8 @@ class NotificationService {
   bool _crowdsourceListenerPrimed = false;
   bool _coldStartWalkInCaptured = false;
 
-  /// Optional in-app walk-in prompt (e.g. FeedScreen dialog). Registered from
-  /// [main.dart] to forward to [FeedScreen.onGeofenceVenueEntry].
-  void Function(String venueName)? onVenueEntryInAppPrompt;
+  /// Optional in-app walk-in prompt (e.g. FeedScreen dialog).
+  void Function(WalkInPromptContext ctx)? onVenueEntryInAppPrompt;
 
   /// Records a walk-in push that launched the app from a killed state.
   /// Call from [main] before [runApp] so the tap survives auth routing.
@@ -365,14 +259,13 @@ class NotificationService {
     _coldStartWalkInCaptured = true;
   }
 
-  /// Single entry point for all venue-entry walk-in prompts — geofence registry,
-  /// Places API detector, and in-app dialog triggers all route here.
+  /// Single entry point for all venue-entry walk-in prompts — dwell detector,
+  /// registry geofence, and in-app dialog all route here. Generic copy only.
   Future<void> handleVenueEntry({
-    required String venueName,
     required String venueId,
     required double lat,
     required double lng,
-    String? address,
+    String? placeId,
   }) async {
     if (!await isLocationAlertsEnabled()) {
       debugPrint('[NotificationService] Venue entry skipped (location alerts off)');
@@ -414,39 +307,35 @@ class NotificationService {
 
     await _updateUserLastLocation(lat, lng);
 
-    final labels = await _resolveWalkInLabels(
-      venueName: venueName,
-      storedAddress: address,
+    final promptContext = WalkInPromptContext(
       lat: lat,
       lng: lng,
+      venueId: venueId,
+      placeId: placeId,
     );
-    final displayName = labels.name;
-    final displayAddress = labels.address;
 
     await GrowthAnalyticsService.logEvent(
       'growth_venue_entry_detected',
       {
         'venueId': venueId,
-        'venueName': displayName,
-        if (displayAddress != null) 'address': displayAddress,
+        if (placeId != null) 'placeId': placeId,
       },
     );
 
     try {
-      await PresenceService.instance.recordArrival(displayName, lat, lng);
+      await PresenceService.instance.recordArrival('walk-in', lat, lng);
     } catch (e) {
       debugPrint('[NotificationService] recordArrival error: $e');
     }
 
     final inApp = onVenueEntryInAppPrompt;
     if (inApp != null && _isAppForeground) {
-      inApp(displayName);
+      inApp(promptContext);
       await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
       await GrowthAnalyticsService.logEvent(
         'growth_peep_prompt_delivered',
         {
           'venueId': venueId,
-          'venueName': displayName,
           'channel': 'in_app',
         },
       );
@@ -455,18 +344,16 @@ class NotificationService {
 
     if (_isAppForeground) {
       await _deliverWalkInLocalNotification(
-        venueName: displayName,
         venueId: venueId,
         lat: lat,
         lng: lng,
-        address: displayAddress,
+        placeId: placeId,
       );
       await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
       await GrowthAnalyticsService.logEvent(
         'growth_peep_prompt_delivered',
         {
           'venueId': venueId,
-          'venueName': displayName,
           'channel': 'local',
         },
       );
@@ -475,28 +362,25 @@ class NotificationService {
 
     // Background — local notification on device. No Firestore / FCM required.
     await _deliverWalkInLocalNotification(
-      venueName: displayName,
       venueId: venueId,
       lat: lat,
       lng: lng,
-      address: displayAddress,
+      placeId: placeId,
     );
     await PeepPromptSuppressionService.instance.recordPromptShown(venueId);
     if (uid != null) {
       unawaited(_writeVenueEntryEventToFirestore(
         userId: uid,
-        venueName: displayName,
+        venueName: 'walk-in',
         venueId: venueId,
         latitude: lat,
         longitude: lng,
-        address: displayAddress,
       ));
     }
     await GrowthAnalyticsService.logEvent(
       'growth_peep_prompt_delivered',
       {
         'venueId': venueId,
-        'venueName': displayName,
         'channel': 'local',
       },
     );
@@ -508,32 +392,29 @@ class NotificationService {
   }
 
   Future<void> _deliverWalkInLocalNotification({
-    required String venueName,
     required String venueId,
     required double lat,
     required double lng,
-    String? address,
+    String? placeId,
   }) async {
     final payload = jsonEncode({
       'type': 'walk_in_prompt',
-      'locationName': venueName,
-      'venueName': venueName,
-      if (address != null && address.isNotEmpty) 'address': address,
       'latitude': lat,
       'longitude': lng,
       'venueId': venueId,
+      if (placeId != null && placeId.isNotEmpty) 'placeId': placeId,
     });
 
     final walkInBody =
         await PeeplPositiveMessages.instance.enrichPushBody(
-      _walkInFunctionalBody(venueName, address),
+      _walkInPromptBody,
       notificationType: 'walk_in_prompt',
     );
 
     try {
       await _localNotifications.show(
         venueId.hashCode,
-        _walkInNotificationTitle(venueName),
+        _walkInPromptTitle,
         walkInBody,
         NotificationDetails(
           android: AndroidNotificationDetails(
@@ -560,6 +441,13 @@ class NotificationService {
   /// Core FCM and local-notification setup. Call from main() after
   /// Firebase.initializeApp().
   Future<void> initialize() async {
+    DwellDetector.instance.onArrival =
+        ({required lat, required lng, required cellId}) {
+      unawaited(
+        handleVenueEntry(venueId: cellId, lat: lat, lng: lng),
+      );
+    };
+
     try {
       FirebaseMessaging.onBackgroundMessage(firebaseMessagingBackgroundHandler);
 
@@ -1241,6 +1129,8 @@ class NotificationService {
           'longitude': data['longitude'] is String
               ? double.tryParse(data['longitude']!) ?? 0.0
               : (data['longitude'] as num).toDouble(),
+        if (data['requestId'] != null) 'requestId': data['requestId'].toString(),
+        if (data['placeId'] != null) 'placeId': data['placeId'].toString(),
         if (data['username'] != null) 'username': data['username'],
         'iconType': data['iconType'] ?? 'push',
       });
@@ -1322,23 +1212,20 @@ class NotificationService {
         final locationName = data['locationName'] as String? ?? '';
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
-        final requestId = data['requestId']?.toString();
         nav.pushNamed(
           '/post',
-          arguments: {
-            'locationName': locationName,
-            if (lat != null) 'latitude': lat,
-            if (lng != null) 'longitude': lng,
-            if (requestId != null && requestId.isNotEmpty)
-              'requestId': requestId,
-          },
+          arguments: ComposerLaunch.crowdsourceRouteArgs(
+            locationName: locationName,
+            latitude: lat,
+            longitude: lng,
+            placeId: data['placeId']?.toString(),
+            requestId: data['requestId']?.toString(),
+          ),
         );
         break;
       case 'walk_in_prompt':
         final venueId = (data['venueId'] ?? data['locationId'])?.toString();
-        final venueName = data['locationName'] as String? ??
-            data['venueName'] as String? ??
-            '';
+        final placeId = data['placeId']?.toString();
         final lat = double.tryParse(data['latitude']?.toString() ?? '');
         final lng = double.tryParse(data['longitude']?.toString() ?? '');
         unawaited(
@@ -1346,16 +1233,18 @@ class NotificationService {
             'growth_peep_prompt_tapped',
             {
               if (venueId != null) 'venueId': venueId,
-              'venueName': venueName,
             },
           ),
         );
         nav.pushNamed(
           '/post',
           arguments: {
-            'locationName': venueName,
+            'fromVenueEntry': true,
+            'composerSource': 'walk_in',
             if (lat != null) 'latitude': lat,
             if (lng != null) 'longitude': lng,
+            if (venueId != null && venueId.isNotEmpty) 'venueId': venueId,
+            if (placeId != null && placeId.isNotEmpty) 'placeId': placeId,
           },
         );
         break;

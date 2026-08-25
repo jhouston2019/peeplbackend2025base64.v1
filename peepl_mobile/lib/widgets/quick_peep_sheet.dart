@@ -9,11 +9,19 @@ import 'package:image_picker/image_picker.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/venue_name_service.dart';
+import '../utils/composer_launch.dart';
 
 class QuickPeepSheet {
   QuickPeepSheet._();
 
-  static void show(BuildContext context, {String? venueName}) {
+  static void show(
+    BuildContext context, {
+    String? venueName,
+    String? placeId,
+    double? latitude,
+    double? longitude,
+    String? composerSource,
+  }) {
     showDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -24,16 +32,28 @@ class QuickPeepSheet {
           horizontal: MediaQuery.of(context).size.width * 0.175,
           vertical: 0,
         ),
-        child: _QuickPeepContent(venueName: venueName),
+        child: _QuickPeepContent(
+          launch: ComposerLaunch(
+            composerSource: composerSource ??
+                ((venueName != null && venueName.isNotEmpty)
+                    ? 'venue_tap'
+                    : 'direct'),
+            locationName: venueName,
+            placeId: placeId,
+            latitude: latitude,
+            longitude: longitude,
+            fromVenueEntry: composerSource == 'walk_in',
+          ),
+        ),
       ),
     );
   }
 }
 
 class _QuickPeepContent extends StatefulWidget {
-  const _QuickPeepContent({this.venueName});
+  const _QuickPeepContent({required this.launch});
 
-  final String? venueName;
+  final ComposerLaunch launch;
 
   @override
   State<_QuickPeepContent> createState() => _QuickPeepContentState();
@@ -74,6 +94,8 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   bool _isLocating = false;
   String? _locationError;
   bool _locationEditedByUser = false;
+  bool _placesAttempted = false;
+  String? _placeId;
 
   double? _latitude;
   double? _longitude;
@@ -82,11 +104,10 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   void initState() {
     super.initState();
     try {
-      if (widget.venueName != null &&
-          !VenueNameService.isWeakVenueName(widget.venueName!)) {
-        _locationController.text = widget.venueName!;
-        _acquireCoordinates().catchError((Object e) {
-          debugPrint('[QuickPeepSheet] initState _acquireCoordinates error: $e');
+      _applyLaunch(widget.launch);
+      if (widget.launch.hasPrefilledCoords) {
+        _detectVenueOnce().catchError((Object e) {
+          debugPrint('[QuickPeepSheet] initState _detectVenueOnce error: $e');
         });
       } else {
         _detectLocation().catchError((Object e) {
@@ -97,6 +118,34 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       debugPrint('[QuickPeepSheet] initState error: $e');
     }
   }
+
+  void _applyLaunch(ComposerLaunch launch) {
+    _composerSource = launch.composerSource ?? 'direct';
+    final name = launch.locationName?.trim();
+    if (name != null &&
+        name.isNotEmpty &&
+        !VenueNameService.isWeakVenueName(name)) {
+      _locationController.text = name;
+    }
+    if (launch.latitude != null && launch.longitude != null) {
+      _latitude = launch.latitude;
+      _longitude = launch.longitude;
+    }
+    final placeId = launch.placeId;
+    if (placeId != null && placeId.isNotEmpty) {
+      _placeId = placeId;
+    }
+    if (launch.shouldSkipPlaces()) {
+      _placesAttempted = true;
+    }
+  }
+
+  bool _shouldCallPlaces() {
+    return widget.launch
+        .shouldCallPlaces(placesAttempted: _placesAttempted);
+  }
+
+  String? _composerSource;
 
   @override
   void dispose() {
@@ -119,7 +168,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
     if (_isLocating) return;
     setState(() => _locationEditedByUser = false);
     try {
-      await _detectLocation();
+      await _acquireCoordinates();
     } catch (e) {
       debugPrint('[QuickPeepSheet] _onRedetectLocationTap error: $e');
     }
@@ -136,6 +185,35 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       });
     } catch (e) {
       debugPrint('QuickPeepSheet: coordinate acquisition failed: $e');
+    }
+  }
+
+  Future<void> _detectVenueOnce() async {
+    if (_placesAttempted) return;
+    if (!_shouldCallPlaces()) {
+      _placesAttempted = true;
+      return;
+    }
+
+    final lat = _latitude;
+    final lng = _longitude;
+    if (lat == null || lng == null) return;
+
+    _placesAttempted = true;
+    try {
+      final result = await VenueNameService.searchNearbyTop(
+        latitude: lat,
+        longitude: lng,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        _placeId = result.placeId;
+        if (!_locationEditedByUser) {
+          setState(() => _applyDetectedLabel(result.name));
+        }
+      }
+    } catch (e) {
+      debugPrint('[QuickPeep] _detectVenueOnce error: $e');
     }
   }
 
@@ -157,27 +235,11 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         return;
       }
 
-      final lat = position.latitude;
-      final lng = position.longitude;
-      _latitude = lat;
-      _longitude = lng;
-
-      final label = await VenueNameService.resolveLabelAtPin(lat, lng);
-
-      if (!mounted) return;
-      setState(() => _applyDetectedLabel(label));
+      _latitude = position.latitude;
+      _longitude = position.longitude;
+      await _detectVenueOnce();
     } catch (e) {
       debugPrint('[QuickPeep] _detectLocation error: $e');
-      if (!mounted) return;
-      if (_latitude != null && _longitude != null) {
-        final fallback = await VenueNameService.resolveLabelAtPin(
-          _latitude!,
-          _longitude!,
-        );
-        if (mounted) {
-          setState(() => _applyDetectedLabel(fallback));
-        }
-      }
     } finally {
       if (!mounted) return;
       setState(() {
@@ -187,24 +249,10 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
   }
 
   Future<bool> _ensureLocationReady() async {
-    final label = _locationController.text.trim();
-    if (_latitude == null || _longitude == null || label.isEmpty) {
+    if (_latitude == null || _longitude == null) {
       await _detectLocation();
-    } else {
-      final position =
-          await LocationService.getCurrentLocation(forceRefresh: true);
-      if (position != null) {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-        if (!_locationEditedByUser) {
-          _applyDetectedLabel(
-            await VenueNameService.resolveLabelAtPin(
-              _latitude!,
-              _longitude!,
-            ),
-          );
-        }
-      }
+    } else if (!_placesAttempted && _shouldCallPlaces()) {
+      await _detectVenueOnce();
     }
 
     final readyLabel = _locationController.text.trim();
@@ -244,12 +292,19 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
       final ready = await _ensureLocationReady();
       if (!ready) {
         if (context.mounted) {
+          final missingGps = _latitude == null || _longitude == null;
           setState(() {
-            _locationError = 'Could not detect your location';
+            _locationError = missingGps
+                ? 'Could not detect your location'
+                : 'Enter a venue name';
           });
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Turn on location and try again'),
+            SnackBar(
+              content: Text(
+                missingGps
+                    ? 'Turn on location and try again'
+                    : 'Enter a venue name to post',
+              ),
             ),
           );
         }
@@ -280,7 +335,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
         maleFemaleRatio: _malePercent.round(),
         adultKidRatio: _adultPercent.round(),
         venueType: _venueType,
-        preserveLocationName: _locationEditedByUser,
+        placeId: _placeId,
       );
 
       if (context.mounted) {
@@ -362,7 +417,9 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                           decoration: InputDecoration(
                             hintText: _isLocating
                                 ? 'Detecting your location…'
-                                : 'Waiting for GPS…',
+                                : (_placesAttempted
+                                    ? 'Enter venue name'
+                                    : 'Waiting for GPS…'),
                             prefixIcon: _isLocating
                                 ? const Padding(
                                     padding: EdgeInsets.all(12),
@@ -445,7 +502,7 @@ class _QuickPeepContentState extends State<_QuickPeepContent> {
                       _locationController.text.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
-                      'Wrong place? Tap to edit, or refresh GPS.',
+                      'Confirm this venue, or tap to edit.',
                       style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                     ),
                   ],

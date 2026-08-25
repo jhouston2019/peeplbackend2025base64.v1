@@ -8,6 +8,7 @@ import '../services/share_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../utils/post_delete_actions.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/crowd_meter.dart';
 import '../widgets/detail/post_location_map_preview.dart';
 
@@ -487,11 +488,14 @@ class _PeepDetailScreenState extends State<PeepDetailScreen> {
                         onPressed: () => Navigator.pushNamed(
                           context,
                           '/post',
-                          arguments: {
-                            'locationName': locationName,
-                            'latitude': post['latitude'],
-                            'longitude': post['longitude'],
-                          },
+                          arguments: ComposerLaunch.venueTapRouteArgs(
+                            locationName: locationName,
+                            latitude:
+                                (post['latitude'] as num?)?.toDouble(),
+                            longitude:
+                                (post['longitude'] as num?)?.toDouble(),
+                            placeId: post['placeId'] as String?,
+                          ),
                         ),
                         icon: const Icon(Icons.add_location_alt_outlined),
                         label: const Text('Post Here Too'),

@@ -11,6 +11,7 @@ import 'package:image_picker/image_picker.dart';
 import '../services/feed_service.dart';
 import '../services/location_service.dart';
 import '../services/venue_name_service.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/crowd_meter.dart';
 
 class CreatePeepScreen extends StatefulWidget {
@@ -37,6 +38,10 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   bool _locationPermissionDenied = false;
   bool _isResolvingVenueName = false;
   bool _locationEditedByUser = false;
+  bool _placesAttempted = false;
+  String? _placeId;
+  String? _composerSource;
+  ComposerLaunch? _launch;
 
   double? _latitude;
   double? _longitude;
@@ -80,42 +85,48 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     _locationPreFilled = true;
 
     final args = ModalRoute.of(context)?.settings.arguments;
-    if (args is Map && args['locationName'] != null) {
-      _hasNotificationLocation = true;
-      _fromVenueEntry =
-          args['fromVenueEntry'] == true || _hasNotificationLocation;
-      _locationController.text = args['locationName'] as String;
-      final lat = args['latitude'];
-      final lng = args['longitude'];
-      if (lat is num) _latitude = lat.toDouble();
-      if (lng is num) _longitude = lng.toDouble();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        _resolveNotificationVenueName();
-      });
+    final launch = ComposerLaunch.fromRouteArgs(args);
+    if (launch != null && launch.hasLaunchContext) {
+      _applyComposerLaunch(launch);
+    } else {
+      _composerSource = 'direct';
     }
   }
 
-  Future<void> _resolveNotificationVenueName() async {
-    if (!mounted) return;
+  void _applyComposerLaunch(ComposerLaunch launch) {
+    _launch = launch;
+    _composerSource = launch.composerSource ??
+        (launch.fromVenueEntry ? 'walk_in' : 'direct');
+    _fromVenueEntry = launch.fromVenueEntry;
+    _hasNotificationLocation = launch.fromVenueEntry ||
+        launch.composerSource == 'crowdsource' ||
+        launch.composerSource == 'venue_tap' ||
+        (launch.locationName != null && launch.locationName!.trim().isNotEmpty) ||
+        launch.hasPrefilledCoords;
 
-    final raw = _locationController.text.trim();
-    if (raw.isEmpty) return;
-    if (!VenueNameService.looksLikeAddress(raw)) return;
-
-    final lat = _latitude;
-    final lng = _longitude;
-    if (lat == null || lng == null) return;
-
-    setState(() => _isResolvingVenueName = true);
-    try {
-      final resolved = await VenueNameService.resolveVenueName(lat, lng);
-      if (!mounted) return;
-      if (resolved != null && resolved.isNotEmpty && !_locationEditedByUser) {
-        setState(() => _locationController.text = resolved);
-      }
-    } finally {
-      if (mounted) setState(() => _isResolvingVenueName = false);
+    final name = launch.locationName?.trim();
+    if (name != null && name.isNotEmpty) {
+      _locationController.text = name;
     }
+
+    if (launch.latitude != null && launch.longitude != null) {
+      _latitude = launch.latitude;
+      _longitude = launch.longitude;
+    }
+
+    final placeId = launch.placeId;
+    if (placeId != null && placeId.isNotEmpty) {
+      _placeId = placeId;
+    }
+
+    if (launch.shouldSkipPlaces()) {
+      _placesAttempted = true;
+    }
+  }
+
+  bool _shouldCallPlaces() {
+    return (_launch ?? ComposerLaunch(composerSource: _composerSource))
+        .shouldCallPlaces(placesAttempted: _placesAttempted);
   }
 
   @override
@@ -125,7 +136,11 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
   }
 
   Future<void> _resolveLocationAndGeocode() async {
-    if (!mounted || _hasNotificationLocation) return;
+    if (!mounted) return;
+    if (_hasNotificationLocation && _latitude != null && _longitude != null) {
+      await _detectVenueOnce();
+      return;
+    }
     setState(() => _isGeolocating = true);
     try {
       final serviceOn = await Geolocator.isLocationServiceEnabled();
@@ -156,18 +171,41 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         _locationPermissionDenied = false;
       });
 
-      final name = await VenueNameService.resolveLabelAtPin(
-        pos.latitude,
-        pos.longitude,
-      );
-      if (!mounted) return;
-      if (name.isNotEmpty && !_locationEditedByUser) {
-        _locationController.text = name;
-      }
+      await _detectVenueOnce();
     } catch (e, st) {
       debugPrint('Geolocation/geocoding failed: $e\n$st');
     } finally {
       if (mounted) setState(() => _isGeolocating = false);
+    }
+  }
+
+  Future<void> _detectVenueOnce() async {
+    if (_placesAttempted) return;
+    if (!_shouldCallPlaces()) {
+      _placesAttempted = true;
+      return;
+    }
+
+    final lat = _latitude;
+    final lng = _longitude;
+    if (lat == null || lng == null) return;
+
+    _placesAttempted = true;
+    if (mounted) setState(() => _isResolvingVenueName = true);
+    try {
+      final result = await VenueNameService.searchNearbyTop(
+        latitude: lat,
+        longitude: lng,
+      );
+      if (!mounted) return;
+      if (result != null) {
+        _placeId = result.placeId;
+        if (!_locationEditedByUser) {
+          _locationController.text = result.name;
+        }
+      }
+    } finally {
+      if (mounted) setState(() => _isResolvingVenueName = false);
     }
   }
 
@@ -253,18 +291,12 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
     setState(() => _isLoading = true);
 
     try {
-      if (!_fromVenueEntry) {
+      if (!_fromVenueEntry && (_latitude == null || _longitude == null)) {
         final position =
             await LocationService.getCurrentLocation(forceRefresh: true);
         if (position != null) {
           _latitude = position.latitude;
           _longitude = position.longitude;
-          if (!_locationEditedByUser) {
-            _locationController.text = await VenueNameService.resolveLabelAtPin(
-              _latitude!,
-              _longitude!,
-            );
-          }
         }
       }
 
@@ -303,7 +335,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
         waitTime: _waitTime(),
         noiseLevel: _noiseLevel(),
         adultKidRatio: _adultKidRatio(),
-        preserveLocationName: _locationEditedByUser,
+        placeId: _placeId,
       );
 
       final pioneerCount = await FirebaseFirestore.instance
@@ -465,7 +497,9 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
                           isDense: true,
                           hintText: _locationPermissionDenied
                               ? 'Location unavailable'
-                              : 'Detecting location…',
+                              : (_placesAttempted
+                                  ? 'Enter venue name'
+                                  : 'Detecting location…'),
                           hintStyle: TextStyle(
                             color: Colors.white.withValues(alpha: 0.5),
                             fontSize: 15,
@@ -525,7 +559,7 @@ class _CreatePeepScreenState extends State<CreatePeepScreen> {
             Padding(
               padding: const EdgeInsets.only(left: 4, top: 2),
               child: Text(
-                'Wrong place? Tap to edit, or refresh GPS.',
+                'Confirm this venue, or tap to edit.',
                 style: TextStyle(
                   fontSize: 11,
                   color: Colors.white.withValues(alpha: 0.45),

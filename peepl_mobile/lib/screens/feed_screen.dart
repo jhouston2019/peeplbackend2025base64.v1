@@ -26,6 +26,7 @@ import '../services/share_service.dart';
 import '../services/venue_name_service.dart';
 import '../utils/crowd_display_mapper.dart';
 import '../utils/post_delete_actions.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/home/peepl_home_background.dart';
 import '../widgets/home/feed_card_image.dart';
 import '../widgets/home/editorial_feed_layout.dart';
@@ -78,8 +79,8 @@ class _T {
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
 
-  /// Invoked from [main.dart] when geofence entry is detected.
-  static void Function(String venueName)? onGeofenceVenueEntry;
+  /// Invoked when a walk-in prompt should show in-app (Flow 1).
+  static void Function(WalkInPromptContext ctx)? onGeofenceVenueEntry;
 
   /// True after [FeedScreen] has read stale [lastActive] for comeback detection.
   static bool comebackCheckComplete = false;
@@ -196,6 +197,10 @@ class _FeedScreenState extends State<FeedScreen> {
       }
     });
     FeedScreen.onGeofenceVenueEntry = _showVenueEntryPrompt;
+    NotificationService.instance.onVenueEntryInAppPrompt = (ctx) {
+      if (!mounted) return;
+      _showVenueEntryPrompt(ctx);
+    };
   }
 
   Future<void> _runInitBootstraps() async {
@@ -220,6 +225,7 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   void dispose() {
     FeedScreen.onGeofenceVenueEntry = null;
+    NotificationService.instance.onVenueEntryInAppPrompt = null;
     activeFilterNotifier.removeListener(_onFilterChanged);
     _dealRotationTimer?.cancel();
     _comebackDismissTimer?.cancel();
@@ -1520,7 +1526,10 @@ class _FeedScreenState extends State<FeedScreen> {
                 onLocationTap: _showAreaPicker,
                 onProfileTap: () => Navigator.pushNamed(context, '/profile'),
                 onMenuTap: () => Navigator.pushNamed(context, '/settings'),
-                onPostTap: () => QuickPeepSheet.show(context),
+                onPostTap: () => QuickPeepSheet.show(
+                  context,
+                  composerSource: 'direct',
+                ),
                 onRequestPeepTap: () => Navigator.pushNamed(context, '/request-peep'),
               ),
               QuickFilterRow(
@@ -1610,7 +1619,10 @@ class _FeedScreenState extends State<FeedScreen> {
                   onPressed: () {
                     setState(() => _showPeepPrompt = false);
                     Navigator.pop(ctx);
-                    QuickPeepSheet.show(context);
+                    QuickPeepSheet.show(
+                      context,
+                      composerSource: 'direct',
+                    );
                   },
                   child: const Text(
                     'Peep It 👁️',
@@ -1643,11 +1655,11 @@ class _FeedScreenState extends State<FeedScreen> {
     });
   }
 
-  void _showVenueEntryPrompt(String venueName) {
+  void _showVenueEntryPrompt(WalkInPromptContext prompt) {
     showDialog<void>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => AlertDialog(
+      builder: (dialogCtx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         contentPadding: const EdgeInsets.all(20),
         content: Column(
@@ -1656,21 +1668,16 @@ class _FeedScreenState extends State<FeedScreen> {
             const Text('👁️', style: TextStyle(fontSize: 40)),
             const SizedBox(height: 8),
             const Text(
-              'You just walked in!',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'How crowded is $venueName right now?',
+              'How\'s the crowd there?',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
             ),
             const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
+                    onPressed: () => Navigator.pop(dialogCtx),
                     child: const Text('Skip'),
                   ),
                 ),
@@ -1682,8 +1689,21 @@ class _FeedScreenState extends State<FeedScreen> {
                       foregroundColor: Colors.black,
                     ),
                     onPressed: () {
-                      Navigator.pop(ctx);
-                      QuickPeepSheet.show(context, venueName: venueName);
+                      Navigator.pop(dialogCtx);
+                      Navigator.pushNamed(
+                        context,
+                        '/post',
+                        arguments: {
+                          'fromVenueEntry': true,
+                          'composerSource': 'walk_in',
+                          'latitude': prompt.lat,
+                          'longitude': prompt.lng,
+                          'venueId': prompt.venueId,
+                          if (prompt.placeId != null &&
+                              prompt.placeId!.isNotEmpty)
+                            'placeId': prompt.placeId,
+                        },
+                      );
                     },
                     child: const Text('Peep It 👁️'),
                   ),

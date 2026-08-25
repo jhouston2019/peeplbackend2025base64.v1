@@ -18,12 +18,14 @@ class _SelectedLocation {
   final String locationId;
   final double latitude;
   final double longitude;
+  final String? placeId;
 
   const _SelectedLocation({
     required this.locationName,
     required this.locationId,
     required this.latitude,
     required this.longitude,
+    this.placeId,
   });
 }
 
@@ -145,6 +147,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
         locationId: post['id'] as String? ?? name,
         latitude: (post['latitude'] as num?)?.toDouble() ?? 0.0,
         longitude: (post['longitude'] as num?)?.toDouble() ?? 0.0,
+        placeId: post['placeId'] as String?,
       );
       _searchResults = [];
       _searchTerm = name;
@@ -170,11 +173,13 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
       double lat = 0;
       double lng = 0;
       String locationId = trimmed;
+      String? placeId;
       if (snap.docs.isNotEmpty) {
         final data = snap.docs.first.data();
         lat = (data['latitude'] as num?)?.toDouble() ?? 0;
         lng = (data['longitude'] as num?)?.toDouble() ?? 0;
         locationId = snap.docs.first.id;
+        placeId = data['placeId'] as String?;
       }
 
       if (!CrowdsourceService.isValidCoordinate(lat, lng)) {
@@ -193,6 +198,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
             locationId: locationId,
             latitude: lat,
             longitude: lng,
+            placeId: placeId,
           );
           _searchResults = [];
           _searchTerm = trimmed;
@@ -226,6 +232,7 @@ class _GetPeepsScreenState extends State<GetPeepsScreen> {
         locationName: loc.locationName,
         latitude: loc.latitude,
         longitude: loc.longitude,
+        placeId: loc.placeId,
         source: 'get_peeps',
       );
 

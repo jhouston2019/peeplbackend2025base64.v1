@@ -6,6 +6,7 @@ import '../theme/peepl_app_tokens.dart';
 import '../services/feed_service.dart';
 import '../utils/post_crowd_format.dart';
 import '../utils/post_delete_actions.dart';
+import '../utils/composer_launch.dart';
 import '../widgets/crowd_meter.dart';
 import '../widgets/resolved_venue_name.dart';
 import 'location_detail_screen.dart';
@@ -465,7 +466,11 @@ class _MyPeepsScreenState extends State<MyPeepsScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.pushNamed(context, '/post'),
+              onPressed: () => Navigator.pushNamed(
+                context,
+                '/post',
+                arguments: ComposerLaunch.directRouteArgs(),
+              ),
               style: ElevatedButton.styleFrom(
                 backgroundColor: PeeplAppTokens.shellNavy,
                 foregroundColor: PeeplAppTokens.textPrimary,

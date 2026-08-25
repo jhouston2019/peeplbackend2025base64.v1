@@ -160,6 +160,31 @@
         { "fieldPath": "expiresAt", "order": "ASCENDING" },
         { "fieldPath": "latitude", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "debug_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "message", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "debug_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "message", "order": "ASCENDING" },
+        { "fieldPath": "uid", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "debug_logs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "tag", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []
